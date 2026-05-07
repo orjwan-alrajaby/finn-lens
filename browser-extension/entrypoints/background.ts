@@ -1,3 +1,3 @@
 export default defineBackground(() => {
-  console.log('Hello background!', { id: browser.runtime.id });
+  console.info('Hello from background.ts script!', { id: browser.runtime.id });
 });
