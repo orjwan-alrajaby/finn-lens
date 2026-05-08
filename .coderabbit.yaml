@@ -1,0 +1,88 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+
+reviews:
+  profile: assertive
+
+  request_changes_workflow: true
+
+  high_level_summary: true
+  high_level_summary_in_walkthrough: true
+
+  sequence_diagrams: false
+  estimate_code_review_effort: true
+  review_status: true
+  review_details: true
+  changed_files_summary: true
+  collapse_walkthrough: true
+
+  auto_review:
+    enabled: true
+    drafts: false
+    auto_incremental_review: true
+
+  path_instructions:
+
+    # ---------------- CONTENT SCRIPTS ----------------
+    - path: "browser-extension/entrypoints/content.ts"
+      instructions: >
+        This is a browser content script running inside third-party pages.
+        Be extremely strict about:
+        - DOM safety
+        - avoiding duplicate injections
+        - mutation observer cleanup
+        - performance impact on host pages
+        - race conditions during page hydration
+        - avoiding unnecessary polling
+        - ensuring selectors are resilient and maintainable
+
+    # ---------------- BACKGROUND SCRIPT ----------------
+    - path: "browser-extension/entrypoints/background.ts"
+      instructions: >
+        This is the extension background/runtime layer.
+        Focus on:
+        - message passing correctness
+        - browser API safety
+        - avoiding unnecessary persistent state
+        - proper async handling
+        - avoiding memory leaks and duplicated listeners
+
+    # ---------------- POPUP UI ----------------
+    - path: "browser-extension/entrypoints/popup/**"
+      instructions: >
+        Focus on clean React architecture:
+        - reusable UI
+        - state management correctness
+        - avoiding unnecessary re-renders
+        - separating business logic from presentation
+        - avoiding direct browser API calls inside UI components where possible
+
+    # ---------------- SHARED TYPESCRIPT RULES ----------------
+    - path: "browser-extension/**/*.{ts,tsx}"
+      instructions: >
+        Focus on TypeScript correctness and extension stability:
+        - avoid unsafe 'any'
+        - ensure async flows are properly handled
+        - detect hidden side effects
+        - avoid duplicated logic
+        - prefer maintainability over cleverness
+
+    # ---------------- WXT CONFIGURATION ----------------
+    - path: "browser-extension/wxt.config.ts"
+      instructions: >
+        Ensure extension configuration is minimal, maintainable, and secure.
+        Flag unnecessary permissions or risky configuration patterns.
+
+    # ---------------- STYLES ----------------
+    - path: "browser-extension/assets/**"
+      instructions: >
+        Focus only on real styling issues:
+        - conflicting utility usage
+        - maintainability
+        - extension popup responsiveness
+        Avoid subjective styling opinions.
+
+    # ---------------- GENERATED FILES ----------------
+    - path: "browser-extension/.wxt/**"
+      instructions: >
+        These are generated files.
+        Avoid unnecessary review comments unless there is a critical issue.
