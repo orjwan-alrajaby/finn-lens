@@ -1,13 +1,10 @@
+import "@/assets/tailwind.css";
+import Logo from "/icon/128.png";
+
 function App() {
   return (
-    <div
-      style={{
-        height: 400,
-        width: 400,
-        textAlign: "center",
-        fontSize: 24,
-      }}
-    >
+    <div className="h-100 w-100 text-center text-2xl p-10 bg-blue-950 text-white flex flex-col items-center gap-4">
+      <img src={Logo} alt="Logo" />
       <h1>WXT + React + TypeScript Starter Project</h1>
     </div>
   );
