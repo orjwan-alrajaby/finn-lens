@@ -1,5 +1,5 @@
 export default defineContentScript({
-  matches: ["*://*.finn.com/*"],
+  matches: ["https://www.finn.com/*"],
   main() {
     console.info('Hello from content.ts script!');
   },
