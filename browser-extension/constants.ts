@@ -1,0 +1,1 @@
+export const FINN_BASE_URL = "https://www.finn.com/de-DE";

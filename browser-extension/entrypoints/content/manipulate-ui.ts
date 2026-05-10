@@ -1,3 +1,7 @@
+import {
+  extractFullCarDetails,
+} from "./scrapers";
+
 export function createAddButton(): HTMLButtonElement {
   const button = document.createElement("button");
 
@@ -65,7 +69,11 @@ export function injectAddCarButtonForNode(currentCarCardElement: HTMLElement) {
     e.preventDefault();
     e.stopPropagation();
 
-    showToast(`Pinned: Toyota Yaris`);
+    const carDetails = await extractFullCarDetails(carUrl, currentCarCardElement);
+
+    console.info("[FinnLens] carDetails:", carDetails);
+
+    showToast(`Pinned: ${carDetails?.name ?? "Car"}`);
   });
 
   currentCarCardElement.appendChild(button);
