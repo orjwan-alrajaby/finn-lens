@@ -15,7 +15,7 @@ export function createAddButton(): HTMLButtonElement {
   `;
 
   button.className = [
-    "add-car-btn",
+    "finn-lens-add-car-btn",
     "flex items-center justify-center",
     "p-2 rounded-full",
     "absolute top-5 right-5 z-[9999]",

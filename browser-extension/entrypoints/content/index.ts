@@ -33,6 +33,21 @@ export default defineContentScript({
       childList: true,
       subtree: true,
     });
+
+    // check if we're currently on the details page
+    const detailsPage = document.querySelector('div[data-appid="product-details"]');
+    if (detailsPage) {
+      console.info("you are currently on the details page!");
+      const allDivs = document.querySelectorAll("div");
+      const titleContainer = Array.from(allDivs).find(div => Array.from(div.children).find(child => child.nodeName.toLowerCase() === "h1"));
+      titleContainer?.classList.add("relative");
+      const containerAlreadyHasButton = titleContainer?.querySelector(".finn-lens-add-car-btn");
+      if (!titleContainer || containerAlreadyHasButton) return;
+      injectAddCarButtonForNode(titleContainer);
+      // TODO: there's an issue with the logic of "injectAddCarButtonForNode"
+      // We need to adjust it to accommodate for both details page and listings.
+
+    }
   },
 });
 
