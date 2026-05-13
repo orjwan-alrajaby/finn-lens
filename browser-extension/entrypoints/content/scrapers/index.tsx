@@ -8,7 +8,15 @@ import {
     extractImages,
     extractFinnAutoScore,
     extractPriceInfo,
+    getTechnicalSpecs,
+    getMotorAndDriveDetails,
+    getDesignDetails,
+    getSpaceAndTrunkDetails,
+    getEquipmentDetails,
 } from "./extract-details";
+import {
+    getAvailableConfigs,
+} from "./extract-configs";
 import { FINN_BASE_URL } from "@/constants"
 
 export function extractCarFromNode(
@@ -127,10 +135,16 @@ export async function extractFullCarDetails(
         extractImages(body);
 
     const scores = extractFinnAutoScore(body);
+    const technicalSpecs = getTechnicalSpecs(body);
+    const configs = await getAvailableConfigs(body);
+    const motorDetails = getMotorAndDriveDetails(body);
+    const designDetails = getDesignDetails(body);
+    const spaceDetails = getSpaceAndTrunkDetails(body);
+    const equipmentDetails = getEquipmentDetails(body);
 
     return {
         id,
-        title: title || name,
+        name: title || name,
         description,
         strengths,
         weaknesses,
@@ -138,5 +152,13 @@ export async function extractFullCarDetails(
         images,
         price,
         scores,
+        technicalSpecs,
+        configs,
+        details: {
+            motor: motorDetails,
+            design: designDetails,
+            space: spaceDetails,
+            equipment: equipmentDetails
+        }
     };
 }
