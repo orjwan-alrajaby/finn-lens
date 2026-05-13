@@ -1,3 +1,4 @@
+import { Cars } from "@/types";
 import {
   extractFullCarDetails,
 } from "./scrapers";
@@ -69,11 +70,45 @@ export function injectAddCarButtonForNode(currentCarCardElement: HTMLElement) {
     e.preventDefault();
     e.stopPropagation();
 
-    const carDetails = await extractFullCarDetails(carUrl, currentCarCardElement);
+    const carDetails = await extractFullCarDetails(
+      carUrl,
+      currentCarCardElement
+    );
 
     console.info("[FinnLens] carDetails:", carDetails);
 
-    showToast(`Pinned: ${carDetails?.name ?? "Car"}`);
+    if (!carDetails?.name) {
+      return;
+    }
+
+    const { pinnedCars = [] }: { pinnedCars: Cars } =
+      await browser.storage.local.get("pinnedCars");
+
+    const alreadyExists = pinnedCars.some(
+      (car) => car.name === carDetails.name
+    );
+
+    // remove if car is already pinned/saved
+    if (alreadyExists) {
+      const updatedCars = pinnedCars.filter(
+        (car) => car.name !== carDetails.name
+      );
+
+      await browser.storage.local.set({
+        pinnedCars: updatedCars,
+      });
+
+      showToast(`Unpinned: ${carDetails.name}`);
+
+      return;
+    }
+
+    // otherwise add it as a new car
+    await browser.storage.local.set({
+      pinnedCars: [...pinnedCars, carDetails],
+    });
+
+    showToast(`Pinned: ${carDetails.name}`);
   });
 
   currentCarCardElement.appendChild(button);
