@@ -1,4 +1,4 @@
-import { normalizeString, parseEuroPrice } from "../utils";
+import { normalizeString, parseEuroPrice } from "../../../utils";
 
 function extractText(el?: Element | null) {
   return el?.textContent?.replace(/\s+/g, " ").trim() ?? null;

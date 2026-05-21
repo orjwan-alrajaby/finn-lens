@@ -3,36 +3,33 @@ import {
 } from "../utils";
 import { queryFirst } from "./dom";
 import {
-    extractCarDescription,
+    extractDescription,
     extractStrengthsAndWeaknesses,
     extractImages,
-    extractFinnAutoScore,
-    extractPriceInfo,
-    getTechnicalSpecs,
-    getMotorAndDriveDetails,
-    getDesignDetails,
-    getSpaceAndTrunkDetails,
-    getEquipmentDetails,
-} from "./extract-details";
+    extractFinnAutoScores,
+    extractPriceInfo as extractPriceInfoFromDetails,
+    extractTechnicalSpecs,
+    extractMotorAndDriveDetails,
+    extractDesignDetails,
+    extractSpaceAndTrunkDetails,
+    extractEquipmentDetails,
+} from "./extract-from-details-page";
+import {
+    extractPriceInfo as extractPriceInfoFromItem,
+} from "./extract-from-listing-item";
 import {
     getAvailableConfigs,
-} from "./extract-configs";
+} from "./extract-from-details-page/extractConfigs.ts";
 import { FINN_BASE_URL } from "@/constants"
+import { CarType } from "@/types";
 
-export function extractCarFromNode(
+export function getCarInformationFromListingItem(
     node: Element
 ) {
     const linkEl = queryFirst(node, [
         "h3 a",
         "a[href*='/']",
     ]);
-
-    const title =
-        linkEl
-            ?.getAttribute("title")
-            ?.trim() ??
-        linkEl?.textContent?.trim() ??
-        null;
 
     const link =
         linkEl?.getAttribute("href");
@@ -42,20 +39,16 @@ export function extractCarFromNode(
         "img",
     ]);
 
-    const imageUrl =
+    const thumbnail =
         img?.getAttribute("src") ||
         img?.getAttribute("data-src") ||
         null;
 
-    const price = extractPriceInfo(node);
+    const price = extractPriceInfoFromItem(node);
 
     return {
-        id: link
-            ? normalizeString(link)
-            : `car-${normalizeString(title)}`,
-        title,
         price,
-        imageUrl,
+        thumbnail,
         url: link
             ? new URL(
                 link,
@@ -71,7 +64,7 @@ export function extractCarsFromListingsPage() {
     );
 
     return Array.from(nodes).map((node) =>
-        extractCarFromNode(node)
+        getCarInformationFromListingItem(node)
     );
 }
 
@@ -93,13 +86,11 @@ async function fetchCarDocument(
 export async function extractFullCarDetails(
     carUrl: string,
     currentCarCardElement: HTMLElement
-) {
+): Promise<CarType> {
     const {
-        id,
-        title,
-        imageUrl: mainImageUrl,
+        thumbnail: mainImageUrl,
         price,
-    } = extractCarFromNode(
+    } = getCarInformationFromListingItem(
         currentCarCardElement
     );
 
@@ -107,21 +98,38 @@ export async function extractFullCarDetails(
         carUrl
     );
 
-    const body = doc.querySelector(
-        'div[data-appid="product-details"]'
-    );
+    const result = await getCarInformationFromDetailsPage(doc)
 
-    if (!body) {
-        return null;
+    return {
+        ...result,
+        thumbnail: mainImageUrl || "",
+        price,
+    };
+}
+
+export async function getCarInformationFromDetailsPage(root?: Document | Element) {
+    let body = null;
+
+    // calling this function from outside the page
+    if (root instanceof Document) {
+        body = root?.querySelector(
+            'div[data-appid="product-details"]'
+        );
+    } else {
+        body = root;
     }
 
-    const name =
+    if (!body) {
+        return {};
+    }
+
+    const title =
         body
             .querySelector("h1")
             ?.textContent?.trim() ?? null;
 
     const { description } =
-        extractCarDescription(body);
+        extractDescription(body);
 
     const {
         strengths,
@@ -134,23 +142,23 @@ export async function extractFullCarDetails(
     const images =
         extractImages(body);
 
-    const scores = extractFinnAutoScore(body);
-    const technicalSpecs = getTechnicalSpecs(body);
+    const scores = extractFinnAutoScores(body);
+    const technicalSpecs = extractTechnicalSpecs(body);
     const configs = await getAvailableConfigs(body);
-    const motorDetails = getMotorAndDriveDetails(body);
-    const designDetails = getDesignDetails(body);
-    const spaceDetails = getSpaceAndTrunkDetails(body);
-    const equipmentDetails = getEquipmentDetails(body);
+    const motorDetails = extractMotorAndDriveDetails(body);
+    const designDetails = extractDesignDetails(body);
+    const spaceDetails = extractSpaceAndTrunkDetails(body);
+    const equipmentDetails = extractEquipmentDetails(body);
+    const price = extractPriceInfoFromDetails(body);
 
     return {
-        id,
-        name: title || name,
+        id: `car-${normalizeString(title)}`,
+        price,
+        name: title,
         description,
         strengths,
         weaknesses,
-        mainImageUrl,
         images,
-        price,
         scores,
         technicalSpecs,
         configs,

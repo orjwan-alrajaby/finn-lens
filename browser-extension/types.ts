@@ -1,6 +1,6 @@
 // TODO: evolve Car type in a future iteration to be more intentional & sophisticated.
 // Currently, this type is a raw type because it's inferred from scraped raw data.
-export type Car = {
+export type CarType = {
   id: string;
 
   name: string;
@@ -20,8 +20,8 @@ export type Car = {
   };
 
   configs?: {
-    businessCustomerConfigs?: CarConfig[];
-    privateCustomerConfigs?: CarConfig[];
+    businessCustomerConfigs?: CarConfigType[];
+    privateCustomerConfigs?: CarConfigType[];
 
     tabs?: {
       businessCustomerWithoutVAT?: string;
@@ -29,13 +29,13 @@ export type Car = {
     };
   };
 
-  scores?: CarScore[];
+  scores?: CarScoreType[];
 
   strengths?: string[];
 
   weaknesses?: string[];
 
-  technicalSpecs?: TechnicalSpec[];
+  technicalSpecTypes?: TechnicalSpecType[];
 
   details?: {
     design?: {
@@ -54,7 +54,7 @@ export type Car = {
   };
 };
 
-export type CarConfig = {
+export type CarConfigType = {
   id: string;
 
   title?: string;
@@ -92,14 +92,14 @@ export type CarConfig = {
   };
 };
 
-export type CarScore = {
+export type CarScoreType = {
   label: string;
   value: number;
 };
 
-export type TechnicalSpec = {
+export type TechnicalSpecType = {
   label: string;
   value: string;
 };
 
-export type Cars = Car[];
+export type CarsType = CarType[];

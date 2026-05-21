@@ -1,60 +1,73 @@
 import "@/assets/tailwind.css";
-import { injectAddCarButtonForNode } from "./manipulate-ui";
+import { injectPinBtnIntoDetailsPage } from "./injectors/inject-pin-button/injectPinBtnIntoDetailsPage"
+import { injectPinBtnIntoCarListItem } from "./injectors/inject-pin-button/injectPinBtnIntoCarListItem"
 
 export default defineContentScript({
   matches: ["https://www.finn.com/*"],
+
   main() {
     console.info("[FinnLens] content script loaded");
 
-    // first pass (runs only once)
     injectAllExistingCards();
 
-    const observer = new MutationObserver((mutations) => {
-      for (const mutation of mutations) {
-        mutation.addedNodes.forEach((node) => {
-          if (!(node instanceof HTMLElement)) return;
+    const isDetailsPage = document.querySelector('div[data-appid="product-details"]');
 
-          // direct card
-          if (node.matches('[data-testid="product-card"]')) {
-            injectAddCarButtonForNode(node);
+    if (isDetailsPage) {
+      const observer = new MutationObserver((_mutations) => {
+        injectPinBtnIntoDetailsPage();
+        injectAllExistingCards();
+      });
+
+      observer.observe(document.body, {
+        childList: true,
+        subtree: true,
+      });
+
+      return;
+    }
+
+    const isListingsPage = document.querySelector('div[data-testid="product-listing"]');
+    const isHomePage = document.querySelector('div[data-testid="hero2"]');
+    
+    if (isListingsPage || isHomePage) {
+      console.info("You're in 'listing page' or 'home page' right now...");
+      injectAllExistingCards();
+      const observer = new MutationObserver((mutations) => {
+        const cardsToProcess = new Set<HTMLElement>();
+
+        for (const mutation of mutations) {
+          for (const node of mutation.addedNodes) {
+            if (!(node instanceof HTMLElement)) continue;
+
+            if (node.matches('div[data-testid="product-card"]')) {
+              cardsToProcess.add(node);
+            }
+
+            node
+              .querySelectorAll?.('div[data-testid="product-card"]')
+              .forEach((el) => {
+                cardsToProcess.add(el as HTMLElement);
+              });
           }
+        }
 
-          // nested cards (important for React lists)
-          node
-            .querySelectorAll?.('[data-testid="product-card"]')
-            .forEach((el) => {
-              injectAddCarButtonForNode(el as HTMLElement);
-            });
-        });
-      }
-    });
+        Array.from(cardsToProcess).forEach((card) =>
+          injectPinBtnIntoCarListItem(card)
+        )
+      });
 
-    observer.observe(document.body, {
-      childList: true,
-      subtree: true,
-    });
-
-    // check if we're currently on the details page
-    const detailsPage = document.querySelector('div[data-appid="product-details"]');
-    if (detailsPage) {
-      console.info("you are currently on the details page!");
-      const allDivs = document.querySelectorAll("div");
-      const titleContainer = Array.from(allDivs).find(div => Array.from(div.children).find(child => child.nodeName.toLowerCase() === "h1"));
-      titleContainer?.classList.add("relative");
-      const containerAlreadyHasButton = titleContainer?.querySelector(".finn-lens-add-car-btn");
-      if (!titleContainer || containerAlreadyHasButton) return;
-      injectAddCarButtonForNode(titleContainer);
-      // TODO: there's an issue with the logic of "injectAddCarButtonForNode"
-      // We need to adjust it to accommodate for both details page and listings.
-
+      observer.observe(document.body, {
+        childList: true,
+        subtree: true,
+      });
     }
   },
 });
 
 function injectAllExistingCards() {
   document
-    .querySelectorAll('[data-testid="product-card"]')
+    .querySelectorAll('div[data-testid="product-card"]')
     .forEach((el) => {
-      injectAddCarButtonForNode(el as HTMLElement);
+      injectPinBtnIntoCarListItem(el as HTMLElement);
     });
 }
