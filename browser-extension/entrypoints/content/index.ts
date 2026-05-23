@@ -1,6 +1,7 @@
 import "@/assets/tailwind.css";
-import { injectPinBtnIntoDetailsPage } from "./injectors/inject-pin-button/injectPinBtnIntoDetailsPage"
-import { injectPinBtnIntoCarListItem } from "./injectors/inject-pin-button/injectPinBtnIntoCarListItem"
+import { injectPinBtnIntoDetailsPage } from "./injectors/inject-pin-button/injectPinBtnIntoDetailsPage";
+import { injectPinBtnIntoCarListItem } from "./injectors/inject-pin-button/injectPinBtnIntoCarListItem";
+import { HOME_PAGE_SELECTOR, LISTINGS_PAGE_SELECTOR, DETAILS_PAGE_SELECTOR } from "./constants"
 
 export default defineContentScript({
   matches: ["https://www.finn.com/*"],
@@ -8,66 +9,94 @@ export default defineContentScript({
   main() {
     console.info("[FinnLens] content script loaded");
 
-    injectAllExistingCards();
+    let activeObserver: MutationObserver | null = null;
+    let debounceTimer: ReturnType<typeof setTimeout> | null = null;
 
-    const isDetailsPage = document.querySelector('div[data-appid="product-details"]');
+    // ── 1. Patch History API to detect SPA navigations ──────────────────────
+    // Patching history here means wrapping the browser’s SPA navigation methods 
+    // so my extension gets notified whenever the site changes pages without an actual page reload
+    const patchHistory = (method: "pushState" | "replaceState") => {
+      const original = history[method].bind(history);
+      history[method] = (...args: Parameters<typeof history.pushState>) => {
+        original(...args);
+        window.dispatchEvent(new Event("finnlens:navigate"));
+      };
+    };
 
-    if (isDetailsPage) {
-      const observer = new MutationObserver((_mutations) => {
-        injectPinBtnIntoDetailsPage();
-        injectAllExistingCards();
-      });
+    patchHistory("pushState");
+    patchHistory("replaceState");
+    window.addEventListener("popstate", () =>
+      window.dispatchEvent(new Event("finnlens:navigate"))
+    );
 
-      observer.observe(document.body, {
-        childList: true,
-        subtree: true,
-      });
+    // ── 2. Re-evaluate page type and (re)configure injection ─────────────────
+    const handleNavigation = () => {
+      // Disconnect stale observer from previous page
+      activeObserver?.disconnect();
+      activeObserver = null;
 
-      return;
-    }
-
-    const isListingsPage = document.querySelector('div[data-testid="product-listing"]');
-    const isHomePage = document.querySelector('div[data-testid="hero2"]');
-    
-    if (isListingsPage || isHomePage) {
-      console.info("You're in 'listing page' or 'home page' right now...");
       injectAllExistingCards();
-      const observer = new MutationObserver((mutations) => {
-        const cardsToProcess = new Set<HTMLElement>();
 
-        for (const mutation of mutations) {
-          for (const node of mutation.addedNodes) {
-            if (!(node instanceof HTMLElement)) continue;
+      const isHomePage = document.querySelector(HOME_PAGE_SELECTOR);
+      const isListingsPage = document.querySelector(LISTINGS_PAGE_SELECTOR);
+      const isDetailsPage = document.querySelector(DETAILS_PAGE_SELECTOR);
 
-            if (node.matches('div[data-testid="product-card"]')) {
-              cardsToProcess.add(node);
+      if (isDetailsPage) {
+        console.info("[FinnLens] product details page detected");
+        setTimeout(() => {
+          injectAllExistingCards();
+        }, 1500)
+
+        injectPinBtnIntoDetailsPage();
+
+        activeObserver = new MutationObserver(() => {
+          injectPinBtnIntoDetailsPage();
+        });
+        activeObserver.observe(document.body, { childList: true, subtree: true });
+        return;
+      }
+
+      if (isListingsPage || isHomePage) {
+        console.info("[FinnLens] listing / home page detected");
+
+        activeObserver = new MutationObserver((mutations) => {
+          const newCards = new Set<HTMLElement>();
+          for (const mutation of mutations) {
+            for (const node of Array.from(mutation.addedNodes)) {
+              if (!(node instanceof HTMLElement)) continue;
+              if (node.matches('div[data-testid="product-card"]')) {
+                newCards.add(node);
+              }
+              node
+                .querySelectorAll<HTMLElement>('div[data-testid="product-card"]')
+                .forEach((card) => newCards.add(card));
             }
-
-            node
-              .querySelectorAll?.('div[data-testid="product-card"]')
-              .forEach((el) => {
-                cardsToProcess.add(el as HTMLElement);
-              });
           }
-        }
+          newCards.forEach((card) => injectPinBtnIntoCarListItem(card));
+        });
+        activeObserver.observe(document.body, { childList: true, subtree: true });
+      }
+    };
 
-        Array.from(cardsToProcess).forEach((card) =>
-          injectPinBtnIntoCarListItem(card)
-        )
-      });
+    // ── 3. Debounced handler for finnlens:navigate ────────────────────────────
+    // FINN's router may fire multiple history events in quick succession; debounce
+    // ensures handleNavigation runs once after the DOM has settled.
+    const onNavigate = () => {
+      if (debounceTimer !== null) clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(() => {
+        debounceTimer = null;
+        handleNavigation();
+      }, 150);
+    };
 
-      observer.observe(document.body, {
-        childList: true,
-        subtree: true,
-      });
-    }
+    window.addEventListener("finnlens:navigate", onNavigate);
+
+    // ── 4. Run immediately for the initial page load ──────────────────────────
+    handleNavigation();
   },
 });
 
 function injectAllExistingCards() {
-  document
-    .querySelectorAll('div[data-testid="product-card"]')
-    .forEach((el) => {
-      injectPinBtnIntoCarListItem(el as HTMLElement);
-    });
+  const cards = document.body.querySelectorAll<HTMLDivElement>('div[data-testid="product-card"]');
+  cards?.forEach((card) => injectPinBtnIntoCarListItem(card));
 }

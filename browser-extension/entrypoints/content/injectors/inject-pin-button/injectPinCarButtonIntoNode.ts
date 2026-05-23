@@ -5,10 +5,7 @@ import {
   extractFullCarDetails,
   getCarInformationFromDetailsPage,
 } from "../../scrapers";
-
-const DETAILS_PAGE_SELECTOR = 'div[data-appid="product-details"]';
-const LISTINGS_PAGE_SELECTOR = 'div[data-testid="product-listing"]';
-const HOME_PAGE_SELECTOR = 'div[data-testid="hero2"]';
+import { HOME_PAGE_SELECTOR, LISTINGS_PAGE_SELECTOR, DETAILS_PAGE_SELECTOR } from "../../constants"
 
 function getCarName(element: HTMLElement) {
   return element.querySelector("h3")?.textContent?.trim() ?? null;
