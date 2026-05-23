@@ -118,4 +118,14 @@ export function injectPinCarButtonIntoNode(
   );
 
   anchorElement.appendChild(button);
+
+  const detailsPage = document.querySelector<HTMLDivElement>(DETAILS_PAGE_SELECTOR);
+
+  if (detailsPage) {
+    detailsPage.dataset.finnLensInjected = "true";
+  }
+
+  if (!anchorElement.querySelector("h1")) {
+    anchorElement.dataset.finnLensInjected = "true";
+  }
 }
