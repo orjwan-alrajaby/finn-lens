@@ -19,6 +19,15 @@ function getCarUrl(element: HTMLElement) {
   return linkElement?.getAttribute("href") ?? null;
 }
 
+/** Always re-reads storage right before writing to avoid stale snapshots. */
+async function updatePinnedCars(
+  updater: (current: CarsType) => CarsType,
+): Promise<void> {
+  const { pinnedCars = [] }: { pinnedCars: CarsType } =
+    await browser.storage.local.get("pinnedCars");
+  await browser.storage.local.set({ pinnedCars: updater(pinnedCars) });
+}
+
 async function handlePinButtonClick(
   event: MouseEvent,
   anchorElement: HTMLElement,
@@ -31,35 +40,23 @@ async function handlePinButtonClick(
   const isHomePage = document.querySelector(HOME_PAGE_SELECTOR);
 
   const isListItemCard =
-    anchorElement.getAttribute("data-testid") === "product-card";
+    anchorElement.dataset.testid === "product-card";
+  const shouldScrapeFromCard = isListItemCard || isListingsPage || isHomePage;
 
-  const shouldScrapeFromCard =
-    isListItemCard || isListingsPage || isHomePage;
-
+  // Initial read is still needed to decide whether the car is already pinned.
   const { pinnedCars = [] }: { pinnedCars: CarsType } =
     await browser.storage.local.get("pinnedCars");
-
-  const removePinnedCar = async (carName: string | null) => {
-    const updatedCars = pinnedCars.filter(
-      (car) => car.name !== carName,
-    );
-
-    await browser.storage.local.set({
-      pinnedCars: updatedCars,
-    });
-
-    injectToast(`Unpinned: ${carName}`, "info");
-  };
-
-  const isCarPinned = (carName: string | null) =>
-    pinnedCars.some((car) => car.name === carName);
 
   const carName = shouldScrapeFromCard
     ? getCarName(anchorElement)
     : document.querySelector("h1")?.textContent?.trim() ?? null;
 
-  if (isCarPinned(carName)) {
-    await removePinnedCar(carName);
+  if (pinnedCars.some((car) => car.name === carName)) {
+    // Re-reads storage fresh before filtering
+    await updatePinnedCars((current) =>
+      current.filter((car) => car.name !== carName),
+    );
+    injectToast(`Unpinned: ${carName}`, "info");
     return;
   }
 
@@ -69,33 +66,19 @@ async function handlePinButtonClick(
 
   if (shouldScrapeFromCard) {
     const carUrl = getCarUrl(anchorElement);
-
-    if (!carUrl) {
-      return;
-    }
-
-    carDetails = await extractFullCarDetails(
-      carUrl,
-      anchorElement,
-    );
+    if (!carUrl) return;
+    carDetails = await extractFullCarDetails(carUrl, anchorElement);
   }
 
   if (isDetailsPage && !shouldScrapeFromCard) {
-    const root = document.querySelector(
-      DETAILS_PAGE_SELECTOR,
-    ) as HTMLElement;
-
+    const root = document.querySelector(DETAILS_PAGE_SELECTOR) as HTMLElement;
     carDetails = await getCarInformationFromDetailsPage(root);
   }
 
-  if (!carDetails?.name) {
-    return;
-  }
+  if (!carDetails?.name) return;
 
-  await browser.storage.local.set({
-    pinnedCars: [...pinnedCars, carDetails],
-  });
-
+  // Re-reads storage fresh after the long async extractFullCarDetails call
+  await updatePinnedCars((current) => ([...current, carDetails]));
   injectToast(`Pinned: ${carDetails.name}`, "info");
 }
 
