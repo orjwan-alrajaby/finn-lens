@@ -6,6 +6,7 @@ import {
   getCarInformationFromDetailsPage,
 } from "../../scrapers";
 import { HOME_PAGE_SELECTOR, LISTINGS_PAGE_SELECTOR, DETAILS_PAGE_SELECTOR } from "../../constants"
+import { getCarUrlFromDetailsPageHead } from "../../dom";
 
 function getCarName(element: HTMLElement) {
   return element.querySelector("h3")?.textContent?.trim() ?? null;
@@ -50,11 +51,13 @@ async function handlePinButtonClick(
   const carName = shouldScrapeFromCard
     ? getCarName(anchorElement)
     : document.querySelector("h1")?.textContent?.trim() ?? null;
+  
+  const carUrl = shouldScrapeFromCard ? getCarUrl(anchorElement) : getCarUrlFromDetailsPageHead();
 
   if (pinnedCars.some((car) => car.name === carName)) {
     // Re-reads storage fresh before filtering
     await updatePinnedCars((current) =>
-      current.filter((car) => car.name !== carName),
+      current.filter((car) => car.name !== carName && car.url !== carUrl),
     );
     injectToast(`Unpinned: ${carName}`, "info");
     return;
@@ -65,7 +68,6 @@ async function handlePinButtonClick(
   let carDetails;
 
   if (shouldScrapeFromCard) {
-    const carUrl = getCarUrl(anchorElement);
     if (!carUrl) return;
     carDetails = await extractFullCarDetails(carUrl, anchorElement);
   }

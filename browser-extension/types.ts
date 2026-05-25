@@ -5,6 +5,8 @@ export type CarType = {
 
   name: string;
 
+  url: string;
+
   description?: string;
 
   mainImageUrl?: string;

@@ -22,6 +22,7 @@ import {
 } from "./extract-from-details-page/extractConfigs.ts";
 import { FINN_BASE_URL } from "@/constants"
 import { CarType } from "@/types";
+import { getCarUrlFromDetailsPageHead } from "../dom.ts"
 
 export function getCarInformationFromListingItem(
     node: Element
@@ -103,6 +104,7 @@ export async function extractFullCarDetails(
     return {
         ...result,
         thumbnail: mainImageUrl || "",
+        url: carUrl,
         price,
     };
 }
@@ -150,9 +152,13 @@ export async function getCarInformationFromDetailsPage(root?: Document | Element
     const spaceDetails = extractSpaceAndTrunkDetails(body);
     const equipmentDetails = extractEquipmentDetails(body);
     const price = extractPriceInfoFromDetails(body);
+    const carUrl = body.querySelector(
+        'div[data-appid="product-details"]'
+    ) ? getCarUrlFromDetailsPageHead() : ""
 
     return {
         id: `car-${normalizeString(title)}`,
+        url: carUrl,
         price,
         name: title,
         description,
