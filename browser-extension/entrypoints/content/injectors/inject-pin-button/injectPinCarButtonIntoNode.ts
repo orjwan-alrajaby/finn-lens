@@ -43,45 +43,56 @@ async function handlePinButtonClick(
   const isListItemCard =
     anchorElement.dataset.testid === "product-card";
   const shouldScrapeFromCard = isListItemCard || isListingsPage || isHomePage;
-
-  // Initial read is still needed to decide whether the car is already pinned.
-  const { pinnedCars = [] }: { pinnedCars: CarsType } =
-    await browser.storage.local.get("pinnedCars");
-
   const carName = shouldScrapeFromCard
     ? getCarName(anchorElement)
     : document.querySelector("h1")?.textContent?.trim() ?? null;
-  
-  const carUrl = shouldScrapeFromCard ? getCarUrl(anchorElement) : getCarUrlFromDetailsPageHead();
 
-  if (pinnedCars.some((car) => car.name === carName)) {
-    // Re-reads storage fresh before filtering
-    await updatePinnedCars((current) =>
-      current.filter((car) => car.name !== carName && car.url !== carUrl),
-    );
-    injectToast(`Unpinned: ${carName}`, "info");
-    return;
+  try {
+    // Initial read is still needed to decide whether the car is already pinned.
+    const { pinnedCars = [] }: { pinnedCars: CarsType } =
+      await browser.storage.local.get("pinnedCars");
+
+
+    const carUrl = shouldScrapeFromCard ? getCarUrl(anchorElement) : getCarUrlFromDetailsPageHead();
+
+    if (pinnedCars.some((car) => car.name === carName)) {
+      // Re-reads storage fresh before filtering
+      await updatePinnedCars((current) =>
+        current.filter((car) => car.name !== carName && car.url !== carUrl),
+      );
+      injectToast(`Unpinned: ${carName}`, "info");
+      return;
+    }
+
+    injectToast(`Pinning ${carName}...`, "info");
+
+    let carDetails;
+
+    if (shouldScrapeFromCard) {
+      if (!carUrl) {
+        injectToast(`Could not pin: no URL found for ${carName}`, "error");
+        return;
+      }
+      carDetails = await extractFullCarDetails(carUrl, anchorElement);
+    }
+
+    if (isDetailsPage && !shouldScrapeFromCard) {
+      const root = document.querySelector(DETAILS_PAGE_SELECTOR) as HTMLElement;
+      carDetails = await getCarInformationFromDetailsPage(root);
+    }
+
+    if (!carDetails?.name) {
+      injectToast(`Could not pin: missing car data`, "error");
+      return;
+    }
+
+    // Re-reads storage fresh after the long async extractFullCarDetails call
+    await updatePinnedCars((current) => ([...current, carDetails]));
+    injectToast(`Pinned: ${carDetails.name}`, "info");
+  } catch (error) {
+    console.error(error)
+    injectToast(`Something went wrong.\nFailed to pin ${carName}`, "error");
   }
-
-  injectToast(`Pinning ${carName}...`, "info");
-
-  let carDetails;
-
-  if (shouldScrapeFromCard) {
-    if (!carUrl) return;
-    carDetails = await extractFullCarDetails(carUrl, anchorElement);
-  }
-
-  if (isDetailsPage && !shouldScrapeFromCard) {
-    const root = document.querySelector(DETAILS_PAGE_SELECTOR) as HTMLElement;
-    carDetails = await getCarInformationFromDetailsPage(root);
-  }
-
-  if (!carDetails?.name) return;
-
-  // Re-reads storage fresh after the long async extractFullCarDetails call
-  await updatePinnedCars((current) => ([...current, carDetails]));
-  injectToast(`Pinned: ${carDetails.name}`, "info");
 }
 
 export function injectPinCarButtonIntoNode(
