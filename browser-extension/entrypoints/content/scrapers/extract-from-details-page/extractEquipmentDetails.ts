@@ -1,6 +1,11 @@
 import { normalizeString } from "../../utils";
 
 export default function getEquipmentDetails(root: Element) {
+    const emptyResult = {
+        text: "No details available.",
+        images: [],
+    };
+    
     const contentRoot = Array.from(
         root.querySelectorAll("div.container")
     )
@@ -16,8 +21,8 @@ export default function getEquipmentDetails(root: Element) {
         })
         ?.querySelector(".raw-html-global");
 
-    if (!contentRoot) return;
-
+    if (!contentRoot) return emptyResult;
+    
     const children = Array.from(contentRoot.children);
 
     const startIndex = children.findIndex((child) => {
@@ -30,8 +35,8 @@ export default function getEquipmentDetails(root: Element) {
         );
     });
 
-    if (startIndex === -1) return;
-
+    if (startIndex === -1) return emptyResult;
+    
     const paragraphs: string[] = [];
     const images: string[] = [];
 
