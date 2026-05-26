@@ -246,8 +246,23 @@ export async function getAvailableConfigs(root: Element) {
             })
         );
 
-        // wait for react rerender
-        await new Promise((resolve) => setTimeout(resolve, 1000));
+      await new Promise<void>((resolve) => {
+        const observer = new MutationObserver(() => {
+          if (businessCustomerWithoutVAT.dataset.state === "on") {
+            observer.disconnect();
+            resolve();
+          }
+        });
+        observer.observe(tabGroup, {
+          attributes: true,
+          subtree: true,
+          attributeFilter: ["data-state"]
+        });
+        setTimeout(() => {
+          observer.disconnect();
+          resolve(); // safety fallback
+        }, 3000);
+      });
     }
 
     // scrape business configs after rerender
