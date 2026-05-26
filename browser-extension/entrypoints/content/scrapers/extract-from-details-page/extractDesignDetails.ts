@@ -17,6 +17,13 @@ export default function getDesignDetails(root: Element) {
 
     const h2DesignTitleIndex = Array.from(targetContainer.children)
         .findIndex(child => child.nodeName.toLowerCase() === "h2" && normalizeString(child.textContent) === "design");
+ 
+    if (h2DesignTitleIndex === -1) {
+        return {
+            text: "No details available.",
+            images: [],
+        };
+    }
 
     const paragraphs: string[] = [];
     const sectionImages: string[] = [];
