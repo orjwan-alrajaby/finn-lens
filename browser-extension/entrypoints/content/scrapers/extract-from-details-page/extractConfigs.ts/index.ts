@@ -199,85 +199,127 @@ export function extractConfigs() {
 }
 
 export async function getAvailableConfigs(root: Element) {
-    const sections = root.querySelectorAll("div.container");
+  const sections = root.querySelectorAll("div.container");
 
-    const configContainer = Array.from(sections).find((section) =>
-        section.querySelector("#group-comparison")
+  const configContainer = Array.from(sections).find((section) =>
+    section.querySelector("#group-comparison")
+  );
+
+  if (!configContainer) return null;
+
+  const tabGroup = configContainer.querySelector<HTMLDivElement>('div[role="group"]');
+
+  if (!tabGroup) return null;
+
+  const tabs = Array.from(
+    tabGroup.querySelectorAll<HTMLButtonElement>("button")
+  );
+
+  const privateCustomerWithVAT = tabs[0];
+  const businessCustomerWithoutVAT = tabs[1];
+
+  if (!privateCustomerWithVAT || !businessCustomerWithoutVAT) {
+    return null;
+  }
+
+  function getActiveTab() {
+    return tabs.find((tab) => tab.dataset.state === "on") ?? null;
+  }
+
+  function waitForTabToBecomeActive(tab: HTMLButtonElement) {
+    return new Promise<void>((resolve) => {
+      if (tab.dataset.state === "on") {
+        resolve();
+        return;
+      }
+
+      const observer = new MutationObserver(() => {
+        if (tab.dataset.state === "on") {
+          observer.disconnect();
+          resolve();
+        }
+      });
+
+      observer.observe(tabGroup!, {
+        attributes: true,
+        subtree: true,
+        attributeFilter: ["data-state"],
+      });
+
+      setTimeout(() => {
+        observer.disconnect();
+        resolve(); // fallback
+      }, 3000);
+    });
+  }
+
+  async function switchToTab(tab: HTMLButtonElement) {
+    if (tab.dataset.state === "on") return;
+
+    tab.dispatchEvent(
+      new MouseEvent("click", {
+        bubbles: true,
+        cancelable: true,
+        view: window,
+      })
     );
 
-    if (!configContainer) return null;
+    await waitForTabToBecomeActive(tab);
+  }
 
-    const tabGroup = configContainer.querySelector('div[role="group"]');
+  async function scrapeCurrentConfigs() {
+    const configGrid = configContainer?.querySelector(
+      'div[data-testid="group-comparison"]'
+    );
 
-    if (!tabGroup) return null;
+    if (!configGrid) return [];
 
-    const tabs = tabGroup.querySelectorAll<HTMLButtonElement>("button");
+    const configCards = Array.from(configGrid.children);
 
-    const privateCustomerWithVAT = tabs[0];
-    const businessCustomerWithoutVAT = tabs[1];
+    return configCards.map((card, index) =>
+      extractConfigFromNode(card, index)
+    );
+  }
 
-    async function scrapeCurrentConfigs() {
-      const configGrid = configContainer?.querySelector(
-          'div[data-testid="group-comparison"]'
-      );
+  const originalActiveTab = getActiveTab();
 
-      if (!configGrid) return [];
+  if (!originalActiveTab) return null;
 
-      const configCards = Array.from(configGrid.children);
+  const otherTab =
+    originalActiveTab === privateCustomerWithVAT
+      ? businessCustomerWithoutVAT
+      : privateCustomerWithVAT;
 
-      return configCards.map((card, index) =>
-          extractConfigFromNode(card, index)
-      );
-    }
+  // scrape current active tab first
+  const originalConfigs = await scrapeCurrentConfigs();
 
-    // scrape private customer configs first
-    const privateCustomerConfigs = await scrapeCurrentConfigs();
+  // switch to other tab
+  await switchToTab(otherTab);
 
-    // click business tab
-    if (
-        businessCustomerWithoutVAT &&
-        businessCustomerWithoutVAT.getAttribute("data-state") !== "on"
-    ) {
-        businessCustomerWithoutVAT.dispatchEvent(
-            new MouseEvent("click", {
-                bubbles: true,
-                cancelable: true,
-                view: window,
-            })
-        );
+  // scrape other tab
+  const otherConfigs = await scrapeCurrentConfigs();
 
-      await new Promise<void>((resolve) => {
-        const observer = new MutationObserver(() => {
-          if (businessCustomerWithoutVAT.dataset.state === "on") {
-            observer.disconnect();
-            resolve();
-          }
-        });
-        observer.observe(tabGroup, {
-          attributes: true,
-          subtree: true,
-          attributeFilter: ["data-state"]
-        });
-        setTimeout(() => {
-          observer.disconnect();
-          resolve(); // safety fallback
-        }, 3000);
-      });
-    }
+  // switch back to original tab
+  await switchToTab(originalActiveTab);
 
-    // scrape business configs after rerender
-    const businessCustomerConfigs = await scrapeCurrentConfigs();
+  const isOriginalPrivate =
+    originalActiveTab === privateCustomerWithVAT;
 
-    return {
-        tabs: {
-            privateCustomerWithVAT:
-                privateCustomerWithVAT?.textContent?.trim() ?? null,
+  return {
+    tabs: {
+      privateCustomerWithVAT:
+        privateCustomerWithVAT.textContent?.trim() ?? null,
 
-            businessCustomerWithoutVAT:
-                businessCustomerWithoutVAT?.textContent?.trim() ?? null,
-        },
+      businessCustomerWithoutVAT:
+        businessCustomerWithoutVAT.textContent?.trim() ?? null,
+    },
 
-        privateCustomerConfigs,
-        businessCustomerConfigs,
-    };
+    privateCustomerConfigs: isOriginalPrivate
+      ? originalConfigs
+      : otherConfigs,
+
+    businessCustomerConfigs: isOriginalPrivate
+      ? otherConfigs
+      : originalConfigs,
+  };
 }
