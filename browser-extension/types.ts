@@ -9,15 +9,15 @@ export type CarType = {
 
   description?: string;
 
-  mainImageUrl?: string;
+  thumbnail?: string;
 
   images?: string[];
 
   price?: {
     baseValue?: number | null;
-    discount?: number | null;
+    discount?: DiscountType | null;
     oldValue?: number | null;
-    period?: string | null;
+    period?: PeriodType | null;
     textValue?: string | null;
   };
 
@@ -105,3 +105,7 @@ export type TechnicalSpecType = {
 };
 
 export type CarsType = CarType[];
+
+export type PeriodType = "month" | "week" | "year";
+
+export type DiscountType = { percentage: string; amount: number };
