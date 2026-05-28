@@ -18,7 +18,6 @@ export type CarType = {
     discount?: DiscountType | null;
     oldValue?: number | null;
     period?: PeriodType | null;
-    textValue?: string | null;
   };
 
   configs?: {

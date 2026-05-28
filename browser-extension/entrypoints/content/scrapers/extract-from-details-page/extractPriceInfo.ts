@@ -13,7 +13,6 @@ export default function extractPriceInfo(root: Element) {
             discount: null,
             oldValue: null,
             period: null,
-            textValue: null,
         };
     }
 
@@ -38,6 +37,5 @@ export default function extractPriceInfo(root: Element) {
         discount: discount,
         oldValue,
         period: pricingPeriod,
-        textValue: currentPrice,
     };
 }

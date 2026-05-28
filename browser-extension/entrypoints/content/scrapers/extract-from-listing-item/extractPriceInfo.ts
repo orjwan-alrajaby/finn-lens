@@ -1,5 +1,5 @@
 import { REGEXES } from "../../constants";
-import { parseEuroPrice } from "../../utils";
+import { determinePricingPeriod, parseEuroPrice } from "../../utils";
 import { calculateDiscount } from "../utils";
 
 export default function extractPriceInfo(node: Element) {
@@ -38,35 +38,14 @@ export default function extractPriceInfo(node: Element) {
 
     const discount = calculateDiscount(price, oldValue);
 
-    const lower = text.toLowerCase();
+    const priceAreaText = text.toLowerCase();
 
-    let period:
-        | "month"
-        | "week"
-        | "year"
-        | null = null;
-
-    if (
-        lower.includes("monat") ||
-        lower.includes("month")
-    ) {
-        period = "month";
-    } else if (
-        lower.includes("woche") ||
-        lower.includes("week")
-    ) {
-        period = "week";
-    } else if (
-        lower.includes("jahr") ||
-        lower.includes("year")
-    ) {
-        period = "year";
-    }
+    const pricingPeriod = determinePricingPeriod(priceAreaText);
 
     return {
         baseValue: price,
         oldValue: oldValue,
         discount,
-        period,
+        period: pricingPeriod,
     };
 }
