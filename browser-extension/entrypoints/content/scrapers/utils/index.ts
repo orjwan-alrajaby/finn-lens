@@ -23,9 +23,14 @@ export function removeDuplicateImages(images: string[]) {
 }
 
 export function calculateDiscount(newPrice: number | null, oldPrice: number | null) {
-  if (!newPrice || !oldPrice) return null;
+  if (
+    (typeof newPrice !== "number" && !newPrice) ||
+    (typeof oldPrice !== "number" && !oldPrice) ||
+    oldPrice <= 0
+  ) return null;
   const amount = oldPrice - newPrice;
+  if (amount <= 0) return null;
   const discount = (amount / oldPrice) * 100;
   const rounded = Math.round(discount);
-  return { percentage:  `${rounded}%`, amount };
+  return { percentage: `${rounded}%`, amount };
 }
