@@ -3,8 +3,23 @@ import { PeriodType } from "@/types";
 export function parseEuroPrice(text?: string | null): number | null {
   if (!text) return null;
 
-  const match = text.replace(",", ".").match(/(\d+(\.\d+)?)/);
-  return match ? Number(match[1]) : null;
+  let normalized = text
+    .replace(/[€\s]/g, "") // remove euro + spaces
+    .trim();
+
+  // CASE 1:
+  // German format: 1.089 or 1.089,99
+  if (normalized.includes(".")) {
+    normalized = normalized.replace(/\./g, "");
+  }
+
+  // CASE 2:
+  // Decimal comma
+  normalized = normalized.replace(",", ".");
+
+  const number = Number(normalized);
+
+  return Number.isNaN(number) ? null : number;
 }
 
 export function normalizeString(str?: string | null) {
