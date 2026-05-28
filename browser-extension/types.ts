@@ -22,8 +22,8 @@ export type CarType = {
   };
 
   configs?: {
-    businessCustomerConfigs?: CarConfigType[];
-    privateCustomerConfigs?: CarConfigType[];
+    businessCustomerConfigs?: CarConfigType[] | null;
+    privateCustomerConfigs?: CarConfigType[] | null;
 
     tabs?: {
       businessCustomerWithoutVAT?: string;
