@@ -72,16 +72,27 @@ export function extractCarsFromListingsPage() {
 async function fetchCarDocument(
     carUrl: string
 ) {
+
+    let requestUrl = "";
+
+    if (carUrl.includes(FINN_BASE_URL)) {
+        requestUrl = carUrl;
+    } else {
+        requestUrl = `${FINN_BASE_URL}${carUrl}`;
+    }
+
     const res = await fetch(
-        `${FINN_BASE_URL}${carUrl}`
+        requestUrl
     );
 
-    const html = await res.text();
-
-    return new DOMParser().parseFromString(
-        html,
-        "text/html"
-    );
+    if (res.ok) {
+        const html = await res.text();
+        const parsed = new DOMParser().parseFromString(
+            html,
+            "text/html"
+        );
+        return parsed;
+    }
 }
 
 export async function extractFullCarDetails(
