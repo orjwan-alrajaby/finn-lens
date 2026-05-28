@@ -11,10 +11,8 @@ export default function extractTechnicalSpecs(root: Element) {
 
     return Array.from(specsDivs)
         .map((spec) => {
-            const children = spec.querySelectorAll("div");
-
-            const label = children[0]?.textContent?.trim();
-            const value = children[1]?.textContent?.trim();
+            const label = spec.querySelector(":scope > div:first-child")?.textContent?.trim();
+            const value = spec.querySelector(":scope > div:last-child")?.textContent?.trim();
 
             if (!label || !value) return null;
 
