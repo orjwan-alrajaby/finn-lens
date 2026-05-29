@@ -16,14 +16,18 @@ export default function extractPriceInfo(root: Element) {
         };
     }
 
-    let currentPrice;
-
     const oldPrice = [...priceSpans].find(span => span.classList.contains("line-through"))?.textContent;
 
-    if (oldPrice) {
-        currentPrice = priceSpans[2].textContent;
-    } else {
-        currentPrice = priceSpans[1].textContent;
+    const currentPriceSpan = oldPrice ? priceSpans[2] : priceSpans[1];
+    const currentPrice = currentPriceSpan?.textContent ?? null;
+    
+    if (!currentPrice) {
+        return {
+            baseValue: null,
+            discount: null,
+            oldValue: parseEuroPrice(oldPrice),
+            period: null,
+        };
     }
 
     const price = parseEuroPrice(currentPrice);
