@@ -163,9 +163,7 @@ export async function getCarInformationFromDetailsPage(root?: Document | Element
     const spaceDetails = extractSpaceAndTrunkDetails(body);
     const equipmentDetails = extractEquipmentDetails(body);
     const price = extractPriceInfoFromDetails(body);
-    const carUrl = body.querySelector(
-        'div[data-appid="product-details"]'
-    ) ? getCarUrlFromDetailsPageHead() : ""
+    const carUrl = root instanceof Element ? getCarUrlFromDetailsPageHead() : ""
 
     return {
         id: `car-${normalizeString(title)}`,
