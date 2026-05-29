@@ -1,0 +1,127 @@
+import type { CarsType } from "@/types";
+import { createAddButton } from "../../creators";
+import { injectToast } from "../injectToast";
+import {
+  extractFullCarDetails,
+  getCarInformationFromDetailsPage,
+} from "../../scrapers";
+import { HOME_PAGE_SELECTOR, LISTINGS_PAGE_SELECTOR, DETAILS_PAGE_SELECTOR } from "../../constants"
+import { getCarUrlFromDetailsPageHead } from "../../dom";
+
+function getCarName(element: HTMLElement) {
+  return element.querySelector("h3")?.textContent?.trim() ?? null;
+}
+
+function getCarUrl(element: HTMLElement) {
+  const linkElement =
+    element.querySelector("h3 a") ||
+    element.querySelector("a[href*='/']");
+
+  return linkElement?.getAttribute("href") ?? null;
+}
+
+/** Always re-reads storage right before writing to avoid stale snapshots. */
+async function updatePinnedCars(
+  updater: (current: CarsType) => CarsType,
+): Promise<void> {
+  const { pinnedCars = [] }: { pinnedCars: CarsType } =
+    await browser.storage.local.get("pinnedCars");
+  await browser.storage.local.set({ pinnedCars: updater(pinnedCars) });
+}
+
+async function handlePinButtonClick(
+  event: MouseEvent,
+  anchorElement: HTMLElement,
+) {
+  event.preventDefault();
+  event.stopPropagation();
+
+  const isDetailsPage = document.querySelector(DETAILS_PAGE_SELECTOR);
+  const isListingsPage = document.querySelector(LISTINGS_PAGE_SELECTOR);
+  const isHomePage = document.querySelector(HOME_PAGE_SELECTOR);
+
+  const isListItemCard =
+    anchorElement.dataset.testid === "product-card";
+  const shouldScrapeFromCard = isListItemCard || isListingsPage || isHomePage;
+  const carName = shouldScrapeFromCard
+    ? getCarName(anchorElement)
+    : document.querySelector("h1")?.textContent?.trim() ?? null;
+
+  try {
+    // Initial read is still needed to decide whether the car is already pinned.
+    const { pinnedCars = [] }: { pinnedCars: CarsType } =
+      await browser.storage.local.get("pinnedCars");
+
+
+    const carUrl = shouldScrapeFromCard ? getCarUrl(anchorElement) : getCarUrlFromDetailsPageHead();
+
+    if (pinnedCars.some((car) => car.name === carName)) {
+      // Re-reads storage fresh before filtering
+      await updatePinnedCars((current) =>
+        current.filter((car) => car.name !== carName && car.url !== carUrl),
+      );
+      injectToast(`Unpinned: ${carName}`, "info");
+      return;
+    }
+
+    injectToast(`Pinning ${carName}...`, "info");
+
+    let carDetails;
+
+    if (shouldScrapeFromCard) {
+      if (!carUrl) {
+        injectToast(`Could not pin: no URL found for ${carName}`, "error");
+        return;
+      }
+      carDetails = await extractFullCarDetails(carUrl, anchorElement);
+    }
+
+    if (isDetailsPage && !shouldScrapeFromCard) {
+      const root = document.querySelector(DETAILS_PAGE_SELECTOR) as HTMLElement;
+      carDetails = await getCarInformationFromDetailsPage(root);
+    }
+
+    if (!carDetails?.name) {
+      injectToast(`Could not pin: missing car data`, "error");
+      return;
+    }
+
+    // Re-reads storage fresh after the long async extractFullCarDetails call
+    await updatePinnedCars((current) => ([...current, carDetails]));
+    injectToast(`Pinned: ${carDetails.name}`, "info");
+  } catch (error) {
+    console.error(error)
+    injectToast(`Something went wrong.\nFailed to pin ${carName}`, "error");
+  }
+}
+
+export function injectPinCarButtonIntoNode(
+  anchorElement: HTMLElement,
+) {
+  const containerAlreadyHasButton =
+    anchorElement.querySelector(".finn-lens-add-car-btn");
+
+  if (containerAlreadyHasButton) {
+    return;
+  }
+
+  anchorElement.classList.add("relative");
+
+  const button = createAddButton();
+
+  button.addEventListener("click", (event) =>
+    handlePinButtonClick(event, anchorElement),
+  );
+
+  anchorElement.appendChild(button);
+
+  const detailsPage = document.querySelector<HTMLDivElement>(DETAILS_PAGE_SELECTOR);
+
+  if (detailsPage) {
+    detailsPage.dataset.finnLensInjected = "true";
+  }
+
+  if (!anchorElement.querySelector("h1")) {
+    anchorElement.dataset.finnLensInjected = "true";
+  }
+}

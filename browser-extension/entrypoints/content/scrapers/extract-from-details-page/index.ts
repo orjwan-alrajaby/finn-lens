@@ -1,0 +1,10 @@
+export { default as extractPriceInfo } from "./extractPriceInfo";
+export { default as extractDescription } from "./extractDescription";
+export { default as extractImages} from "./extractImages";
+export { default as extractTechnicalSpecs} from "./extractTechnicalSpecs";
+export { default as extractStrengthsAndWeaknesses } from "./extractStrengthsAndWeaknesses";
+export { default as extractEquipmentDetails } from "./extractEquipmentDetails";
+export { default as extractMotorAndDriveDetails } from "./extractMotorAndDriveDetails";
+export { default as extractSpaceAndTrunkDetails } from "./extractSpaceAndTrunkDetails";
+export { default as extractFinnAutoScores } from "./extractFinnAutoScores";
+export { default as extractDesignDetails } from "./extractDesignDetails";
