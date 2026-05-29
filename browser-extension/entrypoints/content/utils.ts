@@ -33,7 +33,9 @@ export function normalizeString(str?: string | null) {
     .replace(/[^a-z0-9]/g, "");       // remove special chars
 }
 
-export function determinePricingPeriod(text: string) {
+export function determinePricingPeriod(rawText: string) {
+  const text = rawText.toLowerCase();
+
   let period: PeriodType | null = null;
 
   if (

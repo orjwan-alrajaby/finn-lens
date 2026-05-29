@@ -33,8 +33,7 @@ export default function extractPriceInfo(root: Element) {
     const price = parseEuroPrice(currentPrice);
     const oldValue = parseEuroPrice(oldPrice);
     const discount = calculateDiscount(price, oldValue);
-    const priceAreaText = priceArea.textContent.toLowerCase();
-    const pricingPeriod = determinePricingPeriod(priceAreaText);
+    const pricingPeriod = determinePricingPeriod(priceArea.textContent);
 
     return {
         baseValue: price,

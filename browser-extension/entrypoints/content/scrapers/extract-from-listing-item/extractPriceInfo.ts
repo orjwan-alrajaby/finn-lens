@@ -38,9 +38,7 @@ export default function extractPriceInfo(node: Element) {
 
     const discount = calculateDiscount(price, oldValue);
 
-    const priceAreaText = text.toLowerCase();
-
-    const pricingPeriod = determinePricingPeriod(priceAreaText);
+    const pricingPeriod = determinePricingPeriod(text);
 
     return {
         baseValue: price,
