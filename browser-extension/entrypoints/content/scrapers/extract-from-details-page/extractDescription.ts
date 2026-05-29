@@ -11,7 +11,7 @@ export default function extractCarDescription(root: Element) {
 
   const titleEl = [...root.querySelectorAll("h2")].find((el) => {
     const heading = normalizeString(el.textContent);
-
+    if (!heading) return false;
     return (
       heading.includes(normalizedCarName) ||
       normalizedCarName.includes(heading)
