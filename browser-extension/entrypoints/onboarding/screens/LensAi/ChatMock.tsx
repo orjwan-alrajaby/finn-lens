@@ -2,7 +2,8 @@ import { useEffect, useRef, type RefObject } from "react";
 import { SendHorizontal, X } from "lucide-react";
 
 import { Thinking } from "@/entrypoints/compare/lens-ai/parts";
-import { FitCard, UnderstandingCard } from "@/entrypoints/lens-chat/conversation-cards";
+import { ConfirmAsk, FeatureAsk, LensStatus, QuestionAsk, Said, Says } from "@/entrypoints/lens-chat/chat-parts";
+import { PickCard } from "@/entrypoints/lens-chat/pick";
 import type { CarActions } from "@/entrypoints/lens-chat/cards";
 import { DEMO_MESSAGE, DEMO_QUESTION, DEMO_REPLY, DEMO_SUGGESTIONS, type DemoConversation } from "@/lib/lens-chat/demo-conversation";
 
@@ -114,53 +115,54 @@ export function ChatMock({
                 </button>
             </div>
 
+            {stage !== "listening" && stage !== "closed" && (
+                <LensStatus understanding={stage === "understood" ? demo.understanding : demo.answered} onOpen={() => {}} />
+            )}
+
             <div ref={body} className="relative min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain bg-finn-snow px-3 py-3">
-                <p
-                    ref={message}
-                    className="ml-auto w-fit max-w-[88%] rounded-[18px] rounded-br-md bg-finn-highlight-navy px-3 py-2 text-sm leading-5 text-white"
-                >
-                    {DEMO_MESSAGE}
-                </p>
+                <div ref={message}>
+                    <Said>{DEMO_MESSAGE}</Said>
+                </div>
 
                 {stage === "listening" && <Thinking>Listening…</Thinking>}
 
                 {stage !== "listening" && (
-                    <div ref={understanding}>
-                        <UnderstandingCard
-                            understanding={stage === "understood" ? demo.understanding : demo.answered}
-                            translation={demo.translation}
-                            reply={DEMO_REPLY}
-                            question={stage === "understood" ? DEMO_QUESTION : null}
-                            cars={demo.cars}
-                            scopeLabel={scopeLabel}
-                            isUpdate={false}
-                            status={stage === "fit" ? "applied" : "pending"}
-                            busy={false}
-                            suggestions={stage === "understood" ? DEMO_SUGGESTIONS : []}
-                            onCompare={onCompare}
-                            onAnswer={onCompare}
-                            onCorrect={() => {}}
-                            onAcceptSuggestion={onCompare}
-                            onDeclineSuggestion={() => {}}
-                            onBudget={() => {}}
-                            onPeriod={() => {}}
-                            picked={null}
-                            onPick={() => {}}
-                        />
+                    <div ref={understanding} className="space-y-3">
+                        <Says>{DEMO_REPLY}</Says>
+
+                        {stage === "understood" ? (
+                            <>
+                                <QuestionAsk question={DEMO_QUESTION} busy={false} onAnswer={onCompare} />
+                                <FeatureAsk id={DEMO_SUGGESTIONS[0]!.id} why={DEMO_SUGGESTIONS[0]!.why} busy={false} onAnswer={onCompare} />
+                            </>
+                        ) : (
+                            <>
+                                <Says>{DEMO_QUESTION.ask}</Says>
+                                <Said>{DEMO_QUESTION.options[1]}</Said>
+                                <Said>Yes, count a 360° camera.</Said>
+                                <ConfirmAsk
+                                    headline="3 cars on this page"
+                                    isUpdate={false}
+                                    busy={false}
+                                    done={stage === "fit"}
+                                    onCompare={onCompare}
+                                    onCorrect={() => {}}
+                                />
+                            </>
+                        )}
                     </div>
                 )}
 
                 {stage === "fit" && demo.story && demo.match && (
-                    <div ref={fit}>
-                        <FitCard
+                    <div ref={fit} className="space-y-3">
+                        <Says>Here&rsquo;s what I&rsquo;d look at first.</Says>
+                        <PickCard
                             story={demo.story}
-                            match={demo.match}
-                            alternatives={demo.alternatives}
+                            car={demo.match.car}
+                            alternative={demo.alternatives[0] ?? null}
                             actions={NO_ACTIONS}
-                            busy={false}
                             onWhy={() => {}}
-                            onCompare={() => {}}
-                            onAnswer={() => {}}
+                            onAlternatives={() => {}}
                         />
                     </div>
                 )}

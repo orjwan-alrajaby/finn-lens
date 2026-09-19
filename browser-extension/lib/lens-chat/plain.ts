@@ -1,7 +1,7 @@
 import { formatEUR, monthLabel } from "@/lib/reasoning-engine";
 import { CATEGORIES } from "@/lib/reasoning-engine/constants";
 
-import { asPhrase } from "./evidence";
+import { asPhrase, ruleLabel } from "./evidence";
 import type { FitStory } from "./fit-story";
 import { ruledOut, type Understanding } from "./understanding";
 
@@ -151,3 +151,35 @@ export function matchSentence(story: FitStory): string {
 
     return money.tone === "good" ? `${opening}${before}within what you wanted to spend.` : `${opening} — but not what you wanted to spend.`;
 }
+
+/**
+ * What Lens is working with, short enough to sit above a conversation.
+ *
+ * The strip is a reminder, not a report: a reader glances at it to check Lens
+ * is still working on the right thing, and opens "your needs" when they want
+ * the whole of it. So each chip is a few words — the money, the dates, what
+ * they asked for, what they ruled out — in the order they'd think of them.
+ */
+export function needChips(u: Understanding): string[] {
+    const chips: string[] = [];
+
+    if (u.budget) {
+        chips.push(u.budget.kind === "hardMax" ? `${formatEUR(u.budget.monthly)} max` : `Around ${formatEUR(u.budget.monthly)}`);
+    }
+
+    if (u.rental) {
+        const from = u.rental.startDay ? `${u.rental.startDay} ${shortMonth(u.rental.from)}` : shortMonth(u.rental.from);
+
+        chips.push(`${from}–${shortMonth(u.rental.to)}`);
+    }
+
+    for (const rule of ruledOut(u)) chips.push(ruleLabel(rule.id, rule.mode));
+
+    for (const need of u.needs) {
+        if (need.status === "active") chips.push(need.label);
+    }
+
+    return chips;
+}
+
+const shortMonth = (month: string): string => monthLabel(month).split(" ")[0]!.slice(0, 3);

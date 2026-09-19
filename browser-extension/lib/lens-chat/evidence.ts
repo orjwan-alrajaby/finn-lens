@@ -241,7 +241,12 @@ const PHRASES: Partial<Record<EvidenceId, string>> = {
     hasTowbar: "a towbar",
 };
 
-export const asPhrase = (id: EvidenceId): string => PHRASES[id] ?? EVIDENCE[id].label.toLowerCase();
+/* "Rear USB ports" belongs in a sentence as "rear USB ports", not "rear usb ports". */
+export const asPhrase = (id: EvidenceId): string => {
+    const label = EVIDENCE[id].label;
+
+    return PHRASES[id] ?? (/^[A-Z0-9]{2,}/.test(label) ? label : `${label.charAt(0).toLowerCase()}${label.slice(1)}`);
+};
 
 /** Evidence that describes what kind of car it is, rather than what it carries. */
 const KINDS = new Set<EvidenceId>(["electricCar", "suvBody", "seatsSixPlus", "seatsFivePlus", "hasAutomaticTransmission"]);

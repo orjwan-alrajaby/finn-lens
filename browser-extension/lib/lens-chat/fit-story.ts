@@ -516,7 +516,21 @@ export function tellFitStory(
                   ? `nothing here comes near ${formatEUR(nearBudget)}`
                   : null;
 
-    const eyebrow = single ? "How this car fits you" : missed ? `Closest match — ${missed}` : "Best match";
+    /*
+     * "Best match" over a car the next line calls €457 too expensive reads as
+     * a contradiction. The engine's fallback flag doesn't catch every way that
+     * happens — a cost it can't complete is not "over budget" to it — so the
+     * label follows what this card is about to say about the money.
+     */
+    const overBudget = sections.some((section) => section.kind === "budget" && section.tone !== "good");
+
+    const eyebrow = single
+        ? "How this car fits you"
+        : missed
+          ? `Closest match — ${missed}`
+          : overBudget
+            ? "Closest match"
+            : "Best match";
 
     return {
         eyebrow,
