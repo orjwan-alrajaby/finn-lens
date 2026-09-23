@@ -89,7 +89,7 @@ export const STORED_DATA_GROUPS: StoredDataGroup[] = [
             "Whether Lens AI is switched on, the Gemini API key you gave it, which models are out of free requests for now, and the searches your conversations built.",
         consequence:
             "Lens AI turns off and forgets your key. Everything else in Lens keeps working; you can add the key again in Settings.",
-        keys: ["finnLensAi", "finnLensAiResting", "finnLensSession", "finnLensSavedSearches"],
+        keys: ["finnLensAi", "finnLensAiResting", "finnLensSession", "finnLensSavedSearches", "finnLensChatSize", "finnLensSessionHandOff"],
     },
 ];
 

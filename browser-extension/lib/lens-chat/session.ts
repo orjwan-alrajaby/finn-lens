@@ -18,6 +18,17 @@ import type { Rule, SessionProfile, Understanding } from "./understanding";
  */
 
 export const SESSION_KEY = "finnLensSession";
+
+/**
+ * The reader asked for this search on the recommendation page.
+ *
+ * A session sitting in storage means "this is what they were just doing"; it
+ * doesn't mean they want the recommendation page to be about it. Pressing
+ * "Open the recommendation page" in the chat does, and this is how that
+ * intent travels the one hop between them — read once, by the page, then
+ * cleared, so a tab opened tomorrow doesn't inherit it.
+ */
+export const HANDOFF_KEY = "finnLensSessionHandOff";
 export const SAVED_SEARCHES_KEY = "finnLensSavedSearches";
 
 /** How long a carried-over session still counts as "what I was just doing". */
@@ -81,6 +92,33 @@ export async function clearSession(): Promise<void> {
     } catch {
         /* Nothing to do: the banner simply stays until the tab is reloaded. */
     }
+}
+
+/** How long a hand-off from the chat still counts as this journey. */
+const HANDOFF_FOR_MS = 5 * 60 * 1000;
+
+/** The chat is opening the page for this search. */
+export async function markHandOff(): Promise<void> {
+    try {
+        await browser.storage.local.set({ [HANDOFF_KEY]: { at: new Date().toISOString() } });
+    } catch {
+        /* Without it the page simply asks, which is the behaviour anywhere else. */
+    }
+}
+
+/** Was this page opened from the chat? Answers once: the flag is cleared here. */
+export async function takeHandOff(): Promise<boolean> {
+    const flag = await read<{ at?: string } | null>(HANDOFF_KEY, null);
+
+    if (!flag?.at) return false;
+
+    try {
+        await browser.storage.local.remove(HANDOFF_KEY);
+    } catch {
+        /* Nothing to do: at worst the next visit reads a stale flag it then clears. */
+    }
+
+    return Date.now() - new Date(flag.at).getTime() < HANDOFF_FOR_MS;
 }
 
 export const loadSavedSearches = (): Promise<SavedSearch[]> => read<SavedSearch[]>(SAVED_SEARCHES_KEY, []);

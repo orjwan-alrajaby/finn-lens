@@ -12,9 +12,12 @@ import { Spinner } from "@/components/Spinner";
 import { AdjustDrawer } from "./components/AdjustDrawer";
 import { Advice } from "./advice";
 import { Challenge } from "./advice/Challenge";
-import { CarriedOver } from "./lens-ai/CarriedOver";
+import { ChooseSource, SourceStrip, type ChosenSource, type SourceOffers } from "./lens-ai/Source";
 import { TellLens } from "./lens-ai/TellLens";
 import { useCompareStore } from "./store";
+import { loadSavedSearches, loadSession, takeHandOff } from "@/lib/lens-chat/session";
+import { loadLensSettings } from "@/lib/reasoning-engine";
+import { copyFeatures } from "./store";
 
 /**
  * The compare page: the answer, and a drawer to argue with it.
@@ -48,6 +51,14 @@ export default function CompareTab({
 
   const [adjusting, setAdjusting] = useState(false);
 
+  /*
+   * Which search this page is about. Null while Lens works out whether there
+   * is anything to ask — and again whenever the reader asks to change it.
+   */
+  const [source, setSource] = useState<ChosenSource | null>(null);
+  const [offers, setOffers] = useState<SourceOffers | null>(null);
+  const applyAnswers = useCompareStore((state) => state.applyAnswers);
+
   /**
    * Which of the two readings is on screen.
    *
@@ -68,6 +79,49 @@ export default function CompareTab({
   useEffect(() => {
     void loadSettings();
   }, [loadSettings]);
+
+  /*
+   * Opened from the chat, this page is that conversation's search and says
+   * so. Opened any other way, it asks — but only when there is something to
+   * ask about; a reader who has never talked to Lens sees the recommendation
+   * as they always have.
+   */
+  useEffect(() => {
+    void (async () => {
+      const [session, searches, handedOver] = await Promise.all([loadSession(), loadSavedSearches(), takeHandOff()]);
+
+      setOffers({ session, searches });
+
+      if (handedOver && session) {
+        applyAnswers(session.answers, "session");
+        setSource({ kind: "session", session });
+        return;
+      }
+
+      if (!session && !searches.length) setSource({ kind: "settings" });
+    })();
+  }, [applyAnswers]);
+
+  /** A search the reader picked applies to this page alone; settings restore theirs. */
+  const chooseSource = (chosen: ChosenSource) => {
+    if (chosen.kind === "settings") {
+      void loadLensSettings().then((saved) =>
+        applyAnswers(
+          {
+            priorities: saved.priorities,
+            preferences: saved.preferences,
+            features: copyFeatures(saved.categoryFeatures),
+            basedOn: saved.basedOn,
+          },
+          "session",
+        ),
+      );
+    } else {
+      applyAnswers(chosen.kind === "session" ? chosen.session.answers : chosen.search.answers, "session");
+    }
+
+    setSource(chosen);
+  };
 
   /*
    * Which of the page's states is on screen. All three are drawn inside the
@@ -178,53 +232,47 @@ export default function CompareTab({
                 * Lens AI is turned on in Settings.
                 */}
               {/*
-                * What the reader built in the chat on finn.com, offered here
-                * rather than left behind. Renders nothing when there is no
-                * recent conversation to carry over.
+                * One source at a time, named. Until the reader has settled
+                * which search this page is about, there is no recommendation
+                * to show — two answers on screen, one of them offering to
+                * replace the other, was the confusion this undoes.
                 */}
-              <CarriedOver />
-
-              <TellLens cars={cars} />
-
-              {/*
-                * Two readings of one set of answers, and the tabs say which is
-                * which before either is read. Above the page rather than inside
-                * it, because they switch the whole subject — a control that
-                * changed the page from under its own heading is what this split
-                * was undoing.
-                */}
-              <div
-                role="tablist"
-                aria-label="Advice views"
-                className="finn-lens-screen-only mb-6 inline-flex rounded-full bg-finn-cotton p-1"
-              >
-                <ViewTab
-                  id="advice"
-                  current={view}
-                  onSelect={setView}
-                  label="The recommendation"
-                />
-
-                <ViewTab
-                  id="challenge"
-                  current={view}
-                  onSelect={setView}
-                  label="Challenge it"
-                />
-              </div>
-
-              {view === "advice" ? (
-                <Advice
-                  cars={cars}
-                  onAdjust={() => setAdjusting(true)}
-                  onChallenge={() => setView("challenge")}
-                />
+              {!offers ? (
+                <Loading>Reading your searches…</Loading>
+              ) : !source ? (
+                <ChooseSource offers={offers} onChoose={chooseSource} />
               ) : (
-                <Challenge
-                  cars={cars}
-                  onAdjust={() => setAdjusting(true)}
-                  onBack={() => setView("advice")}
-                />
+                <>
+                  <SourceStrip
+                    source={source}
+                    canChange={Boolean(offers.session || offers.searches.length)}
+                    onChange={() => setSource(null)}
+                  />
+
+                  <TellLens cars={cars} />
+
+                  {/*
+                    * Two readings of one set of answers, and the tabs say which is
+                    * which before either is read. Above the page rather than inside
+                    * it, because they switch the whole subject — a control that
+                    * changed the page from under its own heading is what this split
+                    * was undoing.
+                    */}
+                  <div
+                    role="tablist"
+                    aria-label="Advice views"
+                    className="finn-lens-screen-only mb-6 inline-flex rounded-full bg-finn-cotton p-1"
+                  >
+                    <ViewTab id="advice" current={view} onSelect={setView} label="The recommendation" />
+                    <ViewTab id="challenge" current={view} onSelect={setView} label="Challenge it" />
+                  </div>
+
+                  {view === "advice" ? (
+                    <Advice cars={cars} onAdjust={() => setAdjusting(true)} onChallenge={() => setView("challenge")} />
+                  ) : (
+                    <Challenge cars={cars} onAdjust={() => setAdjusting(true)} onBack={() => setView("advice")} />
+                  )}
+                </>
               )}
             </>
           )}

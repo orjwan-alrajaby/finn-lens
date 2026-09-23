@@ -169,7 +169,7 @@ describe("a key pasted with something after it", () => {
     it("takes the key and leaves the note behind", async () => {
         const { loadLensAiSettings, saveLensAiSettings } = await import("@/lib/lens-ai/settings");
 
-        await saveLensAiSettings({ enabled: true, apiKey: "AQ.abc123def456 # the misc account" });
+        await saveLensAiSettings({ enabled: true, apiKey: "AQ.abc123def456 # the misc account", simulated: false });
 
         expect((await loadLensAiSettings()).apiKey).toBe("AQ.abc123def456");
     });
