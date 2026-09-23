@@ -169,7 +169,7 @@ export function buildReasoningContext(
   );
 
   const ranked = [...vehicles].sort((a, b) =>
-    compareForRanking(a, b, scores, ordered),
+    compareForRanking(a, b, scores, ordered, costs),
   );
 
   return {
@@ -227,17 +227,52 @@ function partitionByRental(
 }
 
 /**
- * The ranking order: unrounded fit, then the #1 priority's score, then the
- * #2's, then FINN's config id so the same cars always come out the same way.
+ * Which of two cars comes first: the fit the reader is shown, then the
+ * cheaper of the two where that fit is the same, then the #1 priority's exact
+ * score, then the #2's, then FINN's config id so the same cars always come
+ * out the same way. A priority that couldn't be assessed ranks below any that
+ * could on a tie.
  *
- * A priority that couldn't be assessed ranks below any that could on a tie.
+ * The match is decided on what the reader is shown — the rounded fit. Ranking
+ * on the unrounded one put a €1,806 BMW ahead of a €459 Peugeot on nine
+ * hundredths of a point, under two labels that both read "66": a difference
+ * Lens displays as no difference at all, and can't defend if asked. So cars
+ * shown as equal are treated as equal, and among them the cheaper one wins.
+ *
+ * That is not price becoming a priority: it adds no points and moves nothing
+ * that Lens can actually tell apart. It is what to do when Lens can't. A cost
+ * it couldn't finish estimating never beats one it could, for the same reason
+ * an unconfirmed budget never wins: an unknown is not a saving.
  */
 function compareForRanking(
   a: PinnedFinnCar,
   b: PinnedFinnCar,
   scores: VehicleScore[],
   priorities: CategoryId[],
+  costs: Record<number, CostBreakdown>,
 ): number {
+  const shown = Math.round(fitFor(scores, b.id)) - Math.round(fitFor(scores, a.id));
+  if (shown !== 0) return shown;
+
+  /*
+   * Ordered on a key, not on a chain of comparisons: a cost Lens couldn't
+   * finish has to lose to every price it knows, and "fall back to the exact
+   * fit when one side has no price" is not an order at all — it made A beat
+   * B, B beat C and C beat A, and a sort given that returns whatever it
+   * likes. Known costs first, cheapest of those first.
+   */
+  const priced = (vehicle: PinnedFinnCar) => {
+    const cost = costs[vehicle.id];
+
+    return cost?.complete ? { known: 0, monthly: cost.totalMonthly } : { known: 1, monthly: 0 };
+  };
+
+  const mine = priced(a);
+  const theirs = priced(b);
+
+  if (mine.known !== theirs.known) return mine.known - theirs.known;
+  if (mine.known === 0 && mine.monthly !== theirs.monthly) return mine.monthly - theirs.monthly;
+
   const fit = fitFor(scores, b.id) - fitFor(scores, a.id);
   if (fit !== 0) return fit;
 
