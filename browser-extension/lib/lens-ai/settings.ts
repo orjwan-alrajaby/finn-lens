@@ -16,9 +16,15 @@ export const LENS_AI_KEY = "finnLensAi";
 export interface LensAiSettings {
     enabled: boolean;
     apiKey: string;
+    /**
+     * Answer with Lens's built-in stand-in instead of Gemini: keyword rules
+     * that produce the same shapes, for trying the chat without spending a
+     * key's quota. Nothing leaves the browser while it's on.
+     */
+    simulated: boolean;
 }
 
-export const DEFAULT_LENS_AI_SETTINGS: LensAiSettings = { enabled: false, apiKey: "" };
+export const DEFAULT_LENS_AI_SETTINGS: LensAiSettings = { enabled: false, apiKey: "", simulated: false };
 
 function read(value: unknown): LensAiSettings {
     const raw = (value ?? {}) as Partial<LensAiSettings>;
@@ -32,6 +38,7 @@ function read(value: unknown): LensAiSettings {
          * wrong". Keys have no spaces in them.
          */
         apiKey: typeof raw.apiKey === "string" ? (raw.apiKey.trim().split(/\s+/)[0] ?? "") : "",
+        simulated: raw.simulated === true,
     };
 }
 
@@ -48,7 +55,8 @@ export async function saveLensAiSettings(settings: LensAiSettings): Promise<void
 }
 
 /** On, with a key to use. The only state in which anything calls a model. */
-export const lensAiUsable = (settings: LensAiSettings): boolean => settings.enabled && settings.apiKey.length > 0;
+export const lensAiUsable = (settings: LensAiSettings): boolean =>
+    settings.enabled && (settings.simulated || settings.apiKey.length > 0);
 
 /** Calls back whenever the setting changes, from any page. Returns the unsubscribe. */
 export function watchLensAiSettings(onChange: (settings: LensAiSettings) => void): () => void {

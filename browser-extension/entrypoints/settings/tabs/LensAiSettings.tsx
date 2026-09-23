@@ -18,6 +18,8 @@ interface LensAiSettingsProps {
  */
 export function LensAiSettings({ settings, onChange }: LensAiSettingsProps) {
     const key = settings.apiKey.trim();
+    /* The stand-in needs no key, so it can switch Lens AI on by itself. */
+    const usable = key.length > 0 || settings.simulated;
 
     return (
         <Section
@@ -28,16 +30,18 @@ export function LensAiSettings({ settings, onChange }: LensAiSettingsProps) {
                 <div>
                     <p className="text-sm font-black text-finn-black">Use Lens AI</p>
                     <p className="mt-1 text-xs leading-5 text-finn-iron">
-                        {settings.enabled && key
-                            ? "On: Ask Lens appears on finn.com, and you can describe what you need on the recommendation page."
-                            : key
+                        {settings.enabled && usable
+                            ? settings.simulated
+                                ? "On, simulated: Ask Lens answers with Lens's built-in stand-in, not Gemini."
+                                : "On: Ask Lens appears on finn.com, and you can describe what you need on the recommendation page."
+                            : usable
                               ? "Off: Lens works from your settings and pinned cars only."
                               : "Add a Gemini API key below to turn it on."}
                     </p>
                 </div>
                 <Toggle
-                    checked={settings.enabled && key.length > 0}
-                    disabled={!key}
+                    checked={settings.enabled && usable}
+                    disabled={!usable}
                     label={settings.enabled ? "Turn Lens AI off" : "Turn Lens AI on"}
                     onChange={(enabled) => onChange({ ...settings, enabled })}
                 />
@@ -46,7 +50,26 @@ export function LensAiSettings({ settings, onChange }: LensAiSettingsProps) {
             <div className="mt-5">
                 <GeminiKeyField
                     apiKey={settings.apiKey}
-                    onChange={(apiKey) => onChange({ enabled: apiKey ? settings.enabled : false, apiKey })}
+                    onChange={(apiKey) => onChange({ ...settings, enabled: apiKey || settings.simulated ? settings.enabled : false, apiKey })}
+                />
+            </div>
+
+            <div className="mt-5 flex items-start justify-between gap-4 rounded-2xl bg-finn-snow p-4">
+                <div>
+                    <p className="text-sm font-black text-finn-black">Simulate Lens AI (for testing)</p>
+                    <p className="mt-1 text-xs leading-5 text-finn-iron">
+                        Answers with a built-in stand-in instead of Gemini — keyword rules that behave the way the model does,
+                        so you can try the chat without using your key's free requests. Nothing is sent anywhere while it's on.
+                        Type <code>mock:bad-quote</code>, <code>mock:invented-age</code>, <code>mock:empty</code> or{" "}
+                        <code>mock:slow</code> into a message to check how Lens handles a model misbehaving.
+                    </p>
+                </div>
+                <Toggle
+                    checked={settings.simulated}
+                    label={settings.simulated ? "Stop simulating Lens AI" : "Simulate Lens AI"}
+                    onChange={(simulated) =>
+                        onChange({ ...settings, simulated, enabled: simulated ? true : key ? settings.enabled : false })
+                    }
                 />
             </div>
 

@@ -7,6 +7,7 @@ import type {
     InterpretResult,
 } from "./contract";
 import { AdapterError, createGeminiAdapter, type Answered, type LensAiAdapter } from "./gemini";
+import { createMockAdapter } from "./mock";
 import { lensAiUsable, loadLensAiSettings } from "./settings";
 
 /**
@@ -22,6 +23,9 @@ export type AiCall<T> =
     | { ok: true; result: T; model: string | null; ms: number }
     | { ok: false; error: string };
 
+/* Never a real key's value, so switching back to Gemini builds a real adapter. */
+const SIMULATED = "\u0000simulated";
+
 /* One adapter per key, so the models it learned are out of quota stay resting. */
 let cached: { apiKey: string; adapter: LensAiAdapter } | null = null;
 
@@ -29,6 +33,12 @@ async function adapter(): Promise<LensAiAdapter | null> {
     const settings = await loadLensAiSettings();
 
     if (!lensAiUsable(settings)) return null;
+
+    /* The stand-in has no key and no quota: one per page is plenty. */
+    if (settings.simulated) {
+        if (cached?.apiKey !== SIMULATED) cached = { apiKey: SIMULATED, adapter: createMockAdapter() };
+        return cached.adapter;
+    }
 
     if (cached?.apiKey !== settings.apiKey) {
         cached = { apiKey: settings.apiKey, adapter: createGeminiAdapter({ apiKey: settings.apiKey }) };
