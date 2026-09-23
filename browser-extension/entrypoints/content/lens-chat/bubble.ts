@@ -6,13 +6,7 @@ import { CARD_SELECTORS, cardConfigId, cardForCar, resolveCar } from "../lens-pa
 import { highlightConfiguration } from "../lens-panel/highlight";
 import { setCarPinned } from "../lens-panel/pin-control";
 import { extractConfigId } from "../injectors/inject-pin-button/injectPinCarButtonIntoNode/utils";
-import { loadListingCars } from "../injectors/inject-pin-button/injectPinCarButtonIntoNode/api";
-import {
-    getLoadedCars,
-    getPinnedCars,
-    mergeLoadedCars,
-} from "../injectors/inject-pin-button/injectPinCarButtonIntoNode/storage";
-import { mapFinnConfigToAll } from "../manipulateApiData";
+import { ensureCarsFor } from "../car-data";
 import { lensAiUsable, loadLensAiSettings, watchLensAiSettings } from "@/lib/lens-ai/settings";
 
 /**
@@ -124,47 +118,6 @@ function pageHasCars(): boolean {
 }
 
 /* -------------------------------------------------------------------------- */
-/* Getting the page's cars to Lens                                            */
-/* -------------------------------------------------------------------------- */
-
-/** Pages already filled in this visit, so reopening the chat asks FINN nothing. */
-const filled = new Set<string>();
-
-/**
- * Makes sure the cars this page draws are cars Lens has, before the chat says
- * what it can compare.
- *
- * A car's page asks for its model the way the panel does, which returns every
- * configuration it lists; anything still missing — a listing rendered on FINN's
- * server, a rail of similar cars — comes from one call for FINN's whole list.
- * Two requests at most, and only because the reader opened the chat.
- */
-async function fillPageCars(context: PageContext): Promise<void> {
-    if (filled.has(context.url)) return;
-
-    const known = async () => {
-        const [loaded, pinned] = await Promise.all([getLoadedCars(), getPinnedCars()]);
-        return context.pageCarIds.filter((id) => !loaded[id] && !pinned[id]);
-    };
-
-    try {
-        if (context.currentCarId != null) {
-            await resolveCar(context.currentCarId, { fetchIfMissing: true });
-        }
-
-        if ((await known()).length) {
-            const response = await loadListingCars();
-            await mergeLoadedCars(mapFinnConfigToAll(response.results ?? []));
-        }
-
-        filled.add(context.url);
-    } catch (error) {
-        /* The chat says honestly how many cars it has; a failed fill just means fewer. */
-        console.error("[FinnLens] couldn't load this page's cars for Ask Lens", error);
-    }
-}
-
-/* -------------------------------------------------------------------------- */
 /* Messages from the chat                                                     */
 /* -------------------------------------------------------------------------- */
 
@@ -174,7 +127,15 @@ async function handle(message: ChatToPage): Promise<unknown> {
     switch (message.type) {
         case "LENS_CHAT_CONTEXT": {
             const context = readPageContext();
-            await fillPageCars(context);
+
+            /*
+             * The cars this page is showing, before the chat says what it can
+             * compare. Usually nothing to do — the content script fills them
+             * in as the page draws them — but a chat opened on a page FINN
+             * rendered on its server is exactly where that hasn't happened.
+             */
+            await ensureCarsFor([...context.pageCarIds, context.currentCarId].filter((id): id is number => id != null));
+
             return context;
         }
 
@@ -244,6 +205,128 @@ async function pin(carId: number, pinned: boolean): Promise<{ pinned: boolean } 
         console.error("[FinnLens] chat couldn't change what's pinned", error);
         return { error: "Couldn't update your pinned cars." };
     }
+}
+
+/* -------------------------------------------------------------------------- */
+/* Making the chat bigger                                                     */
+/* -------------------------------------------------------------------------- */
+
+/** Where the size the reader dragged the chat to is kept, so it opens that size next time. */
+const SIZE_KEY = "finnLensChatSize";
+
+/** Never smaller than it opens at on a laptop; never past the window. */
+const MIN_SIZE = { width: 360, height: 420 };
+/** At least this much of finn.com stays visible around the panel. */
+const EDGE = { x: 40, y: 100 };
+
+/* From 640px up the chat is a panel beside the bubble; below it, a sheet that fills the width. */
+const wide = () => window.matchMedia("(min-width: 640px)").matches;
+
+function clampSize(width: number, height: number): { width: number; height: number } {
+    return {
+        width: Math.round(Math.min(Math.max(width, MIN_SIZE.width), window.innerWidth - EDGE.x)),
+        height: Math.round(Math.min(Math.max(height, MIN_SIZE.height), window.innerHeight - EDGE.y)),
+    };
+}
+
+/** A size set inline wins over the panel's default classes; clearing it goes back to them. */
+function applySize(size: { width: number; height: number } | null): void {
+    if (!panel) return;
+
+    if (!size || !wide()) {
+        panel.style.width = "";
+        panel.style.height = "";
+        return;
+    }
+
+    const next = clampSize(size.width, size.height);
+    panel.style.width = `${next.width}px`;
+    panel.style.height = `${next.height}px`;
+}
+
+let savedSize: { width: number; height: number } | null = null;
+
+function saveSize(size: { width: number; height: number } | null): void {
+    savedSize = size;
+    void browser.storage.local.set({ [SIZE_KEY]: size }).catch(() => {});
+}
+
+/**
+ * The corner the chat grows from.
+ *
+ * The panel is pinned to the bottom-right beside the bubble, so the top-left
+ * corner is the one free to move: dragging it up and left makes the chat
+ * bigger. While dragging, the chat's iframe stops taking pointer events —
+ * otherwise the pointer crosses into it and the drag stalls mid-way. Arrow
+ * keys resize it too, and a double-click puts it back to its usual size.
+ */
+function resizeHandle(): HTMLElement {
+    let start: { x: number; y: number; width: number; height: number } | null = null;
+
+    const handle = el("button", {
+        class: [
+            "absolute left-0 top-0 z-10 hidden h-4 w-4 cursor-nwse-resize items-center justify-center rounded-br-lg",
+            "text-finn-iron/60 hover:bg-finn-snow hover:text-finn-accent-blue focus-visible:outline-2 focus-visible:outline-finn-accent-blue xs:flex",
+        ].join(" "),
+        attrs: {
+            type: "button",
+            "aria-label": "Resize the chat — drag, or use the arrow keys; double-click to reset",
+            title: "Drag to resize · double-click to reset",
+        },
+        on: {
+            pointerdown: (event: Event) => {
+                const pointer = event as PointerEvent;
+                if (!panel || pointer.button !== 0) return;
+
+                pointer.preventDefault();
+                const box = panel.getBoundingClientRect();
+                start = { x: pointer.clientX, y: pointer.clientY, width: box.width, height: box.height };
+                handle.setPointerCapture(pointer.pointerId);
+                if (frame) frame.style.pointerEvents = "none";
+            },
+            pointermove: (event: Event) => {
+                const pointer = event as PointerEvent;
+                if (!start) return;
+
+                applySize({ width: start.width + (start.x - pointer.clientX), height: start.height + (start.y - pointer.clientY) });
+            },
+            pointerup: (event: Event) => {
+                if (!start || !panel) return;
+
+                start = null;
+                handle.releasePointerCapture((event as PointerEvent).pointerId);
+                if (frame) frame.style.pointerEvents = "";
+
+                const box = panel.getBoundingClientRect();
+                saveSize({ width: box.width, height: box.height });
+            },
+            pointercancel: () => {
+                start = null;
+                if (frame) frame.style.pointerEvents = "";
+            },
+            dblclick: () => {
+                applySize(null);
+                saveSize(null);
+            },
+            keydown: (event: Event) => {
+                const key = (event as KeyboardEvent).key;
+                const step = { ArrowLeft: [40, 0], ArrowRight: [-40, 0], ArrowUp: [0, 40], ArrowDown: [0, -40] }[key];
+                if (!step || !panel) return;
+
+                event.preventDefault();
+                const box = panel.getBoundingClientRect();
+                applySize({ width: box.width + step[0]!, height: box.height + step[1]! });
+                const after = panel.getBoundingClientRect();
+                saveSize({ width: after.width, height: after.height });
+            },
+        },
+    });
+
+    /* Two short diagonal strokes, the usual "grab here to resize" mark, pointing at the corner. */
+    handle.innerHTML =
+        '<svg aria-hidden="true" width="10" height="10" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M2 8 8 2M2 11.5 11.5 2"/></svg>';
+
+    return handle;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -389,6 +472,21 @@ export async function syncChatBubble(): Promise<void> {
         attrs: { role: "dialog", "aria-label": "Ask Lens", "aria-hidden": "true" },
     });
     panel.style.display = "none";
+    panel.append(resizeHandle());
+
+    /* The size the reader last dragged it to, kept within whatever window this is. */
+    void browser.storage.local
+        .get(SIZE_KEY)
+        .then((stored) => {
+            const size = stored[SIZE_KEY] as { width: number; height: number } | null | undefined;
+            if (size && Number.isFinite(size.width) && Number.isFinite(size.height)) {
+                savedSize = size;
+                applySize(size);
+            }
+        })
+        .catch(() => {});
+
+    window.addEventListener("resize", () => applySize(savedSize));
 
     /* Visible from 640px; on a phone the bubble is the mark alone, covering less of FINN's cards. */
     bubbleLabel = el("span", { class: "max-xs:sr-only", text: "Ask Lens" });

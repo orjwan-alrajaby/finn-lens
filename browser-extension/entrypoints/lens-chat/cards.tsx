@@ -11,10 +11,23 @@ import type { CarLine } from "@/lib/lens-chat/run";
  * other side of it, grey for the reader's own answers read back.
  */
 
-export function BandChip({ car }: { car: Pick<CarLine, "band" | "bandLabel"> }) {
+/**
+ * The verdict on a car — and, where there is one, the number behind it.
+ *
+ * Four cars all labelled "Strong match" read as four identical cars, which is
+ * how a reader ends up asking why the dearer one won. The band is the word
+ * for the score; showing the score beside it is what makes two cars on the
+ * same label comparable at a glance.
+ */
+export function BandChip({ car, score }: { car: Pick<CarLine, "band" | "bandLabel">; score?: number | null }) {
     return (
-        <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-black ${FIT_BANDS[car.band].chipClass}`}>
-            {car.bandLabel}
+        <span className="inline-flex shrink-0 items-center gap-1">
+            <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-black ${FIT_BANDS[car.band].chipClass}`}>{car.bandLabel}</span>
+            {score != null && car.band !== "unknown" && (
+                <span className="text-[10px] font-black tabular-nums text-finn-iron" title="Lens's overall match, out of 100">
+                    {score}
+                </span>
+            )}
         </span>
     );
 }

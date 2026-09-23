@@ -132,19 +132,29 @@ export function ChatMock({
 
                         {stage === "understood" ? (
                             <>
-                                <QuestionAsk question={DEMO_QUESTION} busy={false} onAnswer={onCompare} />
-                                <FeatureAsk id={DEMO_SUGGESTIONS[0]!.id} why={DEMO_SUGGESTIONS[0]!.why} busy={false} onAnswer={onCompare} />
+                                <QuestionAsk question={DEMO_QUESTION} busy={false} answered={null} onAnswer={onCompare} />
+                                <FeatureAsk id={DEMO_SUGGESTIONS[0]!.id} why={DEMO_SUGGESTIONS[0]!.why} busy={false} answered={null} onAnswer={onCompare} />
                             </>
                         ) : (
                             <>
-                                <Says>{DEMO_QUESTION.ask}</Says>
-                                <Said>{DEMO_QUESTION.options[1]}</Said>
-                                <Said>Yes, count a 360° camera.</Said>
+                                <QuestionAsk
+                                    question={DEMO_QUESTION}
+                                    busy={false}
+                                    answered={{ text: DEMO_QUESTION.options[1] ?? null, choice: DEMO_QUESTION.options[1] ?? null }}
+                                    onAnswer={() => {}}
+                                />
+                                <FeatureAsk
+                                    id={DEMO_SUGGESTIONS[0]!.id}
+                                    why={DEMO_SUGGESTIONS[0]!.why}
+                                    busy={false}
+                                    answered={{ text: "Yes, count a 360° camera.", choice: "yes" }}
+                                    onAnswer={() => {}}
+                                />
                                 <ConfirmAsk
                                     headline="3 cars on this page"
                                     isUpdate={false}
                                     busy={false}
-                                    done={stage === "fit"}
+                                    done={stage === "fit" ? "compared" : false}
                                     onCompare={onCompare}
                                     onCorrect={() => {}}
                                 />

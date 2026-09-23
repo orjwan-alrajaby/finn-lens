@@ -1,4 +1,4 @@
-import { ArrowLeft, Pin, X } from "lucide-react";
+import { ArrowLeft, ChevronRight, Pin } from "lucide-react";
 
 import { formatEUR } from "@/lib/reasoning-engine";
 import { CATEGORIES } from "@/lib/reasoning-engine/constants";
@@ -10,7 +10,10 @@ import type { CarLine } from "@/lib/lens-chat/run";
 import type { Translation, Understanding } from "@/lib/lens-chat/understanding";
 import type { PinnedFinnCar } from "@/lib/types";
 
-import type { CarActions } from "./cards";
+import { CarCompare } from "./car-compare";
+import type { LensRun } from "@/lib/lens-chat/run";
+import { BandChip, type CarActions } from "./cards";
+import { ToneMark } from "./pick";
 
 /**
  * Where everything the conversation doesn't need lives.
@@ -27,13 +30,14 @@ import type { CarActions } from "./cards";
  * scores are Lens's workings, not the reader's answer.
  */
 
-export type InspectorView = "needs" | "judging" | "why" | "alternatives";
+export type InspectorView = "needs" | "judging" | "why" | "alternatives" | "car";
 
 const TITLES: Record<InspectorView, string> = {
     needs: "What Lens understood",
     judging: "How Lens is judging this",
     why: "Why this car",
     alternatives: "Other options",
+    car: "How it compares",
 };
 
 export function Inspector({
@@ -47,6 +51,11 @@ export function Inspector({
     actions,
     onView,
     onClose,
+    onBack,
+    backLabel,
+    run,
+    carId,
+    onCar,
     footer,
 }: {
     view: InspectorView;
@@ -59,6 +68,13 @@ export function Inspector({
     actions: CarActions;
     onView: (view: InspectorView) => void;
     onClose: () => void;
+    /** Where "Back" goes: the view this one was opened from, or the conversation. */
+    onBack: () => void;
+    backLabel: string;
+    run?: LensRun | null;
+    /** The car the "car" view compares with the match. */
+    carId?: number | null;
+    onCar?: (carId: number) => void;
     /** What the reader can do with this search, offered once, at the end. */
     footer?: React.ReactNode;
 }) {
@@ -66,37 +82,33 @@ export function Inspector({
 
     return (
         <div className="absolute inset-0 z-30 flex flex-col bg-white" role="dialog" aria-label={TITLES[view]}>
-            <header className="flex items-center gap-2 border-b border-finn-cotton px-3 py-2.5">
-                {back && (
-                    <button
-                        type="button"
-                        onClick={() => onView(back)}
-                        aria-label="Back"
-                        className="flex h-8 w-8 items-center justify-center rounded-full text-finn-iron transition hover:bg-finn-snow hover:text-finn-black"
-                    >
-                        <ArrowLeft aria-hidden="true" className="h-4 w-4" />
-                    </button>
-                )}
-
-                <p className="min-w-0 flex-1 truncate text-sm font-black">{TITLES[view]}</p>
-
+            <header className="flex items-center gap-2 border-b border-finn-cotton bg-white px-3 py-2.5">
+                {/*
+                  * Back, not close: every view here was opened from somewhere —
+                  * the conversation, or another view — and that's where it goes.
+                  */}
                 <button
                     type="button"
-                    onClick={onClose}
-                    aria-label="Close"
-                    className="flex h-8 w-8 items-center justify-center rounded-full text-finn-iron transition hover:bg-finn-snow hover:text-finn-black"
+                    onClick={onBack}
+                    className="-ml-1 inline-flex h-8 shrink-0 items-center gap-1 rounded-full pl-1.5 pr-2.5 text-[11px] font-black text-finn-accent-blue transition hover:bg-finn-snow"
                 >
-                    <X aria-hidden="true" className="h-4 w-4" />
+                    <ArrowLeft aria-hidden="true" className="h-4 w-4" strokeWidth={2.5} />
+                    {backLabel}
                 </button>
+
+                <p className="min-w-0 flex-1 truncate text-right text-sm font-black text-finn-black">{TITLES[view]}</p>
             </header>
 
-            <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
+            <div className="min-h-0 flex-1 overflow-y-auto py-1">
                 {view === "needs" && <Needs understanding={understanding} onJudging={() => onView("judging")} footer={footer} />}
                 {view === "judging" && (
                     <Judging understanding={understanding} translation={translation} cars={cars} scopeLabel={scopeLabel} />
                 )}
                 {view === "why" && story && <Why story={story} />}
-                {view === "alternatives" && <Alternatives rows={rows} actions={actions} scopeLabel={scopeLabel} />}
+                {view === "alternatives" && <Alternatives rows={rows} actions={actions} scopeLabel={scopeLabel} onCar={onCar} />}
+                {view === "car" && run && carId != null && (
+                    <CarCompare run={run} understanding={understanding} lessRelevant={translation.lessRelevant} carId={carId} actions={actions} />
+                )}
             </div>
         </div>
     );
@@ -118,7 +130,7 @@ function Needs({
     const unknown = u.notModelled.filter((item) => item.stance !== "doesntCare");
 
     return (
-        <div className="space-y-4">
+        <div>
             <Part title="How you&rsquo;ll use it" text={heard.situation} />
             <Part title="What matters" text={heard.lookingFor} />
             <Part title="Your limits" text={heard.limits} />
@@ -127,7 +139,7 @@ function Needs({
             {u.tension && <Part title="The trade-off" text={u.tension} />}
 
             {unknown.length > 0 && (
-                <div>
+                <div className={CARD}>
                     <Title>What Lens can&rsquo;t judge</Title>
                     <ul className="mt-1 space-y-1">
                         {unknown.map((item) => (
@@ -139,11 +151,11 @@ function Needs({
                 </div>
             )}
 
-            <button type="button" onClick={onJudging} className="text-[13px] font-black text-finn-accent-blue hover:underline">
+            <button type="button" onClick={onJudging} className="px-1 pt-1 text-[13px] font-black text-finn-accent-blue hover:underline">
                 How Lens is judging this →
             </button>
 
-            {footer}
+            {footer && <div className={CARD}>{footer}</div>}
         </div>
     );
 }
@@ -173,8 +185,8 @@ function Judging({
     const { profile } = translation;
 
     return (
-        <div className="space-y-4">
-            <div>
+        <div>
+            <div className={CARD}>
                 <Title>For this conversation</Title>
                 <ol className="mt-1 space-y-0.5">
                     {profile.priorities.map((item, index) => (
@@ -190,7 +202,7 @@ function Judging({
             </div>
 
             {profile.rules.length > 0 && (
-                <div>
+                <div className={CARD}>
                     <Title>Set aside before ranking</Title>
                     <ul className="mt-1 space-y-0.5">
                         {profile.rules.map((rule) => (
@@ -202,7 +214,7 @@ function Judging({
                 </div>
             )}
 
-            <div>
+            <div className={CARD}>
                 <Title>What Lens looks for on each car</Title>
                 <div className="mt-1 space-y-2.5">
                     {active.map((need) => {
@@ -238,7 +250,7 @@ function Judging({
             </div>
 
             {u.capabilities.length > 0 && (
-                <div>
+                <div className={CARD}>
                     <Title>Things you said you&rsquo;re fine with</Title>
                     <ul className="mt-1 space-y-0.5">
                         {u.capabilities.map((item) => (
@@ -259,10 +271,14 @@ function Judging({
 /** The evidence behind the pick, need by need, in FINN's own facts. */
 function Why({ story }: { story: FitStory }) {
     return (
-        <div className="space-y-4">
-            <div>
-                <p className="text-base font-black leading-6 text-finn-black">{story.carName}</p>
-                <p className="mt-0.5 text-[13px] leading-5 text-finn-iron">{story.bandMeaning}</p>
+        <div>
+            <div className="bg-finn-pale-blue px-4 py-3">
+                <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-finn-accent-blue">Why this car</p>
+                <p className="mt-0.5 flex flex-wrap items-center gap-2 text-sm font-black text-finn-black">
+                    {story.carName}
+                    <BandChip car={{ band: story.band, bandLabel: story.bandLabel }} />
+                </p>
+                <p className="mt-1 text-xs leading-5 text-finn-black">{story.bandMeaning}</p>
             </div>
 
             {story.sections.map((section) => (
@@ -270,10 +286,10 @@ function Why({ story }: { story: FitStory }) {
             ))}
 
             {story.catch && (
-                <div>
-                    <Title>The catch</Title>
-                    <p className="mt-1 text-sm leading-6 text-finn-black">{story.catch.text}</p>
-                    {story.catch.alternative && <p className="mt-0.5 text-[13px] leading-5 text-finn-iron">{story.catch.alternative}</p>}
+                <div className="bg-finn-warning/10 px-4 py-3">
+                    <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-finn-warning-deep">The trade-off</p>
+                    <p className="mt-1 text-xs leading-5 text-finn-black">{story.catch.text}</p>
+                    {story.catch.alternative && <p className="mt-0.5 text-xs leading-5 text-finn-iron">{story.catch.alternative}</p>}
                 </div>
             )}
         </div>
@@ -282,16 +298,28 @@ function Why({ story }: { story: FitStory }) {
 
 function Section({ section }: { section: StorySection }) {
     return (
-        <div>
-            <Title>{section.title}</Title>
-            {section.said && <p className="mt-0.5 text-[13px] leading-5 text-finn-iron">You said: {section.said}</p>}
-            <ul className="mt-1 space-y-1">
+        <div className={CARD}>
+            <div className="flex items-start gap-2">
+                <ToneMark tone={section.tone} size="sm" />
+                <div className="min-w-0">
+                    <p className="text-xs font-black leading-4 text-finn-black">{section.title}</p>
+                    {section.said && <p className="text-[11px] leading-4 text-finn-iron">You said {section.said.replace(/^you said:?\s*/i, "")}</p>}
+                </div>
+            </div>
+            <ul className="mt-1.5 space-y-1">
                 {section.lines.map((line) => (
-                    <li
-                        key={line.text}
-                        className={`text-sm leading-6 ${line.tone === "missing" || line.tone === "unknown" ? "text-finn-iron" : "text-finn-black"}`}
-                    >
-                        {line.text}
+                    <li key={line.text} className="flex gap-2">
+                        <span className="mt-[3px]">
+                            {/* A note on a line is information, not a verdict — it gets no verdict's colour. */}
+                            {line.tone === "note" ? (
+                                <span className="flex h-4 w-4 items-center justify-center" aria-hidden="true">
+                                    <span className="h-1.5 w-1.5 rounded-full bg-finn-iron/50" />
+                                </span>
+                            ) : (
+                                <ToneMark tone={line.tone} size="sm" />
+                            )}
+                        </span>
+                        <span className={`text-xs leading-5 ${line.tone === "missing" || line.tone === "unknown" ? "text-finn-iron" : "text-finn-black"}`}>{line.text}</span>
                     </li>
                 ))}
             </ul>
@@ -304,18 +332,20 @@ function Alternatives({
     rows,
     actions,
     scopeLabel,
+    onCar,
 }: {
     rows: (CarLine & { rank: number; isMatch: boolean })[];
     actions: CarActions;
     scopeLabel: string;
+    onCar?: (carId: number) => void;
 }) {
     return (
         <div>
-            <p className="text-[13px] leading-5 text-finn-iron">
+            <p className="px-4 py-3 text-xs leading-5 text-finn-iron">
                 Lens ranked {scopeLabel} against what you told it. Nothing is pinned unless you pin it.
             </p>
 
-            <ul className="mt-3 divide-y divide-finn-cotton">
+            <ul>
                 {rows.map((row) => {
                     const pinned = actions.pinnedIds.has(row.id);
                     const flags = [
@@ -324,7 +354,16 @@ function Alternatives({
                     ].filter(Boolean);
 
                     return (
-                        <li key={row.id} className="flex items-start gap-2 py-2.5">
+                        <li key={row.id} className="flex items-center gap-2 border-t border-finn-cotton px-2 py-2 first:border-t-0">
+                            <button
+                                type="button"
+                                onClick={() => onCar?.(row.id)}
+                                className="flex min-w-0 flex-1 items-center gap-2.5 rounded-xl text-left"
+                                aria-label={`Compare the ${row.name} with your match`}
+                            >
+                            <div className="flex h-12 w-16 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-finn-snow">
+                                {row.image ? <img src={row.image} alt="" className="h-16 max-w-none object-contain" /> : null}
+                            </div>
                             <div className="min-w-0 flex-1">
                                 <p className="text-sm font-black leading-5 text-finn-black">{row.name}</p>
                                 <p className="mt-0.5 text-[13px] leading-5 text-finn-iron">
@@ -334,9 +373,9 @@ function Alternatives({
                                 </p>
                             </div>
 
-                            <span className={`mt-0.5 shrink-0 rounded-full px-2 py-0.5 text-[10px] font-black ${FIT_BANDS[row.band].chipClass}`}>
-                                {row.bandLabel}
-                            </span>
+                            <BandChip car={row} score={row.total} />
+                            <ChevronRight aria-hidden="true" className="h-4 w-4 shrink-0 text-finn-iron" />
+                            </button>
 
                             <button
                                 type="button"
@@ -366,16 +405,20 @@ function Alternatives({
  * was trying to get away from.
  */
 function Title({ children }: { children: React.ReactNode }) {
-    return <p className="text-[13px] font-black leading-5 text-finn-black">{children}</p>;
+    return <p className="text-[10px] font-black uppercase tracking-wide text-finn-accent-blue">{children}</p>;
 }
+
+/** Each part of the inspector is a card on the chat's own canvas. */
+/* The original's section: a hairline above it, a blue label, and the text. */
+const CARD = "border-t border-finn-cotton px-4 py-3 first:border-t-0";
 
 function Part({ title, text }: { title: string; text: string }) {
     if (!text) return null;
 
     return (
-        <div>
+        <div className={CARD}>
             <Title>{title}</Title>
-            <p className="mt-1 text-sm leading-6 text-finn-black">{`${text.charAt(0).toUpperCase()}${text.slice(1)}`}</p>
+            <p className="mt-1 text-xs leading-5 text-finn-black">{`${text.charAt(0).toUpperCase()}${text.slice(1)}`}</p>
         </div>
     );
 }
