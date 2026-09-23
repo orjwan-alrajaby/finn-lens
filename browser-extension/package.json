@@ -14,7 +14,8 @@
     "compile": "tsc --noEmit",
     "postinstall": "wxt prepare",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "eval:chat": "vitest run --config vitest.eval.config.ts"
   },
   "dependencies": {
     "@google/genai": "^2.23.0",
