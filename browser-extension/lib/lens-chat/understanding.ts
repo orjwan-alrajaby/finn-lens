@@ -1,6 +1,7 @@
 import {
     CATEGORIES,
     CATEGORY_IDS,
+    FINN_INCLUDED_MONTHLY_KM,
     MAX_FEATURES_PER_CATEGORY,
     MAX_PRIORITIES,
     MIN_PRIORITIES,
@@ -17,13 +18,19 @@ import type {
 import type { Answers } from "@/entrypoints/compare/store";
 import type { FinnCar } from "@/lib/types";
 
-import { coverage, EVIDENCE, isEvidenceId, withoutLabel, type EvidenceId } from "./evidence";
+import { AMBIGUOUS_FIGURES, coverage, EVIDENCE, isEvidenceId, withoutLabel, type EvidenceId } from "./evidence";
 
 /** A quantity in a use clause: "four seats", "2 USB ports". */
 const COUNTS = /\d|\b(one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve)\b/i;
 
+/** A message that says anything about money: a figure, a currency, or the words for it. */
+const MONEY = /\d|€|\beur(o|os)?\b|budget|spend|afford|pay\b|paying|cost|price|cheap|expensive|money|\bmax(imum)?\b|limit|stretch|a month\b|monthly/i;
+
 /** Evidence on at least this share of the cars in scope can't tell them apart. */
 const UNIVERSAL_SHARE = 0.9;
+
+/** A question's answer has to turn on evidence no more common than this. */
+const QUESTION_SPLIT = 0.85;
 
 /**
  * A person's situation, as Lens can use it.
@@ -120,8 +127,8 @@ const scoredHome = (id: EvidenceId): CategoryId | null =>
  * nothing they didn't just say.
  */
 const TOPIC_WORDS = new Set([
-    "area", "arrangement", "budget", "car", "cars", "circumstances", "city", "commute", "commuting", "context",
-    "daily", "driving", "family", "general", "habits", "household", "life", "lifestyle", "living", "location",
+    "age", "ages", "area", "arrangement", "budget", "car", "cars", "children", "kids", "s", "visits", "circumstances", "city", "commute", "commuting", "context",
+    "daily", "distance", "distances", "driving", "family", "general", "habits", "household", "life", "lifestyle", "living", "location",
     "needs", "overall", "plans", "preferences", "profile", "requirements", "routine", "setup", "situation",
     "transport", "travel", "trips", "usage", "use", "weekend", "weekends",
 ]);
@@ -146,6 +153,8 @@ export function readUnderstanding(
     previous: Understanding,
     enabled: CategoryId[] = CATEGORY_IDS,
     today = new Date().toISOString().slice(0, 7),
+    /** What the reader said this turn, when there is a message behind it. */
+    message: string | null = null,
 ): Understanding {
     const wire = (raw ?? {}) as Partial<WireUnderstanding>;
     const cleared = new Set(Array.isArray(wire.cleared) ? wire.cleared : []);
@@ -157,7 +166,16 @@ export function readUnderstanding(
 
     let budget = cleared.has("budget") ? null : previous.budget;
 
-    if (wire.budget && typeof wire.budget.monthly === "number") {
+    /*
+     * The model hands back the whole understanding every turn, re-reading
+     * the conversation as it goes — and a turn about a mother's mobility is
+     * no reason for "500 is the absolute maximum" to come back as "around
+     * 500". A budget only changes on a turn where the reader talked about
+     * money; otherwise it stays exactly as they last put it.
+     */
+    const aboutMoney = message == null || previous.budget == null || MONEY.test(message);
+
+    if (aboutMoney && wire.budget && typeof wire.budget.monthly === "number") {
         const monthly = Math.round(wire.budget.monthly);
 
         if (monthly > 0 && monthly <= 10_000) {
@@ -489,9 +507,22 @@ export function readQuestion(
      * here — ISOFIX on 22 of 24 — any answer leads to the same comparison.
      */
     if (affects.length && cars.length >= 2) {
-        const separates = affects.some((id) => {
+        /*
+         * Stricter than for an offer: a question holds up the comparison, so
+         * the equipment it turns on has to split the cars properly. "Self-
+         * steering parking, or are sensors and a camera enough?" was asked
+         * over a page where all three sat on 43 to 46 of 48 cars.
+         */
+        /* A figure Lens can't read as an answer can't separate the cars either. */
+        const separates = affects.filter((id) => !AMBIGUOUS_FIGURES.has(id)).some((id) => {
             const { listed, total } = coverage(cars, id);
-            return listed / total < UNIVERSAL_SHARE;
+            /*
+             * Only an upper bound. Six electric cars in forty-eight is a real
+             * split — "electric only, or everything?" decides between them and
+             * the rest — and a lower bound dropped the one question that
+             * settled a couple's disagreement.
+             */
+            return listed > 0 && listed / total <= QUESTION_SPLIT;
         });
 
         if (!separates) return null;
@@ -511,6 +542,9 @@ export function readQuestion(
 /* -------------------------------------------------------------------------- */
 /* Grounding                                                                  */
 /* -------------------------------------------------------------------------- */
+
+/** A sentence about Lens's own bookkeeping rather than about the person. */
+const BOOKKEEPING = /^(I('ve| have| will|'ll)|Lens (has|will|is))\s+(now\s+)?(set|updated|noted|added|recorded|saved|adjusted|changed|kept|made a note|taken note|updating|noting|setting)\b/i;
 
 /** Every number in a text, without thousands separators: "€1,000 on the 8th" → 1000, 8. */
 const numbersIn = (value: string): string[] =>
@@ -546,10 +580,29 @@ export function groundInWhatWasSaid(
         if (u.rental.startDay) known.add(String(u.rental.startDay));
     }
 
-    const grounded = (value: string) => numbersIn(value).every((number) => known.has(number));
+    /*
+     * FINN's own allowance is a fact Lens publishes, not a detail about the
+     * person, and "around 2,100 km" is a fair rounding of the 2,064 Lens
+     * worked out from their commute. Dropping those threw away the one
+     * sentence that answered "does the move change anything?".
+     */
+    known.add(String(FINN_INCLUDED_MONTHLY_KM));
+    if (u.monthlyKm) known.add(String(Math.max(0, u.monthlyKm.value - FINN_INCLUDED_MONTHLY_KM)));
+
+    const derived = [u.monthlyKm?.value, u.budget?.monthly, u.budget?.stretchTo].filter((value): value is number => Boolean(value));
+    const rounds = (number: string) => derived.some((value) => Math.abs(Number(number) - value) <= value * 0.05);
+
+    const grounded = (value: string) => numbersIn(value).every((number) => known.has(number) || rounds(number));
 
     const sentences = reply.match(/[^.!?]+(?:[.!?]+|$)/g) ?? [];
-    const kept = sentences.filter(grounded).join("").trim();
+    const checked = sentences.filter(grounded);
+    /*
+     * "I've updated your needs…" is bookkeeping, and the strip above the
+     * conversation already shows it. Said after a sentence that shows Lens
+     * understood, it only dilutes it; said alone, it's all there is.
+     */
+    const substance = checked.filter((sentence) => !BOOKKEEPING.test(sentence.trim()));
+    const kept = (substance.length ? substance : checked).join("").trim();
 
     return {
         reply: kept || (sentences.length ? "Here's what I took from that." : reply),
@@ -667,21 +720,54 @@ export function toAnswers(base: Answers, u: Understanding, enabled: CategoryId[]
     const dropped = new Set(u.droppedPriorities);
     const lessRelevant = [...new Set([...u.capabilities.flatMap((item) => item.lessRelevant), ...u.declined])];
 
-    const scores = new Map<CategoryId, { score: number; first: number; from: string[] }>();
+    const scores = new Map<CategoryId, { score: number; breadth: number; first: number; from: string[] }>();
 
+    /*
+     * A need's weight goes to its priorities by how much of it each one
+     * actually holds: one share for being named, one for each piece of the
+     * need's evidence a reader could raise there. Taking the need's full
+     * importance for every priority it touched let one incidental sensor put
+     * a whole priority first — "dark roads" cites rain and light sensors,
+     * which live under climate, and climate came out at 40% of the result
+     * for someone who never mentioned the weather.
+     *
+     * The strongest single need decides the place; how many needs a priority
+     * serves only breaks ties, so a need the reader has just called essential
+     * still goes first over several small ones that share a priority.
+     */
     active.forEach((need, index) => {
-        for (const id of need.priorities) {
+        const holds = new Map<CategoryId, number>();
+
+        for (const id of need.priorities) holds.set(id, 1);
+        for (const entry of need.evidence) {
+            const home = scoredHome(entry.id);
+
+            if (home && holds.has(home) && !entry.unwanted && !lessRelevant.includes(entry.id)) {
+                holds.set(home, holds.get(home)! + 1);
+            }
+        }
+
+        /*
+         * Relative to the priority that holds most of the need, not to the
+         * total: a commute that bears on long-distance and on safety is no
+         * less a commute than weekend parking that bears on one priority.
+         */
+        const most = Math.max(...holds.values());
+
+        for (const [id, share] of holds) {
             if (dropped.has(id) || !enabled.includes(id)) continue;
 
-            const current = scores.get(id) ?? { score: 0, first: index, from: [] };
-            current.score = Math.max(current.score, RANK[need.importance]);
+            const current = scores.get(id) ?? { score: 0, breadth: 0, first: index, from: [] };
+            const weight = (RANK[need.importance] * share) / most;
+            current.score = Math.max(current.score, weight);
+            current.breadth += weight;
             current.from.push(need.label);
             scores.set(id, current);
         }
     });
 
     const ranked = [...scores.entries()]
-        .sort((a, b) => b[1].score - a[1].score || a[1].first - b[1].first)
+        .sort((a, b) => b[1].score - a[1].score || b[1].breadth - a[1].breadth || a[1].first - b[1].first)
         .slice(0, MAX_PRIORITIES)
         .map(([id, entry]) => ({ id, from: entry.from, filler: false }));
 
@@ -725,7 +811,14 @@ export function toAnswers(base: Answers, u: Understanding, enabled: CategoryId[]
             for (const entry of need.evidence) {
                 const def = EVIDENCE[entry.id];
 
-                if (def.scoredIn !== id || !def.raisable || lessRelevant.includes(entry.id)) continue;
+                /*
+                 * What they want absent is a rule or a note, never a raise:
+                 * raising "a seven-seater" for someone who said "not a
+                 * seven-seater" told the engine to reward exactly that, and
+                 * the car that honoured them came back with "fewer than six
+                 * seats" as its catch.
+                 */
+                if (def.scoredIn !== id || !def.raisable || lessRelevant.includes(entry.id) || entry.unwanted) continue;
 
                 const level = RAISE[need.importance];
                 const existing = raised.get(entry.id as SignalId);

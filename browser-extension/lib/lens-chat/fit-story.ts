@@ -6,7 +6,7 @@ import type { WireQuestion } from "@/lib/lens-ai/contract";
 import { carLabel } from "@/lib/lens-ai/outcome";
 import type { PinnedFinnCar } from "@/lib/types";
 
-import { asPhrase, barePhrase, EVIDENCE, evidenceMet, measuredDisplay, readEvidence, type EvidenceId } from "./evidence";
+import { AMBIGUOUS_FIGURES, asPhrase, isKind, barePhrase, EVIDENCE, evidenceMet, measuredDisplay, readEvidence, type EvidenceId } from "./evidence";
 import { lengthAmong, lengthGap, parkingContext, widthContext } from "./dimensions";
 
 /** How a measured figure is introduced, and what to say when FINN has none. */
@@ -80,6 +80,12 @@ export interface FitStory {
     stillToKnow: WireQuestion | null;
 }
 
+/** Equipment on at least this share of the cars in scope can't be why one of them was chosen. */
+const COMMON_SHARE = 0.9;
+
+const joinNames = (names: string[]): string =>
+    names.length <= 1 ? (names[0] ?? "") : `${names.slice(0, -1).join(", ")} and ${names.at(-1)}`;
+
 const BAND_MEANING: Record<FitLevel, string> = {
     strong: "it covers what Lens could check for you well",
     good: "it covers most of what Lens could check for you, with some gaps",
@@ -136,7 +142,8 @@ function evidenceLine(
      */
     const useClause = def.undesirable ? "" : entry.use;
 
-    if (measured) {
+    /* An SUV body is answered below, where its length can be said beside it. */
+    if (measured && !(entry.id === "suvBody" && state === "listed")) {
         /*
          * A measurement says more beside something the reader can picture. It
          * is context, not a verdict: Lens never says a car is easy to park,
@@ -180,10 +187,47 @@ function evidenceLine(
     if (state === "notListed") {
         return def.undesirable
             ? { tone: "good", text: `It isn't ${asPhrase(entry.id)}.` }
-            : { tone: "missing", text: `FINN doesn't list ${lower(def.label)} for this car.` };
+            : isKind(entry.id)
+              ? /* A kind of car is something it is, not an item on a list. */
+                { tone: "missing", text: `It isn't ${asPhrase(entry.id)}.` }
+              : { tone: "missing", text: `FINN doesn't list ${lower(def.label)} for this car.` };
     }
 
     return { tone: "unknown", text: `FINN doesn't say whether it has ${lower(def.label)}.` };
+}
+
+/** Why the car on the card isn't the best car here at any price, when nothing fits the limit. */
+/*
+ * Where the money goes, when it's the kilometres. Someone driving 1,540 km a
+ * month is paying FINN for 1,040 of them on top of every price here, and
+ * "nothing fits" without that reads as "the cars are too expensive".
+ */
+function mileageShare(run: LensRun): string {
+    const cost = run.recommendation.context.costs[run.recommendation.winner.id];
+    const excess = cost?.excessMileage;
+
+    if (!excess?.amount || excess.excessKm <= 0 || excess.amount < 0.15 * cost!.totalMonthly) return "";
+
+    return `About ${formatEUR(excess.amount)} of this car's figure is FINN's charge for the ${excess.excessKm.toLocaleString("en-GB")} km a month you drive beyond the ${excess.includedMonthlyKm.toLocaleString("en-GB")} it includes.`;
+}
+
+function nearestLine(run: LensRun, limit: number): StoryLine {
+    const near = run.nearestToLimit!;
+    const best = near.bestAtAnyPrice;
+    const short = near.cheapest - limit;
+
+    return {
+        tone: "note",
+        text: [
+            `The cheapest car here comes to about ${formatEUR(near.cheapest)}/month all in, so Lens compared only the cars within ${formatEUR(near.upTo - near.cheapest)} of it${
+                best ? ` — not the best match at any price, the ${best.name} at about ${formatEUR(best.monthly)}` : ""
+            }.`,
+            short > 0 ? `Getting under ${formatEUR(limit)} would take a car about ${formatEUR(short)} a month cheaper than anything on this page.` : "",
+            mileageShare(run),
+        ]
+            .filter(Boolean)
+            .join(" "),
+    };
 }
 
 export function tellFitStory(
@@ -191,9 +235,17 @@ export function tellFitStory(
     u: Understanding,
     lessRelevant: EvidenceId[],
     stillToKnow: WireQuestion | null,
+    /**
+     * Another car Lens ranked, to tell the same story about it instead of the
+     * match: what it does for each of the reader's needs, read off that car.
+     */
+    carId: number | null = null,
 ): FitStory {
     const { recommendation, narrative } = run;
-    const { winner, context } = recommendation;
+    const { context } = recommendation;
+    const match = recommendation.winner;
+    const winner = (carId != null ? recommendation.ranked.find((car) => car.id === carId) : null) ?? match;
+    const other = winner.id !== match.id;
     const cars = context.vehicles;
     const name = (car: PinnedFinnCar) => carLabel(car, cars);
     const cost = context.costs[winner.id];
@@ -226,10 +278,12 @@ export function tellFitStory(
                 lines.push({ tone: "missing", text: `This is the closest match, at about ${formatEUR(monthly)}/month — ${formatEUR(monthly - u.budget.monthly)} over the maximum you gave me.` });
             }
 
+            if (run.nearestToLimit) lines.push(nearestLine(run, u.budget.monthly));
+
             const top = recommendation.topScorer;
             const topCost = context.costs[top.id];
 
-            if (recommendation.budgetChangedTheAnswer && top.id !== winner.id && topCost?.budgetStatus === "over") {
+            if (!other && recommendation.budgetChangedTheAnswer && top.id !== winner.id && topCost?.budgetStatus === "over") {
                 lines.push({
                     tone: "note",
                     text: `${name(top)} scores higher overall, but at about ${formatEUR(topCost.totalMonthly)}/month it breaks your maximum, so I treated it as outside your options.`,
@@ -249,7 +303,9 @@ export function tellFitStory(
             title = beyond
                 ? `Nothing here comes near the ${formatEUR(u.budget.monthly)} you mentioned`
                 : gap > 0
-                  ? `A little above the ${formatEUR(u.budget.monthly)} you mentioned`
+                  ? gap <= u.budget.monthly * 0.1
+                    ? `A little above the ${formatEUR(u.budget.monthly)} you mentioned`
+                    : `${formatEUR(gap)} above the ${formatEUR(u.budget.monthly)} you mentioned`
                   : `Within the ${formatEUR(u.budget.monthly)} you mentioned`;
             lines.push({
                 tone,
@@ -263,6 +319,8 @@ export function tellFitStory(
             });
         }
 
+        if (u.budget.kind !== "hardMax" && run.nearestToLimit) lines.push(nearestLine(run, u.budget.monthly));
+
         sections.push({
             key: "budget",
             said: u.budget.said,
@@ -274,6 +332,30 @@ export function tellFitStory(
             summary: `About ${formatEUR(monthly)}/month`,
             tone,
         });
+    }
+
+    /*
+     * With no budget there is no money section, and nowhere for the
+     * kilometres to be said — yet for someone asking whether a 60 km commute
+     * changes what makes sense, FINN's charge for the distance beyond what it
+     * includes is most of the answer.
+     */
+    if (!u.budget && u.monthlyKm) {
+        const share = mileageShare(run);
+
+        if (share) {
+            sections.push({
+                key: "mileage",
+                said: u.monthlyKm.said,
+                title: "Your mileage is part of every price here",
+                short: `About ${u.monthlyKm.value.toLocaleString("en-GB")} km a month`,
+                kind: "budget",
+                importance: "constraint",
+                lines: [{ tone: "note", text: share }],
+                summary: `About ${formatEUR(cost?.totalMonthly ?? 0)}/month`,
+                tone: "note",
+            });
+        }
     }
 
     /* -- What they ruled out --------------------------------------------- */
@@ -372,10 +454,42 @@ export function tellFitStory(
         const orderOf: Record<Tone, number> = { good: 0, note: 1, missing: 2, unknown: 3 };
 
         const evidence = need.evidence.filter((entry) => !lessRelevant.includes(entry.id));
-        const lines = evidence
-            .map((entry) => ({ line: evidenceLine(winner, entry, cars), share: share(entry) }))
-            .sort((a, b) => orderOf[a.line.tone] - orderOf[b.line.tone] || a.share - b.share)
-            .map((item) => item.line);
+        const read = evidence
+            .map((entry) => ({ entry, line: evidenceLine(winner, entry, cars), share: share(entry) }))
+            .sort((a, b) => orderOf[a.line.tone] - orderOf[b.line.tone] || a.share - b.share);
+
+        /*
+         * Equipment nearly every car here has is true of this one and says
+         * nothing about choosing it. Listed one by one, emergency braking and
+         * lane keeping read as reasons — to someone who said they don't know
+         * which safety features matter, the most useful thing Lens can tell
+         * them is which ones don't separate the cars. So those go in one line,
+         * after what does.
+         */
+        const common = cars.length >= 4
+            ? read.filter(
+                  (item) =>
+                      item.line.tone === "good" &&
+                      item.share / cars.length >= COMMON_SHARE &&
+                      /* A rule's own evidence is on every car left because of the rule. */
+                      !item.entry.unwanted &&
+                      !item.entry.mustHave &&
+                      !EVIDENCE[item.entry.id].undesirable &&
+                      !measuredDisplay(winner, item.entry.id),
+              )
+            : [];
+        const lines = read.filter((item) => !common.includes(item)).map((item) => item.line);
+
+        if (common.length) {
+            const names = joinNames(common.map((item) => lower(EVIDENCE[item.entry.id].label)));
+
+            lines.push({
+                tone: "note",
+                text: lines.some((line) => line.tone === "good")
+                    ? `It also has ${names}, but so does nearly every car here, so ${common.length === 1 ? "that doesn't" : "those don't"} set it apart.`
+                    : `It has ${names} — as does nearly every car here, so ${common.length === 1 ? "that doesn't" : "those don't"} set it apart.`,
+            });
+        }
 
         if (need.notInData) {
             const related = lines.some((line) => line.tone === "good");
@@ -396,7 +510,13 @@ export function tellFitStory(
         const good = evidence.filter((entry) => met(winner, entry) === true);
         const missing = evidence.filter((entry) => met(winner, entry) === false);
 
-        const tone: Tone = good.length && !missing.length ? "good" : good.length ? "note" : missing.length ? "missing" : "unknown";
+        /*
+         * What nearly every car has is true of this one, but it isn't this
+         * car helping more than another would: a need met only by that is
+         * met at the level of the basics, and the title says so.
+         */
+        const onlyBasics = good.length > 0 && good.every((entry) => common.some((item) => item.entry.id === entry.id));
+        const tone: Tone = onlyBasics && !missing.length ? "note" : good.length && !missing.length ? "good" : good.length ? "note" : missing.length ? "missing" : "unknown";
 
         sections.push({
             key: need.id,
@@ -404,8 +524,10 @@ export function tellFitStory(
             title:
                 tone === "good"
                     ? `It helps with ${lower(need.label)}`
-                    : tone === "note"
-                      ? `It partly covers ${lower(need.label)}`
+                    : tone === "note" && onlyBasics && !missing.length
+                      ? `It has the basics for ${lower(need.label)}`
+                      : tone === "note"
+                        ? `It partly covers ${lower(need.label)}`
                       : tone === "missing"
                         ? `It's weak on ${lower(need.label)}`
                         : `Lens can't tell much about ${lower(need.label)}`,
@@ -476,14 +598,24 @@ export function tellFitStory(
                 /* Named by the need's own label, so the sentence can't inherit a paraphrase's grammar. */
                 text: (gap.entry.unwanted ?? EVIDENCE[gap.entry.id].undesirable)
                     ? `FINN lists this one as ${measuredDisplay(winner, gap.entry.id) ?? asPhrase(gap.entry.id)} — worth weighing for ${lower(gap.need.label)}.`
-                    : `FINN doesn't list ${lower(EVIDENCE[gap.entry.id].label)} for this car — worth weighing for ${lower(gap.need.label)}.`,
+                    : measuredDisplay(winner, gap.entry.id)
+                      ? /*
+                         * A figure that falls short is still a figure. "FINN
+                         * doesn't list electric range" over a car FINN gives
+                         * 320 km was false, and it hid the one comparison that
+                         * mattered: that range against the trip they described.
+                         */
+                        `${MEASURED_LEAD[gap.entry.id] ?? "It's"} ${measuredDisplay(winner, gap.entry.id)} — worth weighing for ${lower(gap.need.label)}.`
+                      : `FINN doesn't list ${lower(EVIDENCE[gap.entry.id].label)} for this car — worth weighing for ${lower(gap.need.label)}.`,
                 alternative: gap.alternative
-                    ? `${name(gap.alternative)} ${gap.entry.unwanted ?? EVIDENCE[gap.entry.id].undesirable ? "isn't one" : "has it"}${altCost ? `, at about ${formatEUR(altCost.totalMonthly)}/month` : ""}${u.budget?.kind === "hardMax" ? " — still within your maximum" : ""}${
+                    ? `${name(gap.alternative)} ${gap.entry.unwanted ?? EVIDENCE[gap.entry.id].undesirable ? "isn't one" : measuredDisplay(winner, gap.entry.id) ? "does better on it" : "has it"}${altCost ? `, at about ${formatEUR(altCost.totalMonthly)}/month` : ""}${u.budget?.kind === "hardMax" ? " — still within your maximum" : ""}${
                           lengthGap(gap.alternative, winner, "this one") ? `, and it's ${lengthGap(gap.alternative, winner, "this one")}` : ""
                       }.`
                     : single
                       ? null
-                      : "None of the other cars that fit your constraints lists it either.",
+                      : measuredDisplay(winner, gap.entry.id)
+                        ? "None of the other cars that fit your constraints does better on it."
+                        : "None of the other cars that fit your constraints lists it either.",
             };
         }
 
@@ -522,9 +654,12 @@ export function tellFitStory(
      * happens — a cost it can't complete is not "over budget" to it — so the
      * label follows what this card is about to say about the money.
      */
-    const overBudget = sections.some((section) => section.kind === "budget" && section.tone !== "good");
+    /* A little over a figure they called a target is not "nothing fits": the card says by how much. */
+    const overBudget = sections.some((section) => section.kind === "budget" && (section.tone === "missing" || section.tone === "unknown"));
 
-    const eyebrow = single
+    const eyebrow = other
+        ? "Compared with your match"
+        : single
         ? "How this car fits you"
         : missed
           ? `Closest match — ${missed}`
@@ -553,7 +688,10 @@ export function evidenceForNeeds(run: LensRun, u: Understanding) {
     return run.recommendation.ranked.slice(0, 12).map((car) => ({
         car: carLabel(car, run.recommendation.context.vehicles),
         withinYourConstraints: isValid(run, car),
-        evidence: Object.fromEntries(ids.map((id) => [EVIDENCE[id].label, readEvidence(car, id)])),
+        /* A figure is sent as the figure: "listed" would read as an answer FINN's number can't give. */
+        evidence: Object.fromEntries(
+            ids.map((id) => [EVIDENCE[id].label, AMBIGUOUS_FIGURES.has(id) ? (measuredDisplay(car, id) ?? "unknown") : readEvidence(car, id)]),
+        ),
     }));
 }
 

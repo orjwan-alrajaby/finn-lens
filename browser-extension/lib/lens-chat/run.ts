@@ -37,12 +37,37 @@ export interface LensRun {
         /** True when every car was ruled out, so the ranking ignored the rule. */
         nothingLeft: boolean;
     } | null;
+    /**
+     * Set when no car here stays within the reader's limit: Lens ranked only
+     * the cars nearest it, rather than the best car at any price.
+     */
+    nearestToLimit: {
+        /** The cheapest monthly cost here, and how far above it Lens looked. */
+        cheapest: number;
+        upTo: number;
+        /** Cars left out of the ranking for being further over the limit. */
+        setAside: number;
+        /** The car that would have won at any price, and what it costs. */
+        bestAtAnyPrice: { id: number; name: string; monthly: number } | null;
+    } | null;
     /** "Comparing 12 cars on this page". */
     scopeHeadline: string;
     answers: Answers;
     recommendation: Recommendation;
     narrative: AdviceNarrative;
+    /**
+     * Cars Lens shows as the same match as the pick, and what they cost.
+     *
+     * Two cars on the same number are two cars Lens can't tell apart on what
+     * it checks — so the reader is owed the reason the pick is the pick, and
+     * that reason is the price.
+     */
+    level: { others: number; cheapest: boolean; nextUp: number | null } | null;
 }
+
+/** How far above the cheapest car here Lens still looks when nothing fits the limit. */
+const NEAR_LIMIT_EUR = 50;
+const NEAR_LIMIT_SHARE = 0.1;
 
 export function runLens(
     cars: PinnedFinnCar[],
@@ -74,19 +99,60 @@ export function runLens(
     const setAside = cars.length - allowed.length;
     const nothingLeft = allowed.length === 0;
 
-    const recommendation = buildRecommendation(
-        nothingLeft ? cars : allowed,
-        answers.priorities,
-        answers.preferences,
-        answers.features,
-    );
+    const pool = nothingLeft ? cars : allowed;
+    const rank = (candidates: PinnedFinnCar[]) =>
+        buildRecommendation(candidates, answers.priorities, answers.preferences, answers.features);
+
+    let recommendation = rank(pool);
 
     if (!recommendation) return null;
+
+    /*
+     * Nothing stays within the limit. The engine's answer is then the best
+     * car at any price — right for the advice page, where the reader studies
+     * the ranking, and wrong in a conversation with someone who said "500 is
+     * the absolute maximum": a €926 car came back as their closest match
+     * when others were €150 nearer. So the ranking is redone over the cars
+     * nearest the limit, and the story says that's what happened.
+     */
+    let nearestToLimit: LensRun["nearestToLimit"] = null;
+
+    if (recommendation.isFallback && recommendation.fallbackReason === "allOverBudget") {
+        const costs = recommendation.context.costs;
+        const priced = pool.filter((car) => costs[car.id]?.complete);
+        const cheapest = Math.min(...priced.map((car) => costs[car.id]!.totalMonthly));
+
+        if (priced.length > 1 && Number.isFinite(cheapest)) {
+            const upTo = Math.round(cheapest + Math.max(NEAR_LIMIT_EUR, cheapest * NEAR_LIMIT_SHARE));
+            const near = priced.filter((car) => costs[car.id]!.totalMonthly <= upTo);
+            const atAnyPrice = recommendation.winner;
+            const narrowed = near.length && near.length < pool.length ? rank(near) : null;
+
+            if (narrowed) {
+                nearestToLimit = {
+                    cheapest: Math.round(cheapest),
+                    upTo,
+                    setAside: pool.length - near.length,
+                    bestAtAnyPrice:
+                        narrowed.winner.id === atAnyPrice.id
+                            ? null
+                            : {
+                                  id: atAnyPrice.id,
+                                  name: carLabel(atAnyPrice, pool),
+                                  monthly: Math.round(costs[atAnyPrice.id]?.totalMonthly ?? 0),
+                              },
+                };
+                recommendation = narrowed;
+            }
+        }
+    }
 
     return {
         scope,
         scopeHeadline,
         answers,
+        level: levelWith(recommendation),
+        nearestToLimit,
         ruledOut: ruledOut.length ? { evidence: ruledOut, setAside, nothingLeft } : null,
         recommendation,
         narrative: buildAdviceNarrative(
@@ -94,6 +160,36 @@ export function runLens(
             recommendation.context,
             recommendation.alternatives,
         ),
+    };
+}
+
+/**
+ * The cars the reader is shown as the same match as the winner.
+ *
+ * "The same match" means the number on the card: the fit, rounded, which is
+ * all the reader ever sees. Where two cars carry it, the engine now puts the
+ * cheaper one first — this says so, and says by how much.
+ */
+function levelWith(recommendation: Recommendation): LensRun["level"] {
+    const { winner, ranked, context } = recommendation;
+    const shown = (car: PinnedFinnCar) => totalFor(context.scores, car.id);
+    const monthly = (car: PinnedFinnCar) => {
+        const cost = context.costs[car.id];
+
+        return cost?.complete ? cost.totalMonthly : null;
+    };
+
+    const mine = monthly(winner);
+    const others = ranked.filter((car) => car.id !== winner.id && shown(car) === shown(winner));
+
+    if (!others.length) return null;
+
+    const dearer = others.map(monthly).filter((cost): cost is number => cost != null && mine != null && cost > mine);
+
+    return {
+        others: others.length,
+        cheapest: mine != null && others.every((car) => (monthly(car) ?? Infinity) >= mine),
+        nextUp: dearer.length ? Math.round(Math.min(...dearer) - (mine ?? 0)) : null,
     };
 }
 

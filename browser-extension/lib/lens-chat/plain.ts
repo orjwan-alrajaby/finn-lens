@@ -97,13 +97,14 @@ export function heardLines(u: Understanding): HeardLines {
     }
 
     const notChasing = [
-        ...u.droppedPriorities.map((id) => lower(CATEGORIES[id].label)),
+        /* A priority's label is title case throughout: "environmental impact", not "environmental Impact". */
+        ...u.droppedPriorities.map((id) => CATEGORIES[id].label.toLowerCase()),
         ...u.needs.filter((need) => need.status === "dropped").map((need) => lower(need.label)),
         ...u.notModelled.filter((item) => item.stance === "doesntCare").map((item) => lower(item.said)),
     ].filter((item, index, all) => all.indexOf(item) === index);
 
     return {
-        situation: joinLabels(u.context.map((item) => lower(item.label))),
+        situation: joinLabels(u.context.map((item) => lower(item.label.replace(/[.;]+$/, "")))),
         limits: join(limits),
         lookingFor: joinLabels(active.map((need) => lower(need.label))),
         notChasing: joinLabels(notChasing),
@@ -149,7 +150,12 @@ export function matchSentence(story: FitStory): string {
     /* A list that already has commas in it can't take another one. */
     const before = opening.includes(",") ? " — " : ", ";
 
-    return money.tone === "good" ? `${opening}${before}within what you wanted to spend.` : `${opening} — but not what you wanted to spend.`;
+    if (money.tone === "good") return `${opening}${before}within what you wanted to spend.`;
+
+    /* Above a target, inside the stretch Lens allowed it: a trade, not a failure. */
+    if (money.tone === "note") return `${opening} — ${/^A little/.test(money.title) ? "a little " : ""}above the figure you aimed for.`;
+
+    return `${opening} — but not what you wanted to spend.`;
 }
 
 /**

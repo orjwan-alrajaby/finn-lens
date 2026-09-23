@@ -213,12 +213,24 @@ export function readEvidence(car: FinnCar, id: EvidenceId): EvidenceState {
     return utility === 1 ? "listed" : "notListed";
 }
 
+/** Figures quoted to the reader that can't say whether a need is met. */
+export const AMBIGUOUS_FIGURES = new Set<EvidenceId>(["bootVolume"]);
+
 /**
  * Whether this car answers the need the evidence was cited for: normally that
  * it's listed, and for evidence nobody wants (an SUV body) that it isn't.
  * Null where FINN says nothing either way.
  */
 export function evidenceMet(car: FinnCar, id: EvidenceId, unwanted = EVIDENCE[id].undesirable === true): boolean | null {
+    /*
+     * A figure Lens quotes but can't read as an answer. FINN's boot litres are
+     * seats-up on one car and seats-folded on the next — the same BMW X1
+     * appears at 1,545 L and at 500 L — so "a 1,010 L boot" on a 3.6 m city
+     * car told someone who carries a lot for the weekend that it helps, when
+     * nothing Lens has can say so.
+     */
+    if (AMBIGUOUS_FIGURES.has(id)) return null;
+
     const state = readEvidence(car, id);
 
     if (state === "unknown") return null;
@@ -250,6 +262,8 @@ export const asPhrase = (id: EvidenceId): string => {
 
 /** Evidence that describes what kind of car it is, rather than what it carries. */
 const KINDS = new Set<EvidenceId>(["electricCar", "suvBody", "seatsSixPlus", "seatsFivePlus", "hasAutomaticTransmission"]);
+
+export const isKind = (id: EvidenceId): boolean => KINDS.has(id);
 
 /**
  * A rule in a sentence. A kind of car is something the car *is*; everything
@@ -378,7 +392,9 @@ export function evidenceCatalogue(cars: FinnCar[]) {
             label: def.label,
             explanation: def.explanation,
             scoredBy: def.scoredIn ? CATEGORIES[def.scoredIn].label : "not scored — Lens only reads it",
-            listedOn: `${counts.listed} of ${counts.total} cars in scope${counts.unknown ? ` (${counts.unknown} unknown)` : ""}`,
+            listedOn: AMBIGUOUS_FIGURES.has(id)
+                ? `a figure on ${counts.total - counts.unknown} of ${counts.total} cars in scope, quoted but never read as meeting a need`
+                : `${counts.listed} of ${counts.total} cars in scope${counts.unknown ? ` (${counts.unknown} unknown)` : ""}`,
         };
     });
 }
