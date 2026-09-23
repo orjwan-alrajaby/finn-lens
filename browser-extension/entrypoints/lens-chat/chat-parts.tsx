@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
-import { ArrowUp, CalendarDays, Check, MessageCircleQuestion, Shuffle, Sparkles, Wallet } from "lucide-react";
+import { ArrowUp, CalendarDays, Check, MessageCircleQuestion, Shuffle, Sparkles, UserRound, Wallet } from "lucide-react";
 
 import { InfoTip } from "@/components/InfoTip";
 import { Thinking } from "@/entrypoints/compare/lens-ai/parts";
@@ -7,6 +7,7 @@ import { Thinking } from "@/entrypoints/compare/lens-ai/parts";
 import { formatEUR } from "@/lib/reasoning-engine";
 import type { WireQuestion } from "@/lib/lens-ai/contract";
 import { EVIDENCE, plainly, type EvidenceId } from "@/lib/lens-chat/evidence";
+import { saidFor, type GuideStep } from "@/lib/lens-chat/guide";
 import { needChips } from "@/lib/lens-chat/plain";
 import type { Understanding } from "@/lib/lens-chat/understanding";
 
@@ -96,9 +97,10 @@ export function Option({
     );
 }
 
-type AskKind = "budget" | "dates" | "question" | "offer" | "whatIf" | "ready";
+type AskKind = "budget" | "dates" | "question" | "offer" | "whatIf" | "ready" | "about";
 
 const ASK_LOOK: Record<AskKind, { label: string; icon: ReactNode }> = {
+    about: { label: "About you", icon: <UserRound aria-hidden="true" className="h-3.5 w-3.5" /> },
     budget: { label: "Your budget", icon: <Wallet aria-hidden="true" className="h-3.5 w-3.5" /> },
     dates: { label: "Your dates", icon: <CalendarDays aria-hidden="true" className="h-3.5 w-3.5" /> },
     question: { label: "Lens asks", icon: <MessageCircleQuestion aria-hidden="true" className="h-3.5 w-3.5" /> },
@@ -360,6 +362,79 @@ export function PeriodAsk({
                     {backwards && <p className="col-span-2 text-[11px] leading-4 text-finn-error">The second date is before the first.</p>}
                 </div>
             )}
+        </Asked>
+    );
+}
+
+/**
+ * Lens's own question, answered by tapping.
+ *
+ * This is how the conversation runs when there is no model to read a
+ * sentence: Lens asks in its own words, the reader picks from what Lens can
+ * actually check on these cars, and nothing moves until they say they're done.
+ * Several answers stay open until then, because "kids in the back" and "long
+ * motorway drives" are both true of the same person, and sending each tap
+ * straight through would answer the question three times.
+ */
+export function ChoiceAsk({
+    step,
+    busy,
+    answered,
+    onAnswer,
+}: {
+    step: GuideStep;
+    busy: boolean;
+    answered: AskAnswer | null;
+    onAnswer: (chosen: string[], said: string) => void;
+}) {
+    const done = answered != null;
+    const [chosen, setChosen] = useState<string[]>([]);
+
+    const pick = (id: string) => {
+        if (!step.multiple) {
+            const choice = step.choices.find((item) => item.id === id);
+
+            /* One answer: tapping it is the whole answer, so it goes at once. */
+            onAnswer([id], choice?.said ?? "");
+            return;
+        }
+
+        setChosen((all) => (all.includes(id) ? all.filter((item) => item !== id) : [...all, id]));
+    };
+
+    return (
+        <Asked
+            kind="about"
+            done={done}
+            title={step.ask}
+            answer={answered?.text}
+            options={
+                done ? null : (
+                    <>
+                        {step.choices.map((choice) => (
+                            <Option key={choice.id} onClick={() => pick(choice.id)} disabled={busy} chosen={chosen.includes(choice.id)}>
+                                {choice.label}
+                            </Option>
+                        ))}
+
+                        {step.multiple ? (
+                            <Option
+                                primary={chosen.length > 0}
+                                disabled={busy}
+                                onClick={() => onAnswer(chosen, saidFor(step, chosen))}
+                            >
+                                {chosen.length ? `That's ${chosen.length === 1 ? "it" : `all ${chosen.length}`}` : step.none}
+                            </Option>
+                        ) : (
+                            <Option disabled={busy} onClick={() => onAnswer([], step.none)}>
+                                {step.none}
+                            </Option>
+                        )}
+                    </>
+                )
+            }
+        >
+            {step.hint && !done && <p>{step.hint}</p>}
         </Asked>
     );
 }
@@ -634,6 +709,47 @@ export function LensStatus({ understanding, onOpen }: { understanding: Understan
             </span>
             <span className="shrink-0 text-[11px] font-black text-finn-accent-blue group-hover:underline">Your needs</span>
         </button>
+    );
+}
+
+/**
+ * The foot of the panel in Lens Chat, where there is nothing to read a
+ * sentence with.
+ *
+ * A message box that can't read a message is worse than no box: people type
+ * into it, press send, and are told the thing they wanted lives in Settings.
+ * So the space says what this chat does instead — Lens asks, you tap — and
+ * what turning the model on would add.
+ */
+export function TypingOffer({
+    askLabel,
+    onAsk,
+    onOpenSettings,
+}: {
+    /** "Ask me questions" before a comparison; "Change my answers" after one. */
+    askLabel: string;
+    onAsk: () => void;
+    onOpenSettings: () => void;
+}) {
+    return (
+        <div className="flex items-center gap-2 rounded-[20px] bg-finn-snow px-3 py-2">
+            <p className="min-w-0 flex-1 text-[11px] leading-4 text-finn-iron">
+                Lens asks; you tap.{" "}
+                <button type="button" onClick={onOpenSettings} className="font-black text-finn-accent-blue hover:underline">
+                    Turn on Lens AI
+                </button>{" "}
+                to type instead.
+            </p>
+
+            <button
+                type="button"
+                onClick={onAsk}
+                className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full bg-white px-3 text-[11px] font-black text-finn-accent-blue ring-1 ring-finn-cotton transition hover:bg-finn-pale-blue"
+            >
+                <MessageCircleQuestion aria-hidden="true" className="h-3.5 w-3.5" />
+                {askLabel}
+            </button>
+        </div>
     );
 }
 

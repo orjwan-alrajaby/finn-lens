@@ -7,7 +7,6 @@ import { highlightConfiguration } from "../lens-panel/highlight";
 import { setCarPinned } from "../lens-panel/pin-control";
 import { extractConfigId } from "../injectors/inject-pin-button/injectPinCarButtonIntoNode/utils";
 import { ensureCarsFor } from "../car-data";
-import { lensAiUsable, loadLensAiSettings, watchLensAiSettings } from "@/lib/lens-ai/settings";
 
 /**
  * "Ask Lens" on finn.com: a small bubble, and the chat it opens.
@@ -389,36 +388,19 @@ export function notifyPageChanged(): void {
         .catch(() => {});
 }
 
-/*
- * Ask Lens exists only while Lens AI is on. Read once, then kept current, so
- * switching it off in Settings takes the bubble off an open finn.com tab and
- * switching it on brings it back, without a reload.
+/**
+ * Ask Lens is part of Lens, not part of Lens AI.
+ *
+ * The bubble used to appear only where a Gemini key was saved and switched on,
+ * which made the chat look like a feature of the model: without one, finn.com
+ * had no Lens conversation at all. It has one — Lens asks its own questions,
+ * ranks with its own engine and explains in its own words — and the model,
+ * when it's on, lets the reader type instead of tap. So the bubble is here
+ * whenever there are cars to talk about, and the panel says which chat it is.
  */
-let aiOn: Promise<boolean> | null = null;
 
-function lensAiOn(): Promise<boolean> {
-    if (!aiOn) {
-        aiOn = loadLensAiSettings().then(lensAiUsable);
-
-        watchLensAiSettings((settings) => {
-            aiOn = Promise.resolve(lensAiUsable(settings));
-            void syncChatBubble();
-        });
-    }
-
-    return aiOn;
-}
-
-/** Adds the bubble where there are cars to talk about and Lens AI is on; removes it otherwise. */
+/** Adds the bubble where there are cars to talk about; hides it otherwise. */
 export async function syncChatBubble(): Promise<void> {
-    if (!(await lensAiOn())) {
-        if (host) {
-            if (isOpen) setOpen(false);
-            host.style.display = "none";
-        }
-        return;
-    }
-
     listen();
 
     if (!pageHasCars()) {

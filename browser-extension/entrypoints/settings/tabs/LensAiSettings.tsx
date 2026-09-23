@@ -11,10 +11,12 @@ interface LensAiSettingsProps {
 /**
  * Lens AI, switched on or off, and the reader's own Gemini key.
  *
- * Off is a complete product: the engine ranks, scores and explains without
- * a model. On adds the places where a reader can say what they need in their
- * own words. The switch can't be turned on without a key, and the key is
- * checked with Google as soon as it's entered (`GeminiKeyField`).
+ * Off is a complete product. Ask Lens is there on finn.com either way: Lens
+ * asks its own questions, ranks with its own engine and explains in its own
+ * words. What the model adds is reading — the reader types what they need
+ * instead of tapping it, and Lens can ask back about what a sentence left out.
+ * The switch can't be turned on without a key, and the key is checked with
+ * Google as soon as it's entered (`GeminiKeyField`).
  */
 export function LensAiSettings({ settings, onChange }: LensAiSettingsProps) {
     const key = settings.apiKey.trim();
@@ -24,7 +26,7 @@ export function LensAiSettings({ settings, onChange }: LensAiSettingsProps) {
     return (
         <Section
             title="Lens AI"
-            description="Optional, and off unless you turn it on. Lens's recommendations, scores and explanations always come from its own engine. Lens AI only adds a way to tell Lens what you need in your own words — the engine still does the ranking."
+            description="Optional, and off unless you turn it on. Ask Lens works without it — Lens asks the questions and you tap the answers. Switch it on and the same chat reads what you type instead. Either way the recommendations, scores and explanations come from Lens's own engine."
         >
             <div className="flex items-start justify-between gap-4 rounded-2xl bg-finn-snow p-4">
                 <div>
@@ -32,11 +34,11 @@ export function LensAiSettings({ settings, onChange }: LensAiSettingsProps) {
                     <p className="mt-1 text-xs leading-5 text-finn-iron">
                         {settings.enabled && usable
                             ? settings.simulated
-                                ? "On, simulated: Ask Lens answers with Lens's built-in stand-in, not Gemini."
-                                : "On: Ask Lens appears on finn.com, and you can describe what you need on the recommendation page."
+                                ? "On, simulated: Lens AI Chat answers with Lens's built-in stand-in, not Gemini."
+                                : "On: Ask Lens becomes Lens AI Chat, and you can describe what you need here and on the recommendation page."
                             : usable
-                              ? "Off: Lens works from your settings and pinned cars only."
-                              : "Add a Gemini API key below to turn it on."}
+                              ? "Off: Ask Lens stays Lens Chat — it asks, you tap."
+                              : "Add a Gemini API key below to turn it on. Ask Lens works without one."}
                     </p>
                 </div>
                 <Toggle

@@ -22,8 +22,9 @@ const GUIDE_ID = "finn-lens-ai";
  * Built like the tour two screens back, on purpose: the reader has already
  * learned that a drawing of finn.com here is live and that the navy bubbles
  * walk them through it. So the same page comes back with the one thing Lens
- * AI adds — the Ask Lens bubble — and the guide opens it, shows a message
- * going in, what Lens understood, and the car it picked.
+ * AI adds — reading a message — and the guide opens the chat, shows a message
+ * going in, what Lens understood, and the car it picked. The chat itself is
+ * not what AI adds: it is there either way, asking its own questions.
  *
  * Two halves of that conversation are different in kind, and the screen says
  * so. The reading of the message is an example of what the model returns.
@@ -91,9 +92,10 @@ export function LensAi({
                         title: "Ask Lens, on every page with cars",
                         content: (
                             <>
-                                With Lens AI on, this bubble sits in the corner of finn.com. Open it to talk about the cars on
-                                the page, your pinned cars, or the one you're looking at.
-                                <Where>Bottom right of finn.com, only while Lens AI is on.</Where>
+                                This bubble sits in the corner of finn.com whether or not you turn Lens AI on. Open it to talk
+                                about the cars on the page, your pinned cars, or the one you're looking at — Lens asks its own
+                                questions, and with Lens AI on it reads what you type instead.
+                                <Where>Bottom right of finn.com, wherever there are cars.</Where>
                             </>
                         ),
                         onShow: () => show("closed"),
@@ -106,8 +108,9 @@ export function LensAi({
                         title: "Say it the way you'd say it",
                         content: (
                             <>
-                                No settings to find. Describe your life, what worries you and what you can spend — Lens reads
-                                that into what it can actually check on a car.
+                                This is the part Lens AI adds. Describe your life, what worries you and what you can spend —
+                                Lens reads that into what it can actually check on a car. Without it, Lens asks you the same
+                                ground question by question.
                             </>
                         ),
                         onShow: () => show("listening"),

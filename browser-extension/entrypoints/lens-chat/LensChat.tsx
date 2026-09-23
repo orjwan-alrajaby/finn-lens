@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Baby, CircleParking, Route, Rows3, Save, X, Zap } from "lucide-react";
+import { Baby, CircleParking, MessageCircle, Route, Rows3, Save, X, Zap } from "lucide-react";
 
 import { loadLensSettings, monthLabel, saveLensSettings } from "@/lib/reasoning-engine";
 import type { LensSettings } from "@/lib/reasoning-engine/types";
@@ -14,6 +14,7 @@ import type { PageContext } from "@/lib/lens-chat/messages";
 import type { EvidenceId } from "@/lib/lens-chat/evidence";
 import { markHandOff, nameFor, saveSearch, saveSession, type LensSession } from "@/lib/lens-chat/session";
 import { asPhrase, barePhrase, evidenceCatalogue, plainly } from "@/lib/lens-chat/evidence";
+import { applyChoices, guideSteps, offersFor, whatIfs, type GuideStep } from "@/lib/lens-chat/guide";
 import { evidenceForNeeds, finnsOwnWords, quotesAreFinns, tellFitStory } from "@/lib/lens-chat/fit-story";
 import { matchSentence } from "@/lib/lens-chat/plain";
 import { compareRows, runLens, summariseMatch, type LensRun } from "@/lib/lens-chat/run";
@@ -46,6 +47,7 @@ import { carNamed, whyNot } from "@/lib/lens-chat/why-not";
 import {
     AskGroup,
     BudgetAsk,
+    ChoiceAsk,
     Composer,
     ConfirmAsk,
     FeatureAsk,
@@ -55,6 +57,7 @@ import {
     LensThinking,
     Said,
     Says,
+    TypingOffer,
     WhatIfAsk,
     type AskAnswer,
 } from "./chat-parts";
@@ -94,14 +97,16 @@ import {
 /**
  * One thing Lens wants from the reader, asked as part of the conversation.
  *
- * Budget and dates Lens asks for itself; a question and an offer of equipment
- * come from the model. None of them is a form: each is a line of Lens's own
- * speech with something to tap, and answering one adds the reader's answer to
- * the conversation like anything else they said.
+ * Budget, dates and the guide's steps Lens asks for itself; a question comes
+ * from the model, and an offer of equipment from either. None of them is a
+ * form: each is a line of Lens's own speech with something to tap, and
+ * answering one adds the reader's answer to the conversation like anything
+ * else they said.
  */
 type Ask =
     | { of: "budget" }
     | { of: "period" }
+    | { of: "choices"; step: GuideStep }
     | { of: "question"; question: WireQuestion }
     | { of: "feature"; id: EvidenceId; why: string; needId: string };
 
@@ -578,6 +583,108 @@ export function LensChat() {
         );
     }, []);
 
+    /* -- The conversation Lens holds on its own ------------------------------ */
+
+    /**
+     * Lens Chat: the same conversation, asked rather than read.
+     *
+     * With Lens AI off there is nothing to read a sentence, but everything
+     * else is still here — the priorities, the evidence, the cars on the page.
+     * So Lens asks its own questions, in its own words, and the taps build the
+     * same understanding a model's replies build. Past that point the two are
+     * the same code: the same translation, the same ranking, the same story.
+     */
+    const guide = useRef<GuideStep[]>([]);
+    /**
+     * True while the reader is going through the questions again after a
+     * comparison. The money is the thing most likely to have moved, and
+     * "everything I still need" doesn't include a budget already given — so
+     * without this, "change my answers" could change anything except that.
+     */
+    const askingAgain = useRef(false);
+
+    /**
+     * The guide has been through; what's left is what Lens always needs.
+     *
+     * Budget and dates, and any equipment these cars differ on that one of
+     * their needs would score — the deterministic half of what the model
+     * offers, read off the page instead of off the person.
+     */
+    const finishGuide = useCallback(
+        (u: Understanding) => {
+            const current = latest.current;
+            const missing = missingEssentials(u);
+            const again = askingAgain.current;
+            askingAgain.current = false;
+            const budget = missing.budget || again;
+            const offers = offersFor(u, current.scopes[current.kind].cars);
+
+            if (budget) openAsk({ of: "budget" });
+            if (missing.period) openAsk({ of: "period" });
+
+            for (const offer of offers) openAsk({ of: "feature", id: offer.id, why: offer.why, needId: offer.needId });
+
+            if (!budget && !missing.period && !offers.length) offerCompare(u);
+        },
+        [offerCompare, openAsk],
+    );
+
+    /* One question at a time: this is a conversation, not a form. */
+    const askNextStep = useCallback(
+        (u: Understanding) => {
+            const step = guide.current.shift();
+
+            if (step) {
+                openAsk({ of: "choices", step });
+                return;
+            }
+
+            finishGuide(u);
+        },
+        [finishGuide, openAsk],
+    );
+
+    const startGuide = useCallback(() => {
+        const current = latest.current;
+
+        guide.current = guideSteps(current.scopes[current.kind].cars, current.enabled);
+        askingAgain.current = Boolean(current.run);
+        retireAsks();
+        say(
+            current.run
+                ? "Tell me what's changed and I'll run it again."
+                : "Let's work it out together. I'll ask a few things — only what I can actually check on these cars.",
+        );
+        askNextStep(current.understanding);
+    }, [askNextStep, retireAsks, say]);
+
+    const answerChoices = useCallback(
+        (entryId: number, step: GuideStep, chosen: string[], said: string) => {
+            const next = applyChoices(latest.current.understanding, step, chosen);
+
+            setUnderstanding(next);
+            latest.current.understanding = next;
+            closeAsk(entryId, said);
+            recordAnswer(said);
+            askNextStep(next);
+        },
+        [askNextStep, closeAsk, recordAnswer],
+    );
+
+    /**
+     * A what-if Lens thought of itself, put to the reader exactly as the
+     * model's are: the change, what it would do, and their decision at the end.
+     */
+    const proposeWhatIf = useCallback(
+        (item: { label: string; reply: string; after: Understanding }) => {
+            const before = latest.current.applied?.understanding ?? latest.current.understanding;
+
+            push({ kind: "whatIf", reply: item.reply, after: item.after, lines: diffUnderstanding(before, item.after), status: "pending" });
+            history.current.push({ role: "lens", text: item.reply });
+        },
+        [push],
+    );
+
     const talk = useCallback(
         async (message: string) => {
             const current = latest.current;
@@ -747,8 +854,14 @@ export function LensChat() {
             }
         }
 
+        /*
+         * Lens Chat can't read a sentence — that is what Lens AI adds — so
+         * rather than refuse, it asks. The questions cover the same ground the
+         * typed message would have.
+         */
         if (!aiReady) {
-            say("Lens AI is turned off, so Lens can't read free text. You can still get a match from your Lens settings, ask why, compare and pin — or turn Lens AI on in Settings.", "note");
+            say("I can't read what you typed unless Lens AI is on — but I can ask instead, and my questions cover the same ground.", "note");
+            startGuide();
             return;
         }
 
@@ -965,12 +1078,23 @@ export function LensChat() {
                         },
                     ]
                   : []),
-              { label: "My budget changed", act: () => void send("My budget changed.") },
-          ]
-              .filter((item) => aiReady || item.label === "Why this car?")
-              .slice(0, 3)
-        : aiReady && entries.length === 0
-          ? STARTERS.map((starter) => ({ label: starter.title, act: () => void send(starter.message) }))
+              /*
+               * With Lens AI on, a change of mind is something the reader says.
+               * Without it, Lens offers the changes this comparison actually
+               * turned on — a budget that kept the best match out, a rule that
+               * set cars aside — and asking again is a tap.
+               */
+              ...(aiReady
+                  ? [{ label: "My budget changed", act: () => void send("My budget changed.") }]
+                  : /* One, and the foot of the panel owns "change my answers". */
+                    whatIfs(run, applied?.understanding ?? understanding)
+                        .slice(0, 1)
+                        .map((item) => ({ label: item.label, act: () => proposeWhatIf(item) }))),
+          ].slice(0, 3)
+        : entries.length === 0
+          ? aiReady
+              ? STARTERS.map((starter) => ({ label: starter.title, act: () => void send(starter.message) }))
+              : []
           : [];
 
     /* -- Rendering ----------------------------------------------------------- */
@@ -982,7 +1106,13 @@ export function LensChat() {
 
     return (
         <div className="relative flex h-screen flex-col bg-white font-sans text-finn-black">
-            <Header scope={scope} scopes={scopes} kind={kind} onScope={(next) => switchScope(next)} />
+            <Header
+                scope={scope}
+                scopes={scopes}
+                kind={kind}
+                name={status.state === "checking" ? "Lens" : aiReady ? "Lens AI Chat" : "Lens Chat"}
+                onScope={(next) => switchScope(next)}
+            />
 
             {/* What Lens is working with — a glance, and a way into the whole of it. */}
             <LensStatus understanding={understanding} onOpen={() => setInspector("needs")} />
@@ -1000,6 +1130,7 @@ export function LensChat() {
                         onOpenSettings={() => void openBrowserTab("OPEN_SETTINGS_PAGE")}
                         onUseSettings={() => compareWith(EMPTY_UNDERSTANDING, kind, `Using your ${personalised ? "" : "default "}Lens settings.`)}
                         onStart={(message) => void send(message)}
+                        onAsk={startGuide}
                     />
                 ) : (
                     <div className="space-y-3">
@@ -1066,6 +1197,19 @@ export function LensChat() {
                                                             said,
                                                         );
                                                     }}
+                                                />
+                                            );
+
+                                        case "choices":
+                                            return (
+                                                <ChoiceAsk
+                                                    key={entry.id}
+                                                    step={entry.ask.step}
+                                                    busy={busy}
+                                                    answered={entry.answered ? (entry.answer ?? { text: null, choice: null }) : null}
+                                                    onAnswer={(chosen, said) =>
+                                                        answerChoices(entry.id, (entry.ask as { step: GuideStep }).step, chosen, said)
+                                                    }
                                                 />
                                             );
 
@@ -1196,21 +1340,23 @@ export function LensChat() {
                     </div>
                 )}
 
-                <Composer
-                    value={input}
-                    busy={busy}
-                    ready={ready}
-                    inputRef={inputRef}
-                    onChange={setInput}
-                    onSend={() => void send(input)}
-                    placeholder={
-                        !aiReady
-                            ? "Lens AI is off — turn it on in Settings"
-                            : run
-                              ? "Ask about this car, or tell me more…"
-                              : "Tell me about your life with the car…"
-                    }
-                />
+                {aiReady ? (
+                    <Composer
+                        value={input}
+                        busy={busy}
+                        ready={ready}
+                        inputRef={inputRef}
+                        onChange={setInput}
+                        onSend={() => void send(input)}
+                        placeholder={run ? "Ask about this car, or tell me more…" : "Tell me about your life with the car…"}
+                    />
+                ) : (
+                    <TypingOffer
+                        askLabel={run ? "Change my answers" : "Ask me questions"}
+                        onAsk={startGuide}
+                        onOpenSettings={() => void openBrowserTab("OPEN_SETTINGS_PAGE")}
+                    />
+                )}
             </footer>
 
             {inspector && applied && (
@@ -1311,11 +1457,18 @@ function Header({
     scope,
     scopes,
     kind,
+    name,
     onScope,
 }: {
     scope: Scope;
     scopes: Record<ScopeKind, Scope>;
     kind: ScopeKind;
+    /**
+     * Which chat this is: "Lens Chat", or "Lens AI Chat" where the reader has
+     * switched the model on. The panel behaves differently enough — one asks,
+     * the other reads — that it has to say which it is without being asked.
+     */
+    name: string;
     onScope: (kind: ScopeKind) => void;
 }) {
     const options: ScopeKind[] = ["page", "pinned", "thisCar"];
@@ -1325,7 +1478,7 @@ function Header({
             <div className="flex items-center gap-2 pl-3">
                 <img src="/icon/48.png" alt="" className="h-7 w-7 rounded-full bg-white" />
                 <div className="min-w-0 flex-1">
-                    <p className="text-sm font-black leading-4">Lens</p>
+                    <p className="text-sm font-black leading-4">{name}</p>
                     <p className="truncate text-[11px] leading-4 text-finn-iron" aria-live="polite">
                         {scope.headline}
                         {scope.kind === "page" && scope.missing > 0 ? ` · ${scope.missing} not loaded yet` : ""}
@@ -1372,6 +1525,16 @@ function Header({
     );
 }
 
+/**
+ * The way in, for whichever chat this is.
+ *
+ * Lens Chat asks; Lens AI Chat also reads. So the first thing on screen is
+ * the thing this version can actually do — the questions where the model is
+ * off, an empty box and a real example where it's on — and the other way in is
+ * offered below it rather than explained as something missing. The old screen
+ * led with "tell Lens in your own words" whether or not anything could read
+ * them, and then apologised underneath.
+ */
 function EmptyState({
     scope,
     aiState,
@@ -1379,6 +1542,7 @@ function EmptyState({
     onOpenSettings,
     onUseSettings,
     onStart,
+    onAsk,
 }: {
     scope: Scope;
     aiState: "checking" | "off" | "ready";
@@ -1386,42 +1550,61 @@ function EmptyState({
     onOpenSettings: () => void;
     onUseSettings: () => void;
     onStart: (message: string) => void;
+    onAsk: () => void;
 }) {
+    const ai = aiState === "ready";
+
     return (
         <div className="px-2 py-4">
-            <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-finn-accent-blue">Ask Lens</p>
+            <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-finn-accent-blue">{ai ? "Lens AI Chat" : "Lens Chat"}</p>
             <h2 className="mt-1 text-xl font-black tracking-tight">What are you looking for?</h2>
             <p className="mt-1 text-sm leading-6 text-finn-iron">
-                Tell Lens in your own words. You&rsquo;ll see how it understood you before anything changes.
+                {ai
+                    ? "Tell Lens in your own words. You’ll see how it understood you before anything changes."
+                    : "Lens will ask a few questions about your life with the car, then compare what’s here against your answers."}
             </p>
-            <button
-                type="button"
-                onClick={() => onStart(STARTERS[0]!.message)}
-                className="mt-3 w-full rounded-2xl bg-white px-3 py-2.5 text-left text-xs italic leading-5 text-finn-iron transition hover:text-finn-accent-blue"
-            >
-                &ldquo;{STARTERS[0]!.message}&rdquo;
-            </button>
+
+            {ai ? (
+                <button
+                    type="button"
+                    onClick={() => onStart(STARTERS[0]!.message)}
+                    className="mt-3 w-full rounded-2xl bg-white px-3 py-2.5 text-left text-xs italic leading-5 text-finn-iron transition hover:text-finn-accent-blue"
+                >
+                    &ldquo;{STARTERS[0]!.message}&rdquo;
+                </button>
+            ) : (
+                <button
+                    type="button"
+                    onClick={onAsk}
+                    className="mt-3 inline-flex h-10 w-full items-center justify-center gap-2 rounded-full bg-finn-accent-blue px-4 text-sm font-black text-white transition hover:bg-finn-highlight-navy"
+                >
+                    <MessageCircle aria-hidden="true" className="h-4 w-4" />
+                    Ask me a few questions
+                </button>
+            )}
 
             <p className="mt-4 text-[11px] leading-4 text-finn-iron">
                 {scope.cars.length ? `Lens can compare ${scope.description}.` : "Lens doesn't have data for any cars in this set yet."}
             </p>
 
-            {aiState === "off" && (
-                <div className="mt-4 rounded-2xl bg-white px-3 py-3">
-                    <p className="text-xs leading-5 text-finn-iron">
-                        Lens AI is turned off, so Lens can&rsquo;t read free text. Everything else still works.
-                    </p>
-                    <button type="button" onClick={onOpenSettings} className="mt-1 text-xs font-black text-finn-accent-blue hover:underline">
-                        Open Settings
-                    </button>
-                </div>
-            )}
-
             {scope.cars.length > 0 && (
-                <div className="mt-4">
+                <div className="mt-4 space-y-2">
+                    {ai && <SecondaryButton onClick={onAsk}>Or let Lens ask me questions instead</SecondaryButton>}
                     <SecondaryButton onClick={onUseSettings}>
                         Or get a match from my {personalised ? "" : "default "}Lens settings
                     </SecondaryButton>
+                </div>
+            )}
+
+            {aiState === "off" && (
+                <div className="mt-4 rounded-2xl bg-white px-3 py-3">
+                    <p className="text-xs leading-5 text-finn-iron">
+                        Turn Lens AI on and this same chat reads what you type instead: your own words, your own order, and questions
+                        back about what it can&rsquo;t tell from them.
+                    </p>
+                    <button type="button" onClick={onOpenSettings} className="mt-1 text-xs font-black text-finn-accent-blue hover:underline">
+                        Turn on Lens AI
+                    </button>
                 </div>
             )}
         </div>

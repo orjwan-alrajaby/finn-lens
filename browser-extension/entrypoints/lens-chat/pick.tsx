@@ -245,7 +245,14 @@ function NeedRow({ section }: { section: StorySection }) {
     const detail =
         [has, lacks].filter(Boolean).map((line) => line!.text).join(" ") ||
         telling[0]?.text ||
-        section.lines.find((line) => !ABSENCE.test(line.text))?.text;
+        section.lines.find((line) => !ABSENCE.test(line.text))?.text ||
+        /*
+         * Unless that leaves nothing. "It isn't an SUV" is noise under a need
+         * about carrying children, which is what the filter above is for — but
+         * under "Not an SUV" it is the whole answer, and dropping it left the
+         * row as a heading with blank space beneath it.
+         */
+        section.lines[0]?.text;
 
     return (
         <li className="flex gap-2 py-1.5">
