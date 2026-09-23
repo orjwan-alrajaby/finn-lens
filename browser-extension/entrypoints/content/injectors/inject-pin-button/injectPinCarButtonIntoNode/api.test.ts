@@ -1,6 +1,6 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
-import { splitBrandAndModel } from "./api";
+import { loadCarByConfigId, loadCarPage, splitBrandAndModel } from "./api";
 
 /**
  * A detail page gives the car's name twice — as a heading and as a URL — and
@@ -53,4 +53,43 @@ describe("splitBrandAndModel", () => {
       model: "",
     });
   });
+});
+
+/**
+ * The two calls Lens makes to hold the cars a page is showing. What matters
+ * in the URL is what went wrong before: `group_by` returns one configuration
+ * per model, and a card's id names a configuration — so a grouped call can't
+ * answer for the cards on a listing.
+ */
+describe("asking FINN for the cars a page shows", () => {
+    const asked = async (call: () => Promise<unknown>): Promise<URL> => {
+        const calls: string[] = [];
+
+        vi.stubGlobal("fetch", (input: string) => {
+            calls.push(input);
+
+            return Promise.resolve({ ok: true, json: () => Promise.resolve({ results: [] }) } as Response);
+        });
+        vi.stubGlobal("document", { documentElement: { lang: "de-DE" } });
+
+        await call();
+        vi.unstubAllGlobals();
+
+        return new URL(calls[0]!);
+    };
+
+    it("reads a page of configurations, ungrouped", async () => {
+        const url = await asked(() => loadCarPage(200, 200));
+
+        expect(url.searchParams.get("group_by")).toBeNull();
+        expect(url.searchParams.get("offset")).toBe("200");
+        expect(url.searchParams.get("limit")).toBe("200");
+    });
+
+    it("asks for one configuration by the id a card carries", async () => {
+        const url = await asked(() => loadCarByConfigId(31951));
+
+        expect(url.searchParams.get("config_id")).toBe("31951");
+        expect(url.searchParams.get("group_by")).toBeNull();
+    });
 });

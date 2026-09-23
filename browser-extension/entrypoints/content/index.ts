@@ -7,6 +7,7 @@ import {
   getPinnedCars,
   mergeLoadedCars,
 } from "./injectors/inject-pin-button/injectPinCarButtonIntoNode/storage";
+import { ensurePageCars, forgetAsked } from "./car-data";
 import { closePanel } from "./lens-panel/panel";
 import { notifyPageChanged, syncChatBubble } from "./lens-chat/bubble";
 import {
@@ -100,17 +101,25 @@ export default defineContentScript({
       }, 80);
     };
 
-    const patchHistory = (method: "pushState" | "replaceState") => {
-      const original = history[method].bind(history);
+    /*
+     * FINN's own navigations, heard from FINN's own world.
+     *
+     * This used to wrap `history.pushState` here. A content script has its
+     * own JavaScript globals — which is the whole reason `fetch` is wrapped
+     * in the injected page script rather than in this file — so what it
+     * wrapped was a copy of `history` that finn.com never calls. Moving
+     * between cars therefore fired nothing: the panel stayed open describing
+     * the car the reader had just left, and an open Ask Lens chat was never
+     * told to re-read the page. Only `popstate` — the back button — ever got
+     * through, which is why it looked like it worked.
+     */
+    window.addEventListener("message", (event) => {
+      if (event.source !== window) return;
+      if (event.data?.source !== "finn-lens") return;
+      if (event.data?.type !== "FINN_NAVIGATED") return;
 
-      history[method] = (...args: Parameters<typeof history.pushState>) => {
-        original(...args);
-        window.dispatchEvent(new Event("finnlens:navigate"));
-      };
-    };
-
-    patchHistory("pushState");
-    patchHistory("replaceState");
+      window.dispatchEvent(new Event("finnlens:navigate"));
+    });
 
     window.addEventListener("popstate", () =>
       window.dispatchEvent(new Event("finnlens:navigate"))
@@ -156,6 +165,15 @@ export default defineContentScript({
 
           runInjections();
 
+          /*
+           * The cards a listing just drew, given cars to be about. FINN adds
+           * them as the reader scrolls, and the ones it rendered on its own
+           * server never passed through the interceptor at all — so without
+           * this the badges ask "how does it fit?", the panel has to fetch
+           * when opened, and Ask Lens reports a page full of cars as empty.
+           */
+          void ensurePageCars();
+
           browser.runtime.sendMessage({
             type: "CARDS_LOADED",
           });
@@ -172,6 +190,9 @@ export default defineContentScript({
       runInjections();
       startObserving();
 
+      /* Whatever this page already shows, before anyone asks about it. */
+      void ensurePageCars();
+
       if (document.querySelector(HOME_PAGE_SELECTOR)) {
         console.info("[FinnLens] home page detected");
       } else if (document.querySelector(LISTINGS_PAGE_SELECTOR)) {
@@ -181,25 +202,54 @@ export default defineContentScript({
       }
     };
 
-    const onNavigate = () => {
-      if (navDebounceTimer !== null) {
-        clearTimeout(navDebounceTimer);
+    /**
+     * What counts as having moved to another car.
+     *
+     * The path, plus the configuration the query names: FINN switches between
+     * a model's configurations without leaving the page, and that is exactly
+     * the case a stale panel has to be closed for. Everything else in the
+     * query is filters and sort order, which FINN rewrites constantly — so
+     * reading those as a move would shut the panel under a reader who is only
+     * narrowing a search.
+     */
+    const pageKey = (href: string): string => {
+      try {
+        const url = new URL(href);
+
+        return `${url.pathname}?${url.searchParams.get("selected_config") ?? ""}`;
+      } catch {
+        return href;
       }
+    };
+
+    let lastPageKey = pageKey(window.location.href);
+
+    const onNavigate = () => {
+      const key = pageKey(window.location.href);
+      const moved = key !== lastPageKey;
+
+      lastPageKey = key;
 
       /*
        * Shut before the new page is read rather than after. FINN moves between
        * cars without reloading, and a panel still describing the car the
        * reader has just left is worse than no panel at all.
        *
-       * This used to be `unmountLauncher`, which closed the panel on its way
-       * out. The launcher is gone — every configuration carries its own badge,
-       * so a floating button offering the same thing for whichever car the
-       * page happened to be about was a second way in that named no car — and
-       * closing the panel is the part of that teardown that still has to
-       * happen.
+       * Only on a real move, though. Re-reading the page and telling the chat
+       * about it is cheap and wanted whenever the URL changes at all — a
+       * filter leaves a different set of cars on the page — but tearing the
+       * panel and the badges down is not.
        */
-      closePanel();
-      removeFitBadges();
+      if (moved) {
+        closePanel();
+        removeFitBadges();
+        /* A new page may show cars the last one couldn't get; let it try again. */
+        forgetAsked();
+      }
+
+      if (navDebounceTimer !== null) {
+        clearTimeout(navDebounceTimer);
+      }
 
       navDebounceTimer = setTimeout(() => {
         navDebounceTimer = null;

@@ -29,17 +29,28 @@ async function finnFetch<T = any>(path: string): Promise<T> {
 }
 
 /**
- * FINN's whole list of available cars, in one request.
+ * One page of FINN's configurations, ungrouped.
  *
- * For Ask Lens only, when the reader opens it on a page whose cars haven't
- * reached Lens: listing pages are rendered on FINN's server, so the page's
- * own `/api/cars` calls — which the interceptor copies — may not have happened
- * yet. One list call covers every card a listing draws; it is made because the
- * reader opened the chat, never on page load.
+ * `group_by=brand-model` — which every other call here uses — returns one
+ * representative configuration per model, so most of the cards a listing
+ * draws are missing from it. Without it the same endpoint lists the
+ * configurations themselves, which is what a card's id refers to, and what
+ * Lens has to hold to say anything about the car.
  */
-export function loadListingCars(): Promise<FinnCarsResponse> {
+export function loadCarPage(offset: number, limit = 200): Promise<FinnCarsResponse> {
   return finnFetch<FinnCarsResponse>(
-    "/api/cars?group_by=brand-model&hide_related=true&limit=200&view=available_cars",
+    `/api/cars?hide_related=true&limit=${limit}&offset=${offset}&view=available_cars`,
+  );
+}
+
+/**
+ * Exactly one configuration, by the id the card carries. FINN takes a single
+ * `config_id` per request — several ids in one call return nothing at all —
+ * so this is for the few a page listing leaves behind, never for a whole page.
+ */
+export function loadCarByConfigId(configId: number): Promise<FinnCarsResponse> {
+  return finnFetch<FinnCarsResponse>(
+    `/api/cars?hide_related=true&limit=1&view=available_cars&config_id=${configId}`,
   );
 }
 
