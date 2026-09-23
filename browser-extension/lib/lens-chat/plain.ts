@@ -179,10 +179,25 @@ export function needChips(u: Understanding): string[] {
         chips.push(`${from}–${shortMonth(u.rental.to)}`);
     }
 
-    for (const rule of ruledOut(u)) chips.push(ruleLabel(rule.id, rule.mode));
+    const rules = ruledOut(u);
+
+    for (const rule of rules) chips.push(ruleLabel(rule.id, rule.mode));
 
     for (const need of u.needs) {
-        if (need.status === "active") chips.push(need.label);
+        if (need.status !== "active") continue;
+
+        /*
+         * A need that is nothing but a rule is already above it. Lens Chat
+         * makes "I don't want an SUV" a need of its own, which is how the
+         * engine is told to set those cars aside — but shown beside the rule
+         * it produced, it reads as two separate things: "No SUV · Not an SUV".
+         */
+        const onlyARule =
+            !need.priorities.length &&
+            need.evidence.length > 0 &&
+            need.evidence.every((entry) => rules.some((rule) => rule.id === entry.id));
+
+        if (!onlyARule) chips.push(need.label);
     }
 
     return chips;
