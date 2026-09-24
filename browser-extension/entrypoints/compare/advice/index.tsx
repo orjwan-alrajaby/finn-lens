@@ -49,10 +49,13 @@ import { AskLens } from "../lens-ai/AskLens";
  */
 export function Advice({
     cars,
+    judgedOn,
     onAdjust,
     onChallenge,
 }: {
     cars: PinnedFinnCar[];
+    /** Whose answers, over which cars — "Ranked by what you told the chat, across the 70 cars from your chat." */
+    judgedOn?: string;
     /** Opens the drawer, which is where every input to this page lives. */
     onAdjust: () => void;
     /** Crosses to the challenge tab. */
@@ -108,8 +111,8 @@ export function Advice({
                     </h1>
 
                     <p className="mt-2 text-sm text-finn-iron">
-                        Judged on your priorities, your driving assumptions and
-                        your budget, across all {cars.length} cars being compared.
+                        {judgedOn ??
+                            `Judged on your priorities, your driving assumptions and your budget, across all ${cars.length} cars being compared.`}
                     </p>
                 </div>
 

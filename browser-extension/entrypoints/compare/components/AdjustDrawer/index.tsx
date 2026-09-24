@@ -3,7 +3,7 @@ import * as Accordion from "@radix-ui/react-accordion";
 import * as Dialog from "@radix-ui/react-dialog";
 import { Settings, X } from "lucide-react";
 
-import { isCustomisedFrom } from "@/lib/reasoning-engine";
+import { isCustomisedFrom, saveLensSettings } from "@/lib/reasoning-engine";
 import type {
     CategoryId,
     LensPreferences,
@@ -375,21 +375,53 @@ function Footer({
     onSave: () => void;
     onSettings: () => void;
 }) {
+    const answersFrom = useCompareStore((state) => state.answersFrom);
+    const [kept, setKept] = useState(false);
+
+    /* What the page is running now — applied answers, not an unsaved draft. */
+    const keepAsSettings = () => {
+        const { priorities, preferences, features, basedOn } = useCompareStore.getState();
+
+        void saveLensSettings({ priorities, preferences, categoryFeatures: features, basedOn }).then(() => setKept(true));
+    };
+
     return (
         <footer className="flex flex-col-reverse gap-3 border-t border-finn-cotton bg-white px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-6">
-            <p className="text-[11px] leading-4 text-finn-iron">
-                Your order is kept for next time. Everything else applies to
-                this comparison only —{" "}
-                <button
-                    type="button"
-                    onClick={onSettings}
-                    className="inline-flex items-center gap-1 font-bold text-finn-accent-blue underline-offset-2 transition hover:underline"
-                >
-                    <Settings aria-hidden="true" className="h-3 w-3" />
-                    make it permanent in Settings
-                </button>
-                .
-            </p>
+            {answersFrom.kind === "search" ? (
+                /*
+                 * Adjusting a search is adjusting that search. It used to
+                 * write the order into the reader's saved settings like any
+                 * other change here — which then judged every badge on
+                 * finn.com. Keeping it is now the reader's own act.
+                 */
+                <p className="text-[11px] leading-4 text-finn-iron">
+                    You're adjusting “{answersFrom.name}”, for this page only. Your saved settings stay as they are —{" "}
+                    <button
+                        type="button"
+                        onClick={keepAsSettings}
+                        disabled={kept}
+                        className="inline-flex items-center gap-1 font-bold text-finn-accent-blue underline-offset-2 transition hover:underline disabled:no-underline disabled:opacity-70"
+                    >
+                        <Settings aria-hidden="true" className="h-3 w-3" />
+                        {kept ? "saved as your settings" : "save these as my settings"}
+                    </button>
+                    .
+                </p>
+            ) : (
+                <p className="text-[11px] leading-4 text-finn-iron">
+                    Your order is kept for next time. Everything else applies to
+                    this comparison only —{" "}
+                    <button
+                        type="button"
+                        onClick={onSettings}
+                        className="inline-flex items-center gap-1 font-bold text-finn-accent-blue underline-offset-2 transition hover:underline"
+                    >
+                        <Settings aria-hidden="true" className="h-3 w-3" />
+                        make it permanent in Settings
+                    </button>
+                    .
+                </p>
+            )}
 
             <SaveControl
                 dirty={dirty}

@@ -81,9 +81,14 @@ export function ChooseSource({ offers, onChoose }: { offers: SourceOffers; onCho
                     <li>
                         <Option
                             icon={<MessageCircle aria-hidden="true" className="h-4 w-4" />}
-                            eyebrow={`From your chat on finn.com${session.at ? ` · ${when(session.at)}` : ""}`}
+                            eyebrow={`From your chat on finn.com${session.at ? ` · ${when(session.at)}` : ""} · ${session.carIds.length} cars`}
                             title={nameFor(session)}
-                            note={session.summary}
+                            note={[
+                                session.summary !== nameFor(session) ? session.summary : "",
+                                session.basis === "settings" ? "Ranked by your settings and filters" : "Ranked by what you told the chat",
+                            ]
+                                .filter(Boolean)
+                                .join(" · ")}
                             onChoose={() => onChoose({ kind: "session", session })}
                         >
                             <Summary session={session} />
@@ -95,9 +100,9 @@ export function ChooseSource({ offers, onChoose }: { offers: SourceOffers; onCho
                     <li key={search.id}>
                         <Option
                             icon={<Save aria-hidden="true" className="h-4 w-4" />}
-                            eyebrow={`Kept comparison${search.at ? ` · ${when(search.at)}` : ""}`}
+                            eyebrow={`Kept comparison${search.at ? ` · ${when(search.at)}` : ""} · ${search.carIds.length} cars`}
                             title={search.name}
-                            note={search.note}
+                            note={[...new Set(search.note.split(" · "))].filter((part) => part && part !== search.name).join(" · ") || undefined}
                             onChoose={() => onChoose({ kind: "saved", search })}
                         >
                             <Summary session={search} />
@@ -110,7 +115,7 @@ export function ChooseSource({ offers, onChoose }: { offers: SourceOffers; onCho
                         icon={<SlidersHorizontal aria-hidden="true" className="h-4 w-4" />}
                         eyebrow="Your saved Lens settings"
                         title="Rank them by my settings"
-                        note="The priorities, driving and budget you saved in Settings."
+                        note="The priorities, driving and budget you saved in Settings — over your pinned cars, or the chat's cars when fewer than two are pinned. You can change which cars on the next screen."
                         onChoose={() => onChoose({ kind: "settings" })}
                     />
                 </li>
@@ -200,6 +205,111 @@ export function SourceStrip({
                     Use a different search
                 </button>
             )}
+        </section>
+    );
+}
+
+/** Which cars the page ranks: the reader's pins, or the cars a search compared. */
+export type CarsChoice =
+    | { kind: "pinned" }
+    | { kind: "search"; search: LensSession; from: "chat" | "kept"; name: string };
+
+/**
+ * What this page is, in two parts the reader can change separately.
+ *
+ * Choosing a search used to decide two things at once: whose answers rank the
+ * cars, and which cars. "Rank them by my settings" therefore also meant "and
+ * only my pinned cars" — and with nothing pinned it showed nothing at all,
+ * though the reader had just been looking at seventy cars in the chat. Now
+ * the page says both, and either can be changed without the other: the chat's
+ * cars ranked by the settings, the pinned cars ranked by the chat.
+ */
+export function SourceBar({
+    source,
+    offers,
+    cars,
+    pinnedCount,
+    detail,
+    onAnswers,
+    onCars,
+    onBrowse,
+}: {
+    source: ChosenSource;
+    offers: SourceOffers;
+    cars: CarsChoice;
+    pinnedCount: number;
+    /** What happened to the cars: "2 no longer available · 3 set aside by your chat's rules". */
+    detail: string | null;
+    onAnswers: (chosen: ChosenSource) => void;
+    onCars: (choice: CarsChoice) => void;
+    /** Back to the full list of searches, with what each is about. */
+    onBrowse: () => void;
+}) {
+    const answersValue = source.kind === "session" ? "session" : source.kind === "saved" ? `saved:${source.search.id}` : "settings";
+    const carsValue = cars.kind === "pinned" ? "pinned" : cars.from === "chat" ? "chat" : `kept:${cars.search.carIds.length}`;
+    const kept = source.kind === "saved" ? source.search : null;
+
+    const pickAnswers = (value: string) => {
+        if (value === "settings") onAnswers({ kind: "settings" });
+        else if (value === "session" && offers.session) onAnswers({ kind: "session", session: offers.session });
+        else {
+            const search = offers.searches.find((item) => `saved:${item.id}` === value);
+            if (search) onAnswers({ kind: "saved", search });
+        }
+    };
+
+    const pickCars = (value: string) => {
+        if (value === "pinned") onCars({ kind: "pinned" });
+        else if (value === "chat" && offers.session) onCars({ kind: "search", search: offers.session, from: "chat", name: nameFor(offers.session) });
+        else if (kept) onCars({ kind: "search", search: kept, from: "kept", name: kept.name });
+    };
+
+    const select =
+        "mt-1 h-10 w-full min-w-0 truncate rounded-xl bg-white px-3 pr-8 text-sm font-black text-finn-black ring-1 ring-finn-cotton outline-none focus:ring-2 focus:ring-finn-accent-blue";
+
+    return (
+        <section className="finn-lens-screen-only mb-4 rounded-[22px] bg-finn-pale-blue px-4 py-3">
+            <div className="grid gap-3 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
+                <label className="block min-w-0 text-[10px] font-black uppercase tracking-[0.14em] text-finn-accent-blue">
+                    Ranked by
+                    <select value={answersValue} onChange={(event) => pickAnswers(event.target.value)} className={select}>
+                        {offers.session && <option value="session">Your chat: {nameFor(offers.session)}</option>}
+                        {offers.searches.map((search) => (
+                            <option key={search.id} value={`saved:${search.id}`}>
+                                Kept search: {search.name}
+                            </option>
+                        ))}
+                        <option value="settings">Your saved Lens settings</option>
+                    </select>
+                </label>
+
+                <label className="block min-w-0 text-[10px] font-black uppercase tracking-[0.14em] text-finn-accent-blue">
+                    Cars
+                    <select value={carsValue} onChange={(event) => pickCars(event.target.value)} className={select}>
+                        <option value="pinned" disabled={pinnedCount === 0}>
+                            {pinnedCount ? `Your ${pinnedCount} pinned ${pinnedCount === 1 ? "car" : "cars"}` : "Your pinned cars (none yet)"}
+                        </option>
+                        {offers.session && (
+                            <option value="chat">
+                                The {offers.session.carIds.length} from your chat ({offers.session.headline.replace(/^Comparing /, "")})
+                            </option>
+                        )}
+                        {kept && <option value={`kept:${kept.carIds.length}`}>The {kept.carIds.length} from “{kept.name}”</option>}
+                    </select>
+                </label>
+
+                {offers.searches.length > 0 && (
+                    <button
+                        type="button"
+                        onClick={onBrowse}
+                        className="inline-flex h-10 shrink-0 items-center justify-center rounded-full bg-white px-4 text-xs font-black text-finn-accent-blue ring-1 ring-finn-cotton transition hover:bg-white/60"
+                    >
+                        All searches
+                    </button>
+                )}
+            </div>
+
+            {detail && <p className="mt-2 text-xs leading-5 text-finn-iron">{detail}</p>}
         </section>
     );
 }

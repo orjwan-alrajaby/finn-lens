@@ -1,4 +1,5 @@
 import { ExternalLink, Sparkles, TriangleAlert } from "lucide-react";
+import { modelName } from "@/lib/car-labels";
 import type {
     CategoryId,
     CostBreakdown,
@@ -189,7 +190,7 @@ export function AdviceHero({
                     <h2
                         className={`mt-5 text-3xl font-black tracking-tight sm:text-4xl ${palette.title}`}
                     >
-                        {winner.name}
+                        {modelName(winner)}
                     </h2>
 
                     <p className={`mt-1 text-sm ${palette.sub}`}>

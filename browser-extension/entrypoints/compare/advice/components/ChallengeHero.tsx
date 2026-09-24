@@ -1,4 +1,5 @@
 import { ArrowLeftRight, ExternalLink } from "lucide-react";
+import { modelName } from "@/lib/car-labels";
 import type { PinnedFinnCar } from "@/lib/types";
 import type { CostAnalysis } from "@/lib/reasoning-engine/types";
 import type { ChallengeReasoning } from "@/lib/reasoning-engine/narrative";
@@ -55,7 +56,7 @@ export function ChallengeHero({
                     </div>
 
                     <h2 className="mt-5 text-3xl font-black tracking-tight text-white sm:text-4xl">
-                        {challenger.name}
+                        {modelName(challenger)}
                     </h2>
 
                     <p className="mt-1 text-sm text-white/60">

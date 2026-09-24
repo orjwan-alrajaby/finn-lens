@@ -1,5 +1,5 @@
 import "@/assets/tailwind.css";
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { SlidersHorizontal, Sparkles } from "lucide-react";
 import * as Tooltip from "@radix-ui/react-tooltip";
 
@@ -12,10 +12,12 @@ import { Spinner } from "@/components/Spinner";
 import { AdjustDrawer } from "./components/AdjustDrawer";
 import { Advice } from "./advice";
 import { Challenge } from "./advice/Challenge";
-import { ChooseSource, SourceStrip, type ChosenSource, type SourceOffers } from "./lens-ai/Source";
+import { ChooseSource, SourceBar, type CarsChoice, type ChosenSource, type SourceOffers } from "./lens-ai/Source";
 import { TellLens } from "./lens-ai/TellLens";
 import { useCompareStore } from "./store";
-import { carsForSearch, HANDOFF_KEY, loadSavedSearches, loadSession, takeHandOff, type SearchCars } from "@/lib/lens-chat/session";
+import { carsForSearch, HANDOFF_KEY, loadSavedSearches, loadSession, nameFor, takeHandOff, type SearchCars } from "@/lib/lens-chat/session";
+import { currentJudging } from "@/lib/lens-chat/judging";
+import { distinctNames } from "@/lib/car-labels";
 import { loadLensSettings } from "@/lib/reasoning-engine";
 import { copyFeatures } from "./store";
 
@@ -57,7 +59,10 @@ export default function CompareTab({
    */
   const [source, setSource] = useState<ChosenSource | null>(null);
   const [offers, setOffers] = useState<SourceOffers | null>(null);
+  /** Which cars, when the reader has picked them; otherwise they follow the answers (`defaultCars`). */
+  const [chosenCars, setChosenCars] = useState<CarsChoice | null>(null);
   const applyAnswers = useCompareStore((state) => state.applyAnswers);
+  const setAnswersFrom = useCompareStore((state) => state.setAnswersFrom);
 
   /**
    * Which of the two readings is on screen.
@@ -88,17 +93,40 @@ export default function CompareTab({
    */
   useEffect(() => {
     const read = async (onArrival: boolean) => {
-      const [session, searches, handedOver] = await Promise.all([loadSession(), loadSavedSearches(), takeHandOff()]);
+      const [session, searches, handedOver, judging] = await Promise.all([
+        loadSession(),
+        loadSavedSearches(),
+        takeHandOff(),
+        currentJudging(),
+      ]);
 
       setOffers({ session, searches });
 
+      if (handedOver?.searchId) {
+        const kept = searches.find((search) => search.id === handedOver.searchId);
+
+        if (kept) {
+          chooseRef.current({ kind: "saved", search: kept });
+          return;
+        }
+      }
+
       if (handedOver && session) {
-        applyAnswers(session.answers, "session");
-        setSource({ kind: "session", session });
+        chooseRef.current({ kind: "session", session });
         return;
       }
 
-      if (onArrival && !session && !searches.length) setSource({ kind: "settings" });
+      if (!onArrival) return;
+
+      /*
+       * With comparisons the reader kept, the page asks which one it is
+       * about, as they asked it to. Without any, it follows the same rule as
+       * every badge and page: the chat while it has a result, the settings
+       * otherwise — and says so, with both a menu away.
+       */
+      if (searches.length) return;
+
+      chooseRef.current(judging.by === "chat" ? { kind: "session", session: judging.session } : { kind: "settings" });
     };
 
     void read(true);
@@ -123,7 +151,27 @@ export default function CompareTab({
    * chat, or one the reader kept, is about the cars that conversation
    * compared; the reader's own settings are about their pinned cars.
    */
-  const search = source?.kind === "session" ? source.session : source?.kind === "saved" ? source.search : null;
+  /*
+   * Which cars, when the reader hasn't said: a search's own cars for a
+   * search; for the settings, the pinned cars when there are two to compare,
+   * and otherwise the chat's — "rank them by my settings" with nothing pinned
+   * used to show nothing at all, while seventy cars sat in the chat.
+   */
+  const defaultCars = (chosen: ChosenSource): CarsChoice => {
+    if (chosen.kind === "session") return { kind: "search", search: chosen.session, from: "chat", name: nameFor(chosen.session) };
+    if (chosen.kind === "saved") return { kind: "search", search: chosen.search, from: "kept", name: chosen.search.name };
+    if ((pinned?.length ?? 0) >= 2 || !offers?.session) return { kind: "pinned" };
+
+    return { kind: "search", search: offers.session, from: "chat", name: nameFor(offers.session) };
+  };
+
+  const carsChoice = source ? (chosenCars ?? defaultCars(source)) : null;
+  const search = carsChoice?.kind === "search" ? carsChoice.search : null;
+  /* A search's rules are its answers: they apply when that search is doing the ranking. */
+  const withRules = Boolean(
+    carsChoice?.kind === "search" &&
+      ((source?.kind === "session" && carsChoice.from === "chat") || (source?.kind === "saved" && carsChoice.from === "kept")),
+  );
   const [searched, setSearched] = useState<SearchCars | null>(null);
 
   useEffect(() => {
@@ -131,7 +179,7 @@ export default function CompareTab({
     if (!search) return;
 
     let live = true;
-    void carsForSearch(search).then((found) => {
+    void carsForSearch(search, withRules).then((found) => {
       if (live) setSearched(found);
     });
 
@@ -139,12 +187,39 @@ export default function CompareTab({
       live = false;
     };
     /* `pinned` too: pinning one of these cars here swaps in the reader's pinned copy. */
-  }, [search, pinned]);
+  }, [search, pinned, withRules]);
 
-  const cars = search ? (searched?.cars ?? null) : pinned;
+  const rawCars = search ? (searched?.cars ?? null) : pinned;
+  const cars = useMemo(() => (rawCars ? distinctNames(rawCars) : null), [rawCars]);
+
+  /* Said once, above the answer: whose answers, over which cars. */
+  const judgedOn =
+    source && carsChoice
+      ? `Ranked by ${
+          source.kind === "session"
+            ? source.session.basis === "settings"
+              ? "your chat's search (built from your saved settings and your filters)"
+              : "what you told the chat"
+            : source.kind === "saved"
+              ? `your kept search “${source.search.name}”`
+              : "your saved Lens settings"
+        }, across ${
+          carsChoice.kind === "pinned"
+            ? `your ${cars?.length ?? 0} pinned ${cars?.length === 1 ? "car" : "cars"}`
+            : `the ${cars?.length ?? 0} cars from ${carsChoice.from === "chat" ? "your chat" : `“${carsChoice.name}”`}`
+        }.`
+      : undefined;
 
   /** A search the reader picked applies to this page alone; settings restore theirs. */
   const chooseSource = (chosen: ChosenSource) => {
+    setAnswersFrom(
+      chosen.kind === "settings"
+        ? { kind: "settings" }
+        : { kind: "search", name: chosen.kind === "session" ? `your chat: ${nameFor(chosen.session)}` : chosen.search.name },
+    );
+    /* New answers start on their own cars; a cars choice made for the old ones doesn't carry over. */
+    setChosenCars(null);
+
     if (chosen.kind === "settings") {
       void loadLensSettings().then((saved) =>
         applyAnswers(
@@ -163,6 +238,9 @@ export default function CompareTab({
 
     setSource(chosen);
   };
+
+  const chooseRef = useRef(chooseSource);
+  chooseRef.current = chooseSource;
 
   /*
    * Which of the page's states is on screen. All three are drawn inside the
@@ -228,21 +306,24 @@ export default function CompareTab({
             <ChooseSource offers={offers} onChoose={chooseSource} />
           ) : (
             <>
-              <SourceStrip
+              <SourceBar
                 source={source}
+                offers={offers}
+                cars={carsChoice!}
+                pinnedCount={pinned?.length ?? 0}
                 detail={
                   search
                     ? [
-                        search.headline,
-                        searched?.missing ? `${searched.missing} no longer available` : "",
-                        searched?.setAside ? `${searched.setAside} set aside by your rules` : "",
+                        searched?.missing ? `${searched.missing} of these cars are no longer available` : "",
+                        searched?.setAside ? `${searched.setAside} set aside by the search's own rules` : "",
                       ]
                         .filter(Boolean)
-                        .join(" · ")
+                        .join(" · ") || null
                     : null
                 }
-                canChange={Boolean(offers.session || offers.searches.length)}
-                onChange={() => setSource(null)}
+                onAnswers={chooseSource}
+                onCars={setChosenCars}
+                onBrowse={() => setSource(null)}
               />
 
               {cars === null ? (
@@ -264,6 +345,16 @@ export default function CompareTab({
                       </>
                     )}
                   </p>
+
+                  {!search && offers.session && (
+                    <button
+                      type="button"
+                      onClick={() => setChosenCars({ kind: "search", search: offers.session!, from: "chat", name: nameFor(offers.session!) })}
+                      className="mt-5 inline-flex h-11 items-center gap-2 rounded-full bg-finn-accent-blue px-5 text-xs font-black text-white shadow-sm transition hover:bg-finn-highlight-navy"
+                    >
+                      Rank the {offers.session.carIds.length} cars from your chat instead
+                    </button>
+                  )}
                 </EmptyState>
               ) : !canCompare && onlyCar ? (
                 search ? (
@@ -332,7 +423,7 @@ export default function CompareTab({
                   </div>
 
                   {view === "advice" ? (
-                    <Advice cars={cars} onAdjust={() => setAdjusting(true)} onChallenge={() => setView("challenge")} />
+                    <Advice cars={cars} judgedOn={judgedOn} onAdjust={() => setAdjusting(true)} onChallenge={() => setView("challenge")} />
                   ) : (
                     <Challenge cars={cars} onAdjust={() => setAdjusting(true)} onBack={() => setView("advice")} />
                   )}
