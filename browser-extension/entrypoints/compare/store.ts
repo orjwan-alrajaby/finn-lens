@@ -91,6 +91,19 @@ interface CompareState extends Answers {
      */
     answersRevision: number;
 
+    /**
+     * Whose answers the page is running: the reader's saved settings, or a
+     * search — the chat's, or one they kept — by name.
+     *
+     * It decides whether a change made here is a change to the reader's
+     * settings. Adjusting a search used to write its priority order into
+     * their saved settings, because every change went through the same
+     * `applyAnswers` that persists the order — so talking to Lens, then
+     * tweaking what it found, quietly rewrote the settings the badges and
+     * everything else judge by.
+     */
+    answersFrom: { kind: "settings" } | { kind: "search"; name: string };
+
     /* ---------------------------------------------------------------- */
     /* Actions                                                          */
     /* ---------------------------------------------------------------- */
@@ -104,6 +117,8 @@ interface CompareState extends Answers {
     applyAnswers: (answers: Answers, from?: "drawer" | "lensAi" | "session") => void;
 
     setChallengerId: (id: number | null) => void;
+
+    setAnswersFrom: (from: CompareState["answersFrom"]) => void;
 }
 
 /** A copy deep enough that editing this run can't reach the saved picks. */
@@ -145,6 +160,7 @@ export const useCompareStore = create<CompareState>((set, get) => ({
 
     challengerId: null,
     answersRevision: 0,
+    answersFrom: { kind: "settings" },
 
     /**
      * Read the saved settings in, once. Later calls are ignored on purpose:
@@ -188,7 +204,7 @@ export const useCompareStore = create<CompareState>((set, get) => ({
          * for this visit. Writing it to the reader's saved priorities would be
          * Lens changing their settings because they talked to it.
          */
-        if (from !== "session") persistPriorities(priorities, basedOn);
+        if (from !== "session" && get().answersFrom.kind === "settings") persistPriorities(priorities, basedOn);
 
         set((state) => ({
             priorities,
@@ -203,5 +219,9 @@ export const useCompareStore = create<CompareState>((set, get) => ({
 
     setChallengerId(challengerId) {
         set({ challengerId });
+    },
+
+    setAnswersFrom(answersFrom) {
+        set({ answersFrom });
     },
 }));

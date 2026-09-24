@@ -91,10 +91,18 @@ describe("carrying a conversation over", () => {
         expect(carried.understanding.needs.length).toBeGreaterThan(0);
     });
 
-    it("forgets a conversation old enough to be about something else", async () => {
-        await saveSession(sessionAt(new Date(Date.now() - 20 * 60 * 60 * 1000).toISOString()));
+    it("lasts as long as the conversation does, however old", async () => {
+        /* The conversation is kept for good; the search it judges by can't quietly expire under it. */
+        await saveSession(sessionAt(new Date(Date.now() - 20 * 24 * 60 * 60 * 1000).toISOString()));
 
-        expect(await loadSession()).toBeNull();
+        expect(await loadSession()).not.toBeNull();
+    });
+
+    it("hands judging back to the chat when it has a new result", async () => {
+        storage.finnLensJudgeBy = "settings";
+        await saveSession(sessionAt(new Date().toISOString()));
+
+        expect(storage.finnLensJudgeBy).toBe("chat");
     });
 
     it("is dismissable, and gone for good once dismissed", async () => {

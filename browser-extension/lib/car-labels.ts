@@ -33,6 +33,28 @@ export function configurationName(car: FinnCar): string {
 }
 
 /**
+ * Names that tell the cars apart.
+ *
+ * A pinned set rarely held two configurations of one model; a search from the
+ * chat routinely does — "70 cars matching your filters" has two Ford
+ * Explorers — and every sentence the engine writes names a car by `name`, so
+ * the page read "Ford Explorer finishes level with it". Only cars that share
+ * a name get their configuration added; everything else is left as it was.
+ */
+export function distinctNames<T extends FinnCar>(cars: T[]): T[] {
+    const counts = new Map<string, number>();
+
+    for (const car of cars) counts.set(car.name, (counts.get(car.name) ?? 0) + 1);
+
+    return cars.map((car) =>
+        (counts.get(car.name) ?? 0) > 1 ? { ...car, name: `${car.name} ${configurationName(car)}`, modelName: car.name } : car,
+    );
+}
+
+/** The model a car is, for a heading that shows its configuration on the line below. */
+export const modelName = (car: FinnCar): string => (car as FinnCar & { modelName?: string }).modelName ?? car.name;
+
+/**
  * What follows a monthly price: "/mo", or "/mo · business".
  *
  * FINN advertises two prices for every car and every Lens price is the one

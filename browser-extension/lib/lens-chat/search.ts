@@ -457,3 +457,28 @@ export function describeFilterChange(was: string[], now: string[]): string {
         .filter(Boolean)
         .join(" ");
 }
+
+/**
+ * Whether the reader told the chat anything of their own — a need, a budget,
+ * dates, a distance, something they don't care about — beyond what their
+ * filters said.
+ *
+ * With nothing of theirs, a comparison is ranked on their saved settings
+ * (with the filters): "get a match from my Lens settings". That is what it
+ * has to be called wherever it is shown, or a settings ranking passes for the
+ * chat having understood them.
+ */
+export function readerSaidAnything(u: Understanding): boolean {
+    const own = (said: string | null | undefined) => Boolean(said) && !fromFilters(said);
+
+    return (
+        u.needs.some((need) => need.status === "active" && !need.id.startsWith(SEARCH_NEED)) ||
+        own(u.budget?.said) ||
+        own(u.rental?.said) ||
+        own(u.monthlyKm?.said) ||
+        u.context.some((item) => own(item.said)) ||
+        u.droppedPriorities.length > 0 ||
+        u.notModelled.length > 0 ||
+        u.waived.length > 0
+    );
+}

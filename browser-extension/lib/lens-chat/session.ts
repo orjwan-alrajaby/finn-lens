@@ -33,8 +33,6 @@ export const SESSION_KEY = "finnLensSession";
 export const HANDOFF_KEY = "finnLensSessionHandOff";
 export const SAVED_SEARCHES_KEY = "finnLensSavedSearches";
 
-/** How long a carried-over session still counts as "what I was just doing". */
-const FRESH_FOR_MS = 12 * 60 * 60 * 1000;
 
 export interface LensSession {
     /** When the conversation last compared cars. */
@@ -54,6 +52,13 @@ export interface LensSession {
     carIds: number[];
     /** The car it recommended, for continuity of the answer itself. */
     winnerId: number | null;
+    /**
+     * What the answers were built from: what the reader told the chat, or
+     * their saved settings ("get a match from my Lens settings"), with their
+     * filters either way. Said wherever the result is shown, so nobody takes
+     * one for the other. Absent on searches kept before this was recorded.
+     */
+    basis?: "chat" | "settings";
 }
 
 export interface SavedSearch extends LensSession {
@@ -71,18 +76,28 @@ const read = async <T>(key: string, fallback: T): Promise<T> => {
     }
 };
 
-/** The session the chat last compared with, if it's recent enough to mean anything. */
+/**
+ * The search the chat's current result was built from, or null when there is
+ * no conversation with a result.
+ *
+ * It lasts as long as the conversation does. It used to expire after twelve
+ * hours, while the conversation it came from is kept for good — so overnight
+ * the rest of Lens quietly stopped judging by a chat that was still on screen.
+ * "New conversation" is what ends it (`clearSession`).
+ */
 export async function loadSession(): Promise<LensSession | null> {
     const session = await read<LensSession | null>(SESSION_KEY, null);
 
-    if (!session?.at || !session.answers) return null;
-
-    return Date.now() - new Date(session.at).getTime() < FRESH_FOR_MS ? session : null;
+    return session?.at && session.answers ? session : null;
 }
 
 export async function saveSession(session: LensSession): Promise<void> {
     try {
-        await browser.storage.local.set({ [SESSION_KEY]: session });
+        /*
+         * A new result from the chat is the reader asking Lens to judge by it:
+         * a "use my settings instead" from before gives way.
+         */
+        await browser.storage.local.set({ [SESSION_KEY]: session, finnLensJudgeBy: "chat" });
     } catch (error) {
         console.error("Finn Lens: could not carry this conversation over", error);
     }
@@ -99,20 +114,26 @@ export async function clearSession(): Promise<void> {
 /** How long a hand-off from the chat still counts as this journey. */
 const HANDOFF_FOR_MS = 5 * 60 * 1000;
 
-/** The chat is opening the page for this search. */
-export async function markHandOff(): Promise<void> {
+/**
+ * The page is being opened for a search: the chat's, or — from Settings'
+ * Searches tab — one the reader kept, by id.
+ */
+export async function markHandOff(searchId: string | null = null): Promise<void> {
     try {
-        await browser.storage.local.set({ [HANDOFF_KEY]: { at: new Date().toISOString() } });
+        await browser.storage.local.set({ [HANDOFF_KEY]: { at: new Date().toISOString(), searchId } });
     } catch {
         /* Without it the page simply asks, which is the behaviour anywhere else. */
     }
 }
 
-/** Was this page opened from the chat? Answers once: the flag is cleared here. */
-export async function takeHandOff(): Promise<boolean> {
-    const flag = await read<{ at?: string } | null>(HANDOFF_KEY, null);
+/**
+ * Was this page opened for a search — and which? Answers once: the flag is
+ * cleared here. `searchId` is null for the chat's own search.
+ */
+export async function takeHandOff(): Promise<{ searchId: string | null } | null> {
+    const flag = await read<{ at?: string; searchId?: string | null } | null>(HANDOFF_KEY, null);
 
-    if (!flag?.at) return false;
+    if (!flag?.at) return null;
 
     try {
         await browser.storage.local.remove(HANDOFF_KEY);
@@ -120,7 +141,7 @@ export async function takeHandOff(): Promise<boolean> {
         /* Nothing to do: at worst the next visit reads a stale flag it then clears. */
     }
 
-    return Date.now() - new Date(flag.at).getTime() < HANDOFF_FOR_MS;
+    return Date.now() - new Date(flag.at).getTime() < HANDOFF_FOR_MS ? { searchId: flag.searchId ?? null } : null;
 }
 
 export const loadSavedSearches = (): Promise<SavedSearch[]> => read<SavedSearch[]>(SAVED_SEARCHES_KEY, []);
@@ -178,7 +199,15 @@ export interface SearchCars {
  * chat applied. Where the rules leave nothing, every car comes back, as in the
  * chat.
  */
-export async function carsForSearch(search: LensSession): Promise<SearchCars> {
+export async function carsForSearch(
+    search: LensSession,
+    /**
+     * The search's rules are part of its answers ("not an SUV"). Ranked by
+     * those answers, they apply; ranked by the reader's settings, the same cars
+     * are compared as they are.
+     */
+    withRules = true,
+): Promise<SearchCars> {
     const stored = await browser.storage.local.get(["pinnedCars", "loadedCarsFromFinnApi"]);
     const pinned = (stored.pinnedCars ?? {}) as Record<number, PinnedFinnCar>;
     const loaded = ((stored.loadedCarsFromFinnApi as { cars?: Record<number, FinnCar> } | undefined)?.cars ?? {}) as Record<number, FinnCar>;
@@ -186,7 +215,7 @@ export async function carsForSearch(search: LensSession): Promise<SearchCars> {
     const cars = search.carIds
         .map((id) => pinned[id] ?? (loaded[id] ? ({ ...loaded[id], url: "", pinnedAt: "" } as PinnedFinnCar) : null))
         .filter((car): car is PinnedFinnCar => car != null);
-    const allowed = allowedByRules(cars, search.rules ?? []);
+    const allowed = allowedByRules(cars, withRules ? (search.rules ?? []) : []);
 
     return {
         cars: allowed.length ? allowed : cars,
