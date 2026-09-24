@@ -14,9 +14,23 @@ import type { PageContext } from "@/lib/lens-chat/messages";
 import type { FinnSearch } from "@/lib/finn-search";
 import type { EvidenceId } from "@/lib/lens-chat/evidence";
 import { markHandOff, nameFor, saveSearch, saveSession, type LensSession } from "@/lib/lens-chat/session";
-import { asPhrase, barePhrase, evidenceCatalogue, plainly } from "@/lib/lens-chat/evidence";
+import { asPhrase, barePhrase, EVIDENCE, evidenceCatalogue, plainly } from "@/lib/lens-chat/evidence";
 import { applyChoices, guideSteps, offersFor, whatIfs, type GuideStep, type GuideStepId } from "@/lib/lens-chat/guide";
-import { FILTER_SAID, heardFromSearch, searchSentence, searchStart, searchTerm, withSearch, type SearchStart } from "@/lib/lens-chat/search";
+import {
+    changedDecisions,
+    describeFilterChange,
+    FILTER_SAID,
+    heardFromSearch,
+    isFromFilters,
+    rentalDates,
+    searchSentence,
+    searchStart,
+    searchTerm,
+    startDate,
+    termEnd,
+    withSearch,
+    type SearchStart,
+} from "@/lib/lens-chat/search";
 import { evidenceForNeeds, finnsOwnWords, quotesAreFinns, tellFitStory } from "@/lib/lens-chat/fit-story";
 import { matchSentence } from "@/lib/lens-chat/plain";
 import { compareRows, runLens, summariseMatch, type CarLine, type LensRun } from "@/lib/lens-chat/run";
@@ -52,6 +66,8 @@ import {
     BudgetAsk,
     ChoiceAsk,
     Composer,
+    periodTitle,
+    ScratchedAsk,
     ConfirmAsk,
     FeatureAsk,
     LensStatus,
@@ -108,13 +124,21 @@ import {
  * else they said.
  */
 type Ask =
-    | { of: "budget" }
+    /* `prefill` and `keep`: asking again after the price filter changed — the new top, and what they said before. */
+    | { of: "budget"; prefill?: number | null; keep?: number | null; title?: string }
     /*
      * `term` and `start`: halves of the period the reader's filters already
      * fixed — a contract length, an availability date — so only the other
      * half is asked.
      */
-    | { of: "period"; term?: number | null; start?: SearchStart | null }
+    | {
+          of: "period";
+          term?: number | null;
+          start?: SearchStart | null;
+          /* The dates to fill in when asking again: the ones they gave, moved to the new filter. */
+          prefill?: { from: string | null; to: string | null } | null;
+          title?: string;
+      }
     | { of: "choices"; step: GuideStep }
     | { of: "question"; question: WireQuestion }
     | { of: "feature"; id: EvidenceId; why: string; needId: string };
@@ -138,7 +162,20 @@ type Entry = {
     | { kind: "lens"; text: string; tone?: "note" }
     | { kind: "thinking"; text: string }
     | { kind: "error"; text: string; retry: (() => void) | null }
-    | { kind: "ask"; ask: Ask; answered: boolean; answer: AskAnswer | null }
+    | {
+          kind: "ask";
+          ask: Ask;
+          answered: boolean;
+          answer: AskAnswer | null;
+          /**
+           * Why it no longer stands: the reader changed the filter it was
+           * about before answering. Kept, struck through, with the new
+           * question below it.
+           */
+          superseded?: string;
+          /** Asked again because a filter changed — dropped outright if the next change makes it stale too. */
+          again?: boolean;
+      }
     | { kind: "confirm"; isUpdate: boolean; done: false | "compared" | "correcting" | "closed" }
     /*
      * Where a comparison landed. Only the latest one draws the card, so there
@@ -165,6 +202,12 @@ type Entry = {
           /* The scope, not the run: a run is too large to keep, and running it again is what "Use this" does. */
           ran?: { outcome: Outcome; scope: ScopeKind; translation: Translation };
       }
+    /**
+     * The reader changed their filters on finn.com: what Lens used before,
+     * and what it uses now. One entry for a burst of changes — FINN's sidebar
+     * is clicked several times in a row — kept up to date, not one per click.
+     */
+    | { kind: "filters"; was: string[]; now: string[]; cleared: boolean }
     /** Something the reader did — pinned a car, kept a search — so the record shows their choices too. */
     | { kind: "action"; text: string }
     /**
@@ -248,7 +291,7 @@ function withAskGroups(entries: Entry[], render: (entry: Entry, index: number) =
             run.length === 1 ? (
                 render(run[0]!, index)
             ) : (
-                <AskGroup key={`asks-${run[0]!.id}`} total={run.length} answered={run.filter((item) => item.answered).length}>
+                <AskGroup key={`asks-${run[0]!.id}`} total={run.length} answered={run.filter((item) => item.answered || item.superseded).length}>
                     {run.map((item) => render(item, entries.indexOf(item)))}
                 </AskGroup>
             ),
@@ -398,8 +441,8 @@ export function LensChat() {
     const pinnedIds = useMemo(() => new Set(Object.keys(stored.pinned).map(Number)), [stored]);
 
     /* Latest values for the async flows below, which outlive a render. */
-    const latest = useRef({ base, scopes, kind, run, vocabulary, enabled, understanding, openQuestion, applied, page });
-    latest.current = { base, scopes, kind, run, vocabulary, enabled, understanding, openQuestion, applied, page };
+    const latest = useRef({ base, scopes, kind, run, vocabulary, enabled, understanding, openQuestion, applied, page, entries });
+    latest.current = { base, scopes, kind, run, vocabulary, enabled, understanding, openQuestion, applied, page, entries };
 
     /* -- The conversation --------------------------------------------------- */
 
@@ -472,6 +515,9 @@ export function LensChat() {
         const before = lastSearch.current;
         lastSearch.current = { key: searchKey, search: page.search };
 
+        /* Picked up on a new page: the divider goes before anything this adds. */
+        payResumeDivider();
+
         const previous = latest.current.understanding;
         const next = withSearch(previous, page.search);
         setUnderstanding(next);
@@ -479,24 +525,14 @@ export function LensChat() {
 
         if (!before || !entries.length) return;
 
-        /* What changed, not the whole list again: the reader just clicked one filter. */
-        const was = heardFromSearch(previous, before.search).used;
-        const now = heardFromSearch(next, page.search).used;
-        const added = now.filter((item) => !was.includes(item)).map((item) => item.toLowerCase());
-        const dropped = was.filter((item) => !now.includes(item)).map((item) => item.toLowerCase());
-        const change = [added.length ? `now also ${added.join(", ")}` : "", dropped.length ? `no longer ${dropped.join(", ")}` : ""]
-            .filter(Boolean)
-            .join("; ");
+        /*
+         * A car page opened without filters hasn't cleared anything: the
+         * reader just came to it some other way. Nothing to say or ask again.
+         */
+        if (!page.search && page.kind === "details") return;
 
-        push({
-            kind: "lens",
-            tone: "note",
-            text: !page.search
-                ? "You've cleared your filters, so I've let go of what they told me."
-                : change
-                  ? `Your filters changed: ${change}.${latest.current.run ? " Compare again to see what that does." : ""}`
-                  : "Your filters changed, but nothing I rank on is different.",
-        });
+        noteFilterChange(heardFromSearch(previous, before.search).used, heardFromSearch(next, page.search).used, !page.search);
+        reconsider(before.search, page.search, next);
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [searchKey, restored, restoreCount]);
 
@@ -665,9 +701,9 @@ export function LensChat() {
     const pendingAnswer = useRef<string | null>(null);
 
     const openAsk = useCallback(
-        (ask: Ask) => {
+        (ask: Ask, again = false) => {
             asksOpen.current += 1;
-            push({ kind: "ask", ask, answered: false, answer: null });
+            push({ kind: "ask", ask, answered: false, answer: null, again });
         },
         [push],
     );
@@ -736,6 +772,26 @@ export function LensChat() {
     const askingAgain = useRef(false);
 
     /**
+     * Dates the filters worked out on their own — a start from the
+     * availability filter and a contract length — are shown for the reader to
+     * check, never taken silently: "within 14 days" is a window, not a day, and
+     * the reader is the one who knows which day.
+     */
+    const datesToConfirm = (u: Understanding): boolean => Boolean(u.rental && isFromFilters(u.rental.said));
+
+    /** The date question, filled in with everything Lens already knows. */
+    const periodAsk = (u: Understanding): Ask => {
+        const search = latest.current.page?.search ?? null;
+
+        return {
+            of: "period",
+            term: searchTerm(search),
+            start: searchStart(search),
+            prefill: u.rental ? rentalDates(u.rental) : null,
+        };
+    };
+
+    /**
      * The guide has been through; what's left is what Lens always needs.
      *
      * Budget and dates, and any equipment these cars differ on that one of
@@ -749,14 +805,16 @@ export function LensChat() {
             const again = askingAgain.current;
             askingAgain.current = false;
             const budget = missing.budget || again;
+            const period = missing.period || again || datesToConfirm(u);
             const offers = offersFor(u, current.scopes[current.kind].cars);
 
-            if (budget) openAsk({ of: "budget" });
-            if (missing.period) openAsk({ of: "period", term: searchTerm(current.page?.search ?? null), start: searchStart(current.page?.search ?? null) });
+            /* Asking again: what they said before is filled in, and keeping it is one tap. */
+            if (budget) openAsk({ of: "budget", prefill: again ? (u.budget?.monthly ?? null) : null, keep: again ? (u.budget?.monthly ?? null) : null });
+            if (period) openAsk(periodAsk(u));
 
             for (const offer of offers) openAsk({ of: "feature", id: offer.id, why: offer.why, needId: offer.needId });
 
-            if (!budget && !missing.period && !offers.length) offerCompare(u);
+            if (!budget && !period && !offers.length) offerCompare(u);
         },
         [offerCompare, openAsk],
     );
@@ -854,10 +912,15 @@ export function LensChat() {
         pendingAnswer.current = saved.pendingAnswer;
         carriedOver.current = saved.carriedOver;
         lastRun.current = saved.lastRun;
-        /* This page's filters are folded in afresh: what was kept holds another page's. */
-        lastSearch.current = null;
+        /*
+         * The filters the conversation last knew, so this page's are compared
+         * with them: changed while away, they're reconsidered like a change
+         * made with the chat open. The key can't match any real search, so
+         * the comparison always runs.
+         */
+        lastSearch.current = saved.search === undefined ? null : { key: "(kept)", search: saved.search };
         /* What was still waiting for an answer is still waiting. */
-        asksOpen.current = kept.filter((entry) => entry.kind === "ask" && !entry.answered).length;
+        asksOpen.current = kept.filter((entry) => entry.kind === "ask" && !entry.answered && !entry.superseded).length;
         setRestoreCount((count) => count + 1);
     }, []);
 
@@ -926,6 +989,7 @@ export function LensChat() {
                 askingAgain: askingAgain.current,
                 pendingAnswer: pendingAnswer.current,
                 carriedOver: carriedOver.current,
+                search: lastSearch.current?.search ?? null,
             });
         }, 400);
 
@@ -962,14 +1026,22 @@ export function LensChat() {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [restoreCount, pageLoaded, base]);
 
-    /* Where and when the conversation was picked up again, once the page is known. */
-    useEffect(() => {
-        if (!restored || !resumeOwed.current || !page) return;
+    /**
+     * Where and when the conversation was picked up again, once the page is
+     * known. Called first by anything that adds to the conversation on
+     * arrival — the filter check can ask a question the moment the page is
+     * read — so the divider always comes before what happened after it.
+     */
+    const payResumeDivider = () => {
+        const current = latest.current;
+
+        if (!resumeOwed.current || !current.page) return;
 
         resumeOwed.current = false;
 
-        const car = scopes.thisCar.cars[0];
-        const where = page.kind === "details" ? (car ? `the ${car.name} page` : "a car page") : page.search ? "a filtered listing" : "a listing";
+        const car = current.scopes.thisCar.cars[0];
+        const where =
+            current.page.kind === "details" ? (car ? `the ${car.name} page` : "a car page") : current.page.search ? "a filtered listing" : "a listing";
         const divider = { id: nextId.current++, at: new Date().toISOString(), kind: "divider", text: `Picked up again ${stamp(new Date())} on ${where}`, fresh: false } as Entry;
 
         /* Opened and closed without a word: one divider, not a stack of them. */
@@ -978,6 +1050,10 @@ export function LensChat() {
 
             return last?.kind === "divider" && !last.fresh ? [...all.slice(0, -1), divider] : [...all, divider];
         });
+    };
+
+    useEffect(() => {
+        if (restored && page) payResumeDivider();
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [restored, page]);
 
@@ -1018,6 +1094,169 @@ export function LensChat() {
         lastRun.current = null;
         push({ kind: "divider", text: `New conversation ${stamp(new Date())}`, fresh: true });
     }, [push, retireAsks]);
+
+    /* -- When the reader changes a filter mid-conversation ------------------ */
+
+    /**
+     * Says what the filters changed, once per burst.
+     *
+     * FINN's sidebar gets clicked several times in a row, and a note per click
+     * — six of them, two saying nothing had changed — buried the conversation.
+     * While nothing but this note and the questions it asked again has
+     * happened since, the same note is brought up to date instead: it always
+     * says what changed since the reader last did anything here.
+     */
+    const noteFilterChange = useCallback((was: string[], now: string[], cleared: boolean) => {
+        setEntries((all) => {
+            let at = all.length - 1;
+
+            while (at >= 0 && all[at]!.kind === "ask" && (all[at] as { again?: boolean }).again && !(all[at] as { answered: boolean }).answered) at -= 1;
+
+            const note = all[at];
+
+            if (note?.kind === "filters") {
+                const merged = { ...note, now, cleared };
+                const unchanged = !cleared && !describeFilterChange(merged.was, now);
+
+                return unchanged ? all.filter((entry) => entry.id !== note.id) : all.map((entry) => (entry.id === note.id ? merged : entry));
+            }
+
+            if (!cleared && !describeFilterChange(was, now)) return all;
+
+            return [...all, { id: nextId.current++, at: new Date().toISOString(), kind: "filters", was, now, cleared } as Entry];
+        });
+    }, []);
+
+    /**
+     * Asks again about whatever a filter change made out of date.
+     *
+     * The dates, the budget and how far they drive are each both a filter and
+     * a question. Changed on the page:
+     *
+     * - a question about it still waiting for an answer is struck through,
+     *   with the reason, and asked again below with the new filter filled in —
+     *   answering the old one would answer something the reader has since
+     *   changed. One Lens asked only because of an earlier change in the same
+     *   burst is simply dropped: nobody saw it long enough to answer it;
+     * - an answer the reader already gave is asked about again, filled in
+     *   from the new filter, with what they said before one tap away. Their
+     *   answer stands until they choose — the filter doesn't overwrite it;
+     * - where the filters now answer it outright (a start date and a contract
+     *   length, a price range, a mileage package), there's nothing to ask.
+     */
+    const reconsider = useCallback(
+        (before: FinnSearch | null, after: FinnSearch | null, next: Understanding) => {
+            const current = latest.current;
+            const changed = changedDecisions(before, after);
+            const open = (test: (ask: Ask) => boolean) =>
+                current.entries.filter(
+                    (entry): entry is Extract<Entry, { kind: "ask" }> => entry.kind === "ask" && !entry.answered && !entry.superseded && test(entry.ask),
+                );
+            const setAside = (items: Extract<Entry, { kind: "ask" }>[], reason: string) => {
+                if (!items.length) return;
+
+                const drop = new Set(items.filter((item) => item.again).map((item) => item.id));
+                const strike = new Set(items.filter((item) => !item.again).map((item) => item.id));
+
+                asksOpen.current = Math.max(0, asksOpen.current - items.length);
+                setEntries((all) =>
+                    all
+                        .filter((entry) => !drop.has(entry.id))
+                        .map((entry) => (entry.kind === "ask" && strike.has(entry.id) ? { ...entry, superseded: reason } : entry)),
+                );
+            };
+
+            const asked: Ask[] = [];
+            const CHANGED = "You changed this filter before answering, so I've asked again below.";
+
+            if (changed.period) {
+                const waiting = open((ask) => ask.of === "period");
+                const term = searchTerm(after);
+                const start = searchStart(after);
+                const whole = Boolean(next.rental && isFromFilters(next.rental.said));
+                const own = next.rental && !isFromFilters(next.rental.said) ? next.rental : null;
+
+                setAside(waiting, whole ? "Your filters now say when, so there's nothing left to ask." : CHANGED);
+
+                if (own) {
+                    const kept = rentalDates(own);
+                    const from = start ? startDate(start) : kept.from;
+
+                    asked.push({
+                        of: "period",
+                        term,
+                        start,
+                        prefill: { from, to: term ? termEnd(from, term) : kept.to },
+                        title: `${
+                            start
+                                ? `Your filters now say you need it ${start.phrase}.`
+                                : term
+                                  ? `Your filters now say a ${term}-month contract.`
+                                  : "You took the date filters off."
+                        } Do these dates still work?`,
+                    });
+                } else if (waiting.length && !whole) {
+                    asked.push({ of: "period", term, start });
+                }
+            }
+
+            if (changed.budget) {
+                const waiting = open((ask) => ask.of === "budget");
+                const top = after?.maxPrice ?? null;
+                const fromFilter = Boolean(next.budget && isFromFilters(next.budget.said));
+                const own = next.budget && !fromFilter ? next.budget : null;
+                const noLimit = next.waived.includes("budget");
+
+                setAside(waiting, fromFilter ? "Your price filter answers this now." : CHANGED);
+
+                if ((own || noLimit) && top) {
+                    asked.push({
+                        of: "budget",
+                        prefill: top,
+                        keep: own?.monthly ?? null,
+                        title: `Your price filter now goes up to ${formatEUR(top)}. Is that your limit now?`,
+                    });
+                } else if (waiting.length && !fromFilter) {
+                    asked.push({ of: "budget", prefill: top });
+                }
+            }
+
+            if (changed.distance) {
+                const waiting = open((ask) => ask.of === "choices" && ask.step.id === "distance");
+                const fromFilter = Boolean(next.monthlyKm && isFromFilters(next.monthlyKm.said));
+                const own = next.monthlyKm && !fromFilter ? next.monthlyKm : null;
+                const pack = after?.mileagePackage ?? null;
+
+                setAside(waiting, fromFilter ? "Your mileage package answers this now." : CHANGED);
+
+                /* A question still to come in Lens Chat's run is one the filter just answered. */
+                if (fromFilter) guide.current = guide.current.filter((step) => step.id !== "distance");
+
+                const step = guideSteps(current.scopes[current.kind].cars, current.enabled).find((item) => item.id === "distance");
+
+                if (step && own && pack) {
+                    asked.push({
+                        of: "choices",
+                        step: {
+                            ...step,
+                            ask: `Your filters now show prices for the ${pack.toLocaleString("en-GB")} km package. How far do you drive in a month?`,
+                            hint: `You said about ${own.value.toLocaleString("en-GB")} km before. FINN charges for what you drive beyond the package.`,
+                        },
+                    });
+                } else if (step && waiting.length && !fromFilter) {
+                    asked.push({ of: "choices", step });
+                }
+            }
+
+            if (!asked.length) return;
+
+            /* Something to answer first: a "ready to compare" still waiting is no longer ready. */
+            setEntries((all) => all.map((entry) => (entry.kind === "confirm" && !entry.done ? { ...entry, done: "closed" as const } : entry)));
+
+            for (const ask of asked) openAsk(ask, true);
+        },
+        [openAsk],
+    );
 
     const talk = useCallback(
         async (message: string) => {
@@ -1137,7 +1376,7 @@ export function LensChat() {
             const missing = missingEssentials(next);
 
             if (missing.budget) openAsk({ of: "budget" });
-            if (missing.period) openAsk({ of: "period", term: searchTerm(current.page?.search ?? null), start: searchStart(current.page?.search ?? null) });
+            if (missing.period || datesToConfirm(next)) openAsk(periodAsk(next));
             if (question) openAsk({ of: "question", question });
 
             for (const item of suggestions) openAsk({ of: "feature", id: item.id, why: item.why, needId: item.needId });
@@ -1148,7 +1387,7 @@ export function LensChat() {
                 return;
             }
 
-            if (!missing.budget && !missing.period && !question && !suggestions.length) offerCompare(next);
+            if (!missing.budget && !missing.period && !datesToConfirm(next) && !question && !suggestions.length) offerCompare(next);
         },
         [compareWith, offerCompare, openAsk, push, remove, retireAsks, say, switchScope],
     );
@@ -1413,7 +1652,13 @@ export function LensChat() {
     };
 
     /* The conversation so far has ended at a "New conversation" divider, or never began. */
-    const fresh = entries.length === 0 || (entries.at(-1)?.kind === "divider" && (entries.at(-1) as { fresh?: boolean }).fresh === true);
+    const fresh = (() => {
+        /* Only filter notes since the last "New conversation" (or since nothing at all): still at the start. */
+        const since = entries.findLastIndex((entry) => entry.kind === "divider" && entry.fresh);
+        const begun = entries.findLastIndex((entry) => entry.kind !== "filters");
+
+        return begun === -1 || begun === since;
+    })();
 
     /* -- What else you might say -------------------------------------------- */
 
@@ -1499,12 +1744,31 @@ export function LensChat() {
                                     return <AiError key={entry.id} message={entry.text} onRetry={entry.retry ?? undefined} />;
 
                                 case "ask":
+                                    if (entry.superseded) {
+                                        const ask = entry.ask;
+                                        const [look, title] =
+                                            ask.of === "budget"
+                                                ? (["budget", ask.title ?? "What’s the most you’d spend a month, all in?"] as const)
+                                                : ask.of === "period"
+                                                  ? (["dates", ask.title ?? periodTitle(ask.term ?? null, ask.start ?? null)] as const)
+                                                  : ask.of === "choices"
+                                                    ? (["about", ask.step.ask] as const)
+                                                    : ask.of === "question"
+                                                      ? (["question", ask.question.ask] as const)
+                                                      : (["offer", EVIDENCE[ask.id].label] as const);
+
+                                        return <ScratchedAsk key={entry.id} kind={look} title={title} reason={entry.superseded} />;
+                                    }
+
                                     switch (entry.ask.of) {
                                         case "budget":
                                             return (
                                                 <BudgetAsk
                                                     key={entry.id}
                                                     busy={busy}
+                                                    prefill={entry.ask.prefill ?? null}
+                                                    keep={entry.ask.keep ?? null}
+                                                    title={entry.ask.title}
                                                     answered={entry.answered ? (entry.answer ?? { text: null, choice: null }) : null}
                                                     onAnswer={(monthly, choice) =>
                                                         answerEssential(
@@ -1526,6 +1790,8 @@ export function LensChat() {
                                                     busy={busy}
                                                     termMonths={entry.ask.term ?? null}
                                                     start={entry.ask.start ?? null}
+                                                    prefill={entry.ask.prefill ?? null}
+                                                    title={entry.ask.title}
                                                     answered={entry.answered ? (entry.answer ?? { text: null, choice: null }) : null}
                                                     onAnswer={(from, to, startDay, said) => {
                                                         const dated = from && to;
@@ -1622,6 +1888,18 @@ export function LensChat() {
 
                                 case "action":
                                     return <ActionLine key={entry.id} text={entry.text} at={entry.at} />;
+
+                                case "filters": {
+                                    const change = describeFilterChange(entry.was, entry.now);
+
+                                    return (
+                                        <Says key={entry.id} tone="note">
+                                            {entry.cleared
+                                                ? "You've cleared your filters, so I've let go of what they told me."
+                                                : `Your filters changed — ${change.charAt(0).toLowerCase()}${change.slice(1)}${run ? " Compare again to see what that does." : ""}`}
+                                        </Says>
+                                    );
+                                }
 
                                 case "divider":
                                     return <Divider key={entry.id} text={entry.text} />;
@@ -1999,7 +2277,11 @@ function FromFilters({ heard }: { heard: { used: string[]; noted: string[] } }) 
             {heard.noted.length > 0 && <p className="mt-2 text-[11px] leading-4 text-finn-iron">Also noted: {heard.noted.join(" · ")}</p>}
 
             <p className="mt-2 text-[11px] leading-4 text-finn-iron">
-                {heard.used.length ? "Lens won't ask about these again. Change a filter on the page and it keeps up." : "Lens notes these, but they don't change how it ranks."}
+                {heard.used.length
+                    ? heard.used.some((item) => /^(By|From) |-month contract$| – /.test(item))
+                        ? "Lens fills the dates in for you to check, and won't ask about the rest again. Change a filter on the page and it keeps up."
+                        : "Lens won't ask about these again. Change a filter on the page and it keeps up."
+                    : "Lens notes these, but they don't change how it ranks."}
             </p>
         </div>
     );

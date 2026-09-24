@@ -9,7 +9,7 @@ import { addMonths } from "@/lib/reasoning-engine/contract";
 import type { WireQuestion } from "@/lib/lens-ai/contract";
 import { EVIDENCE, plainly, type EvidenceId } from "@/lib/lens-chat/evidence";
 import { saidFor, type GuideStep } from "@/lib/lens-chat/guide";
-import type { SearchStart } from "@/lib/lens-chat/search";
+import { startDate, termEnd, type SearchStart } from "@/lib/lens-chat/search";
 import { needChips } from "@/lib/lens-chat/plain";
 import type { Understanding } from "@/lib/lens-chat/understanding";
 
@@ -99,7 +99,7 @@ export function Option({
     );
 }
 
-type AskKind = "budget" | "dates" | "question" | "offer" | "whatIf" | "ready" | "about";
+export type AskKind = "budget" | "dates" | "question" | "offer" | "whatIf" | "ready" | "about";
 
 const ASK_LOOK: Record<AskKind, { label: string; icon: ReactNode }> = {
     about: { label: "About you", icon: <UserRound aria-hidden="true" className="h-3.5 w-3.5" /> },
@@ -218,27 +218,42 @@ const BUDGET_CHOICES = [400, 500, 600, 750];
 export function BudgetAsk({
     busy,
     answered,
+    prefill = null,
+    keep = null,
+    title,
     onAnswer,
 }: {
     busy: boolean;
     answered: AskAnswer | null;
+    /** An amount to start from — the top of the price filter — already in the reader's own field. */
+    prefill?: number | null;
+    /** The limit they gave before, when Lens is asking again: offered as it was. */
+    keep?: number | null;
+    /** What to ask, when it isn't the usual question. */
+    title?: string;
     onAnswer: (monthly: number | null, choice: string) => void;
 }) {
     const done = answered != null;
-    const [own, setOwn] = useState("");
+    const [own, setOwn] = useState(prefill ? String(Math.round(prefill)) : "");
     const figure = Number(own);
     const ownOk = own !== "" && figure >= 100 && figure <= 5000;
     const labels = BUDGET_CHOICES.map((amount) => `Up to ${formatEUR(amount)}`);
-    const tapped = answered?.choice != null && [...labels, "No limit"].includes(answered.choice);
+    const keepLabel = keep ? `Keep ${formatEUR(keep)}` : null;
+    const tapped = answered?.choice != null && [...labels, "No limit", ...(keepLabel ? [keepLabel] : [])].includes(answered.choice);
 
     return (
         <Asked
             kind="budget"
             done={done}
-            title="What’s the most you’d spend a month, all in?"
+            title={title ?? "What’s the most you’d spend a month, all in?"}
             answer={tapped ? null : answered?.text}
             options={
                 <>
+                    {keep && keepLabel && (
+                        <Option primary onClick={() => onAnswer(keep, keepLabel)} disabled={busy || done} chosen={answered?.choice === keepLabel}>
+                            {keepLabel}
+                        </Option>
+                    )}
                     {BUDGET_CHOICES.map((amount, index) => (
                         <Option key={amount} onClick={() => onAnswer(amount, labels[index]!)} disabled={busy || done} chosen={answered?.choice === labels[index]}>
                             {labels[index]}
@@ -290,6 +305,15 @@ const dayLabel = (iso: string) =>
 /** "2026-10-08" as "8 Oct". */
 const shortDay = (iso: string) => new Date(`${iso}T00:00:00Z`).toLocaleDateString("en-GB", { day: "numeric", month: "short", timeZone: "UTC" });
 
+/** What the date question says, given what the reader's filters already fixed. */
+export function periodTitle(termMonths: number | null, start: SearchStart | null): string {
+    if (termMonths && start) return `Your filters say a ${termMonths}-month contract ${start.phrase}. Do these dates work?`;
+    if (termMonths) return `Your filters say a ${termMonths}-month contract. When should it start?`;
+    if (start) return `Your filters say you need it ${start.phrase}. Until when?`;
+
+    return "When do you need it, and until when?";
+}
+
 /**
  * The days someone needs a car between.
  *
@@ -299,83 +323,65 @@ const shortDay = (iso: string) => new Date(`${iso}T00:00:00Z`).toLocaleDateStrin
  * value from the arrow keys, the spinner or a half-typed date, so nothing is
  * sent until the reader presses the button, and the answer says the dates in
  * full.
+ *
+ * Both fields are always the reader's to change. Whatever Lens already knows
+ * fills them in — the start from FINN's availability filter, the end from its
+ * contract length, or the dates they gave before when Lens is asking again —
+ * so the usual answer is one press, and a different one is two.
  */
 export function PeriodAsk({
     busy,
     answered,
     termMonths = null,
     start = null,
+    prefill = null,
+    title,
     onAnswer,
 }: {
     busy: boolean;
     answered: AskAnswer | null;
-    /**
-     * A contract length the reader already chose in FINN's filters. Then only
-     * the start is asked: "until when" is that many months on, and asking for
-     * it again is asking them to repeat the filter they just set.
-     */
+    /** A contract length from FINN's filters: the end follows the start by that many months until the reader changes it. */
     termMonths?: number | null;
-    /**
-     * When the car is needed, from FINN's availability filter — "within 14
-     * days", "from November". Then only "until when" is asked. (With a term as
-     * well, the period is whole and this isn't asked at all.)
-     */
+    /** When the car is needed, from FINN's availability filter — "within 14 days", "from November". */
     start?: SearchStart | null;
+    /** Dates to start from, "2026-11-01" — the ones given before, when Lens is asking again. */
+    prefill?: { from: string | null; to: string | null } | null;
+    /** What to ask, when it isn't the usual question — asking again after a filter changed. */
+    title?: string;
     onAnswer: (from: string | null, to: string | null, startDay: number | null, said: string) => void;
 }) {
-    const [typedFrom, setFrom] = useState("");
-    const from = start ? `${start.month}-${String(start.day ?? 1).padStart(2, "0")}` : typedFrom;
-    const [typedTo, setTo] = useState("");
+    const initialFrom = prefill?.from ?? (start ? startDate(start) : "");
+    const [from, setFrom] = useState(initialFrom);
+    const [to, setTo] = useState(prefill?.to ?? (termMonths && initialFrom ? termEnd(initialFrom, termMonths) : ""));
+    /* Once the reader picks an end themselves, moving the start no longer moves it. */
+    const [toTouched, setToTouched] = useState(Boolean(prefill?.to));
 
     const done = answered != null;
-    /* With a known term, the last month follows from the first. */
-    const termEnd = termMonths && from ? addMonths(from.slice(0, 7), termMonths - 1) : null;
-    const to = termEnd ? `${termEnd}-01` : typedTo;
-    const backwards = Boolean(from && to && to.slice(0, 7) < from.slice(0, 7));
+    const backwards = Boolean(from && to && to < from);
     const complete = Boolean(from && to && !backwards);
     const field =
         "mt-1 h-10 w-full min-w-0 rounded-xl bg-finn-snow px-2.5 text-[13px] font-bold text-finn-black ring-1 ring-finn-cotton outline-none focus:bg-white focus:ring-2 focus:ring-finn-accent-blue";
 
-    const send = () => {
-        if (!complete) return;
+    const changeFrom = (value: string) => {
+        setFrom(value);
+        if (termMonths && value && !toTouched) setTo(termEnd(value, termMonths));
+    };
 
-        onAnswer(
-            from.slice(0, 7),
-            to.slice(0, 7),
-            Number(from.slice(8, 10)),
-            termEnd
-                ? `From ${dayLabel(from)}, for ${termMonths} months.`
-                : start
-                  ? `Until ${dayLabel(to)}.`
-                  : `I need it from ${dayLabel(from)} until ${dayLabel(to)}.`,
-        );
+    const send = () => {
+        if (complete) onAnswer(from.slice(0, 7), to.slice(0, 7), Number(from.slice(8, 10)), `From ${dayLabel(from)} until ${dayLabel(to)}.`);
     };
 
     return (
         <Asked
             kind="dates"
             done={done}
-            title={
-                termMonths
-                    ? `Your filters say a ${termMonths}-month contract. When should it start?`
-                    : start
-                      ? `Your filters say you need it ${start.phrase}. Until when?`
-                      : "When do you need it, and until when?"
-            }
+            title={title ?? periodTitle(termMonths, start)}
             answer={answered?.text}
             options={
                 done ? null : (
                     <>
                         <Option primary onClick={send} disabled={busy || !complete}>
-                            {complete
-                                ? termEnd
-                                    ? `Start ${shortDay(from)}`
-                                    : start
-                                      ? `Until ${shortDay(to)}`
-                                      : `Use ${shortDay(from)} – ${shortDay(to)}`
-                                : termMonths || start
-                                  ? "Use this date"
-                                  : "Use these dates"}
+                            {complete ? `Use ${shortDay(from)} – ${shortDay(to)}` : "Use these dates"}
                         </Option>
                         <Option onClick={() => onAnswer(null, null, null, "I don't have fixed dates.")} disabled={busy}>
                             No fixed dates
@@ -387,42 +393,47 @@ export function PeriodAsk({
             {!done && (
                 <div className="grid grid-cols-2 gap-2 pt-1">
                     <label className="block text-[11px] font-bold text-finn-iron">
-                        From
-                        {start ? (
-                            <span className="mt-1 flex h-10 items-center rounded-xl bg-finn-pale-blue px-2.5 text-[13px] font-bold text-finn-accent-blue">
-                                {start.chip}
-                            </span>
-                        ) : (
-                            <input type="date" value={typedFrom} disabled={busy} onChange={(event) => setFrom(event.target.value)} className={field} />
-                        )}
+                        From{start && from === startDate(start) ? " · your filter" : ""}
+                        <input type="date" value={from} disabled={busy} onChange={(event) => changeFrom(event.target.value)} className={field} />
                     </label>
 
-                    {termMonths ? (
-                        <div className="block text-[11px] font-bold text-finn-iron">
-                            Until
-                            <p className="mt-1 flex h-10 items-center rounded-xl bg-finn-pale-blue px-2.5 text-[13px] font-bold text-finn-accent-blue">
-                                {termEnd ? `End of ${monthLabel(termEnd)}` : `${termMonths} months on`}
-                            </p>
-                        </div>
-                    ) : (
-                        <label className="block text-[11px] font-bold text-finn-iron">
-                            Until
-                            <input
-                                type="date"
-                                value={typedTo}
-                                min={from || undefined}
-                                disabled={busy}
-                                onChange={(event) => setTo(event.target.value)}
-                                aria-invalid={backwards || undefined}
-                                className={`${field} aria-invalid:text-finn-error aria-invalid:ring-finn-error`}
-                            />
-                        </label>
-                    )}
+                    <label className="block text-[11px] font-bold text-finn-iron">
+                        Until{termMonths && !toTouched && to ? ` · ${termMonths} months` : ""}
+                        <input
+                            type="date"
+                            value={to}
+                            min={from || undefined}
+                            disabled={busy}
+                            onChange={(event) => {
+                                setTo(event.target.value);
+                                setToTouched(true);
+                            }}
+                            aria-invalid={backwards || undefined}
+                            className={`${field} aria-invalid:text-finn-error aria-invalid:ring-finn-error`}
+                        />
+                    </label>
 
                     {backwards && <p className="col-span-2 text-[11px] leading-4 text-finn-error">The second date is before the first.</p>}
                 </div>
             )}
         </Asked>
+    );
+}
+
+/**
+ * A question the reader made out of date before answering it — they changed
+ * the filter it was about. It stays in the record, struck through, with the
+ * reason; the new question is asked below it.
+ */
+export function ScratchedAsk({ kind, title, reason }: { kind: AskKind; title: string; reason: string }) {
+    return (
+        <Asked
+            kind={kind}
+            done
+            title={<s className="decoration-finn-iron/60">{title}</s>}
+            answer={reason}
+            options={null}
+        />
     );
 }
 
