@@ -352,5 +352,108 @@ export function searchSentence(u: Understanding, search: FinnSearch | null): str
 
     if (!parts.length) return "";
 
-    return `From your filters I already know: ${joined(parts)}. I won't ask about those again — change a filter and I'll keep up.`;
+    /* Dates are filled in for the reader to check, not taken as said: a filter's window isn't a day. */
+    const dates = Boolean(searchStart(search) || searchTerm(search));
+
+    return `From your filters I already know: ${joined(parts)}. ${
+        dates ? "I'll fill the dates in for you to check, and won't ask about the rest again" : "I won't ask about those again"
+    } — change a filter and I'll keep up.`;
+}
+
+/* -------------------------------------------------------------------------- */
+/* When the filters change under a conversation                               */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Which of the reader's decisions a filter change touches.
+ *
+ * Three things are both a filter on FINN and a question in the chat: the
+ * dates (availability and contract length), the budget (the price slider) and
+ * how far they drive (the mileage package). When the reader changes one of
+ * those filters, whatever the chat asked about it — answered or not — is out
+ * of date, and the chat has to ask again rather than carry on with an answer
+ * to a question the reader has since changed.
+ */
+export function changedDecisions(
+    before: FinnSearch | null,
+    after: FinnSearch | null,
+    today = new Date(),
+): { period: boolean; budget: boolean; distance: boolean } {
+    return {
+        period:
+            searchStart(before, today)?.chip !== searchStart(after, today)?.chip || searchTerm(before) !== searchTerm(after),
+        budget: (before?.maxPrice ?? null) !== (after?.maxPrice ?? null),
+        distance: (before?.mileagePackage ?? null) !== (after?.mileagePackage ?? null),
+    };
+}
+
+/** The first day a filter's start stands for, as a date field wants it: "2026-11-01". */
+export const startDate = (start: SearchStart): string => `${start.month}-${String(start.day ?? 1).padStart(2, "0")}`;
+
+/**
+ * The last day of a contract that begins on `from` ("2026-11-01") and runs for
+ * `term` months, month by month the way FINN counts them: six months from
+ * 1 November ends on 30 April.
+ */
+export function termEnd(from: string, term: number): string {
+    const last = addMonths(from.slice(0, 7), term - 1);
+    const [year, month] = last.split("-").map(Number);
+    const day = new Date(Date.UTC(year!, month!, 0)).getUTCDate();
+
+    return `${last}-${String(day).padStart(2, "0")}`;
+}
+
+/** A kept rental as the dates a field shows: its first day and the last day of its last month. */
+export function rentalDates(rental: NonNullable<Understanding["rental"]>): { from: string; to: string } {
+    const [year, month] = rental.to.split("-").map(Number);
+    const last = new Date(Date.UTC(year!, month!, 0)).getUTCDate();
+
+    return {
+        from: `${rental.from}-${String(rental.startDay ?? 1).padStart(2, "0")}`,
+        to: `${rental.to}-${String(last).padStart(2, "0")}`,
+    };
+}
+
+/** Whether a figure came from the filters, rather than from the reader in the chat. */
+export const isFromFilters = fromFilters;
+
+/*
+ * Chips that stand for one figure each: when one goes and another comes, the
+ * reader changed that figure, and saying "X instead of Y" is the news.
+ */
+const SAME_FIGURE = [/^(By|From) /, / km a month$/, /^Around €/, /-month contract$/, / – /];
+
+/**
+ * A filter change, said once: what took the place of what, what's new, and
+ * what's gone — in the chips' own words, so "Apple CarPlay / Android Auto"
+ * keeps its capitals. Empty when nothing Lens uses moved.
+ */
+export function describeFilterChange(was: string[], now: string[]): string {
+    const added = now.filter((item) => !was.includes(item));
+    const removed = was.filter((item) => !now.includes(item));
+    const swaps: string[] = [];
+
+    for (const pattern of SAME_FIGURE) {
+        const into = added.find((item) => pattern.test(item));
+        const from = removed.find((item) => pattern.test(item));
+
+        if (!into || !from) continue;
+
+        added.splice(added.indexOf(into), 1);
+        removed.splice(removed.indexOf(from), 1);
+
+        /* "from 1 October instead of 1 November", not "…instead of from 1 November". */
+        const [first] = into.split(" ");
+        const old = from.startsWith(`${first} `) && /^(By|From|Around)$/.test(first!) ? from.slice(first!.length + 1) : lower(from);
+
+        swaps.push(`${lower(into)} instead of ${old}`);
+    }
+
+    return [
+        swaps.length ? `${swaps.join("; ")}.` : "",
+        added.length ? `Now also: ${added.join(", ")}.` : "",
+        removed.length ? `No longer: ${removed.join(", ")}.` : "",
+    ]
+        .filter(Boolean)
+        .join(" ");
 }

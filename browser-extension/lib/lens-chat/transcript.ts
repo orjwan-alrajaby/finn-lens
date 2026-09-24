@@ -1,3 +1,4 @@
+import type { FinnSearch } from "@/lib/finn-search";
 import type { ScopeKind, WireQuestion } from "@/lib/lens-ai/contract";
 
 import type { GuideStep } from "./guide";
@@ -58,6 +59,13 @@ export interface SavedTranscript<Entry> {
     askingAgain: boolean;
     pendingAnswer: string | null;
     carriedOver: boolean;
+    /**
+     * The filters the conversation last knew. Filters often change by a full
+     * page load, and without this every load would look like the first: the
+     * dates, budget or mileage the reader answered would silently stop
+     * matching a filter they had since changed.
+     */
+    search?: FinnSearch | null;
 }
 
 /** How much of the conversation the model is sent back each turn is small; this is plenty. */

@@ -8,7 +8,18 @@ import type { PinnedFinnCar } from "@/lib/types";
 
 import { guideSteps } from "./guide";
 import { runLens } from "./run";
-import { heardFromSearch, searchSentence, searchStart, searchTerm, withSearch } from "./search";
+import {
+    changedDecisions,
+    describeFilterChange,
+    heardFromSearch,
+    rentalDates,
+    searchSentence,
+    searchStart,
+    searchTerm,
+    startDate,
+    termEnd,
+    withSearch,
+} from "./search";
 import { EMPTY_UNDERSTANDING, readUnderstanding, ruledOut, toAnswers, toWire, waiveEssential, type Understanding } from "./understanding";
 
 /**
@@ -188,5 +199,53 @@ describe("what the chat does with them", () => {
         expect(runLens(cars, translation.answers, "page", "Comparing 48 cars", ruledOut(u))?.recommendation.winner).toBeDefined();
         /* Nothing a filter says is a rule: no car is set aside for missing one. */
         expect(ruledOut(u)).toEqual([]);
+    });
+});
+
+describe("when the filters change under a conversation", () => {
+    const at = (path: string) => read(`https://www.finn.com/de-DE/subscribe/${path}`);
+
+    it("knows which decisions a change touches", () => {
+        expect(changedDecisions(at("suv?available_from=2026-11"), at("suv?available_from=2026-10"), TODAY)).toEqual({
+            period: true,
+            budget: false,
+            distance: false,
+        });
+        expect(changedDecisions(at("suv?max_price=600"), at("suv?max_price=700&features=hitch"), TODAY)).toMatchObject({ budget: true, period: false });
+        expect(changedDecisions(at("suv?mileage_package=1000"), at("suv?mileage_package=1500"), TODAY).distance).toBe(true);
+        /* Equipment and body style are filters, but no question in the chat is about them. */
+        expect(changedDecisions(at("suv"), at("suv?features=hitch"), TODAY)).toEqual({ period: false, budget: false, distance: false });
+    });
+
+    it("says a changed figure as what replaced what, keeping names as FINN writes them", () => {
+        const text = describeFilterChange(
+            ["Around €651 a month", "From 1 November", "Automatic gearbox"],
+            ["Around €651 a month", "From 1 October", "Apple CarPlay / Android Auto", "Five seats"],
+        );
+
+        expect(text).toBe("from 1 October instead of 1 November. Now also: Apple CarPlay / Android Auto, Five seats. No longer: Automatic gearbox.");
+    });
+
+    it("has nothing to say when nothing Lens uses moved", () => {
+        expect(describeFilterChange(["An SUV"], ["An SUV"])).toBe("");
+    });
+});
+
+describe("filling the dates in", () => {
+    it("ends a contract on the last day of its last month", () => {
+        /* Six months from 1 November: November to April. */
+        expect(termEnd("2026-11-01", 6)).toBe("2027-04-30");
+        expect(termEnd("2026-10-07", 12)).toBe("2027-09-30");
+        expect(termEnd("2027-01-15", 2)).toBe("2027-02-28");
+    });
+
+    it("starts from the filter's day, or the first of its month", () => {
+        expect(startDate(searchStart(CABRIO_SEARCH, TODAY)!)).toBe("2026-10-07");
+        expect(startDate(searchStart(read("https://www.finn.com/de-DE/subscribe/suv?available_from=2026-11")!, TODAY)!)).toBe("2026-11-01");
+    });
+
+    it("shows a kept period as the days it covers", () => {
+        expect(rentalDates({ from: "2026-11", to: "2027-04", startDay: null, said: "" })).toEqual({ from: "2026-11-01", to: "2027-04-30" });
+        expect(rentalDates({ from: "2026-10", to: "2027-03", startDay: 7, said: "" })).toEqual({ from: "2026-10-07", to: "2027-03-31" });
     });
 });
