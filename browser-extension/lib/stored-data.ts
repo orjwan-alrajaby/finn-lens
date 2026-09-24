@@ -25,7 +25,8 @@ export type StoredDataGroupId =
     | "pinnedCars"
     | "browsingCache"
     | "setup"
-    | "lensAi";
+    | "lensAi"
+    | "lensChat";
 
 export interface StoredDataGroup {
     id: StoredDataGroupId;
@@ -90,6 +91,15 @@ export const STORED_DATA_GROUPS: StoredDataGroup[] = [
         consequence:
             "Lens AI turns off and forgets your key. Everything else in Lens keeps working; you can add the key again in Settings.",
         keys: ["finnLensAi", "finnLensAiResting", "finnLensSession", "finnLensSavedSearches", "finnLensChatSize", "finnLensSessionHandOff"],
+    },
+    {
+        id: "lensChat",
+        label: "Your conversation with Lens",
+        description:
+            "Everything you and Lens said in Ask Lens, from the first message: what you told it, the questions it asked and your answers, the cars it recommended, and what you did — pins, kept searches, changes you tried. Kept so you can pick it up again on any finn.com page.",
+        consequence:
+            "Ask Lens starts with an empty conversation next time. Your pinned cars, kept searches and Lens settings stay as they are.",
+        keys: ["finnLensChatTranscript"],
     },
 ];
 
