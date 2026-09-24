@@ -435,7 +435,7 @@ function subscriptionLine(breakdown: CostBreakdown): CostLine {
             ? contract.period
               ? `on the ${contract.term.months}-month term — the shortest FINN offers that covers your rental — with nothing paid upfront`
               : `on FINN's default ${contract.term.months}-month term, with nothing paid upfront`
-            : "as FINN advertised it when you pinned the car"
+            : "as FINN advertised it when Lens last read the car"
         }.${
           subscription.vatIncluded === true ? " VAT is included." : ""
         }`

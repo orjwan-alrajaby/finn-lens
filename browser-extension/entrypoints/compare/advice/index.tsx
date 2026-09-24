@@ -109,7 +109,7 @@ export function Advice({
 
                     <p className="mt-2 text-sm text-finn-iron">
                         Judged on your priorities, your driving assumptions and
-                        your budget, across all {cars.length} cars you pinned.
+                        your budget, across all {cars.length} cars being compared.
                     </p>
                 </div>
 

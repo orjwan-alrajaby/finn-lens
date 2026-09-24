@@ -222,9 +222,8 @@ export function AskLens({
             </h2>
 
             <p className="mt-1 text-sm leading-6 text-finn-iron">
-                Answered only from what Lens worked out for your {cars.length}{" "}
-                pinned cars. Ask "what if…" and Lens re-runs the comparison
-                itself.
+                Answered only from what Lens worked out for these {cars.length}{" "}
+                cars. Ask "what if…" and Lens re-runs the comparison itself.
             </p>
 
             {exchanges.length > 0 && (

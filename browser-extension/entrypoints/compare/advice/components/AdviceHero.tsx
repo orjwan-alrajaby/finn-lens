@@ -172,15 +172,15 @@ export function AdviceHero({
                         )}
 
                         {gearboxFallback === "noneFit"
-                            ? "Closest match — nothing you pinned is an automatic"
+                            ? "Closest match — nothing here is an automatic"
                             : gearboxFallback === "unconfirmed"
                               ? "Your recommendation — FINN doesn't say whether it's an automatic"
                               : rentalFallback === "noneFit"
-                            ? "Closest match — nothing you pinned fits your rental period"
+                            ? "Closest match — nothing here fits your rental period"
                             : rentalFallback === "unconfirmed" && !overBudget
                               ? "Your recommendation — FINN can't confirm it for your rental period"
                               : isFallback
-                            ? "Closest match — nothing you pinned fits your budget"
+                            ? "Closest match — nothing here fits your budget"
                             : estimate
                               ? "Best estimate — FINN's data is thin on your top priorities"
                               : "Your recommendation"}

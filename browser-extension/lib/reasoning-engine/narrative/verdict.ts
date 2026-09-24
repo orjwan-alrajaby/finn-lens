@@ -176,7 +176,7 @@ function describeBudgetOverride(
     return sentence(
       `${topScorer.name} scores higher overall, but it`,
       describeRentalProblem(topFit),
-      `— so ${evaluation.vehicle.name} is the strongest car you pinned that`,
+      `— so ${evaluation.vehicle.name} is the strongest car here that`,
       winnerFit.status === "fits"
         ? `fits ${periodLabel(topFit.period)}`
         : `isn't ruled out for ${periodLabel(topFit.period)}, though FINN's data can't confirm it either`,
@@ -203,7 +203,7 @@ function describeBudgetOverride(
 
   return sentence(
     problem.replace(/\.$/, ""),
-    `— so ${evaluation.vehicle.name} is the strongest car you pinned`,
+    `— so ${evaluation.vehicle.name} is the strongest car here`,
     fitsConfirmed(evaluation, context)
       ? "that does fit"
       : "that isn't already over it, though part of its own cost couldn't be estimated either",

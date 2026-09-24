@@ -205,7 +205,7 @@ function whyItStillWon(
       context.costs[evaluation.vehicle.id]?.budgetStatus === "within";
 
     return sentence(
-      "It's still the recommendation because it's the strongest car you pinned",
+      "It's still the recommendation because it's the strongest car here",
       confirmed
         ? "that fits your budget"
         : "that isn't already over your budget",

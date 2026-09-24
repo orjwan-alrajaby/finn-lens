@@ -189,7 +189,7 @@ describe("the rental period as a hard rule", () => {
         const narrative = buildAdviceNarrative(result.evaluation, result.context, result.alternatives);
 
         expect(narrative.verdict.budgetNote).toBe(
-            "Strong Short scores higher overall, but it only offers terms up to 6 months, which doesn't cover October 2026 to May 2027 — so Plain Long is the strongest car you pinned that fits October 2026 to May 2027.",
+            "Strong Short scores higher overall, but it only offers terms up to 6 months, which doesn't cover October 2026 to May 2027 — so Plain Long is the strongest car here that fits October 2026 to May 2027.",
         );
     });
 

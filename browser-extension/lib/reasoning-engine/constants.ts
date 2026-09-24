@@ -671,7 +671,7 @@ export const CATEGORIES = {
     description:
       "How long and wide the car is, and the cameras that help you place it. A smaller car fits more spaces; cameras help when it doesn't. An automatic gearbox is expected, for stop-and-go traffic. This isn't a verdict on how the car handles.",
     measured:
-      "The car's length and width, each placed on a fixed scale: the smaller the car, the more of the scale it earns, whatever else you pinned",
+      "The car's length and width, each placed on a fixed scale: the smaller the car, the more of the scale it earns, whatever else is being compared",
     recommendedFor: [
       "City driving and street parking",
       "Tight garages and multi-storey car parks",
@@ -880,7 +880,7 @@ export const PROFILES = {
     assumes:
       "Assistance that helps you avoid a collision leads, with parking and bad-weather visibility behind it.",
     doesNotGuarantee:
-      "Crash protection, which isn't in FINN's data, or that no pinned car is safer in every respect.",
+      "Crash protection, which isn't in FINN's data, or that no car being compared is safer in every respect.",
     priorities: ["safetyAssistance", "cityParking", "climateSuitability"],
     emphasis: {
       safetyAssistance: emphasis([
@@ -910,7 +910,7 @@ export const PROFILES = {
     assumes:
       "A car that's easy to park and pleasant in traffic leads, with safety assistance and emissions behind it.",
     doesNotGuarantee:
-      "The lowest running cost, low-emission-zone access, or the smallest car you pinned.",
+      "The lowest running cost, low-emission-zone access, or the smallest car being compared.",
     priorities: [
       "cityParking",
       "comfort",

@@ -142,7 +142,7 @@ export function ChallengePicker({
                           * can't support.
                           */}
                         <p className="mt-0.5 text-[10px] font-bold text-finn-iron">
-                            #{option.rank} of your pinned cars
+                            Ranked #{option.rank}
                             {option.vehicle.fuelType
                                 ? ` · ${option.vehicle.fuelType}`
                                 : ""}
