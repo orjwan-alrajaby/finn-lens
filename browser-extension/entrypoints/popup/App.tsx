@@ -1,4 +1,5 @@
 import "@/assets/tailwind.css";
+import { SearchCard } from "./components/SearchCard";
 import { useState, useEffect } from "react";
 import { Settings } from "lucide-react";
 import { FINN_BASE_URL } from "@/lib/constants";
@@ -254,6 +255,8 @@ function App() {
         */}
       <div className="px-4">
         <GettingStarted pinnedCount={pinnedCarsCount} />
+        {/* The chat's search and the kept ones: whatever the reader was last deciding with Lens. */}
+        <SearchCard />
       </div>
 
       {hasUsableContent ? (

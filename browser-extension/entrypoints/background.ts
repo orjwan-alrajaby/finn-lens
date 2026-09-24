@@ -73,7 +73,10 @@ export default defineBackground(() => {
       void openOrFocusNewPage("/compare.html");
     } 
     else if (req.type === "OPEN_SETTINGS_PAGE") {
-      void openOrFocusNewPage("/settings.html");
+      /* A tab to open on — "searches", from the popup — travels in the hash, like a car for the pins page. */
+      const tab = typeof req.tab === "string" && /^[a-z]+$/.test(req.tab) ? req.tab : null;
+
+      void openOrFocusNewPage("/settings.html", tab ? `#tab=${tab}` : undefined);
     }
     else if (req.type === "OPEN_ONBOARDING_PAGE") {
       void openOrFocusNewPage("/onboarding.html");

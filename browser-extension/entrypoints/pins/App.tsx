@@ -6,6 +6,7 @@ import { ArrowLeft } from "lucide-react";
 import { FitAnalysisView } from "@/components/FitAnalysisView";
 import { PageHeader } from "@/components/PageHeader";
 import { UsingDefaultsNotice } from "@/components/UsingDefaultsNotice";
+import { JudgedBy, useJudging } from "@/components/JudgedBy";
 import {
     advertisedMonthlyPrice,
     hasSavedLensSettings,
@@ -54,6 +55,8 @@ export default function PinsPage() {
     const [cars, setCars] = useState<PinnedFinnCar[] | null>(null);
     const [settings, setSettings] = useState<LensSettings | null>(null);
     const [configured, setConfigured] = useState(false);
+    /* Whose answers every band here is by: the chat's while it has a result, else the settings. */
+    const judging = useJudging();
 
     const [openId, setOpenId] = useState<number | null>(null);
     const [checked, setChecked] = useState<number[]>([]);
@@ -122,7 +125,7 @@ export default function PinsPage() {
      * Which of FINN's two prices every figure on this page quotes: the one
      * for the reader's own contract, which is also what the analysis bills.
      */
-    const contractType = settings?.preferences.contractType ?? "private";
+    const contractType = (judging?.answers.preferences ?? settings?.preferences)?.contractType ?? "private";
 
     /*
      * Every car analysed once, and reused by both the list and the open
@@ -136,22 +139,19 @@ export default function PinsPage() {
      * whether it gives any.
      */
     const analyses = useMemo(() => {
-        if (!cars || !settings) {
+        if (!cars || !judging) {
             return new Map<number, FitAnalysis>();
         }
+
+        const { answers } = judging;
 
         return new Map(
             cars.map((car) => [
                 car.id,
-                buildFitAnalysis(
-                    car,
-                    settings.priorities,
-                    settings.preferences,
-                    settings.categoryFeatures,
-                ),
+                buildFitAnalysis(car, answers.priorities, answers.preferences, answers.features),
             ]),
         );
-    }, [cars, settings]);
+    }, [cars, judging]);
 
     const sorted = useMemo(
         () => (cars ? sortCars(cars, sort, analyses, contractType) : []),
@@ -350,7 +350,10 @@ export default function PinsPage() {
                         />
                     )}
 
-                    {!configured && cars.length > 0 && (
+                    {judging && cars.length > 0 && <JudgedBy judging={judging} className="mt-4" />}
+
+                    {/* The defaults notice is about the settings; a chat's answers aren't Lens's defaults. */}
+                    {!configured && judging?.by !== "chat" && cars.length > 0 && (
                         <div className="mt-4">
                             <UsingDefaultsNotice
                                 onPersonalise={() =>

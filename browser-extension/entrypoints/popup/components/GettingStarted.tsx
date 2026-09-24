@@ -10,6 +10,7 @@ import {
 import { hasSavedLensSettings } from "@/lib/reasoning-engine";
 import { withFinnLinks } from "@/components/FinnLink";
 import { openBrowserTab } from "@/lib/utils";
+import { loadSession } from "@/lib/lens-chat/session";
 
 /**
  * The three things standing between a new reader and the product working.
@@ -32,21 +33,25 @@ import { openBrowserTab } from "@/lib/utils";
 export function GettingStarted({ pinnedCount }: { pinnedCount: number }) {
     const [state, setState] = useState<OnboardingState | null>(null);
     const [configured, setConfigured] = useState(false);
+    /* A search built with Lens on finn.com is a way to a recommendation too. */
+    const [searched, setSearched] = useState(false);
     const [closed, setClosed] = useState(false);
 
     useEffect(() => {
         let alive = true;
 
         void (async () => {
-            const [onboarding, saved] = await Promise.all([
+            const [onboarding, saved, session] = await Promise.all([
                 loadOnboardingState(),
                 hasSavedLensSettings().catch(() => false),
+                loadSession().catch(() => null),
             ]);
 
             if (!alive) return;
 
             setState(onboarding);
             setConfigured(saved);
+            setSearched(Boolean(session));
         })();
 
         return () => {
@@ -74,15 +79,20 @@ export function GettingStarted({ pinnedCount }: { pinnedCount: number }) {
         },
         {
             id: "pin",
-            done: pinnedCount >= 2,
-            label: "Pin at least two cars",
+            /*
+             * Either route gives Lens cars to compare: pinning two, or asking
+             * Lens on a listing, which compares the cars there. The step was
+             * written when pinning was the only way.
+             */
+            done: pinnedCount >= 2 || searched,
+            label: "Pin two cars, or ask Lens on finn.com",
             todo:
                 pinnedCount === 1
-                    ? "One pinned. Lens needs two to have something to compare."
+                    ? "One pinned. Pin another, or open Ask Lens on a listing to compare the cars there."
                     : withFinnLinks(
-                          "Lens adds a pin button to every car on finn.com.",
+                          "Lens adds a pin button to every car on finn.com, and Ask Lens compares the cars on any listing.",
                       ),
-            doneNote: `${pinnedCount} cars pinned and ready.`,
+            doneNote: searched && pinnedCount < 2 ? "Your chat with Lens compared the cars on a listing." : `${pinnedCount} cars pinned and ready.`,
             action: "Open finn.com",
             onClick: () => window.open(FINN_BASE_URL, "_blank", "noopener"),
         },

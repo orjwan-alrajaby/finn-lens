@@ -82,7 +82,7 @@ export const openBrowserTab = async (
    * The pinned car to open the breakdown of, for `OPEN_PINS_PAGE`. Ignored
    * by every other page.
    */
-  options: { carId?: number } = {},
+  options: { carId?: number; tab?: string } = {},
 ) => {
   const PAGE_NAME: Record<ActionType, string> = {
     OPEN_COMPARE_PAGE: "compare",
