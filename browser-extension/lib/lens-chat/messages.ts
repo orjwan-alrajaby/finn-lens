@@ -1,3 +1,5 @@
+import type { FinnSearch } from "@/lib/finn-search";
+
 /**
  * The messages between the Lens chat and the finn.com page it sits on.
  *
@@ -26,6 +28,18 @@ export interface PageContext {
     currentFromUrl: boolean;
     /** Links FINN draws on each card, so a pin can store the car's own page. */
     carUrls: Record<number, string>;
+    /**
+     * What the reader filtered for on finn.com, read off the address: the
+     * listing's filters, or the ones a car page carried over from it. Null on
+     * an unfiltered page.
+     */
+    search: FinnSearch | null;
+    /**
+     * On a filtered listing, every configuration FINN lists for that search —
+     * not only the cards drawn so far. `total` is FINN's count, which is more
+     * than `ids` when the search is broad.
+     */
+    searchCars: { ids: number[]; total: number } | null;
 }
 
 /**

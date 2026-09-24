@@ -54,6 +54,29 @@ export function loadCarByConfigId(configId: number): Promise<FinnCarsResponse> {
   );
 }
 
+/**
+ * Every value FINN lets a reader filter by — brands, models, body styles,
+ * fuels, contract lengths, offers. Lens reads a listing's address against
+ * this, because the path holds slugs of these values and nothing else says
+ * which slug is a brand and which a model.
+ */
+export function loadFilterVocabulary(): Promise<unknown> {
+  return finnFetch<unknown>(
+    "/api/filters/cars?hide_related=true&pricing_type=downpayment&view=available_cars",
+  );
+}
+
+/**
+ * The configurations FINN lists for a search (`searchQuery` in
+ * `lib/finn-search.ts`), ungrouped: every configuration that matches, not one
+ * card per model and not only the twenty-four a listing has drawn so far.
+ */
+export function loadSearchCars(query: string, limit: number): Promise<FinnCarsResponse> {
+  return finnFetch<FinnCarsResponse>(
+    `/api/cars?hide_related=true&view=available_cars&limit=${limit}&${query}`,
+  );
+}
+
 export async function loadCarsFromFinnApi({
   isHomePage,
   isListingsPage,

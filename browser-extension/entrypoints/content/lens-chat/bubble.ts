@@ -6,7 +6,8 @@ import { CARD_SELECTORS, cardConfigId, cardForCar, resolveCar } from "../lens-pa
 import { highlightConfiguration } from "../lens-panel/highlight";
 import { setCarPinned } from "../lens-panel/pin-control";
 import { extractConfigId } from "../injectors/inject-pin-button/injectPinCarButtonIntoNode/utils";
-import { ensureCarsFor } from "../car-data";
+import { ensureCarsFor, ensureSearchCars } from "../car-data";
+import { currentSearch } from "../search";
 
 /**
  * "Ask Lens" on finn.com: a small bubble, and the chat it opens.
@@ -105,15 +106,24 @@ export function readPageContext(): PageContext {
         currentCarId,
         currentFromUrl,
         carUrls,
+        /* Filled in by the chat's request, which can wait for FINN; this can't. */
+        search: null,
+        searchCars: null,
     };
 }
 
-/** Somewhere worth talking about cars: a page that draws some, or is about one. */
-function pageHasCars(): boolean {
-    return (
-        Boolean(document.querySelector(DETAILS_PAGE_SELECTOR)) ||
-        Boolean(document.querySelector(CARD_SELECTORS))
-    );
+/**
+ * Where Ask Lens belongs: a listing, and a car's own page.
+ *
+ * Those are the two places a decision is being made — narrowing a search, and
+ * weighing one car — and the two whose address says what the reader is
+ * looking for. The home page draws cars too, but as a shop window: a chat
+ * there is a chat about nothing in particular.
+ */
+function isDecisionPage(): boolean {
+    const kind = pageKind();
+
+    return kind === "listing" || kind === "details";
 }
 
 /* -------------------------------------------------------------------------- */
@@ -127,6 +137,16 @@ async function handle(message: ChatToPage): Promise<unknown> {
         case "LENS_CHAT_CONTEXT": {
             const context = readPageContext();
 
+            /* What the reader filtered for, so the chat doesn't ask it again. */
+            const search = await currentSearch();
+
+            /*
+             * On a filtered listing, everything that matches — the sample the
+             * reader has narrowed FINN down to, rather than the cards drawn
+             * so far — and with it most of the cards themselves.
+             */
+            const searchCars = search && context.kind === "listing" ? await ensureSearchCars(search) : null;
+
             /*
              * The cars this page is showing, before the chat says what it can
              * compare. Usually nothing to do — the content script fills them
@@ -135,7 +155,7 @@ async function handle(message: ChatToPage): Promise<unknown> {
              */
             await ensureCarsFor([...context.pageCarIds, context.currentCarId].filter((id): id is number => id != null));
 
-            return context;
+            return { ...context, search, searchCars };
         }
 
         case "LENS_CHAT_PIN":
@@ -403,7 +423,7 @@ export function notifyPageChanged(): void {
 export async function syncChatBubble(): Promise<void> {
     listen();
 
-    if (!pageHasCars()) {
+    if (!isDecisionPage()) {
         if (host && !isOpen) host.style.display = "none";
         return;
     }

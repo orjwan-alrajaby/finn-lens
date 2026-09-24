@@ -28,6 +28,8 @@ const page = (overrides: Partial<PageContext> = {}): PageContext => ({
     currentCarId: null,
     currentFromUrl: false,
     carUrls: { 101: "https://www.finn.com/de-DE/models/safe/compact" },
+    search: null,
+    searchCars: null,
     ...overrides,
 });
 

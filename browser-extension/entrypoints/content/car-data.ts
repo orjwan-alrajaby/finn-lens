@@ -1,11 +1,15 @@
+import { searchQuery, type FinnSearch } from "@/lib/finn-search";
+
 import { mapFinnConfigToAll } from "./manipulateApiData";
 import { CARD_SELECTORS, cardConfigId } from "./lens-panel/currentCar";
 import { DETAILS_PAGE_SELECTOR } from "./constants";
 import {
     loadCarByConfigId,
     loadCarPage,
+    loadSearchCars,
     type FinnCarsResponse,
 } from "./injectors/inject-pin-button/injectPinCarButtonIntoNode/api";
+import { currentSearch, onListing } from "./search";
 import {
     getLoadedCars,
     getPinnedCars,
@@ -178,8 +182,73 @@ export function pageCarIds(): number[] {
     return [...ids];
 }
 
-/** Fills in whatever the page is showing right now. Safe to call often. */
-export const ensurePageCars = (): Promise<number> => ensureCarsFor(pageCarIds());
+/* -------------------------------------------------------------------------- */
+/* A filtered listing                                                         */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * The most configurations one search brings into Lens. A search narrow enough
+ * to decide within is well under this; one that isn't (all petrol cars) is
+ * compared on the first this many FINN lists, and the chat says so.
+ */
+const MAX_SEARCH_CARS = 150;
+
+export interface SearchCars {
+    ids: number[];
+    /** How many FINN says match — more than `ids` when the search is broad. */
+    total: number;
+}
+
+const searched = new Map<string, Promise<SearchCars>>();
+
+/**
+ * Every configuration FINN lists for the reader's search, held by Lens.
+ *
+ * A listing draws one card per model, twenty-four at a time, and only as the
+ * reader scrolls; the search behind it is the whole of what they asked FINN
+ * for — "electric SUVs with a towbar, €770–950" is four configurations, all
+ * known the moment the page opens. One request per search, remembered for the
+ * visit, and it also covers the cards the page draws.
+ */
+export function ensureSearchCars(search: FinnSearch): Promise<SearchCars> {
+    const query = searchQuery(search);
+    let pending = searched.get(query);
+
+    if (!pending) {
+        pending = loadSearchCars(query, MAX_SEARCH_CARS)
+            .then(async (response) => ({
+                ids: [...new Set(await keep(response))],
+                total: Number(response?.total_results) || 0,
+            }))
+            .catch((error: unknown) => {
+                /* Not remembered: a failed request is worth making again. */
+                searched.delete(query);
+                console.error("[FinnLens] couldn't load the cars for this search", error);
+                return { ids: [], total: 0 };
+            });
+
+        searched.set(query, pending);
+    }
+
+    return pending;
+}
+
+/**
+ * Fills in whatever the page is showing right now. Safe to call often.
+ *
+ * On a filtered listing the search goes first: one request brings every car
+ * that matches, cards included, and what's left for card-by-card filling is
+ * nothing, or nearly.
+ */
+export async function ensurePageCars(): Promise<number> {
+    if (onListing()) {
+        const search = await currentSearch();
+
+        if (search) await ensureSearchCars(search);
+    }
+
+    return ensureCarsFor(pageCarIds());
+}
 
 /** Forgets what this page asked for, so a new page starts clean. */
 export const forgetAsked = (): void => asked.clear();
