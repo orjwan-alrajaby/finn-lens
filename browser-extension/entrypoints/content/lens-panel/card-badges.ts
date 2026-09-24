@@ -5,14 +5,13 @@ import {
   FIT_SEGMENTS,
   type FitLevel,
 } from "@/lib/reasoning-engine/fit";
-import { loadLensSettings } from "@/lib/reasoning-engine";
+import { currentJudging, judgingLabel, setAsideByChat, type Judging } from "@/lib/lens-chat/judging";
 import {
   FIT_BADGE_BASE,
   FIT_BADGE_HOOK,
   FIT_BADGE_NEUTRAL_CLASS,
   FIT_BADGE_NEUTRAL_LABEL,
 } from "@/lib/card-controls";
-import type { LensSettings } from "@/lib/reasoning-engine/types";
 import type { PinnedFinnCar } from "@/lib/types";
 
 import { brandMark, el } from "./dom";
@@ -230,6 +229,8 @@ function applyVerdict(
   level: FitLevel,
   label: string,
   name: string | undefined,
+  /** Whose answers the verdict is by, in words: "your chat with Lens: An SUV". */
+  by: { chat: boolean; long: string },
 ): void {
   badge.classList.remove(...NEUTRAL_CLASS.split(" "));
   badge.classList.add(...FIT_BANDS[level].chipClass.split(" "));
@@ -238,13 +239,19 @@ function applyVerdict(
 
   const text = badge.querySelector(".finn-lens-fit-label");
 
-  if (text) text.textContent = label;
+  /*
+   * Said on the badge itself when the chat is judging: a card on the same
+   * page as a conversation could otherwise be read as the chat's verdict when
+   * it was the settings', or the other way round.
+   */
+  if (text) text.textContent = by.chat ? `${label} · chat` : label;
 
+  badge.title = `${by.long}.`;
   badge.setAttribute(
     "aria-label",
     name
-      ? `Finn Lens: ${label} for ${name}. See how it fits you.`
-      : `Finn Lens: ${label}. See how this car fits you.`,
+      ? `Finn Lens: ${label} for ${name}. ${by.long}. See how it fits you.`
+      : `Finn Lens: ${label}. ${by.long}. See how this car fits you.`,
   );
 }
 
@@ -291,17 +298,21 @@ export function injectFitButtons(): void {
 
 /** Read once per pass rather than once per card. */
 async function context(): Promise<{
-  settings: LensSettings;
+  judging: Judging;
   carFor: (id: number) => PinnedFinnCar | null;
 } | null> {
-  const [settings, pinned, loaded] = await Promise.all([
-    loadLensSettings(),
+  /*
+   * Whose answers, from the one place every surface reads it: the chat's
+   * while it has a result, the saved settings otherwise (`judging.ts`).
+   */
+  const [judging, pinned, loaded] = await Promise.all([
+    currentJudging(),
     getPinnedCars(),
     getLoadedCars(),
   ]);
 
   return {
-    settings,
+    judging,
     carFor: (id) => {
       const car = pinned[id] ?? loaded[id];
 
@@ -349,19 +360,27 @@ export async function applyFitVerdicts(): Promise<void> {
      */
     if (!car) continue;
 
-    const analysis = buildFitAnalysis(
-      car,
-      shared.settings.priorities,
-      shared.settings.preferences,
-      shared.settings.categoryFeatures,
-    );
-
-    /* Nothing to report is reported as nothing: the neutral label stays. */
-    if (analysis.overall.level === "unknown") continue;
-
+    const { answers } = shared.judging;
+    const by = { chat: shared.judging.by === "chat", long: judgingLabel(shared.judging).long };
     const badge = card.querySelector<HTMLElement>(`.${BADGE}`);
 
     if (!badge) continue;
+
+    /*
+     * A car the chat's own rules set aside — "not an SUV", "electric only" —
+     * isn't graded as if the rule weren't there. The chat never ranked it,
+     * and a "good match" on it would contradict the conversation.
+     */
+    if (setAsideByChat(shared.judging, car)) {
+      card.setAttribute(VERDICT, String(car.id));
+      applyVerdict(badge, "limited", "Ruled out", cardName(card), by);
+      continue;
+    }
+
+    const analysis = buildFitAnalysis(car, answers.priorities, answers.preferences, answers.features);
+
+    /* Nothing to report is reported as nothing: the neutral label stays. */
+    if (analysis.overall.level === "unknown") continue;
 
     card.setAttribute(VERDICT, String(car.id));
 
@@ -370,6 +389,7 @@ export async function applyFitVerdicts(): Promise<void> {
       analysis.overall.level,
       analysis.overall.label,
       cardName(card),
+      by,
     );
   }
 }

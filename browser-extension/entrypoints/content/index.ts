@@ -284,10 +284,17 @@ export default defineContentScript({
     browser.storage.onChanged.addListener((changes, areaName) => {
       if (areaName !== "local") return;
 
+      /*
+       * Whose answers the badges are by: the settings, and also the chat's
+       * search and the reader's "use my settings / my chat" switch, since
+       * either can change which answers every badge on the page is by.
+       */
       const settingsChanged = [
         "finnLensPreferences",
         "finnLensPriorities",
         "finnLensCategoryFeatures",
+        "finnLensSession",
+        "finnLensJudgeBy",
       ].some((key) => key in changes);
 
       if (settingsChanged) {

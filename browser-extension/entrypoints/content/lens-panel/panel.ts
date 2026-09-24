@@ -1,5 +1,6 @@
 import { buildFitAnalysis } from "@/lib/reasoning-engine/fit";
-import { hasSavedLensSettings, loadLensSettings } from "@/lib/reasoning-engine";
+import { hasSavedLensSettings } from "@/lib/reasoning-engine";
+import { currentJudging, judgeBy, judgingLabel, setAsideByChat, type Judging } from "@/lib/lens-chat/judging";
 
 import {
   brandMark,
@@ -299,23 +300,26 @@ async function render(
     return;
   }
 
-  const settings = await loadLensSettings();
+  /*
+   * Whose answers, from the one place every surface reads it: the chat's
+   * while it has a result, the saved settings otherwise (`judging.ts`).
+   */
+  const judging = await currentJudging();
 
   if (!isCurrent()) return;
 
   /* Marked, not scrolled to: the card is already under the reader's cursor. */
   highlightConfiguration(car.id);
 
+  const { answers } = judging;
+
   empty(into);
   into.append(
+    judgedBy(judging, car as never, retry),
     analysisBody(
-      buildFitAnalysis(
-        car,
-        settings.priorities,
-        settings.preferences,
-        settings.categoryFeatures,
-      ),
-      configured ? null : defaultsNotice(openSetup),
+      buildFitAnalysis(car, answers.priorities, answers.preferences, answers.features),
+      /* The defaults notice is about the settings; it says nothing true of a chat's answers. */
+      configured || judging.by === "chat" ? null : defaultsNotice(openSetup),
     ),
   );
 
@@ -339,6 +343,56 @@ async function render(
   dock.append(pinControl(car as never));
 }
 
+
+/**
+ * Whose answers this verdict is by, and the other one a tap away.
+ *
+ * The chat and the settings can disagree about the same car, and a panel that
+ * doesn't say which it is using leaves the reader to guess why it contradicts
+ * the conversation they just had. The switch holds for every badge and page
+ * until the chat's next result.
+ */
+function judgedBy(judging: Judging, car: Parameters<typeof setAsideByChat>[1], redraw: () => void): HTMLElement {
+  const label = judgingLabel(judging);
+  const ruledOut = setAsideByChat(judging, car);
+  const rules = judging.by === "chat" ? judging.session.rules.map((rule) => rule.label.toLowerCase()).join(", ") : "";
+
+  return el(
+    "div",
+    {
+      class:
+        "mb-3 flex flex-wrap items-center justify-between gap-2 rounded-2xl bg-finn-pale-blue px-3 py-2 text-[12px] leading-5",
+    },
+    [
+      el("div", { class: "min-w-0" }, [
+        el("p", { class: "font-black text-finn-accent-blue", text: label.long }),
+        ...(ruledOut
+          ? [
+              el("p", {
+                class: "text-finn-iron",
+                text: `Your chat set this car aside (${rules}), so it wouldn't be in its comparison. Here's how it would fit otherwise.`,
+              }),
+            ]
+          : []),
+      ]),
+      ...(label.switchTo
+        ? [
+            el("button", {
+              class:
+                "shrink-0 rounded-full bg-white px-3 py-1 text-[11px] font-black text-finn-accent-blue ring-1 ring-finn-cotton hover:bg-white/70",
+              attrs: { type: "button" },
+              text: label.switchTo,
+              on: {
+                click: () => {
+                  void judgeBy(judging.by === "chat" ? "settings" : "chat").then(redraw);
+                },
+              },
+            }),
+          ]
+        : []),
+    ],
+  );
+}
 
 /* -------------------------------------------------------------------------- */
 /* The drawer                                                                 */
