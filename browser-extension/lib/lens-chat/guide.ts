@@ -62,7 +62,13 @@ const USE: Partial<Record<EvidenceId, string>> = {
     hasThreeSixtyDegreesCamera: "a view all the way round while you park",
     hasOneEightyDegreesReversingCamera: "a view of what's behind you",
     hasParkingSensors: "a warning before you reach anything",
-    hasParkingAssistant: "the car placing itself in the space",
+    /*
+     * Not "the car steering itself in": this is FINN's own "Parkassistent"
+     * flag, which is on 98% of its cars and is exactly what FINN's
+     * "Einparkhilfe" filter selects — a parking aid, not necessarily one that
+     * takes the wheel.
+     */
+    hasParkingAssistant: "help getting into a space",
     hasElectricallyFoldingMirrors: "mirrors out of the way on a narrow street",
     hasAutomaticTransmission: "no clutch to work in stop-start traffic",
     driverAssistLevel2: "the car holding its lane and its distance on the motorway",
@@ -98,6 +104,9 @@ const USE: Partial<Record<EvidenceId, string>> = {
     electricCar: "an electric car",
     winterReadyTyres: "tyres for winter already fitted",
 };
+
+/** What a piece of equipment is for, in the words above, or nothing. */
+export const purposeOf = (id: EvidenceId): string => USE[id] ?? "";
 
 /* -------------------------------------------------------------------------- */
 /* The steps                                                                  */
@@ -305,7 +314,16 @@ function ruleSplits(cars: FinnCar[], choice: GuideChoice): boolean {
  * and is dropped when it has none left and no priority to move. What's left is
  * a conversation where every answer can change the result.
  */
-export function guideSteps(cars: FinnCar[], enabled?: CategoryId[]): GuideStep[] {
+export function guideSteps(
+    cars: FinnCar[],
+    enabled?: CategoryId[],
+    /**
+     * Steps already answered some other way — "how far do you drive" by a
+     * mileage package the reader picked on finn.com. Asking again would be
+     * asking them to repeat themselves.
+     */
+    skip: GuideStepId[] = [],
+): GuideStep[] {
     const allowed = (priority: CategoryId) => !enabled?.length || enabled.includes(priority);
 
     const life = LIFE.map((choice) => {
@@ -318,7 +336,7 @@ export function guideSteps(cars: FinnCar[], enabled?: CategoryId[]): GuideStep[]
 
     const rules = RULES.filter((choice) => ruleSplits(cars, choice));
 
-    return [
+    const steps: GuideStep[] = [
         {
             id: "life",
             ask: "What does the car have to do for you?",
@@ -348,6 +366,8 @@ export function guideSteps(cars: FinnCar[], enabled?: CategoryId[]): GuideStep[]
             none: "I'd rather not say",
         },
     ];
+
+    return steps.filter((step) => !skip.includes(step.id));
 }
 
 /* -------------------------------------------------------------------------- */
