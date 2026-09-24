@@ -40,8 +40,15 @@ export function PickCard({
     onAlternatives,
     onCar,
     onOpenPage,
+    basis = "chat",
 }: {
     story: FitStory;
+    /**
+     * What the ranking was built from: what the reader told the chat, or their
+     * saved settings with this page's filters. Said under the card, because
+     * the two look identical and mean different things.
+     */
+    basis?: "chat" | "settings";
     /** Cars Lens shows as the same match, and whether this is the cheapest of them. */
     level?: { others: number; cheapest: boolean; nextUp: number | null } | null;
     car: CarLine;
@@ -197,7 +204,9 @@ export function PickCard({
             </div>
 
             <p className="bg-white px-4 pb-3 text-[10px] leading-4 text-finn-iron">
-                Ranked by Lens's own scoring. Nothing is pinned unless you pin it.
+                {basis === "chat"
+                    ? "Ranked by Lens's own scoring, from what you told me in this chat. Nothing is pinned unless you pin it."
+                    : "Ranked by Lens's own scoring, from your saved Lens settings and this page's filters. Nothing is pinned unless you pin it."}
             </p>
         </section>
     );

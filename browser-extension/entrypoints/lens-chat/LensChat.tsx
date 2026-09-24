@@ -13,7 +13,7 @@ import { buildVocabulary } from "@/lib/lens-ai/vocabulary";
 import type { PageContext } from "@/lib/lens-chat/messages";
 import type { FinnSearch } from "@/lib/finn-search";
 import type { EvidenceId } from "@/lib/lens-chat/evidence";
-import { markHandOff, nameFor, saveSearch, saveSession, type LensSession } from "@/lib/lens-chat/session";
+import { clearSession, markHandOff, nameFor, saveSearch, saveSession, type LensSession } from "@/lib/lens-chat/session";
 import { asPhrase, barePhrase, EVIDENCE, evidenceCatalogue, plainly } from "@/lib/lens-chat/evidence";
 import { applyChoices, guideSteps, offersFor, whatIfs, type GuideStep, type GuideStepId } from "@/lib/lens-chat/guide";
 import {
@@ -21,6 +21,7 @@ import {
     describeFilterChange,
     FILTER_SAID,
     heardFromSearch,
+    readerSaidAnything,
     isFromFilters,
     rentalDates,
     searchSentence,
@@ -331,6 +332,7 @@ function sessionFrom(
         answers: translation.answers,
         carIds,
         winnerId: run.recommendation.winner.id,
+        basis: readerSaidAnything(understanding) ? "chat" : "settings",
     };
 }
 
@@ -594,6 +596,7 @@ export function LensChat() {
                 answers: translation.answers,
                 carIds: target.cars.map((car) => car.id),
                 winnerId: result.recommendation.winner.id,
+                basis: readerSaidAnything(u) ? "chat" : "settings",
             });
 
             if (intro) say(intro, "note");
@@ -1100,6 +1103,8 @@ export function LensChat() {
         pendingAnswer.current = null;
         carriedOver.current = false;
         lastRun.current = null;
+        /* The rest of Lens stops judging by the old conversation: badges and pages go back to the settings. */
+        void clearSession();
         push({ kind: "divider", text: `New conversation ${stamp(new Date())}`, fresh: true });
     }, [push, retireAsks]);
 
@@ -1661,7 +1666,10 @@ export function LensChat() {
             ...session,
             id: `search-${Date.now()}`,
             name: nameFor(session),
-            note: [session.summary, ...session.focus.map((item) => item.label)].filter(Boolean).join(" · "),
+            /* What it's about, each thing once, and not just its name again. */
+            note: [...new Set([session.summary, ...session.focus.map((item) => item.label)])]
+                .filter((part) => part && part !== nameFor(session))
+                .join(" · "),
         });
 
         record(`You kept this search as “${nameFor(session)}”.`);
@@ -1946,6 +1954,7 @@ export function LensChat() {
                                     return index === lastPick && run && story && match ? (
                                         <PickCard
                                             key={entry.id}
+                                            basis={applied && readerSaidAnything(applied.understanding) ? "chat" : "settings"}
                                             story={story}
                                             level={run.level}
                                             car={match.car}
