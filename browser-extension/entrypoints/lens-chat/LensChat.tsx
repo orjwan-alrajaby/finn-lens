@@ -242,6 +242,13 @@ const STARTERS: { title: string; icon: React.ReactNode; message: string }[] = [
     { title: "Electric, but far trips", icon: <Zap aria-hidden="true" className="h-4 w-4" />, message: "I want an electric car and can charge at home, but once a month I drive 300 km to see family. Up to €600 a month." },
 ];
 
+/**
+ * How long the page has to stop growing before Lens re-ranks: a listing loads
+ * its cards and then their data in bursts as the reader scrolls, and one
+ * update for the burst beats one per card.
+ */
+const GROWN_SETTLE_MS = 1500;
+
 /** "23 Sep, 22:40": when something happened, in a divider or beside an action. */
 const stamp = (date: Date): string =>
     date.toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
@@ -552,7 +559,13 @@ export function LensChat() {
 
     /** Ranks a scope with an understanding and shows why the result fits. */
     const compareWith = useCallback(
-        (u: Understanding, nextKind: ScopeKind, intro?: string) => {
+        (
+            u: Understanding,
+            nextKind: ScopeKind,
+            intro?: string,
+            /** Set when the comparison is re-run because more cars reached the page, not because the reader asked. */
+            grown?: { newCars: number },
+        ) => {
             const current = latest.current;
             if (!current.base) return null;
 
@@ -609,12 +622,18 @@ export function LensChat() {
             const winner = carLabel(result.recommendation.winner, result.recommendation.context.vehicles);
             const before = current.run?.recommendation.winner.id ?? null;
 
+            const same = before === result.recommendation.winner.id;
+
             say(
-                before == null
-                    ? `Here's what I'd look at first.`
-                    : before === result.recommendation.winner.id
-                      ? `Still the ${winner}, with that taken into account.`
-                      : `That changes it — the ${winner} moves ahead.`,
+                grown
+                    ? `${grown.newCars} new ${grown.newCars === 1 ? "car" : "cars"} detected — recommendation updated. ${
+                          same ? `The ${winner} is still the best match.` : `The ${winner} moves ahead.`
+                      }`
+                    : before == null
+                      ? `Here's what I'd look at first.`
+                      : same
+                        ? `Still the ${winner}, with that taken into account.`
+                        : `That changes it — the ${winner} moves ahead.`,
             );
 
             const picked = summariseMatch(result).car;
@@ -1067,6 +1086,49 @@ export function LensChat() {
         if (restored && page) payResumeDivider();
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [restored, page]);
+
+    /*
+     * More cars on the page than the card was ranked over.
+     *
+     * A listing draws its cards as the reader scrolls, and FINN's data for
+     * them arrives after — so a recommendation made over the first 24 cars
+     * went on standing while dozens more appeared under it, any of which
+     * might have been the better match. When every car the card compared is
+     * still here and more have joined them, the same search runs again over
+     * the lot, once the page has settled, and says so: "67 new cars detected
+     * — recommendation updated." The earlier result stays in the record as
+     * the line it was.
+     *
+     * Only for "cars on this page": a different page, or other filters, is a
+     * different set of cars rather than more of the same one, and the filter
+     * check already speaks for that.
+     */
+    const pageIds = scopes.page.cars.map((car) => car.id).join(",");
+
+    useEffect(() => {
+        if (!restored || busy) return;
+
+        const timer = window.setTimeout(() => {
+            const current = latest.current;
+            const compared = lastRun.current;
+
+            if (!current.run || !current.applied || !compared || compared.scope !== "page" || current.run.scope !== "page") return;
+
+            const ids = current.scopes.page.cars.map((car) => car.id);
+            const here = new Set(ids);
+
+            /* All of what was compared is still here: this is the same page, grown. */
+            if (!compared.carIds.every((id) => here.has(id))) return;
+
+            const before = new Set(compared.carIds);
+            const newCars = ids.filter((id) => !before.has(id)).length;
+
+            if (newCars > 0) compareWith(current.applied.understanding, "page", undefined, { newCars });
+        }, GROWN_SETTLE_MS);
+
+        return () => window.clearTimeout(timer);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [pageIds, restored, busy]);
 
     /**
      * Starting over, without losing anything.
@@ -1955,6 +2017,7 @@ export function LensChat() {
                                         <PickCard
                                             key={entry.id}
                                             basis={applied && readerSaidAnything(applied.understanding) ? "chat" : "settings"}
+                                            filtered={Boolean(page?.search)}
                                             story={story}
                                             level={run.level}
                                             car={match.car}

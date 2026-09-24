@@ -41,6 +41,7 @@ export function PickCard({
     onCar,
     onOpenPage,
     basis = "chat",
+    filtered = false,
 }: {
     story: FitStory;
     /**
@@ -49,6 +50,8 @@ export function PickCard({
      * the two look identical and mean different things.
      */
     basis?: "chat" | "settings";
+    /** Whether the page had filters for the settings to be combined with. */
+    filtered?: boolean;
     /** Cars Lens shows as the same match, and whether this is the cheapest of them. */
     level?: { others: number; cheapest: boolean; nextUp: number | null } | null;
     car: CarLine;
@@ -206,7 +209,7 @@ export function PickCard({
             <p className="bg-white px-4 pb-3 text-[10px] leading-4 text-finn-iron">
                 {basis === "chat"
                     ? "Ranked by Lens's own scoring, from what you told me in this chat. Nothing is pinned unless you pin it."
-                    : "Ranked by Lens's own scoring, from your saved Lens settings and this page's filters. Nothing is pinned unless you pin it."}
+                    : `Ranked by Lens's own scoring, from your saved Lens settings${filtered ? " and this page's filters" : ""}. Nothing is pinned unless you pin it.`}
             </p>
         </section>
     );
