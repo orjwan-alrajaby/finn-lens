@@ -123,7 +123,13 @@ export function heardLines(u: Understanding): HeardLines {
 export function matchSentence(story: FitStory): string {
     const covered = story.sections.filter((section) => section.kind === "need" && section.tone === "good");
     const partly = story.sections.filter((section) => section.kind === "need" && section.tone === "note");
-    const money = story.sections.find((section) => section.kind === "budget");
+    /*
+     * The budget itself, not every money section: with no budget, the note
+     * about what the mileage adds to each price is filed with the money too,
+     * and read as one it ended "— above the figure you aimed for" for a reader
+     * who had said "no limit".
+     */
+    const money = story.sections.find((section) => section.kind === "budget" && section.key !== "mileage");
 
     const labels = [...covered, ...partly].slice(0, 3).map((section) => lower(section.short));
     /*

@@ -121,39 +121,60 @@ function isValid(run: LensRun, car: PinnedFinnCar): boolean {
 }
 
 /**
- * What a car emits, said the way the rest of Lens says it
- * (`assessEnvironment`), and where that sits among the cars compared: the
- * figure is the whole of what Environmental Impact scores, so it is the answer
- * to "emissions matter to me".
+ * What a car emits, and what Lens made of it — the same verdict the ranking
+ * used, so the card, the reading behind it and the score can't disagree.
+ *
+ * The verdict is the engine's own (`assessEnvironment`), on the EU CO₂ label
+ * the priority scores: A is nothing at the tailpipe, B (up to 95 g/km) is low,
+ * C below the 136 g/km average for a new car that burns fuel, D around it, E
+ * and beyond above it. It used to be blended here with how the car stood among
+ * the cars compared, so a class D car among thirstier ones came out "good" and
+ * was headed "Low emissions" — a claim the engine, scoring it as partial,
+ * never made. Where the car stands among the others is still said; it is
+ * context, not the verdict.
  */
-function emissionsLine(car: PinnedFinnCar, cars: PinnedFinnCar[]): StoryLine {
+function emissionsReading(car: PinnedFinnCar, cars: PinnedFinnCar[]): { tone: Tone; label: string; lines: StoryLine[] } {
     const env = assessEnvironment(car);
     const co2 = env?.co2;
 
     if (!co2) {
         return {
             tone: "unknown",
-            text: "FINN doesn't publish a CO₂ figure for this car, so Lens couldn't judge it on emissions — it counted neither for nor against it.",
+            label: "No CO₂ figure",
+            lines: [
+                {
+                    tone: "unknown",
+                    text: "FINN doesn't publish a CO₂ figure for this car, so Lens couldn't judge it on emissions — it counted neither for nor against it.",
+                },
+            ],
         };
     }
 
-    const others = cars.filter((other) => other.id !== car.id);
-    const figures = others.map((other) => assessEnvironment(other)?.co2?.gPerKm).filter((value): value is number => value != null);
+    const tone: Tone = co2.level === "none" || co2.level === "low" ? "good" : co2.level === "high" ? "missing" : "note";
+
+    const figures = cars
+        .filter((other) => other.id !== car.id)
+        .map((other) => assessEnvironment(other)?.co2?.gPerKm)
+        .filter((value): value is number => value != null);
     const lower = figures.filter((value) => value < co2.gPerKm).length;
-    const among = figures.length
-        ? co2.gPerKm === 0
+    const among =
+        !figures.length || co2.gPerKm === 0
             ? ""
             : lower === 0
-              ? `, the lowest of the ${figures.length + 1} cars here with a figure`
-              : `; ${lower} of the other ${figures.length} cars here ${lower === 1 ? "emits" : "emit"} less`
-        : "";
-    const share = figures.length ? lower / figures.length : 0.5;
-    const tone: Tone = co2.level === "none" || co2.level === "low" || share < 0.25 ? "good" : co2.level === "high" && share > 0.6 ? "missing" : "note";
-    const caveat = env.powertrain === "Plug-in Hybrid" ? ` ${env.caveats[0] ?? ""}` : "";
+              ? ` None of the other ${figures.length} cars here emits less.`
+              : ` ${lower} of the other ${figures.length} cars here ${lower === 1 ? "emits" : "emit"} less.`;
 
     return {
         tone,
-        text: `${co2.gPerKm === 0 ? "No CO₂ from the car while driving" : `It emits ${co2.display}`} — ${co2.label.toLowerCase()}${among}.${caveat}`.trim(),
+        label: co2.label,
+        lines: [
+            { tone, text: `${co2.display}. ${co2.explanation}${among}` },
+            ...(env.powertrain === "Plug-in Hybrid" && env.caveats[0] ? [{ tone: "note" as const, text: env.caveats[0] }] : []),
+            {
+                tone: "note",
+                text: "Lens judges emissions on the EU CO₂ label: A is nothing at the tailpipe, B (up to 95 g/km) counts as low, C and D sit below and around the 136 g/km average for a new car that burns fuel, and E onwards above it.",
+            },
+        ],
     };
 }
 
@@ -537,9 +558,9 @@ export function tellFitStory(
          * on it. The reader was told the car wasn't judged on the one thing it
          * was judged on. Now the figure is said, against the other cars.
          */
-        const emissions = need.priorities.includes("environmental") ? emissionsLine(winner, cars) : null;
+        const emissions = need.priorities.includes("environmental") ? emissionsReading(winner, cars) : null;
 
-        if (emissions) lines.unshift(emissions);
+        if (emissions) lines.unshift(...emissions.lines);
 
         if (need.notInData) {
             const related = lines.some((line) => line.tone === "good");
@@ -567,14 +588,16 @@ export function tellFitStory(
          */
         const onlyBasics = good.length > 0 && good.every((entry) => common.some((item) => item.entry.id === entry.id));
         const byEquipment: Tone = onlyBasics && !missing.length ? "note" : good.length && !missing.length ? "good" : good.length ? "note" : missing.length ? "missing" : "unknown";
-        /* A need judged only by the figure takes the figure's tone. */
-        const tone: Tone = emissions && !evidence.length ? emissions.tone : byEquipment;
+        /* A need judged only by the figure takes the figure's verdict, and its words, everywhere. */
+        const byFigure = emissions && !evidence.length ? emissions : null;
+        const tone: Tone = byFigure ? byFigure.tone : byEquipment;
 
         sections.push({
             key: need.id,
             said: need.said,
-            title:
-                tone === "good"
+            title: byFigure
+                ? byFigure.label
+                : tone === "good"
                     ? `It helps with ${lower(need.label)}`
                     : tone === "note" && onlyBasics && !missing.length
                       ? `It has the basics for ${lower(need.label)}`
@@ -583,7 +606,12 @@ export function tellFitStory(
                       : tone === "missing"
                         ? `It's weak on ${lower(need.label)}`
                         : `Lens can't tell much about ${lower(need.label)}`,
-            short: need.label,
+            /*
+             * The heading on the card. For emissions, the verdict itself —
+             * "Around-average emissions" — not the reader's wish, "Low
+             * emissions", which read as a claim about the car.
+             */
+            short: byFigure ? byFigure.label : need.label,
             kind: "need",
             importance: need.importance,
             lines,

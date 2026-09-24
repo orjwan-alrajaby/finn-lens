@@ -10,6 +10,8 @@ import { needChips } from "./plain";
 import { applyChoices, guideSteps, offersFor, saidFor, whatIfs } from "./guide";
 import { runLens } from "./run";
 import { tellFitStory } from "./fit-story";
+import { matchSentence } from "./plain";
+import { assessEnvironment } from "@/lib/reasoning-engine/environmental";
 import { EMPTY_UNDERSTANDING, ruledOut, toAnswers, type Understanding } from "./understanding";
 
 /**
@@ -221,16 +223,38 @@ describe("what Lens never offers", () => {
 });
 
 describe("emissions, which are a figure rather than equipment", () => {
-    it("says the car's CO₂ against the other cars, instead of claiming it couldn't judge it", () => {
-        const u = answer(EMPTY_UNDERSTANDING, "life", ["emissions", "motorway"]);
+    const u = answer(EMPTY_UNDERSTANDING, "life", ["emissions", "motorway"]);
+    const translation = toAnswers(base, u);
+    const run = runLens(cars, translation.answers, "page", "Comparing 24 cars on this page", ruledOut(u))!;
+    const story = tellFitStory(run, u, translation.lessRelevant, null);
+    const section = story.sections.find((item) => item.key === "life:emissions")!;
+    const co2 = assessEnvironment(run.recommendation.winner)!.co2!;
+
+    it("says the car's CO₂, instead of claiming it couldn't judge it", () => {
+        expect(section.lines[0]!.text).toContain(co2.display);
+        expect(section.lines.map((line) => line.text).join(" ")).not.toMatch(/nothing on this car it can check/);
+    });
+
+    it("heads the card and the reading with the engine's verdict, not the reader's wish", () => {
+        /* A class D car is "Around-average emissions" on both, never "Low emissions". */
+        expect(section.short).toBe(co2.label);
+        expect(section.title).toBe(co2.label);
+    });
+
+    it("judges on the EU label the ranking scores, not on the cars around it", () => {
+        const expected = co2.level === "none" || co2.level === "low" ? "good" : co2.level === "high" ? "missing" : "note";
+
+        expect(section.tone).toBe(expected);
+        expect(section.lines.some((line) => /EU CO₂ label/.test(line.text))).toBe(true);
+    });
+});
+
+describe("a reader with no budget", () => {
+    it("is never told the car is above the figure they aimed for", () => {
+        const u = { ...answer(answer(EMPTY_UNDERSTANDING, "life", ["motorway"]), "distance", ["km-1000"]), waived: ["budget" as const] };
         const translation = toAnswers(base, u);
         const run = runLens(cars, translation.answers, "page", "Comparing 24 cars on this page", ruledOut(u))!;
-        const story = tellFitStory(run, u, translation.lessRelevant, null);
-        const section = story.sections.find((item) => item.short === "Low emissions")!;
 
-        expect(section).toBeDefined();
-        expect(section.lines[0]!.text).toMatch(/g\/km|No CO₂ from the car/);
-        expect(section.lines.map((line) => line.text).join(" ")).not.toMatch(/nothing on this car it can check/);
-        expect(section.tone).not.toBe("unknown");
+        expect(matchSentence(tellFitStory(run, u, translation.lessRelevant, null))).not.toMatch(/aimed for|what you wanted to spend/);
     });
 });

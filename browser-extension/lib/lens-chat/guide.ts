@@ -246,7 +246,8 @@ const LIFE: GuideChoice[] = [
          * evidence list still moves the priority, which is the whole of what
          * Lens can honestly do here.
          */
-        need: { label: "Low emissions", importance: "important", priorities: ["environmental"], evidence: [] },
+        /* The reader's wish, not a verdict: "Low emissions" in the focus strip read as a claim about the car. */
+        need: { label: "Emissions matter", importance: "important", priorities: ["environmental"], evidence: [] },
     },
 ];
 
