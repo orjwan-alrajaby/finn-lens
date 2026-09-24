@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Baby, CircleParking, MessageCircle, Route, Rows3, Save, X, Zap } from "lucide-react";
+import { Baby, CircleCheck, CircleParking, MessageCircle, Route, Rows3, Save, SlidersHorizontal, SquarePen, X, Zap } from "lucide-react";
 
-import { loadLensSettings, monthLabel, saveLensSettings } from "@/lib/reasoning-engine";
+import { formatEUR, loadLensSettings, monthLabel, saveLensSettings } from "@/lib/reasoning-engine";
 import type { LensSettings } from "@/lib/reasoning-engine/types";
 import { isPersonalised } from "@/lib/personalisation";
 import { converse } from "@/lib/lens-ai/client";
@@ -11,13 +11,16 @@ import type { ScopeKind, WireQuestion } from "@/lib/lens-ai/contract";
 import { carLabel, compareOutcomes, type Outcome } from "@/lib/lens-ai/outcome";
 import { buildVocabulary } from "@/lib/lens-ai/vocabulary";
 import type { PageContext } from "@/lib/lens-chat/messages";
+import type { FinnSearch } from "@/lib/finn-search";
 import type { EvidenceId } from "@/lib/lens-chat/evidence";
 import { markHandOff, nameFor, saveSearch, saveSession, type LensSession } from "@/lib/lens-chat/session";
 import { asPhrase, barePhrase, evidenceCatalogue, plainly } from "@/lib/lens-chat/evidence";
-import { applyChoices, guideSteps, offersFor, whatIfs, type GuideStep } from "@/lib/lens-chat/guide";
+import { applyChoices, guideSteps, offersFor, whatIfs, type GuideStep, type GuideStepId } from "@/lib/lens-chat/guide";
+import { FILTER_SAID, heardFromSearch, searchSentence, searchStart, searchTerm, withSearch, type SearchStart } from "@/lib/lens-chat/search";
 import { evidenceForNeeds, finnsOwnWords, quotesAreFinns, tellFitStory } from "@/lib/lens-chat/fit-story";
 import { matchSentence } from "@/lib/lens-chat/plain";
-import { compareRows, runLens, summariseMatch, type LensRun } from "@/lib/lens-chat/run";
+import { compareRows, runLens, summariseMatch, type CarLine, type LensRun } from "@/lib/lens-chat/run";
+import { loadTranscript, saveTranscript, TRANSCRIPT_KEY, type SavedRun, type SavedTranscript } from "@/lib/lens-chat/transcript";
 import {
     diffUnderstanding,
     EMPTY_UNDERSTANDING,
@@ -42,7 +45,7 @@ import { copyFeatures, type Answers } from "@/entrypoints/compare/store";
 import { useLensAiStatus } from "@/entrypoints/compare/lens-ai/hooks";
 import { AiError, SecondaryButton } from "@/entrypoints/compare/lens-ai/parts";
 
-import { SmallButton, type CarActions } from "./cards";
+import { BandChip, SmallButton, type CarActions } from "./cards";
 import { carNamed, whyNot } from "@/lib/lens-chat/why-not";
 import {
     AskGroup,
@@ -66,6 +69,7 @@ import { PickCard } from "./pick";
 import { onPageChanged, requestClose, requestPageContext, requestPin, requestShowCar } from "./page";
 import {
     buildScopes,
+    carsById,
     conversationScope,
     defaultScope,
     readStoredCars,
@@ -105,7 +109,12 @@ import {
  */
 type Ask =
     | { of: "budget" }
-    | { of: "period" }
+    /*
+     * `term` and `start`: halves of the period the reader's filters already
+     * fixed — a contract length, an availability date — so only the other
+     * half is asked.
+     */
+    | { of: "period"; term?: number | null; start?: SearchStart | null }
     | { of: "choices"; step: GuideStep }
     | { of: "question"; question: WireQuestion }
     | { of: "feature"; id: EvidenceId; why: string; needId: string };
@@ -120,19 +129,31 @@ type Ask =
  * reader scrolling back through four recommendations can't tell which is
  * current.
  */
-type Entry = { id: number } & (
+type Entry = {
+    id: number;
+    /** When it was said or done — kept with the conversation, so it can be read back later. */
+    at?: string;
+} & (
     | { kind: "user"; text: string }
     | { kind: "lens"; text: string; tone?: "note" }
     | { kind: "thinking"; text: string }
     | { kind: "error"; text: string; retry: (() => void) | null }
     | { kind: "ask"; ask: Ask; answered: boolean; answer: AskAnswer | null }
-    | { kind: "confirm"; isUpdate: boolean; done: false | "compared" | "correcting" }
+    | { kind: "confirm"; isUpdate: boolean; done: false | "compared" | "correcting" | "closed" }
     /*
      * Where a comparison landed. Only the latest one draws the card, so there
      * is still one answer on screen — but it sits where it happened, and what
      * Lens says after it follows it instead of hiding above it.
      */
-    | { kind: "pick" }
+    | {
+          kind: "pick";
+          /*
+           * What it recommended, in a line. The latest comparison draws the
+           * whole card; every earlier one keeps this, so scrolling back shows
+           * what Lens said then — not a gap where a card used to be.
+           */
+          summary?: PickSummary;
+      }
     /** An answer about one car the reader named, with a way into the whole comparison. */
     | { kind: "carAnswer"; text: string; carId: number }
     | {
@@ -141,9 +162,27 @@ type Entry = { id: number } & (
           after: Understanding;
           lines: { label: string; from: string; to: string }[];
           status: "pending" | "ran" | "used" | "cancelled";
-          ran?: { outcome: Outcome; run: LensRun; translation: Translation };
+          /* The scope, not the run: a run is too large to keep, and running it again is what "Use this" does. */
+          ran?: { outcome: Outcome; scope: ScopeKind; translation: Translation };
       }
+    /** Something the reader did — pinned a car, kept a search — so the record shows their choices too. */
+    | { kind: "action"; text: string }
+    /**
+     * A break in the conversation: picked up again on another page or
+     * another day ("resumed"), or started over ("fresh"). Everything before
+     * it stays.
+     */
+    | { kind: "divider"; text: string; fresh: boolean }
 );
+
+interface PickSummary {
+    name: string;
+    bandLabel: string;
+    band: CarLine["band"];
+    total: number;
+    monthly: number;
+    scope: string;
+}
 
 type EntryInput = Entry extends infer E ? (E extends Entry ? Omit<E, "id"> : never) : never;
 
@@ -158,6 +197,25 @@ const STARTERS: { title: string; icon: React.ReactNode; message: string }[] = [
     { title: "Nervous behind the wheel", icon: <CircleParking aria-hidden="true" className="h-4 w-4" />, message: "I'm a nervous driver, especially changing lanes and parking. I can't spend more than €450 a month." },
     { title: "Electric, but far trips", icon: <Zap aria-hidden="true" className="h-4 w-4" />, message: "I want an electric car and can charge at home, but once a month I drive 300 km to see family. Up to €600 a month." },
 ];
+
+/** "23 Sep, 22:40": when something happened, in a divider or beside an action. */
+const stamp = (date: Date): string =>
+    date.toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+
+/**
+ * An entry as it is kept. A retry is a function and can't be; an answered
+ * question doesn't need the options nobody picked — it shows the question and
+ * the answer — and those lists are most of what a long conversation weighs.
+ */
+function forKeeping(entry: Entry): Entry {
+    if (entry.kind === "error") return { ...entry, retry: null };
+
+    if (entry.kind === "ask" && entry.answered && entry.ask.of === "choices") {
+        return { ...entry, ask: { ...entry.ask, step: { ...entry.ask.step, choices: [] } } };
+    }
+
+    return entry;
+}
 
 /** The model's prose, or nothing: a reply is not guaranteed to come back. */
 const text = (value: unknown): string => (typeof value === "string" ? value.trim() : "");
@@ -239,6 +297,10 @@ export function LensChat() {
     const [entries, setEntries] = useState<Entry[]>([]);
     const [input, setInput] = useState("");
     const [busy, setBusy] = useState(false);
+    /** The kept conversation has been read (`lib/lens-chat/transcript.ts`); nothing is shown before. */
+    const [restored, setRestored] = useState(false);
+    /** Bumped each time a kept conversation is taken on, so the card is run again for it. */
+    const [restoreCount, setRestoreCount] = useState(0);
 
     /* What the conversation has established. */
     const [understanding, setUnderstanding] = useState<Understanding>(EMPTY_UNDERSTANDING);
@@ -272,6 +334,8 @@ export function LensChat() {
     const pinQueue = useRef<Promise<unknown>>(Promise.resolve());
     /** Said once, after the first comparison, and never again. */
     const carriedOver = useRef(false);
+    /** The comparison on the card, as the cars it ran over: what's kept, and run again on return. */
+    const lastRun = useRef<SavedRun | null>(null);
     const endRef = useRef<HTMLDivElement | null>(null);
     const inputRef = useRef<HTMLTextAreaElement | null>(null);
 
@@ -334,16 +398,19 @@ export function LensChat() {
     const pinnedIds = useMemo(() => new Set(Object.keys(stored.pinned).map(Number)), [stored]);
 
     /* Latest values for the async flows below, which outlive a render. */
-    const latest = useRef({ base, scopes, kind, run, vocabulary, enabled, understanding, openQuestion, applied });
-    latest.current = { base, scopes, kind, run, vocabulary, enabled, understanding, openQuestion, applied };
+    const latest = useRef({ base, scopes, kind, run, vocabulary, enabled, understanding, openQuestion, applied, page });
+    latest.current = { base, scopes, kind, run, vocabulary, enabled, understanding, openQuestion, applied, page };
 
     /* -- The conversation --------------------------------------------------- */
 
     const push = useCallback((entry: EntryInput): number => {
         const id = nextId.current++;
-        setEntries((all) => [...all, { ...entry, id } as Entry]);
+        setEntries((all) => [...all, { ...entry, id, at: new Date().toISOString() } as Entry]);
         return id;
     }, []);
+
+    /** Something the reader did, written into the conversation's record. */
+    const record = useCallback((text: string) => push({ kind: "action", text }), [push]);
 
     const update = useCallback((id: number, change: (entry: Entry) => Entry) => {
         setEntries((all) => all.map((entry) => (entry.id === id ? change(entry) : entry)));
@@ -372,6 +439,8 @@ export function LensChat() {
 
         if (previous == null || new URL(previous).pathname === new URL(page.url).pathname) return;
         if (!entries.length) return;
+        /* Still the listing, with other filters: the note about the search says what changed. */
+        if (page.kind === "listing" && new URL(previous).pathname.includes("/subscribe")) return;
 
         push({
             kind: "lens",
@@ -380,6 +449,56 @@ export function LensChat() {
         });
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [page?.url]);
+
+    /*
+     * The reader's finn.com filters, folded into what Lens understands.
+     *
+     * Read on arrival and again whenever the page's address changes, so the
+     * conversation starts from what they already told FINN — a budget, a
+     * mileage package, a towbar — and keeps up when they change a filter. A
+     * filter never overrides what they said here (`withSearch`).
+     */
+    const lastSearch = useRef<{ key: string; search: FinnSearch | null } | null>(null);
+    const searchKey = page ? JSON.stringify(page.search) : null;
+
+    useEffect(() => {
+        /*
+         * Not before the kept conversation is read: it holds whatever the last
+         * page's filters said, and this page's have to be folded in after it,
+         * not overwritten by it.
+         */
+        if (!restored || !page || searchKey == null || searchKey === lastSearch.current?.key) return;
+
+        const before = lastSearch.current;
+        lastSearch.current = { key: searchKey, search: page.search };
+
+        const previous = latest.current.understanding;
+        const next = withSearch(previous, page.search);
+        setUnderstanding(next);
+        latest.current.understanding = next;
+
+        if (!before || !entries.length) return;
+
+        /* What changed, not the whole list again: the reader just clicked one filter. */
+        const was = heardFromSearch(previous, before.search).used;
+        const now = heardFromSearch(next, page.search).used;
+        const added = now.filter((item) => !was.includes(item)).map((item) => item.toLowerCase());
+        const dropped = was.filter((item) => !now.includes(item)).map((item) => item.toLowerCase());
+        const change = [added.length ? `now also ${added.join(", ")}` : "", dropped.length ? `no longer ${dropped.join(", ")}` : ""]
+            .filter(Boolean)
+            .join("; ");
+
+        push({
+            kind: "lens",
+            tone: "note",
+            text: !page.search
+                ? "You've cleared your filters, so I've let go of what they told me."
+                : change
+                  ? `Your filters changed: ${change}.${latest.current.run ? " Compare again to see what that does." : ""}`
+                  : "Your filters changed, but nothing I rank on is different.",
+        });
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [searchKey, restored, restoreCount]);
 
     useEffect(() => {
         endRef.current?.scrollIntoView({ block: "end", behavior: "smooth" });
@@ -413,6 +532,7 @@ export function LensChat() {
             setScopeKind(nextKind);
             setRun(result);
             setApplied({ understanding: u, translation });
+            lastRun.current = { scope: nextKind, headline: target.headline, carIds: target.cars.map((car) => car.id) };
 
             /*
              * Left where the rest of Lens can pick it up. A reader who explains
@@ -450,7 +570,19 @@ export function LensChat() {
                       : `That changes it — the ${winner} moves ahead.`,
             );
 
-            push({ kind: "pick" });
+            const picked = summariseMatch(result).car;
+
+            push({
+                kind: "pick",
+                summary: {
+                    name: picked.name,
+                    bandLabel: picked.bandLabel,
+                    band: picked.band,
+                    total: picked.total,
+                    monthly: picked.monthly,
+                    scope: target.headline,
+                },
+            });
 
             history.current.push({
                 role: "lens",
@@ -620,7 +752,7 @@ export function LensChat() {
             const offers = offersFor(u, current.scopes[current.kind].cars);
 
             if (budget) openAsk({ of: "budget" });
-            if (missing.period) openAsk({ of: "period" });
+            if (missing.period) openAsk({ of: "period", term: searchTerm(current.page?.search ?? null), start: searchStart(current.page?.search ?? null) });
 
             for (const offer of offers) openAsk({ of: "feature", id: offer.id, why: offer.why, needId: offer.needId });
 
@@ -647,13 +779,19 @@ export function LensChat() {
     const startGuide = useCallback(() => {
         const current = latest.current;
 
-        guide.current = guideSteps(current.scopes[current.kind].cars, current.enabled);
+        /* How far they drive is answered by a mileage package they picked on finn.com. */
+        const skip: GuideStepId[] = current.understanding.monthlyKm?.said.includes(FILTER_SAID) ? ["distance"] : [];
+
+        guide.current = guideSteps(current.scopes[current.kind].cars, current.enabled, skip);
         askingAgain.current = Boolean(current.run);
         retireAsks();
+
+        const fromFilters = current.run ? "" : searchSentence(current.understanding, current.page?.search ?? null);
+
         say(
             current.run
                 ? "Tell me what's changed and I'll run it again."
-                : "Let's work it out together. I'll ask a few things — only what I can actually check on these cars.",
+                : `Let's work it out together. I'll ask a few things — only what I can actually check on these cars.${fromFilters ? ` ${fromFilters}` : ""}`,
         );
         askNextStep(current.understanding);
     }, [askNextStep, retireAsks, say]);
@@ -684,6 +822,202 @@ export function LensChat() {
         },
         [push],
     );
+
+    /* -- Keeping the conversation ------------------------------------------ */
+
+    /**
+     * The whole conversation, kept across page loads, tabs and days
+     * (`lib/lens-chat/transcript.ts`). Nothing is shown until what was kept
+     * has been read, so a reopened chat never flashes empty and then fills.
+     */
+    const frameId = useRef(crypto.randomUUID());
+    /** The newest save this frame has made or taken on. */
+    const rev = useRef(0);
+    /** A "picked up again" divider is owed once the page is known. */
+    const resumeOwed = useRef(false);
+
+    const takeOn = useCallback((saved: SavedTranscript<Entry>) => {
+        const kept = saved.entries.filter((entry) => entry.kind !== "thinking");
+
+        nextId.current = Math.max(0, ...kept.map((entry) => entry.id)) + 1;
+        rev.current = saved.rev;
+        setEntries(kept);
+        setUnderstanding(saved.understanding);
+        latest.current.understanding = saved.understanding;
+        setApplied(saved.applied);
+        setOpenQuestion(saved.openQuestion);
+        setRun(null);
+        answered.current = saved.answered;
+        history.current = saved.history;
+        guide.current = saved.guide;
+        askingAgain.current = saved.askingAgain;
+        pendingAnswer.current = saved.pendingAnswer;
+        carriedOver.current = saved.carriedOver;
+        lastRun.current = saved.lastRun;
+        /* This page's filters are folded in afresh: what was kept holds another page's. */
+        lastSearch.current = null;
+        /* What was still waiting for an answer is still waiting. */
+        asksOpen.current = kept.filter((entry) => entry.kind === "ask" && !entry.answered).length;
+        setRestoreCount((count) => count + 1);
+    }, []);
+
+    useEffect(() => {
+        void loadTranscript<Entry>().then((saved) => {
+            if (saved?.entries.length) {
+                takeOn(saved);
+                resumeOwed.current = true;
+            }
+
+            setRestored(true);
+        });
+
+        /*
+         * Another tab moved the conversation on. A tab in the background takes
+         * that on at once; the one being used keeps what's on its screen, and
+         * catches up when the reader comes back to it.
+         */
+        const onChange = (changes: Record<string, { newValue?: unknown }>, area: string) => {
+            if (area !== "local" || !(TRANSCRIPT_KEY in changes)) return;
+
+            const saved = changes[TRANSCRIPT_KEY]!.newValue as SavedTranscript<Entry> | undefined;
+
+            if (saved && saved.by !== frameId.current && saved.rev > rev.current && document.visibilityState === "hidden") takeOn(saved);
+        };
+
+        const onVisible = () => {
+            if (document.visibilityState !== "visible") return;
+
+            void loadTranscript<Entry>().then((saved) => {
+                if (saved && saved.by !== frameId.current && saved.rev > rev.current) takeOn(saved);
+            });
+        };
+
+        browser.storage.onChanged.addListener(onChange);
+        document.addEventListener("visibilitychange", onVisible);
+
+        return () => {
+            browser.storage.onChanged.removeListener(onChange);
+            document.removeEventListener("visibilitychange", onVisible);
+        };
+    }, [takeOn]);
+
+    /* Kept as it changes, by the tab the reader is using, and never as an empty copy. */
+    useEffect(() => {
+        if (!restored || !entries.length) return;
+
+        const timer = window.setTimeout(() => {
+            if (document.visibilityState !== "visible") return;
+
+            rev.current += 1;
+
+            void saveTranscript<Entry>({
+                version: 1,
+                savedAt: new Date().toISOString(),
+                rev: rev.current,
+                by: frameId.current,
+                entries: entries.filter((entry) => entry.kind !== "thinking").map(forKeeping),
+                understanding,
+                applied,
+                lastRun: lastRun.current,
+                openQuestion,
+                answered: answered.current,
+                history: history.current,
+                guide: guide.current,
+                askingAgain: askingAgain.current,
+                pendingAnswer: pendingAnswer.current,
+                carriedOver: carriedOver.current,
+            });
+        }, 400);
+
+        return () => window.clearTimeout(timer);
+    }, [restored, entries, understanding, applied, openQuestion, run]);
+
+    /*
+     * The card, ranked again for today. What was kept is the search and the
+     * cars it covered, not the old ranking: prices and availability move, and
+     * a card that quietly showed last week's numbers would be wrong.
+     */
+    useEffect(() => {
+        if (!restoreCount || !pageLoaded || !base) return;
+
+        const saved = lastRun.current;
+        const current = latest.current;
+
+        if (!saved || !current.applied) return;
+
+        const cars = carsById(saved.carIds, stored, page);
+
+        if (!cars.length) {
+            say("The cars from your last comparison aren't available any more, so there's no card to show — everything we said is still here above.", "note");
+            return;
+        }
+
+        const result = runLens(cars, current.applied.translation.answers, saved.scope, saved.headline, ruledOut(current.applied.understanding));
+
+        if (result) setRun(result);
+
+        if (cars.length < saved.carIds.length) {
+            say(`${saved.carIds.length - cars.length} of the cars from that comparison aren't available any more; the card ranks the ${cars.length} that are.`, "note");
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [restoreCount, pageLoaded, base]);
+
+    /* Where and when the conversation was picked up again, once the page is known. */
+    useEffect(() => {
+        if (!restored || !resumeOwed.current || !page) return;
+
+        resumeOwed.current = false;
+
+        const car = scopes.thisCar.cars[0];
+        const where = page.kind === "details" ? (car ? `the ${car.name} page` : "a car page") : page.search ? "a filtered listing" : "a listing";
+        const divider = { id: nextId.current++, at: new Date().toISOString(), kind: "divider", text: `Picked up again ${stamp(new Date())} on ${where}`, fresh: false } as Entry;
+
+        /* Opened and closed without a word: one divider, not a stack of them. */
+        setEntries((all) => {
+            const last = all.at(-1);
+
+            return last?.kind === "divider" && !last.fresh ? [...all.slice(0, -1), divider] : [...all, divider];
+        });
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [restored, page]);
+
+    /**
+     * Starting over, without losing anything.
+     *
+     * What Lens understands, the card and anything still waiting for an answer
+     * are set down; the conversation stays, above a divider, for the reader to
+     * scroll back through. The filters on this page are read in again, since
+     * they're still what the reader is looking at.
+     */
+    const startOver = useCallback(() => {
+        retireAsks();
+        setEntries((all) =>
+            all.map((entry) =>
+                entry.kind === "confirm" && !entry.done
+                    ? { ...entry, done: "closed" as const }
+                    : entry.kind === "whatIf" && (entry.status === "pending" || entry.status === "ran")
+                      ? { ...entry, status: "cancelled" as const }
+                      : entry,
+            ),
+        );
+
+        const fresh = withSearch(EMPTY_UNDERSTANDING, latest.current.page?.search ?? null);
+
+        setUnderstanding(fresh);
+        latest.current.understanding = fresh;
+        setApplied(null);
+        setRun(null);
+        setOpenQuestion(null);
+        setInspector(null);
+        answered.current = [];
+        history.current = [];
+        guide.current = [];
+        askingAgain.current = false;
+        pendingAnswer.current = null;
+        carriedOver.current = false;
+        lastRun.current = null;
+        push({ kind: "divider", text: `New conversation ${stamp(new Date())}`, fresh: true });
+    }, [push, retireAsks]);
 
     const talk = useCallback(
         async (message: string) => {
@@ -803,7 +1137,7 @@ export function LensChat() {
             const missing = missingEssentials(next);
 
             if (missing.budget) openAsk({ of: "budget" });
-            if (missing.period) openAsk({ of: "period" });
+            if (missing.period) openAsk({ of: "period", term: searchTerm(current.page?.search ?? null), start: searchStart(current.page?.search ?? null) });
             if (question) openAsk({ of: "question", question });
 
             for (const item of suggestions) openAsk({ of: "feature", id: item.id, why: item.why, needId: item.needId });
@@ -972,6 +1306,13 @@ export function LensChat() {
 
     /* -- Acting on cars ----------------------------------------------------- */
 
+    /** A car's name for the record, from whatever Lens holds of it. */
+    const nameOf = (carId: number): string => {
+        const car = stored.pinned[carId] ?? stored.loaded[carId];
+
+        return car ? `the ${car.name}` : "a car";
+    };
+
     const actions: CarActions = {
         pinnedIds,
         onPin: (carId, pinned) => {
@@ -984,11 +1325,17 @@ export function LensChat() {
                         text: result && "error" in result ? result.error : "Couldn't reach the page to pin this car.",
                         retry: null,
                     });
+                    return;
                 }
+
+                record(pinned ? `You pinned ${nameOf(carId)}.` : `You unpinned ${nameOf(carId)}.`);
             });
         },
         canShow: (carId) => Boolean(page?.pageCarIds.includes(carId)),
-        onShow: (carId) => void requestShowCar(carId),
+        onShow: (carId) => {
+            void requestShowCar(carId);
+            record(`You looked at ${nameOf(carId)} on the page.`);
+        },
     };
 
     const runWhatIf = (entry: Extract<Entry, { kind: "whatIf" }>) => {
@@ -1009,7 +1356,7 @@ export function LensChat() {
             afterAnswers: translation.answers,
         });
 
-        update(entry.id, (item) => (item.kind === "whatIf" ? { ...item, status: "ran", ran: { outcome, run: after, translation } } : item));
+        update(entry.id, (item) => (item.kind === "whatIf" ? { ...item, status: "ran", ran: { outcome, scope: after.scope, translation } } : item));
     };
 
     const useWhatIf = (entry: Extract<Entry, { kind: "whatIf" }>) => {
@@ -1018,7 +1365,8 @@ export function LensChat() {
         setUnderstanding(entry.after);
         update(entry.id, (item) => (item.kind === "whatIf" ? { ...item, status: "used" } : item));
         latest.current.understanding = entry.after;
-        compareWith(entry.after, entry.ran.run.scope);
+        record(`You took the change: ${entry.lines.map((line) => `${line.label.toLowerCase()} ${line.from} → ${line.to}`).join("; ") || "the new situation"}.`);
+        compareWith(entry.after, entry.ran.scope);
     };
 
     /*
@@ -1046,6 +1394,8 @@ export function LensChat() {
             name: nameFor(session),
             note: [session.summary, ...session.focus.map((item) => item.label)].filter(Boolean).join(" · "),
         });
+
+        record(`You kept this search as “${nameFor(session)}”.`);
     };
 
     const saveAsSettings = () => {
@@ -1058,7 +1408,12 @@ export function LensChat() {
             categoryFeatures: current.applied.translation.answers.features,
             basedOn: null,
         });
+
+        record("You saved this search as your Lens settings.");
     };
+
+    /* The conversation so far has ended at a "New conversation" divider, or never began. */
+    const fresh = entries.length === 0 || (entries.at(-1)?.kind === "divider" && (entries.at(-1) as { fresh?: boolean }).fresh === true);
 
     /* -- What else you might say -------------------------------------------- */
 
@@ -1091,7 +1446,7 @@ export function LensChat() {
                         .slice(0, 1)
                         .map((item) => ({ label: item.label, act: () => proposeWhatIf(item) }))),
           ].slice(0, 3)
-        : entries.length === 0
+        : fresh
           ? aiReady
               ? STARTERS.map((starter) => ({ label: starter.title, act: () => void send(starter.message) }))
               : []
@@ -1099,7 +1454,7 @@ export function LensChat() {
 
     /* -- Rendering ----------------------------------------------------------- */
 
-    const ready = Boolean(base && pageLoaded);
+    const ready = Boolean(base && pageLoaded && restored);
     const lastPick = entries.map((entry) => entry.kind).lastIndexOf("pick");
     /* "Comparing 3 cars on this page" is a header; "3 cars on this page" is a sentence. */
     const scopeLabel = scope.headline.replace(/^Comparing /, "").replace(/^Looking at /, "");
@@ -1112,6 +1467,7 @@ export function LensChat() {
                 kind={kind}
                 name={status.state === "checking" ? "Lens" : aiReady ? "Lens AI Chat" : "Lens Chat"}
                 onScope={(next) => switchScope(next)}
+                onNew={ready && !fresh ? startOver : undefined}
             />
 
             {/* What Lens is working with — a glance, and a way into the whole of it. */}
@@ -1122,16 +1478,6 @@ export function LensChat() {
                     <div className="py-10">
                         <LensThinking>Reading this page…</LensThinking>
                     </div>
-                ) : entries.length === 0 ? (
-                    <EmptyState
-                        scope={scope}
-                        aiState={status.state}
-                        personalised={personalised}
-                        onOpenSettings={() => void openBrowserTab("OPEN_SETTINGS_PAGE")}
-                        onUseSettings={() => compareWith(EMPTY_UNDERSTANDING, kind, `Using your ${personalised ? "" : "default "}Lens settings.`)}
-                        onStart={(message) => void send(message)}
-                        onAsk={startGuide}
-                    />
                 ) : (
                     <div className="space-y-3">
                         {withAskGroups(entries, (entry, index) => {
@@ -1178,6 +1524,8 @@ export function LensChat() {
                                                 <PeriodAsk
                                                     key={entry.id}
                                                     busy={busy}
+                                                    termMonths={entry.ask.term ?? null}
+                                                    start={entry.ask.start ?? null}
                                                     answered={entry.answered ? (entry.answer ?? { text: null, choice: null }) : null}
                                                     onAnswer={(from, to, startDay, said) => {
                                                         const dated = from && to;
@@ -1272,8 +1620,21 @@ export function LensChat() {
                                         </div>
                                     );
 
+                                case "action":
+                                    return <ActionLine key={entry.id} text={entry.text} at={entry.at} />;
+
+                                case "divider":
+                                    return <Divider key={entry.id} text={entry.text} />;
+
                                 case "pick":
-                                    /* Only the latest comparison draws the card; earlier ones were replaced by it. */
+                                    /*
+                                     * The latest comparison draws the card; every earlier one
+                                     * keeps its line, so the record shows what Lens said then.
+                                     */
+                                    if (index !== lastPick || !run || !story || !match) {
+                                        return entry.summary ? <EarlierPick key={entry.id} summary={entry.summary} /> : null;
+                                    }
+
                                     return index === lastPick && run && story && match ? (
                                         <PickCard
                                             key={entry.id}
@@ -1288,20 +1649,13 @@ export function LensChat() {
                                             onCar={(carId) => openCar(carId, null)}
                                             onOpenPage={() => {
                                                 /* The press is the answer: the page opens on this search and asks nothing. */
+                                                record("You opened the full recommendation page.");
                                                 void markHandOff().then(() => openBrowserTab("OPEN_COMPARE_PAGE"));
                                             }}
                                         />
                                     ) : null;
 
                                 case "whatIf":
-                                    if (entry.status === "used") {
-                                        return (
-                                            <Says key={entry.id} tone="note">
-                                                Using the changed situation.
-                                            </Says>
-                                        );
-                                    }
-
                                     return (
                                         <WhatIfAsk
                                             key={entry.id}
@@ -1310,13 +1664,36 @@ export function LensChat() {
                                             status={entry.status}
                                             busy={busy}
                                             onRun={() => runWhatIf(entry)}
-                                            onCancel={() => update(entry.id, (item) => (item.kind === "whatIf" ? { ...item, status: "cancelled" } : item))}
+                                            onCancel={() => {
+                                                update(entry.id, (item) => (item.kind === "whatIf" ? { ...item, status: "cancelled" } : item));
+                                                record("You kept what you had.");
+                                            }}
                                             outcome={entry.ran?.outcome ?? null}
                                             onUse={() => useWhatIf(entry)}
                                         />
                                     );
                             }
                         })}
+
+                        {/* Nothing said yet, or a new conversation just begun: the ways in. */}
+                        {fresh && (
+    <EmptyState
+                            scope={scope}
+                            aiState={status.state}
+                            heard={heardFromSearch(understanding, page?.search ?? null)}
+                            personalised={personalised}
+                            onOpenSettings={() => void openBrowserTab("OPEN_SETTINGS_PAGE")}
+                            onUseSettings={() =>
+                                compareWith(
+                                    latest.current.understanding,
+                                    kind,
+                                    `Using your ${personalised ? "" : "default "}Lens settings${heardFromSearch(latest.current.understanding).used.length ? ", with your filters" : ""}.`,
+                                )
+                            }
+                            onStart={(message) => void send(message)}
+                            onAsk={startGuide}
+                        />
+                        )}
 
                         <div ref={endRef} />
                     </div>
@@ -1451,6 +1828,60 @@ function KeepSearch({ onKeep, onSave }: { onKeep: () => void; onSave: () => void
     );
 }
 
+
+/* -------------------------------------------------------------------------- */
+/* The record                                                                 */
+/* -------------------------------------------------------------------------- */
+
+/** Something the reader did, with when: "You pinned the Opel Corsa · 22:40". */
+function ActionLine({ text, at }: { text: string; at?: string }) {
+    const time = at ? new Date(at) : null;
+
+    return (
+        <p className="flex items-start gap-1.5 text-[11px] leading-4 text-finn-iron">
+            <CircleCheck aria-hidden="true" className="mt-px h-3.5 w-3.5 shrink-0 text-finn-accent-blue" />
+            <span>
+                {text}
+                {time && !Number.isNaN(time.getTime()) && (
+                    <time dateTime={at} className="ml-1 tabular-nums text-finn-iron/70">
+                        · {time.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}
+                    </time>
+                )}
+            </span>
+        </p>
+    );
+}
+
+/** Where the conversation broke off and began again: another page, another day, or starting over. */
+function Divider({ text }: { text: string }) {
+    return (
+        /* Not upper case: it names cars, and "BMW IX1" isn't what FINN sells. */
+        <div role="separator" className="flex items-center gap-2 py-1 text-center text-[11px] font-bold text-finn-iron">
+            <span className="h-px flex-1 bg-finn-cotton" />
+            {text}
+            <span className="h-px flex-1 bg-finn-cotton" />
+        </div>
+    );
+}
+
+/**
+ * A comparison the conversation has moved past, as the line it deserves:
+ * what Lens picked then, how well it fitted and what it cost. The card itself
+ * belongs to the latest comparison only.
+ */
+function EarlierPick({ summary }: { summary: PickSummary }) {
+    return (
+        <div className="rounded-2xl bg-white px-3 py-2 ring-1 ring-finn-cotton">
+            <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-finn-iron">Lens's match then · {summary.scope.replace(/^Comparing /, "")}</p>
+            <p className="mt-0.5 flex flex-wrap items-center gap-x-2 text-xs font-black text-finn-black">
+                {summary.name}
+                <BandChip car={{ band: summary.band, bandLabel: summary.bandLabel }} score={summary.total} />
+                <span className="font-bold text-finn-iron">~{formatEUR(summary.monthly)}/month</span>
+            </p>
+        </div>
+    );
+}
+
 /* -------------------------------------------------------------------------- */
 
 function Header({
@@ -1459,6 +1890,7 @@ function Header({
     kind,
     name,
     onScope,
+    onNew,
 }: {
     scope: Scope;
     scopes: Record<ScopeKind, Scope>;
@@ -1470,6 +1902,8 @@ function Header({
      */
     name: string;
     onScope: (kind: ScopeKind) => void;
+    /** Starts over under a divider, keeping everything said so far. Absent when there's nothing to start over from. */
+    onNew?: () => void;
 }) {
     const options: ScopeKind[] = ["page", "pinned", "thisCar"];
 
@@ -1484,6 +1918,17 @@ function Header({
                         {scope.kind === "page" && scope.missing > 0 ? ` · ${scope.missing} not loaded yet` : ""}
                     </p>
                 </div>
+                {onNew && (
+                    <button
+                        type="button"
+                        onClick={onNew}
+                        title="Start a new conversation. Everything so far stays above it."
+                        className="inline-flex h-8 items-center gap-1 rounded-full px-2.5 text-[11px] font-black text-finn-iron transition hover:bg-finn-snow hover:text-finn-black"
+                    >
+                        <SquarePen aria-hidden="true" className="h-3.5 w-3.5" />
+                        New
+                    </button>
+                )}
                 <button
                     type="button"
                     aria-label="Close Lens"
@@ -1526,6 +1971,41 @@ function Header({
 }
 
 /**
+ * What the reader already told FINN, said back before Lens asks anything.
+ *
+ * The filters are answers, and seeing them here is how the reader knows they
+ * won't be asked again — and can see at once if Lens read one wrong. What Lens
+ * uses comes first; what it only noted (brands, colours, offers) is quieter,
+ * because it changes nothing about the ranking.
+ */
+function FromFilters({ heard }: { heard: { used: string[]; noted: string[] } }) {
+    return (
+        <div className="mt-4 rounded-2xl bg-white px-3 py-3 ring-1 ring-finn-cotton">
+            <p className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.16em] text-finn-accent-blue">
+                <SlidersHorizontal aria-hidden="true" className="h-3 w-3" />
+                From your filters
+            </p>
+
+            {heard.used.length > 0 && (
+                <div className="mt-2 flex flex-wrap gap-1">
+                    {heard.used.map((item) => (
+                        <span key={item} className="rounded-full bg-finn-pale-blue px-2 py-0.5 text-[11px] font-bold text-finn-accent-blue">
+                            {item}
+                        </span>
+                    ))}
+                </div>
+            )}
+
+            {heard.noted.length > 0 && <p className="mt-2 text-[11px] leading-4 text-finn-iron">Also noted: {heard.noted.join(" · ")}</p>}
+
+            <p className="mt-2 text-[11px] leading-4 text-finn-iron">
+                {heard.used.length ? "Lens won't ask about these again. Change a filter on the page and it keeps up." : "Lens notes these, but they don't change how it ranks."}
+            </p>
+        </div>
+    );
+}
+
+/**
  * The way in, for whichever chat this is.
  *
  * Lens Chat asks; Lens AI Chat also reads. So the first thing on screen is
@@ -1538,6 +2018,7 @@ function Header({
 function EmptyState({
     scope,
     aiState,
+    heard,
     personalised,
     onOpenSettings,
     onUseSettings,
@@ -1546,6 +2027,8 @@ function EmptyState({
 }: {
     scope: Scope;
     aiState: "checking" | "off" | "ready";
+    /** What Lens took from the reader's finn.com filters: what it will use, and what it only noted. */
+    heard: { used: string[]; noted: string[] };
     personalised: boolean;
     onOpenSettings: () => void;
     onUseSettings: () => void;
@@ -1583,6 +2066,8 @@ function EmptyState({
                 </button>
             )}
 
+            {heard.used.length + heard.noted.length > 0 && <FromFilters heard={heard} />}
+
             <p className="mt-4 text-[11px] leading-4 text-finn-iron">
                 {scope.cars.length ? `Lens can compare ${scope.description}.` : "Lens doesn't have data for any cars in this set yet."}
             </p>
@@ -1591,7 +2076,7 @@ function EmptyState({
                 <div className="mt-4 space-y-2">
                     {ai && <SecondaryButton onClick={onAsk}>Or let Lens ask me questions instead</SecondaryButton>}
                     <SecondaryButton onClick={onUseSettings}>
-                        Or get a match from my {personalised ? "" : "default "}Lens settings
+                        Or get a match from my {personalised ? "" : "default "}Lens settings{heard.used.length ? " and these filters" : ""}
                     </SecondaryButton>
                 </div>
             )}

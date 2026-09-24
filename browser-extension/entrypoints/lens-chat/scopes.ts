@@ -69,15 +69,34 @@ function evaluatable(id: number, stored: StoredCars, page: PageContext | null): 
     };
 }
 
+/**
+ * The cars a kept comparison ran over, as Lens holds them now — for running
+ * it again when the chat is reopened. A car Lens no longer has is left out,
+ * and the caller says so.
+ */
+export function carsById(ids: number[], stored: StoredCars, page: PageContext | null): PinnedFinnCar[] {
+    return ids.map((id) => evaluatable(id, stored, page)).filter((car): car is PinnedFinnCar => car != null);
+}
+
 const plural = (count: number, one: string, many = `${one}s`) =>
     `${count} ${count === 1 ? one : many}`;
 
 export function buildScopes(page: PageContext | null, stored: StoredCars): Record<ScopeKind, Scope> {
-    const pageIds = page?.pageCarIds ?? [];
+    /*
+     * On a filtered listing "this page" is the search, not the cards drawn so
+     * far: FINN shows twenty-four model cards at a time, one configuration
+     * each, while the reader's filters describe every configuration that
+     * matches. The cards come first, in page order, so a car the reader can
+     * see is never the one left out.
+     */
+    const searched = page?.kind === "listing" && page.searchCars?.ids.length ? page.searchCars : null;
+    const pageIds = [...new Set([...(page?.pageCarIds ?? []), ...(searched?.ids ?? [])])];
     const pageCars = pageIds
         .map((id) => evaluatable(id, stored, page))
         .filter((car): car is PinnedFinnCar => car != null);
     const missing = pageIds.length - pageCars.length;
+    /* FINN matched more than Lens brought in: a broad search, compared on its first cars. */
+    const beyond = searched ? Math.max(0, searched.total - pageCars.length) : 0;
 
     const pinnedCars = Object.values(stored.pinned).sort(
         (a, b) => Date.parse(b.pinnedAt) - Date.parse(a.pinnedAt),
@@ -87,25 +106,39 @@ export function buildScopes(page: PageContext | null, stored: StoredCars): Recor
         page?.currentCarId != null ? evaluatable(page.currentCarId, stored, page) : null;
 
     return {
-        page: {
-            kind: "page",
-            label: "Cars on this page",
-            headline: pageCars.length
-                ? `Comparing ${plural(pageCars.length, "car")} on this page`
-                : "No cars on this page have reached Lens yet",
-            description: `the ${plural(pageCars.length, "configuration")} on this finn.com page that Lens has data for${
-                missing > 0 ? ` (${missing} more on the page haven't reached Lens yet and aren't included)` : ""
-            } — not every car FINN offers`,
-            cars: pageCars,
-            missing,
-        },
+        page: searched
+            ? {
+                  kind: "page",
+                  label: "Cars matching your filters",
+                  headline: pageCars.length
+                      ? `Comparing ${plural(pageCars.length, "car")} matching your filters`
+                      : "No cars matching your filters have reached Lens yet",
+                  /* Read by the reader under "Lens can compare…" and by the model alike, so it names neither. */
+                  description: `the ${plural(pageCars.length, "configuration")} FINN lists for the filters on this page${
+                      beyond > 0 ? ` — the first ${pageCars.length} of ${searched.total}, since the search is broad` : ", which is all of them"
+                  }`,
+                  cars: pageCars,
+                  missing,
+              }
+            : {
+                  kind: "page",
+                  label: "Cars on this page",
+                  headline: pageCars.length
+                      ? `Comparing ${plural(pageCars.length, "car")} on this page`
+                      : "No cars on this page have reached Lens yet",
+                  description: `the ${plural(pageCars.length, "configuration")} on this finn.com page that Lens has data for${
+                      missing > 0 ? ` (${missing} more on the page haven't reached Lens yet and aren't included)` : ""
+                  } — not every car FINN offers`,
+                  cars: pageCars,
+                  missing,
+              },
         pinned: {
             kind: "pinned",
             label: "My pinned cars",
             headline: pinnedCars.length
                 ? `Comparing your ${plural(pinnedCars.length, "pinned car")}`
                 : "You haven't pinned any cars",
-            description: `the ${plural(pinnedCars.length, "car")} the reader pinned`,
+            description: `the ${plural(pinnedCars.length, "pinned car")}`,
             cars: pinnedCars,
             missing: 0,
         },
@@ -114,7 +147,7 @@ export function buildScopes(page: PageContext | null, stored: StoredCars): Recor
             label: "This car",
             headline: current ? `Looking at ${current.name} ${configurationName(current)}` : "No single car on this page",
             description: current
-                ? `only the configuration the reader is looking at: ${current.name} ${configurationName(current)}${
+                ? `only the configuration this page is showing: ${current.name} ${configurationName(current)}${
                       page?.currentFromUrl ? "" : " (the first configuration this page lists)"
                   }`
                 : "no single configuration",
