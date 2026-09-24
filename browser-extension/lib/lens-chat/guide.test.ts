@@ -9,6 +9,7 @@ import { coverage } from "./evidence";
 import { needChips } from "./plain";
 import { applyChoices, guideSteps, offersFor, saidFor, whatIfs } from "./guide";
 import { runLens } from "./run";
+import { tellFitStory } from "./fit-story";
 import { EMPTY_UNDERSTANDING, ruledOut, toAnswers, type Understanding } from "./understanding";
 
 /**
@@ -216,5 +217,20 @@ describe("what Lens never offers", () => {
         const chips = needChips(u);
 
         expect(chips.filter((chip) => /SUV/i.test(chip))).toHaveLength(1);
+    });
+});
+
+describe("emissions, which are a figure rather than equipment", () => {
+    it("says the car's CO₂ against the other cars, instead of claiming it couldn't judge it", () => {
+        const u = answer(EMPTY_UNDERSTANDING, "life", ["emissions", "motorway"]);
+        const translation = toAnswers(base, u);
+        const run = runLens(cars, translation.answers, "page", "Comparing 24 cars on this page", ruledOut(u))!;
+        const story = tellFitStory(run, u, translation.lessRelevant, null);
+        const section = story.sections.find((item) => item.short === "Low emissions")!;
+
+        expect(section).toBeDefined();
+        expect(section.lines[0]!.text).toMatch(/g\/km|No CO₂ from the car/);
+        expect(section.lines.map((line) => line.text).join(" ")).not.toMatch(/nothing on this car it can check/);
+        expect(section.tone).not.toBe("unknown");
     });
 });

@@ -2,6 +2,7 @@ import { describeRentalProblem, formatEUR, monthLabel } from "@/lib/reasoning-en
 import { bandForScore } from "@/lib/reasoning-engine/bands";
 import { FIT_BANDS, type FitLevel } from "@/lib/reasoning-engine/fit";
 import { totalFor } from "@/lib/reasoning-engine/scoring";
+import { assessEnvironment } from "@/lib/reasoning-engine/environmental";
 import type { WireQuestion } from "@/lib/lens-ai/contract";
 import { carLabel } from "@/lib/lens-ai/outcome";
 import type { PinnedFinnCar } from "@/lib/types";
@@ -117,6 +118,43 @@ function isValid(run: LensRun, car: PinnedFinnCar): boolean {
     const rentalOk = cost.contract.status === "notSet" || cost.contract.status === "fits";
 
     return budgetOk && rentalOk;
+}
+
+/**
+ * What a car emits, said the way the rest of Lens says it
+ * (`assessEnvironment`), and where that sits among the cars compared: the
+ * figure is the whole of what Environmental Impact scores, so it is the answer
+ * to "emissions matter to me".
+ */
+function emissionsLine(car: PinnedFinnCar, cars: PinnedFinnCar[]): StoryLine {
+    const env = assessEnvironment(car);
+    const co2 = env?.co2;
+
+    if (!co2) {
+        return {
+            tone: "unknown",
+            text: "FINN doesn't publish a CO₂ figure for this car, so Lens couldn't judge it on emissions — it counted neither for nor against it.",
+        };
+    }
+
+    const others = cars.filter((other) => other.id !== car.id);
+    const figures = others.map((other) => assessEnvironment(other)?.co2?.gPerKm).filter((value): value is number => value != null);
+    const lower = figures.filter((value) => value < co2.gPerKm).length;
+    const among = figures.length
+        ? co2.gPerKm === 0
+            ? ""
+            : lower === 0
+              ? `, the lowest of the ${figures.length + 1} cars here with a figure`
+              : `; ${lower} of the other ${figures.length} cars here ${lower === 1 ? "emits" : "emit"} less`
+        : "";
+    const share = figures.length ? lower / figures.length : 0.5;
+    const tone: Tone = co2.level === "none" || co2.level === "low" || share < 0.25 ? "good" : co2.level === "high" && share > 0.6 ? "missing" : "note";
+    const caveat = env.powertrain === "Plug-in Hybrid" ? ` ${env.caveats[0] ?? ""}` : "";
+
+    return {
+        tone,
+        text: `${co2.gPerKm === 0 ? "No CO₂ from the car while driving" : `It emits ${co2.display}`} — ${co2.label.toLowerCase()}${among}.${caveat}`.trim(),
+    };
 }
 
 function evidenceLine(
@@ -491,6 +529,18 @@ export function tellFitStory(
             });
         }
 
+        /*
+         * Emissions are a figure, not equipment. A need about them ("emissions
+         * matter to me") has no equipment to point at, so the story used to
+         * say "Lens has nothing on this car it can check" — while the engine
+         * had just scored the car's CO₂ under Environmental Impact and ranked
+         * on it. The reader was told the car wasn't judged on the one thing it
+         * was judged on. Now the figure is said, against the other cars.
+         */
+        const emissions = need.priorities.includes("environmental") ? emissionsLine(winner, cars) : null;
+
+        if (emissions) lines.unshift(emissions);
+
         if (need.notInData) {
             const related = lines.some((line) => line.tone === "good");
             lines.push({
@@ -516,7 +566,9 @@ export function tellFitStory(
          * met at the level of the basics, and the title says so.
          */
         const onlyBasics = good.length > 0 && good.every((entry) => common.some((item) => item.entry.id === entry.id));
-        const tone: Tone = onlyBasics && !missing.length ? "note" : good.length && !missing.length ? "good" : good.length ? "note" : missing.length ? "missing" : "unknown";
+        const byEquipment: Tone = onlyBasics && !missing.length ? "note" : good.length && !missing.length ? "good" : good.length ? "note" : missing.length ? "missing" : "unknown";
+        /* A need judged only by the figure takes the figure's tone. */
+        const tone: Tone = emissions && !evidence.length ? emissions.tone : byEquipment;
 
         sections.push({
             key: need.id,
@@ -539,7 +591,9 @@ export function tellFitStory(
                 ? good.map((entry) => EVIDENCE[entry.id].label).join(", ")
                 : missing.length
                   ? `No ${missing.map((entry) => lower(EVIDENCE[entry.id].label)).join(", ")}`
-                  : "Nothing Lens can check",
+                  : emissions
+                    ? (assessEnvironment(winner)?.co2?.display ?? "No CO₂ figure")
+                    : "Nothing Lens can check",
             tone,
         });
     }
