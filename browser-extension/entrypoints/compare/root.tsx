@@ -15,7 +15,7 @@ import { Challenge } from "./advice/Challenge";
 import { ChooseSource, SourceStrip, type ChosenSource, type SourceOffers } from "./lens-ai/Source";
 import { TellLens } from "./lens-ai/TellLens";
 import { useCompareStore } from "./store";
-import { loadSavedSearches, loadSession, takeHandOff } from "@/lib/lens-chat/session";
+import { carsForSearch, HANDOFF_KEY, loadSavedSearches, loadSession, takeHandOff, type SearchCars } from "@/lib/lens-chat/session";
 import { loadLensSettings } from "@/lib/reasoning-engine";
 import { copyFeatures } from "./store";
 
@@ -35,7 +35,7 @@ import { copyFeatures } from "./store";
  * re-reasons when the reader saves rather than on every keystroke inside it.
  */
 export default function CompareTab({
-  cars,
+  cars: pinned,
   onSettings,
   onReadCar,
 }: {
@@ -87,7 +87,7 @@ export default function CompareTab({
    * as they always have.
    */
   useEffect(() => {
-    void (async () => {
+    const read = async (onArrival: boolean) => {
       const [session, searches, handedOver] = await Promise.all([loadSession(), loadSavedSearches(), takeHandOff()]);
 
       setOffers({ session, searches });
@@ -98,9 +98,50 @@ export default function CompareTab({
         return;
       }
 
-      if (!session && !searches.length) setSource({ kind: "settings" });
-    })();
+      if (onArrival && !session && !searches.length) setSource({ kind: "settings" });
+    };
+
+    void read(true);
+
+    /*
+     * Already open when the chat hands over. The background focuses an open
+     * page rather than opening a second one, and this page used to read the
+     * hand-off only when it loaded — so pressing the button a second time
+     * brought forward a page still about whatever it showed before.
+     */
+    const onChange = (changes: Record<string, { newValue?: unknown }>, area: string) => {
+      if (area === "local" && HANDOFF_KEY in changes && changes[HANDOFF_KEY]?.newValue) void read(false);
+    };
+
+    browser.storage.onChanged.addListener(onChange);
+
+    return () => browser.storage.onChanged.removeListener(onChange);
   }, [applyAnswers]);
+
+  /*
+   * The cars this page ranks follow the search it is about. A search from the
+   * chat, or one the reader kept, is about the cars that conversation
+   * compared; the reader's own settings are about their pinned cars.
+   */
+  const search = source?.kind === "session" ? source.session : source?.kind === "saved" ? source.search : null;
+  const [searched, setSearched] = useState<SearchCars | null>(null);
+
+  useEffect(() => {
+    setSearched(null);
+    if (!search) return;
+
+    let live = true;
+    void carsForSearch(search).then((found) => {
+      if (live) setSearched(found);
+    });
+
+    return () => {
+      live = false;
+    };
+    /* `pinned` too: pinning one of these cars here swaps in the reader's pinned copy. */
+  }, [search, pinned]);
+
+  const cars = search ? (searched?.cars ?? null) : pinned;
 
   /** A search the reader picked applies to this page alone; settings restore theirs. */
   const chooseSource = (chosen: ChosenSource) => {
@@ -175,80 +216,103 @@ export default function CompareTab({
           * worked in one too narrow to work in; the drawer overlays it now.
           */}
         <div className="mx-auto w-full max-w-[1240px] px-4 py-6 sm:px-6 lg:px-10 lg:py-10">
-          {cars === null ? (
-            <Loading>Reading your pinned cars…</Loading>
-          ) : cars.length === 0 ? (
-            <EmptyState
-              icon={<Sparkles aria-hidden="true" className="h-7 w-7" />}
-              title="Nothing to compare yet"
-            >
-              <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-finn-iron">
-                Pin a few cars on <FinnLink /> first. Finn Lens will
-                automatically include every pinned car here.
-              </p>
-            </EmptyState>
-          ) : !canCompare && onlyCar ? (
-            <EmptyState
-              media={
-                <img
-                  src={onlyCar.images.thumbnail}
-                  alt={onlyCar.name}
-                  className="mx-auto h-32 w-52 rounded-2xl object-cover"
-                />
-              }
-              title="One car is pinned"
-            >
-              <p className="mt-2 text-sm leading-6 text-finn-iron">
-                Keep browsing and pin another car. Finn Lens compares the full
-                pinned set automatically — there is no separate selection step.
-              </p>
-
-              {/*
-                * The one car can still be read on its own, which is the only
-                * useful thing to offer someone who cannot compare yet — so
-                * this goes straight to its breakdown, not to the board.
-                */}
-              <button
-                type="button"
-                onClick={() => onReadCar(onlyCar.id)}
-                className="mt-5 inline-flex h-11 items-center gap-2 rounded-full bg-finn-accent-blue px-5 text-xs font-black text-white shadow-sm transition hover:bg-finn-highlight-navy"
-              >
-                See how this one suits you
-              </button>
-            </EmptyState>
-          ) : !settingsLoaded ? (
-            /*
-             * Held until the saved answers have actually been read. A
-             * recommendation built from the defaults, replaced a tick later by
-             * one built from the reader's own settings, is a wrong answer
-             * shown confidently.
-             */
-            <Loading>Reading your settings…</Loading>
+          {/*
+            * The source first, and only then the cars it is about. The page
+            * used to check the pinned cars before anything else, so a reader
+            * who had built a search in the chat and pinned nothing never got
+            * as far as it: "Nothing to compare yet", over a search of 76 cars.
+            */}
+          {!offers ? (
+            <Loading>Reading your searches…</Loading>
+          ) : !source ? (
+            <ChooseSource offers={offers} onChoose={chooseSource} />
           ) : (
             <>
-              {/*
-                * Experimental: describe yourself in words and review how
-                * that maps onto these same answers. Renders nothing unless
-                * Lens AI is turned on in Settings.
-                */}
-              {/*
-                * One source at a time, named. Until the reader has settled
-                * which search this page is about, there is no recommendation
-                * to show — two answers on screen, one of them offering to
-                * replace the other, was the confusion this undoes.
-                */}
-              {!offers ? (
-                <Loading>Reading your searches…</Loading>
-              ) : !source ? (
-                <ChooseSource offers={offers} onChoose={chooseSource} />
+              <SourceStrip
+                source={source}
+                detail={
+                  search
+                    ? [
+                        search.headline,
+                        searched?.missing ? `${searched.missing} no longer available` : "",
+                        searched?.setAside ? `${searched.setAside} set aside by your rules` : "",
+                      ]
+                        .filter(Boolean)
+                        .join(" · ")
+                    : null
+                }
+                canChange={Boolean(offers.session || offers.searches.length)}
+                onChange={() => setSource(null)}
+              />
+
+              {cars === null ? (
+                <Loading>{search ? "Reading the cars from this search…" : "Reading your pinned cars…"}</Loading>
+              ) : cars.length === 0 ? (
+                <EmptyState
+                  icon={<Sparkles aria-hidden="true" className="h-7 w-7" />}
+                  title={search ? "The cars from this search aren't available any more" : "Nothing to compare yet"}
+                >
+                  <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-finn-iron">
+                    {search ? (
+                      <>
+                        FINN no longer lists them, or Lens has let go of them. Open the chat on <FinnLink /> again to compare what's
+                        there now.
+                      </>
+                    ) : (
+                      <>
+                        Pin a few cars on <FinnLink /> first. Finn Lens will automatically include every pinned car here.
+                      </>
+                    )}
+                  </p>
+                </EmptyState>
+              ) : !canCompare && onlyCar ? (
+                search ? (
+                  <EmptyState title="This search is about one car">
+                    <p className="mt-2 text-sm leading-6 text-finn-iron">
+                      The recommendation page weighs two or more cars against each other. Everything about this one is in the chat,
+                      where you left it.
+                    </p>
+                  </EmptyState>
+                ) : (
+                  <EmptyState
+                    media={
+                      <img
+                        src={onlyCar.images.thumbnail}
+                        alt={onlyCar.name}
+                        className="mx-auto h-32 w-52 rounded-2xl object-cover"
+                      />
+                    }
+                    title="One car is pinned"
+                  >
+                    <p className="mt-2 text-sm leading-6 text-finn-iron">
+                      Keep browsing and pin another car. Finn Lens compares the full
+                      pinned set automatically — there is no separate selection step.
+                    </p>
+
+                    {/*
+                      * The one car can still be read on its own, which is the only
+                      * useful thing to offer someone who cannot compare yet — so
+                      * this goes straight to its breakdown, not to the board.
+                      */}
+                    <button
+                      type="button"
+                      onClick={() => onReadCar(onlyCar.id)}
+                      className="mt-5 inline-flex h-11 items-center gap-2 rounded-full bg-finn-accent-blue px-5 text-xs font-black text-white shadow-sm transition hover:bg-finn-highlight-navy"
+                    >
+                      See how this one suits you
+                    </button>
+                  </EmptyState>
+                )
+              ) : !settingsLoaded ? (
+                /*
+                 * Held until the saved answers have actually been read. A
+                 * recommendation built from the defaults, replaced a tick later by
+                 * one built from the reader's own settings, is a wrong answer
+                 * shown confidently.
+                 */
+                <Loading>Reading your settings…</Loading>
               ) : (
                 <>
-                  <SourceStrip
-                    source={source}
-                    canChange={Boolean(offers.session || offers.searches.length)}
-                    onChange={() => setSource(null)}
-                  />
-
                   <TellLens cars={cars} />
 
                   {/*

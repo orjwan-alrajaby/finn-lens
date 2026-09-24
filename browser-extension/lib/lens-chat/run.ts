@@ -69,6 +69,22 @@ export interface LensRun {
 const NEAR_LIMIT_EUR = 50;
 const NEAR_LIMIT_SHARE = 0.1;
 
+/**
+ * The cars a reader's rules leave in: "not an SUV" sets SUVs aside, "electric
+ * only" keeps only electric cars. An unknown is not proof a car has what was
+ * ruled out, so it stays. Shared with the recommendation page, which has to
+ * rank the same cars the chat did.
+ */
+export function allowedByRules(cars: PinnedFinnCar[], rules: Rule[]): PinnedFinnCar[] {
+    if (!rules.length) return cars;
+
+    return cars.filter((car) =>
+        rules.every((rule) =>
+            rule.mode === "without" ? evidenceMet(car, rule.id, true) !== false : evidenceMet(car, rule.id, false) === true,
+        ),
+    );
+}
+
 export function runLens(
     cars: PinnedFinnCar[],
     answers: Answers,
@@ -86,16 +102,7 @@ export function runLens(
      * isn't one. When nothing survives, everything comes back and the story
      * says so rather than pretending the constraint was met.
      */
-    const allowed = ruledOut.length
-        ? cars.filter((car) =>
-              ruledOut.every((rule) =>
-                  rule.mode === "without"
-                      ? /* Unknown isn't proof the car has it, so it stays. */
-                        evidenceMet(car, rule.id, true) !== false
-                      : evidenceMet(car, rule.id, false) === true,
-              ),
-          )
-        : cars;
+    const allowed = allowedByRules(cars, ruledOut);
     const setAside = cars.length - allowed.length;
     const nothingLeft = allowed.length === 0;
 

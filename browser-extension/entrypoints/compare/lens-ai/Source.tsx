@@ -163,10 +163,13 @@ function Option({
 /** What the page is currently about, and the way back to the other answers. */
 export function SourceStrip({
     source,
+    detail = null,
     canChange,
     onChange,
 }: {
     source: ChosenSource;
+    /** Which cars it covers: "Comparing 76 cars matching your filters · 2 no longer available". */
+    detail?: string | null;
     /** False when there is nothing else to choose: no session, nothing kept. */
     canChange: boolean;
     onChange: () => void;
@@ -185,6 +188,7 @@ export function SourceStrip({
             <div className="min-w-0">
                 <p className="text-[10px] font-black uppercase tracking-[0.14em] text-finn-accent-blue">{eyebrow}</p>
                 <p className="mt-0.5 truncate text-sm font-black text-finn-black">{title}</p>
+                {detail && <p className="mt-0.5 text-xs leading-5 text-finn-iron">{detail}</p>}
             </div>
 
             {canChange && (

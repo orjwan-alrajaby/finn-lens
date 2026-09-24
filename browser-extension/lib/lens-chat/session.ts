@@ -1,6 +1,8 @@
 import type { Answers } from "@/entrypoints/compare/store";
 import type { ScopeKind } from "@/lib/lens-ai/contract";
+import type { FinnCar, PinnedFinnCar } from "@/lib/types";
 
+import { allowedByRules } from "./run";
 import type { Rule, SessionProfile, Understanding } from "./understanding";
 
 /**
@@ -152,4 +154,43 @@ export function nameFor(session: LensSession): string {
     if (focus.length) return focus.join(" · ");
 
     return session.summary.split(/[.;—]/)[0]?.trim() || "A search with Lens";
+}
+
+
+/** The cars a search was about, as the recommendation page ranks them. */
+export interface SearchCars {
+    cars: PinnedFinnCar[];
+    /** Cars the chat compared that Lens no longer holds (sold, withdrawn, cleared from its cache). */
+    missing: number;
+    /** Cars the reader's own rules set aside, as the chat did. */
+    setAside: number;
+}
+
+/**
+ * The cars a conversation actually compared, for the recommendation page.
+ *
+ * The page used to rank the reader's pinned cars whatever it was opened for.
+ * The chat, meanwhile, had compared the page's cars — "76 cars matching your
+ * filters" — so "Open the full recommendation" landed on a different answer
+ * about different cars, or, with nothing pinned, on "Nothing to compare yet".
+ * These are the chat's own cars: the reader's pinned copy where there is one,
+ * otherwise the copy Lens holds from FINN, with the same rules applied the
+ * chat applied. Where the rules leave nothing, every car comes back, as in the
+ * chat.
+ */
+export async function carsForSearch(search: LensSession): Promise<SearchCars> {
+    const stored = await browser.storage.local.get(["pinnedCars", "loadedCarsFromFinnApi"]);
+    const pinned = (stored.pinnedCars ?? {}) as Record<number, PinnedFinnCar>;
+    const loaded = ((stored.loadedCarsFromFinnApi as { cars?: Record<number, FinnCar> } | undefined)?.cars ?? {}) as Record<number, FinnCar>;
+
+    const cars = search.carIds
+        .map((id) => pinned[id] ?? (loaded[id] ? ({ ...loaded[id], url: "", pinnedAt: "" } as PinnedFinnCar) : null))
+        .filter((car): car is PinnedFinnCar => car != null);
+    const allowed = allowedByRules(cars, search.rules ?? []);
+
+    return {
+        cars: allowed.length ? allowed : cars,
+        missing: search.carIds.length - cars.length,
+        setAside: allowed.length ? cars.length - allowed.length : 0,
+    };
 }

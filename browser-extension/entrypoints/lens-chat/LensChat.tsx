@@ -302,18 +302,26 @@ function withAskGroups(entries: Entry[], render: (entry: Entry, index: number) =
 }
 
 /** The conversation as something the rest of Lens can pick up. */
+/**
+ * The comparison on the card, as a search the rest of Lens can pick up.
+ *
+ * Built from the run itself and the cars it ran over — not from whichever
+ * page the chat happens to be open on. The reader may have compared "76 cars
+ * matching your filters" and then walked on to a car page; keeping the
+ * search, or opening the recommendation page, is about the comparison they
+ * were shown.
+ */
 function sessionFrom(
     applied: { understanding: Understanding; translation: Translation },
-    scope: Scope,
-    kind: ScopeKind,
     run: LensRun,
+    carIds: number[],
 ): LensSession {
     const { understanding, translation } = applied;
 
     return {
         at: new Date().toISOString(),
-        scope: kind,
-        headline: scope.headline,
+        scope: run.scope,
+        headline: run.scopeHeadline,
         summary:
             understanding.tension ||
             understanding.needs.filter((need) => need.status === "active").map((need) => need.label).join(" · "),
@@ -321,7 +329,7 @@ function sessionFrom(
         rules: translation.profile.rules,
         understanding,
         answers: translation.answers,
-        carIds: scope.cars.map((car) => car.id),
+        carIds,
         winnerId: run.recommendation.winner.id,
     };
 }
@@ -1621,11 +1629,33 @@ export function LensChat() {
     /* Everything else Lens ranked: the pick is already on screen. */
     const others = useMemo(() => (run ? compareRows(run).filter((row) => row.id !== run.recommendation.winner.id) : []), [run]);
 
+    /** The cars the card's comparison ran over, rules and all — kept with the run, or read off it. */
+    const comparedIds = (target: LensRun): number[] =>
+        lastRun.current?.carIds.length ? lastRun.current.carIds : target.recommendation.context.vehicles.map((car) => car.id);
+
+    /**
+     * "Open the full recommendation": the page opens on exactly this search.
+     *
+     * Saved again at the press, not left from when it was first compared. The
+     * card may have come back from a kept conversation days later, long after
+     * the session it was saved with expired, or another conversation may have
+     * saved over it since — either way the page would have opened on
+     * something other than the card the reader just pressed.
+     */
+    const handOver = async () => {
+        const current = latest.current;
+
+        if (current.applied && current.run) await saveSession(sessionFrom(current.applied, current.run, comparedIds(current.run)));
+
+        await markHandOff();
+        await openBrowserTab("OPEN_COMPARE_PAGE");
+    };
+
     const keepSearch = () => {
         const current = latest.current;
         if (!current.applied || !current.run) return;
 
-        const session = sessionFrom(current.applied, current.scopes[current.kind], current.kind, current.run);
+        const session = sessionFrom(current.applied, current.run, comparedIds(current.run));
 
         void saveSearch({
             ...session,
@@ -1928,7 +1958,7 @@ export function LensChat() {
                                             onOpenPage={() => {
                                                 /* The press is the answer: the page opens on this search and asks nothing. */
                                                 record("You opened the full recommendation page.");
-                                                void markHandOff().then(() => openBrowserTab("OPEN_COMPARE_PAGE"));
+                                                void handOver();
                                             }}
                                         />
                                     ) : null;
