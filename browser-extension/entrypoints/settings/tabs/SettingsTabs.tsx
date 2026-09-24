@@ -1,9 +1,13 @@
-export type SettingsTab = "priorities" | "profiles" | "driving" | "ai" | "data";
+export type SettingsTab = "priorities" | "profiles" | "driving" | "searches" | "ai" | "data";
+
+export const isSettingsTab = (value: string): value is SettingsTab =>
+    ["priorities", "profiles", "driving", "searches", "ai", "data"].includes(value);
 
 const TABS: { id: SettingsTab; label: string }[] = [
     { id: "priorities", label: "Priorities" },
     { id: "profiles", label: "Profiles" },
     { id: "driving", label: "Driving" },
+    { id: "searches", label: "Searches" },
     { id: "ai", label: "Lens AI" },
     { id: "data", label: "Data" },
 ];

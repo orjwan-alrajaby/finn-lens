@@ -33,7 +33,9 @@ import type {
   ProfileId,
   SettingsBasis,
 } from "@/lib/reasoning-engine/types";
-import { SettingsTabs, type SettingsTab } from "./tabs/SettingsTabs";
+import { isSettingsTab, SettingsTabs, type SettingsTab } from "./tabs/SettingsTabs";
+import { SearchesSettings } from "./tabs/SearchesSettings";
+import { JudgedBy, useJudging } from "@/components/JudgedBy";
 import { PrioritiesSettings } from "./tabs/PrioritiesSettings";
 import { ProfilesSettings } from "./tabs/ProfileSettings";
 import { DrivingSettings } from "./tabs/DrivingSettings";
@@ -53,7 +55,22 @@ import { loadPinnedCars, type StoredDataGroupId } from "@/lib/stored-data";
 import { openBrowserTab } from "@/lib/utils";
 
 export default function SettingsPage({ onBack }: { onBack?: () => void }) {
-  const [tab, setTab] = useState<SettingsTab>("priorities");
+  /* Opened on a tab when asked to — "#tab=searches" from the popup. */
+  const tabFromHash = (): SettingsTab => {
+    const asked = new URLSearchParams(window.location.hash.slice(1)).get("tab") ?? "";
+
+    return isSettingsTab(asked) ? asked : "priorities";
+  };
+  const [tab, setTab] = useState<SettingsTab>(tabFromHash);
+
+  useEffect(() => {
+    const onHash = () => setTab(tabFromHash());
+
+    window.addEventListener("hashchange", onHash);
+
+    return () => window.removeEventListener("hashchange", onHash);
+  }, []);
+  const judging = useJudging();
   const [loading, setLoading] = useState(true);
 
   const [preferences, setPreferences] = useState<LensPreferences>(DEFAULT_PREFERENCES);
@@ -357,8 +374,11 @@ export default function SettingsPage({ onBack }: { onBack?: () => void }) {
         <header className="mb-7">
           <h1 className="text-3xl font-black tracking-tight">Settings</h1>
           <p className="mt-2 max-w-xl text-sm leading-6 text-finn-iron">
-            Change the priorities, profiles, driving assumptions and optional AI Finn Lens uses when explaining your pinned cars.
+            The priorities, profiles and driving assumptions Finn Lens judges cars by, your kept searches, and optional AI. While
+            your chat with Lens has a result, the badges and pages judge by the chat instead — and say so.
           </p>
+
+          {judging && <JudgedBy judging={judging} className="mt-4" />}
         </header>
 
         {/*
@@ -414,6 +434,7 @@ export default function SettingsPage({ onBack }: { onBack?: () => void }) {
             />
           )}
           {tab === "driving" && <DrivingSettings preferences={preferences} onChange={setPreferences} />}
+          {tab === "searches" && <SearchesSettings />}
           {tab === "ai" && <LensAiSettings settings={ai} onChange={setAi} />}
           {tab === "data" && <DataSettings onCleared={handleDataCleared} />}
         </div>

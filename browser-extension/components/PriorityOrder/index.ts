@@ -34,6 +34,7 @@ export const PRIORITY_ORDER_DESCRIPTION =
     `What matters to you about a car, in the order it matters. The first counts ` +
     `for the most and the last for the least, and this order is what every ` +
     `explanation Finn Lens gives you is measured against — on your pinned cars ` +
-    `and on any car you open on finn.com. Lens starts you on an order of its ` +
+    `and on any car you open on finn.com — whenever Lens is judging by your ` +
+    `settings rather than by your chat. Lens starts you on an order of its ` +
     `own; changing anything here makes it yours. Between ${MIN_PRIORITIES} and ` +
     `${MAX_PRIORITIES}.`;

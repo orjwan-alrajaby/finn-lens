@@ -26,7 +26,8 @@ export type StoredDataGroupId =
     | "browsingCache"
     | "setup"
     | "lensAi"
-    | "lensChat";
+    | "lensChat"
+    | "searches";
 
 export interface StoredDataGroup {
     id: StoredDataGroupId;
@@ -87,19 +88,27 @@ export const STORED_DATA_GROUPS: StoredDataGroup[] = [
         id: "lensAi",
         label: "Lens AI key",
         description:
-            "Whether Lens AI is switched on, the Gemini API key you gave it, which models are out of free requests for now, and the searches your conversations built.",
+            "Whether Lens AI is switched on, the Gemini API key you gave it, and which models are out of free requests for now.",
         consequence:
             "Lens AI turns off and forgets your key. Everything else in Lens keeps working; you can add the key again in Settings.",
-        keys: ["finnLensAi", "finnLensAiResting", "finnLensSession", "finnLensSavedSearches", "finnLensChatSize", "finnLensSessionHandOff"],
+        keys: ["finnLensAi", "finnLensAiResting"],
     },
     {
         id: "lensChat",
         label: "Your conversation with Lens",
         description:
-            "Everything you and Lens said in Ask Lens, from the first message: what you told it, the questions it asked and your answers, the cars it recommended, and what you did — pins, kept searches, changes you tried. Kept so you can pick it up again on any finn.com page.",
+            "Everything you and Lens said in Ask Lens, from the first message: what you told it, the questions it asked and your answers, the cars it recommended, and what you did — pins, kept searches, changes you tried. Also the search its latest result was built from, which badges and pages judge by while it lasts, your choice between judging by the chat or your settings, and the size you gave the chat window.",
         consequence:
-            "Ask Lens starts with an empty conversation next time. Your pinned cars, kept searches and Lens settings stay as they are.",
-        keys: ["finnLensChatTranscript"],
+            "Ask Lens starts with an empty conversation next time, and badges and pages go back to judging by your saved settings. Your pinned cars, kept searches and settings stay as they are.",
+        keys: ["finnLensChatTranscript", "finnLensSession", "finnLensSessionHandOff", "finnLensJudgeBy", "finnLensChatSize"],
+    },
+    {
+        id: "searches",
+        label: "Your kept searches",
+        description:
+            "The searches you chose to keep from conversations with Lens: what you told it, its answers and the cars it compared. They're listed under Searches in Settings.",
+        consequence: "They're gone from Settings and from the recommendation page. Your conversation and your settings stay as they are.",
+        keys: ["finnLensSavedSearches"],
     },
 ];
 
