@@ -75,6 +75,12 @@ export function useConversation(page: PageCars) {
         return found;
     }, []);
 
+    /** The chat on screen was deleted. */
+    const clear = useCallback(() => {
+        latest.current = null;
+        setChat(null);
+    }, []);
+
     /* -- Judging ------------------------------------------------------------ */
 
     const judge = useCallback(
@@ -249,5 +255,5 @@ export function useConversation(page: PageCars) {
         if (current) await judge(withExchange(current, "Judge the cars on this page.", null));
     }, [judge]);
 
-    return { chat, busy, startNew, open, tap, type, whyWinner, change, judgeHere };
+    return { chat, busy, startNew, open, clear, tap, type, whyWinner, change, judgeHere };
 }

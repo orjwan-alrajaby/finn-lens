@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ArrowUp, SquarePen, X } from "lucide-react";
+import { ArrowLeft, ArrowUp, MessagesSquare, SquarePen, X } from "lucide-react";
 
 import { BrandMark, IconButton } from "@/components/lens-parts";
 import { onPageChanged, requestCloseChat, requestPageContext, requestShowCar } from "@/lib/chats/bridge";
 import { loadedCars, pageCars } from "@/lib/chats/scope";
 import { activeChatId } from "@/lib/chats/store";
 
+import { ChatList } from "./ChatList";
 import { MessageList, useReveal } from "./Messages";
 import { useConversation, type PageCars } from "./useConversation";
 
@@ -13,7 +14,8 @@ import { useConversation, type PageCars } from "./useConversation";
  * Lens, in the bubble on finn.com.
  *
  * Opens on the chat the page's chips belong to, or — the first time, and
- * whenever there isn't one — on a new chat that greets the reader.
+ * whenever there isn't one — on a new chat that greets the reader. Every
+ * chat is kept, and the list of them is one tap away.
  */
 
 const EMPTY_PAGE: PageCars = { cars: [], headline: "", url: "", urls: {} };
@@ -23,6 +25,7 @@ export function App() {
     const [pageRead, setPageRead] = useState(false);
     /** The chat on screen was just started here, so its greeting is "typed" rather than shown whole. */
     const [fresh, setFresh] = useState(false);
+    const [view, setView] = useState<"chat" | "list">("chat");
     const conversation = useConversation(page);
     const { chat, busy } = conversation;
 
@@ -69,7 +72,14 @@ export function App() {
 
     const startNew = async () => {
         setFresh(true);
+        setView("chat");
         await conversation.startNew();
+    };
+
+    const openChat = async (id: string) => {
+        setFresh(false);
+        setView("chat");
+        await conversation.open(id);
     };
 
     /* -- The conversation --------------------------------------------------- */
@@ -106,63 +116,91 @@ export function App() {
     return (
         <div className="flex h-screen flex-col bg-finn-snow font-sans text-finn-black">
             <header className="flex shrink-0 items-center gap-2.5 bg-finn-highlight-navy px-3 py-2.5 text-white">
-                <BrandMark size={34} />
+                {view === "list" && chat ? (
+                    <IconButton label="Back to the chat" tone="dark" onClick={() => setView("chat")}>
+                        <ArrowLeft aria-hidden="true" className="h-5 w-5" />
+                    </IconButton>
+                ) : (
+                    <BrandMark size={34} />
+                )}
                 <div className="min-w-0 flex-1">
                     <p className="text-[14px] font-black leading-tight">Lens</p>
-                    <p className="truncate text-[11.5px] text-white/70">{chat?.title ?? "Your car-choosing assistant"}</p>
+                    <p className="truncate text-[11.5px] text-white/70">
+                        {view === "list" ? "Every chat you've had" : (chat?.title ?? "Your car-choosing assistant")}
+                    </p>
                 </div>
-                <IconButton label="New chat" tone="dark" onClick={() => void startNew()}>
-                    <SquarePen aria-hidden="true" className="h-[18px] w-[18px]" />
-                </IconButton>
+                {view === "chat" ? (
+                    <>
+                        <IconButton label="Your chats" tone="dark" onClick={() => setView("list")}>
+                            <MessagesSquare aria-hidden="true" className="h-[18px] w-[18px]" />
+                        </IconButton>
+                        <IconButton label="New chat" tone="dark" onClick={() => void startNew()}>
+                            <SquarePen aria-hidden="true" className="h-[18px] w-[18px]" />
+                        </IconButton>
+                    </>
+                ) : null}
                 <IconButton label="Close" tone="dark" onClick={() => void requestCloseChat()}>
                     <X aria-hidden="true" className="h-5 w-5" />
                 </IconButton>
             </header>
 
-            <div ref={scroller} className="min-h-0 flex-1 overflow-y-auto px-3 py-4">
-                {chat ? (
-                    <MessageList
-                        messages={shown}
-                        typing={typing || busy}
-                        busy={busy}
-                        onAnswer={(askId, chosen) => void conversation.tap(askId, chosen)}
-                        onOpenCar={(id) => void requestShowCar(id)}
-                        onWhy={() => void conversation.whyWinner()}
-                    />
-                ) : null}
-            </div>
+            {view === "list" ? (
+                <ChatList
+                    activeId={chat?.id ?? null}
+                    onOpen={(id) => void openChat(id)}
+                    onNew={() => void startNew()}
+                    onDeleted={(id) => {
+                        if (id === chat?.id) conversation.clear();
+                    }}
+                />
+            ) : (
+                <>
+                    <div ref={scroller} className="min-h-0 flex-1 overflow-y-auto px-3 py-4">
+                        {chat ? (
+                            <MessageList
+                                messages={shown}
+                                typing={typing || busy}
+                                busy={busy}
+                                onAnswer={(askId, chosen) => void conversation.tap(askId, chosen)}
+                                onOpenCar={(id) => void requestShowCar(id)}
+                                onWhy={() => void conversation.whyWinner()}
+                            />
+                        ) : null}
+                    </div>
 
-            {settled && unjudged > 0 && chat.phase === "judged" ? (
-                <div className="flex shrink-0 items-center gap-3 border-t border-finn-cotton bg-white px-3.5 py-2.5">
-                    <p className="min-w-0 flex-1 text-[12px] leading-snug text-finn-iron">
-                        {unjudged} {unjudged === 1 ? "car on this page isn't" : "cars on this page aren't"} in this judgement yet.
-                    </p>
-                    <button
-                        type="button"
-                        onClick={() => void conversation.judgeHere()}
-                        className="shrink-0 rounded-full bg-finn-pale-blue px-3 py-1.5 text-[12px] font-black text-finn-accent-blue transition-colors hover:bg-finn-accent-blue hover:text-white"
-                    >
-                        Judge them too
-                    </button>
-                </div>
-            ) : null}
+                    {settled && unjudged > 0 && chat.phase === "judged" ? (
+                        <div className="flex shrink-0 items-center gap-3 border-t border-finn-cotton bg-white px-3.5 py-2.5">
+                            <p className="min-w-0 flex-1 text-[12px] leading-snug text-finn-iron">
+                                {unjudged} {unjudged === 1 ? "car on this page isn't" : "cars on this page aren't"} in this judgement yet.
+                            </p>
+                            <button
+                                type="button"
+                                onClick={() => void conversation.judgeHere()}
+                                className="shrink-0 rounded-full bg-finn-pale-blue px-3 py-1.5 text-[12px] font-black text-finn-accent-blue transition-colors hover:bg-finn-accent-blue hover:text-white"
+                            >
+                                Judge them too
+                            </button>
+                        </div>
+                    ) : null}
 
-            {replies.length ? (
-                <div className="flex shrink-0 gap-1.5 overflow-x-auto border-t border-finn-cotton bg-white px-3 pt-2.5 pb-0.5">
-                    {replies.map((reply) => (
-                        <button
-                            key={reply.label}
-                            type="button"
-                            onClick={reply.run}
-                            className="shrink-0 rounded-full bg-finn-pale-blue px-3.5 py-2 text-[12.5px] font-bold text-finn-accent-blue transition-colors hover:bg-finn-accent-blue hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-finn-accent-blue"
-                        >
-                            {reply.label}
-                        </button>
-                    ))}
-                </div>
-            ) : null}
+                    {replies.length ? (
+                        <div className="flex shrink-0 gap-1.5 overflow-x-auto border-t border-finn-cotton bg-white px-3 pt-2.5 pb-0.5">
+                            {replies.map((reply) => (
+                                <button
+                                    key={reply.label}
+                                    type="button"
+                                    onClick={reply.run}
+                                    className="shrink-0 rounded-full bg-finn-pale-blue px-3.5 py-2 text-[12.5px] font-bold text-finn-accent-blue transition-colors hover:bg-finn-accent-blue hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-finn-accent-blue"
+                                >
+                                    {reply.label}
+                                </button>
+                            ))}
+                        </div>
+                    ) : null}
 
-            <Composer disabled={!chat || busy} asking={openAsk} onSend={(text) => void conversation.type(text)} />
+                    <Composer disabled={!chat || busy} asking={openAsk} onSend={(text) => void conversation.type(text)} />
+                </>
+            )}
         </div>
     );
 }
