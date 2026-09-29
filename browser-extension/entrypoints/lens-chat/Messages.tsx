@@ -590,7 +590,7 @@ function Result({
                         {winner.monthly != null ? (
                             <span className="text-right text-[11px] font-semibold text-finn-iron">
                                 <span className="block text-[15px] font-black text-finn-black tabular-nums">{euros(winner.monthly)}</span>
-                                a month, all in
+                                a month, estimated
                             </span>
                         ) : null}
                     </div>

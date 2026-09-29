@@ -114,7 +114,7 @@ export function App() {
                             <p className="text-[11px] font-black uppercase tracking-wide text-[#fcd34d]">Your current pick</p>
                             <h2 className="mt-0.5 text-[22px] font-black leading-snug tracking-[-0.02em]">{pick.name}</h2>
                             <p className="mt-1 text-[13px] leading-5 text-white/70">
-                                {pick.monthly != null ? `About €${pick.monthly.toLocaleString("en-GB")} a month, all in. ` : ""}From your chat “{current?.title}”.
+                                {pick.monthly != null ? `About €${pick.monthly.toLocaleString("en-GB")} a month, estimated. ` : ""}From your chat “{current?.title}”.
                             </p>
                         </>
                     ) : (

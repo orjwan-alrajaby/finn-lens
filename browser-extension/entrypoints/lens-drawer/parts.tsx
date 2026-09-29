@@ -111,7 +111,7 @@ export function CostTable({ cost }: { cost: CostAnalysis }) {
                     </div>
                 ))}
                 <div className="flex items-center justify-between gap-3 bg-finn-pale-blue px-3 py-2.5">
-                    <dt className="text-[12.5px] font-black text-finn-black">{breakdown.complete ? "A month, all in" : "A month, as far as Lens can tell"}</dt>
+                    <dt className="text-[12.5px] font-black text-finn-black">{breakdown.complete ? "A month, estimated" : "A month, as far as Lens can tell"}</dt>
                     <dd className="text-[15px] font-black tabular-nums text-finn-accent-blue">{euros(breakdown.totalMonthly)}</dd>
                 </div>
             </dl>
@@ -156,7 +156,7 @@ export function CarHeader({ value }: { value: JudgedCar }) {
                 {cost ? (
                     <p className="shrink-0 text-right text-[11px] text-finn-iron">
                         <span className="block text-[18px] font-black tabular-nums text-finn-black">{euros(cost.breakdown.totalMonthly)}</span>
-                        a month, all in
+                        a month, estimated
                     </p>
                 ) : null}
             </div>

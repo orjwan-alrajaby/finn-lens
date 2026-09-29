@@ -82,7 +82,7 @@ export function WinnerView({ value, print = false }: { value: JudgedCar; print?:
                     {cost ? (
                         <p className="shrink-0 text-right text-[11px] text-finn-iron">
                             <span className="block text-[20px] font-black tabular-nums text-finn-black">{euros(cost.breakdown.totalMonthly)}</span>
-                            a month, all in
+                            a month, estimated
                         </p>
                     ) : null}
                 </div>
@@ -228,7 +228,7 @@ export function WinnerView({ value, print = false }: { value: JudgedCar; print?:
 
             {print ? (
                 <p className="border-t border-finn-cotton px-5 py-3 text-[10.5px] leading-snug text-finn-iron">
-                    Lens judges what FINN lists for each car against what you told it. Costs are estimates: FINN's subscription price, plus fuel or charging at a typical price and any kilometres over FINN's allowance. Nothing else is added.
+                    Lens judges what FINN lists for each car against what you told it. Monthly costs are estimates: FINN's subscription price, plus fuel or charging at a price Lens assumes (not a quote), plus the FINN mileage package the stated distance needs. Lens adds nothing else, so costs like parking or tolls aren't in it.
                     {value.url ? (
                         <>
                             {" "}
