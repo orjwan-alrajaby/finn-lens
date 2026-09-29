@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Check, ChevronDown, ChevronRight, Info, PencilLine } from "lucide-react";
+import { Check, ChevronDown, ChevronRight, Info, PencilLine, X } from "lucide-react";
 
 import { BandChip, BrandMark, CarPhoto, euros, WinnerChip } from "@/components/lens-parts";
 import { IMPORTANCE_LABEL } from "@/lib/chats/flow";
@@ -119,6 +119,8 @@ function Chip({
     muted,
     title,
     icon,
+    onInfo,
+    infoOpen,
 }: {
     label: string;
     selected?: boolean;
@@ -127,7 +129,61 @@ function Chip({
     muted?: boolean;
     title?: string;
     icon?: React.ReactNode;
+    /** Shows what the choice means, under the chips. Draws an "i" at the chip's right. */
+    onInfo?: () => void;
+    infoOpen?: boolean;
 }) {
+    if (onInfo) {
+        /*
+         * Two buttons that read as one chip: the name picks it, the "i" explains
+         * it. Siblings rather than nested, since a button can't hold a button.
+         */
+        return (
+            <span
+                className={[
+                    "inline-flex items-center rounded-full transition-colors",
+                    selected ? "bg-finn-accent-blue text-white shadow-sm" : "bg-white text-finn-accent-blue ring-1 ring-finn-accent-blue/35",
+                    infoOpen && !selected ? "ring-2 ring-finn-accent-blue/60" : "",
+                ].join(" ")}
+            >
+                <button
+                    type="button"
+                    onClick={onClick}
+                    disabled={disabled}
+                    aria-pressed={selected}
+                    className={[
+                        "inline-flex items-center gap-1.5 rounded-l-full py-2 pr-1.5 pl-3.5 text-[12.5px] font-bold",
+                        "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-finn-accent-blue",
+                        selected ? "" : "hover:text-finn-highlight-navy",
+                    ].join(" ")}
+                >
+                    {selected ? <Check aria-hidden="true" className="h-3.5 w-3.5" strokeWidth={3} /> : null}
+                    {label}
+                </button>
+                <button
+                    type="button"
+                    onClick={onInfo}
+                    aria-expanded={infoOpen}
+                    aria-label={`What “${label}” means`}
+                    title={`What “${label}” means`}
+                    className={[
+                        "mr-1.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full transition-colors",
+                        "focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-finn-accent-blue",
+                        infoOpen
+                            ? selected
+                                ? "bg-white text-finn-accent-blue"
+                                : "bg-finn-accent-blue text-white"
+                            : selected
+                              ? "text-white/80 hover:bg-white/20 hover:text-white"
+                              : "text-finn-accent-blue/70 hover:bg-finn-pale-blue hover:text-finn-accent-blue",
+                    ].join(" ")}
+                >
+                    <Info aria-hidden="true" className="h-3.5 w-3.5" strokeWidth={2.4} />
+                </button>
+            </span>
+        );
+    }
+
     return (
         <button
             type="button"
@@ -148,6 +204,23 @@ function Chip({
             {selected ? <Check aria-hidden="true" className="h-3.5 w-3.5" strokeWidth={3} /> : icon}
             {label}
         </button>
+    );
+}
+
+/** One choice explained, under the chips, when its "i" is pressed. */
+function Explainer({ choice, onClose }: { choice: Choice; onClose: () => void }) {
+    return (
+        <div role="note" className="mt-1.5 flex gap-2 rounded-2xl bg-white p-3 text-[12px] leading-snug shadow-sm ring-1 ring-finn-accent-blue/25">
+            <Info aria-hidden="true" className="mt-0.5 h-4 w-4 shrink-0 text-finn-accent-blue" />
+            <div className="min-w-0 flex-1">
+                <p className="font-black text-finn-black">{choice.label}</p>
+                {choice.description ? <p className="text-finn-black/80">{choice.description}</p> : null}
+                {choice.looksFor?.length ? <p className="mt-1 text-finn-iron">I'll look for: {choice.looksFor.join(" · ")}</p> : null}
+            </div>
+            <button type="button" onClick={onClose} aria-label="Close" className="-mt-0.5 -mr-0.5 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-finn-iron hover:bg-finn-snow hover:text-finn-black">
+                <X aria-hidden="true" className="h-3.5 w-3.5" />
+            </button>
+        </div>
     );
 }
 
@@ -256,22 +329,28 @@ function Ask({
     const [picked, setPicked] = useState<string[]>(step.selected ?? []);
     const [own, setOwn] = useState(false);
     const [ownText, setOwnText] = useState("");
-    const [meanings, setMeanings] = useState(false);
+    const [explained, setExplained] = useState<string | null>(null);
 
     const toggle = (id: string) => setPicked((current) => (current.includes(id) ? current.filter((item) => item !== id) : [...current, id]));
     const chosen = step.choices.filter((choice) => picked.includes(choice.id));
-    const described = step.choices.some((choice) => choice.description);
     const ready = picked.length > 0 || (own && ownText.trim().length > 1);
 
     const chip = (choice: Choice) => (
         <Chip
             key={choice.id}
             label={choice.label}
-            title={choice.description}
             selected={step.multiple && picked.includes(choice.id)}
             onClick={() => (step.multiple ? toggle(choice.id) : onAnswer([choice.id]))}
+            onInfo={choice.description ? () => setExplained((open) => (open === choice.id ? null : choice.id)) : undefined}
+            infoOpen={explained === choice.id}
         />
     );
+
+    /* The explanation opens under the row its chip is in, so the eye doesn't travel. */
+    const explanation = (choices: Choice[]) => {
+        const choice = choices.find((item) => item.id === explained);
+        return choice ? <Explainer choice={choice} onClose={() => setExplained(null)} /> : null;
+    };
 
     const groups = step.groups?.length
         ? step.groups.map((group) => ({ ...group, choices: step.choices.filter((choice) => choice.group === group.id) }))
@@ -291,20 +370,19 @@ function Ask({
                             <div key={group.id}>
                                 <p className="mb-1 px-1 text-[10.5px] font-black uppercase tracking-wide text-finn-iron">{group.title}</p>
                                 <div className="flex flex-wrap gap-1.5">{group.choices.map(chip)}</div>
+                                {explanation(group.choices)}
                             </div>
                         ))
                     ) : (
-                        <div className="flex flex-wrap gap-1.5">{step.choices.map(chip)}</div>
+                        <div>
+                            <div className="flex flex-wrap gap-1.5">{step.choices.map(chip)}</div>
+                            {explanation(step.choices)}
+                        </div>
                     )}
 
                     <div className="flex flex-wrap gap-1.5">
                         {step.custom && !own ? <Chip label={step.custom.label} muted icon={<PencilLine aria-hidden="true" className="h-3.5 w-3.5" />} onClick={() => setOwn(true)} /> : null}
                         {step.none && !(step.multiple && ready) && !own ? <Chip label={step.none} muted onClick={() => onAnswer([])} /> : null}
-                        {described && !meanings ? (
-                            <button type="button" onClick={() => setMeanings(true)} className="px-1 text-[12px] font-bold text-finn-accent-blue hover:underline">
-                                What does each one mean?
-                            </button>
-                        ) : null}
                     </div>
 
                     {own && step.custom ? (
@@ -316,11 +394,7 @@ function Ask({
                         />
                     ) : null}
 
-                    {meanings ? (
-                        <Picked choices={step.choices.filter((choice) => choice.description)} />
-                    ) : step.multiple ? (
-                        <Picked choices={chosen.filter((choice) => choice.description || choice.looksFor?.length)} />
-                    ) : null}
+                    {step.multiple ? <Picked choices={chosen.filter((choice) => choice.description || choice.looksFor?.length)} /> : null}
 
                     {step.multiple && ready ? (
                         <button
