@@ -4,7 +4,7 @@ import { FINN_BASE_URL } from "@/lib/constants";
 
 export default defineBackground(() => {
   /*
-   * Lens's chat on finn.com is an extension page inside an iframe.
+   * Lens's chat and drawer on finn.com are extension pages inside iframes.
    * They can't reach the content script in their own tab directly, so their
    * requests come here and go on to that tab's top frame.
    *
@@ -70,6 +70,19 @@ export default defineBackground(() => {
     });
   });
 
+  /*
+   * The popup asks for Lens on finn.com: the tab it is on if that is finn.com,
+   * otherwise a new one. Either way the bubble opens there on the chat asked
+   * for, or a new one.
+   */
+  browser.runtime.onMessage.addListener((req) => {
+    if (req?.type !== "OPEN_LENS_ON_FINN") return undefined;
+
+    void openLensOnFinn(typeof req.url === "string" ? req.url : null);
+
+    return undefined;
+  });
+
   /**
    * Meet a new reader where the cars are.
    *
@@ -85,7 +98,7 @@ export default defineBackground(() => {
 
     void (async () => {
       try {
-        await browser.storage.local.set({ [OPEN_BUBBLE_KEY]: true });
+        await browser.storage.local.set({ [OPEN_BUBBLE_KEY]: Date.now() });
         await browser.tabs.create({ url: `${FINN_BASE_URL}/de-DE/subscribe` });
       } catch (error) {
         console.error("Finn Lens: could not open finn.com after install", error);
@@ -93,3 +106,17 @@ export default defineBackground(() => {
     })();
   });
 });
+
+async function openLensOnFinn(url: string | null) {
+  await browser.storage.local.set({ [OPEN_BUBBLE_KEY]: Date.now() });
+
+  const [tab] = await browser.tabs.query({ active: true, currentWindow: true });
+  const onFinn = Boolean(tab?.url?.startsWith(FINN_BASE_URL));
+
+  if (tab?.id != null && onFinn && !url) {
+    /* Already there: the content script hears the flag through storage. */
+    return;
+  }
+
+  await browser.tabs.create({ url: url ?? `${FINN_BASE_URL}/de-DE/subscribe` });
+}

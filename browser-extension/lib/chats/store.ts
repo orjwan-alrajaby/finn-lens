@@ -102,9 +102,15 @@ export async function saveSettings(settings: SavedSettings): Promise<void> {
     await browser.storage.local.set({ [SETTINGS_KEY]: settings });
 }
 
-/** Whether the bubble should open by itself on this page. Answers once. */
+/**
+ * Whether the bubble should open by itself on this page. Answers once.
+ *
+ * Requests are stamped with the time they were made rather than set to
+ * `true`, so a second request is a change storage reports even if the first
+ * was never taken.
+ */
 export async function takeOpenRequest(): Promise<boolean> {
-    const pending = await read<boolean>(OPEN_BUBBLE_KEY, false);
+    const pending = await read<number | boolean | null>(OPEN_BUBBLE_KEY, null);
 
     if (!pending) return false;
 

@@ -4,7 +4,7 @@ import { ArrowLeft, ArrowUp, MessagesSquare, SquarePen, X } from "lucide-react";
 import { BrandMark, IconButton } from "@/components/lens-parts";
 import { onPageChanged, requestCloseChat, requestOpenDrawer, requestPageContext } from "@/lib/chats/bridge";
 import { loadedCars, pageCars } from "@/lib/chats/scope";
-import { activeChatId } from "@/lib/chats/store";
+import { ACTIVE_CHAT_KEY, activeChatId } from "@/lib/chats/store";
 
 import { ChatList } from "./ChatList";
 import { MessageList, useReveal } from "./Messages";
@@ -69,6 +69,22 @@ export function App() {
             }
         })();
     }, [pageRead, conversation]);
+
+    /* The popup can open another chat while this one is on screen: follow it. */
+    useEffect(() => {
+        const listener = (changes: Record<string, { newValue?: unknown }>, area: string) => {
+            const next = changes[ACTIVE_CHAT_KEY]?.newValue;
+
+            if (area !== "local" || typeof next !== "string" || next === conversation.chat?.id) return;
+
+            setFresh(false);
+            setView("chat");
+            void conversation.open(next);
+        };
+
+        browser.storage.onChanged.addListener(listener);
+        return () => browser.storage.onChanged.removeListener(listener);
+    }, [conversation]);
 
     const startNew = async () => {
         setFresh(true);

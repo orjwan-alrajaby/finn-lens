@@ -182,7 +182,7 @@ export default defineContentScript({
      * - **The cars.** More of them reaching Lens means the chat's "cars on
      *   this page" grew, so an open chat is told to re-read the page.
      *
-     * And one asks for something: a request to open the bubble here.
+     * And one asks for something: the popup wanting the bubble open here.
      */
     browser.storage.onChanged.addListener((changes, areaName) => {
       if (areaName !== "local") return;
@@ -210,7 +210,7 @@ export default defineContentScript({
     handleNavigation();
     void refreshChips().catch(reportChipFailure);
 
-    /* Just installed: the bubble opens by itself. */
+    /* Just installed, or sent here by the popup: the bubble opens by itself. */
     void openIfAsked();
     document.addEventListener("visibilitychange", () => void openIfAsked());
   },
