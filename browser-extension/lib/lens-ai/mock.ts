@@ -899,8 +899,13 @@ function converse(request: ConverseRequest): ConverseResult {
     /* -- Reading what they said ------------------------------------------- */
     const read = readSituation(message, previous);
     const tourStep = request.answered.length + (open ? 1 : 0);
-    const thin = !request.facts && tourStep === 0 && previous.needs.length === 0 && read.needs.length < 3;
-    const found = [...read.needs, ...(thin ? TOUR_BASE.filter((rule) => !read.needs.some((need) => need.id === rule.id)) : []), ...answeredNeeds];
+    /*
+     * Only what was said. This used to pad a short first message with a stock
+     * set of needs — parking, long trips, blind spots — to show the chat off
+     * in a guided tour. As Lens's own reader that is Lens telling someone what
+     * they need, which is the one thing it must never do.
+     */
+    const found = [...read.needs, ...answeredNeeds];
 
     const merged = new Map<string, WireNeed>(previous.needs.map((need) => [need.id, need]));
     const added: WireNeed[] = [];
