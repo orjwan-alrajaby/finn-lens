@@ -227,7 +227,7 @@ describe("emissions, which are a figure rather than equipment", () => {
     const translation = toAnswers(base, u);
     const run = runLens(cars, translation.answers, "page", "Comparing 24 cars on this page", ruledOut(u))!;
     const story = tellFitStory(run, u, translation.lessRelevant, null);
-    const section = story.sections.find((item) => item.key === "life:emissions")!;
+    const section = story.sections.find((item) => item.key === "life-emissions")!;
     const co2 = assessEnvironment(run.recommendation.winner)!.co2!;
 
     it("says the car's CO₂, instead of claiming it couldn't judge it", () => {

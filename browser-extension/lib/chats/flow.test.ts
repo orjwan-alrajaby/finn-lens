@@ -74,7 +74,7 @@ describe("a first chat", () => {
         expect(chat.understanding.budget?.monthly).toBe(500);
         expect(chat.understanding.monthlyKm?.value).toBe(1500);
         expect(chat.understanding.rental).toMatchObject({ from: "2026-10", to: "2027-09" });
-        expect(chat.understanding.needs.map((need) => need.id)).toEqual(expect.arrayContaining(["life:kids", "life:motorway"]));
+        expect(chat.understanding.needs.map((need) => need.id)).toEqual(expect.arrayContaining(["life-kids", "life-motorway"]));
         expect(chat.title).toMatch(/Kids in the back/);
     });
 

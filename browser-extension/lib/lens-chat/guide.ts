@@ -382,8 +382,15 @@ export function guideSteps(
 /* Into the understanding                                                     */
 /* -------------------------------------------------------------------------- */
 
-/** Needs this step owns, so answering it again replaces its own answers only. */
-const ownedBy = (step: GuideStepId) => `${step}:`;
+/**
+ * Needs this step owns, so answering it again replaces its own answers only.
+ *
+ * A dash, not a colon: an understanding that passes through the reader has its
+ * need ids slugged (`readUnderstanding`), and "life:kids" came back as
+ * "life-kids" — a second need beside the first, so every tapped need doubled
+ * the moment the reader typed anything.
+ */
+const ownedBy = (step: GuideStepId) => `${step}-`;
 
 const needFor = (step: GuideStepId, choice: GuideChoice): Need | null => {
     const id = `${ownedBy(step)}${choice.id}`;

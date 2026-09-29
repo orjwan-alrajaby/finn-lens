@@ -136,7 +136,7 @@ export function selectedFor(step: ChatStep, u: Understanding): string[] {
     if (step.id === "life" || step.id === "rules") {
         const owned = new Set(u.needs.filter((need) => need.status === "active").map((need) => need.id));
 
-        return step.choices.filter((choice) => owned.has(`${step.id}:${choice.id}`)).map((choice) => choice.id);
+        return step.choices.filter((choice) => owned.has(`${step.id}-${choice.id}`)).map((choice) => choice.id);
     }
 
     if (step.id === "budget" && u.budget) {
@@ -183,7 +183,7 @@ const lower = (value: string) => (/^(I\b|[A-Z]{2,})/.test(value) ? value : value
 export function acknowledge(step: ChatStep, u: Understanding): string {
     switch (step.id) {
         case "life": {
-            const needs = u.needs.filter((need) => need.status === "active" && need.id.startsWith("life:"));
+            const needs = u.needs.filter((need) => need.status === "active" && need.id.startsWith("life-"));
 
             if (!needs.length) return "No problem — I'll weigh what FINN lists on each car evenly.";
 

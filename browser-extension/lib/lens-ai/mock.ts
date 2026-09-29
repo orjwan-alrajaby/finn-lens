@@ -1007,7 +1007,12 @@ function converse(request: ConverseRequest): ConverseResult {
 
     return {
         kind: "understanding",
-        reply: reply && next && tourStep === 0 ? `${reply} Before I compare cars, a couple of things that could change the answer.` : reply,
+        /*
+         * No "before I compare, a couple of things…": the chat asks its own
+         * questions, and a reply promising more would be a promise nobody
+         * keeps.
+         */
+        reply,
         understanding,
         question: next,
         suggestions: offers,
