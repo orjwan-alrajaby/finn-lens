@@ -279,8 +279,32 @@ export function extractPricing(config: FinnApiConfig) {
     customerMonthly: { price: term?.privateMonthly ?? 0, oldPrice: null },
     businessMonthly: { price: term?.businessMonthly ?? 0, oldPrice: null },
     extraKmPrice: config.downpayment_prices?.extra_km_price ?? null,
+    mileagePackages: extractMileagePackages(config),
     currency: "€",
   };
+}
+
+/**
+ * FINN's mileage packages: kilometres a month, and what each adds to the
+ * monthly price — `extra_500: 0, extra_1000: 9, … extra_5000: 219`.
+ *
+ * This is how FINN actually sells mileage. Someone driving 1,000 km a month
+ * books the 1,000 km package for its surcharge; the per-kilometre price only
+ * applies to kilometres beyond the package they booked. Read from the
+ * no-down-payment `price` object, like the subscription itself, and from
+ * `downpayment_prices` where that's all FINN sent (the two carry the same
+ * packages).
+ */
+export function extractMileagePackages(config: FinnApiConfig): { km: number; monthly: number }[] {
+  const source = (config.price ?? config.downpayment_prices ?? {}) as Record<string, unknown>;
+
+  return Object.entries(source)
+    .map(([key, value]) => {
+      const km = /^extra_(\d+)$/.exec(key)?.[1];
+      return km && typeof value === "number" && Number.isFinite(value) && value >= 0 ? { km: Number(km), monthly: value } : null;
+    })
+    .filter((item): item is { km: number; monthly: number } => item != null)
+    .sort((a, b) => a.km - b.km);
 }
 
 const positive = (value: unknown): number | null =>

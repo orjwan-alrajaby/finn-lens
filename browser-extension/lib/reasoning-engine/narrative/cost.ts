@@ -74,7 +74,7 @@ const UNKNOWN_LABEL: Record<string, string> = {
   missingSubscriptionPrice: "the monthly subscription price",
   missingConsumption: "the fuel or electricity it uses",
   missingEnergyPrice: "the energy price to apply",
-  missingExtraKmPrice: "the price of kilometres beyond the included allowance",
+  missingExtraKmPrice: "the price of kilometres beyond FINN's mileage packages",
   plugInElectricityExcluded: "the electricity a plug-in hybrid charges on",
 };
 
@@ -95,7 +95,7 @@ function describeComposition(
 
   if (subject.excessMileage != null && subject.excessMileage > 0) {
     parts.push(
-      `about ${formatEUR(subject.excessMileage)} for kilometres beyond FINN's allowance`,
+      `about ${formatEUR(subject.excessMileage)} for mileage beyond what FINN's price includes`,
     );
   }
 

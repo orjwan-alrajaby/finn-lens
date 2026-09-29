@@ -120,6 +120,8 @@ export function makeCar(overrides: CarOverrides): PinnedFinnCar {
       customerMonthly: { price: customerMonthly ?? 0, oldPrice: null },
       businessMonthly: { price: businessMonthly ?? 0, oldPrice: null },
       extraKmPrice: extraKmPrice as number,
+      /* None by default, so fixtures keep testing the per-kilometre fallback; see cost.test.ts for packages. */
+      mileagePackages: [],
       currency: "€",
     },
 

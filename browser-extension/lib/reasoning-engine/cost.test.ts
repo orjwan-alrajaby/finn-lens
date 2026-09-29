@@ -1,3 +1,4 @@
+import { extractMileagePackages } from "@/lib/helpers";
 import { describe, expect, it } from "vitest";
 
 import { buildCostAnalysis, calculateCost, partitionByBudget } from "./cost";
@@ -299,5 +300,52 @@ describe("buildCostAnalysis", () => {
     expect(
       buildCostAnalysis(car, prefs({ contractType: "business" })).vatNote,
     ).toContain("doesn't tell us how VAT is treated");
+  });
+});
+
+describe("mileage, the way FINN sells it", () => {
+  const PACKAGES = [
+    { km: 500, monthly: 0 },
+    { km: 1000, monthly: 9 },
+    { km: 1500, monthly: 49 },
+    { km: 5000, monthly: 219 },
+  ];
+  const packaged = () => {
+    const car = makeCar({ id: 1, extraKmPrice: 0.25 });
+    return { ...car, pricing: { ...car.pricing, mileagePackages: PACKAGES } };
+  };
+
+  it("costs nothing within the package FINN's price includes", () => {
+    const cost = calculateCost(packaged(), prefs({ monthlyKm: 400 }));
+    expect(cost.excessMileage.amount).toBe(0);
+    expect(cost.excessMileage.includedMonthlyKm).toBe(500);
+  });
+
+  it("books the cheapest package that covers the distance, not every kilometre at the per-km price", () => {
+    const cost = calculateCost(packaged(), prefs({ monthlyKm: 1000 }));
+    expect(cost.excessMileage.mileagePackage).toEqual({ km: 1000, monthly: 9 });
+    expect(cost.excessMileage.amount).toBe(9);
+
+    const between = calculateCost(packaged(), prefs({ monthlyKm: 1200 }));
+    expect(between.excessMileage.amount).toBe(49);
+  });
+
+  it("charges the per-km price only beyond FINN's largest package", () => {
+    const cost = calculateCost(packaged(), prefs({ monthlyKm: 5400 }));
+    expect(cost.excessMileage.excessKm).toBe(400);
+    expect(cost.excessMileage.amount).toBe(219 + 400 * 0.25);
+  });
+
+  it("says in the cost line which package it priced", () => {
+    const analysis = buildCostAnalysis(packaged(), prefs({ monthlyKm: 1000 }));
+    const line = analysis.lines.find((item) => item.id === "excessMileage")!;
+    expect(line.label).toBe("Mileage package");
+    expect(line.explanation).toMatch(/1,000 km package adds €9/);
+  });
+
+  it("reads FINN's packages from its price object", () => {
+    expect(
+      extractMileagePackages({ price: { extra_1000: 9, extra_500: 0, extra_km_price: 0.25, b2c_12: 300 } } as never),
+    ).toEqual([{ km: 500, monthly: 0 }, { km: 1000, monthly: 9 }]);
   });
 });

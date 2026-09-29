@@ -442,9 +442,15 @@ export interface EnergyCost extends CostComponent {
 export interface ExcessMileageCost extends CostComponent {
   includedMonthlyKm: number;
   monthlyKm: number;
-  /** Kilometres beyond the included allowance. Never negative. */
+  /**
+   * Kilometres beyond what's paid for — beyond the mileage package that covers
+   * the reader's distance, or beyond the base allowance when Lens doesn't have
+   * FINN's packages for the car. Never negative.
+   */
   excessKm: number;
   extraKmPrice: number | null;
+  /** FINN's mileage package the reader's distance needs, when FINN listed packages. */
+  mileagePackage: { km: number; monthly: number } | null;
 }
 
 /**

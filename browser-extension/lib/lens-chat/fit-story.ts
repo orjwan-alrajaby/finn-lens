@@ -265,9 +265,22 @@ function mileageShare(run: LensRun): string {
     const cost = run.recommendation.context.costs[run.recommendation.winner.id];
     const excess = cost?.excessMileage;
 
-    if (!excess?.amount || excess.excessKm <= 0 || excess.amount < 0.15 * cost!.totalMonthly) return "";
+    if (!excess?.amount || excess.amount < 0.15 * cost!.totalMonthly) return "";
 
-    return `About ${formatEUR(excess.amount)} of this car's figure is FINN's charge for the ${excess.excessKm.toLocaleString("en-GB")} km a month you drive beyond the ${excess.includedMonthlyKm.toLocaleString("en-GB")} it includes.`;
+    const km = (value: number) => `${value.toLocaleString("en-GB")} km`;
+    const pack = excess.mileagePackage;
+
+    if (pack && excess.excessKm <= 0) {
+        return `About ${formatEUR(excess.amount)} of this car's figure is FINN's ${km(pack.km)} mileage package, which your distance needs.`;
+    }
+
+    if (pack) {
+        return `About ${formatEUR(excess.amount)} of this car's figure is mileage: FINN's largest package (${km(pack.km)} a month) plus ${km(excess.excessKm)} a month beyond it at FINN's per-kilometre price.`;
+    }
+
+    if (excess.excessKm <= 0) return "";
+
+    return `About ${formatEUR(excess.amount)} of this car's figure is FINN's per-kilometre charge for the ${km(excess.excessKm)} a month you drive beyond the ${km(excess.includedMonthlyKm)} it includes.`;
 }
 
 function nearestLine(run: LensRun, limit: number): StoryLine {

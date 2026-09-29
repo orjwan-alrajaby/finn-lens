@@ -151,9 +151,9 @@ const GROUP_ASK: Record<NeedGroup, { ask: string; why: string; none: string; pla
 
 const WHY: Record<string, string> = {
     rules: "Anything you pick here takes cars out before I score them, so only choose what you'd truly refuse.",
-    budget: "A car over your limit can't be my pick. FINN's price is only part of the cost, so I add fuel or charging and any extra kilometres to compare them fairly.",
+    budget: "A car over your limit can't be my pick. I compare each car's FINN price plus estimated fuel or charging and the mileage package your distance needs.",
     period: "FINN prices each car by how long you subscribe, and not every car is offered for every length — so this changes both the price and which cars fit.",
-    distance: `Every FINN price includes ${FINN_INCLUDED_MONTHLY_KM.toLocaleString("en-GB")} km a month and charges for the rest, and your distance sets what fuel or charging costs you.`,
+    distance: `FINN's price includes ${FINN_INCLUDED_MONTHLY_KM.toLocaleString("en-GB")} km a month; more needs one of FINN's mileage packages, which adds to each car's price. Your distance also sets what fuel or charging costs you.`,
     focus: "When no car has everything, the need you pick counts most in the ranking, and the others count a step less.",
 };
 
@@ -430,7 +430,7 @@ export function acknowledge(step: ChatStep, u: Understanding, chosen: string[] =
         case "distance":
             return u.monthlyKm
                 ? u.monthlyKm.value > FINN_INCLUDED_MONTHLY_KM
-                    ? `About ${u.monthlyKm.value.toLocaleString("en-GB")} km a month. That's over FINN's included allowance, so I'll add the extra kilometres to each car's cost.`
+                    ? `About ${u.monthlyKm.value.toLocaleString("en-GB")} km a month. That's more than the ${FINN_INCLUDED_MONTHLY_KM.toLocaleString("en-GB")} km FINN's price includes, so I'll add the price of the mileage package each car needs for it.`
                     : `About ${u.monthlyKm.value.toLocaleString("en-GB")} km a month — that goes into each car's running cost.`
                 : `I'll assume about ${BASE_ANSWERS.preferences.monthlyKm.toLocaleString("en-GB")} km a month, then.`;
         default:

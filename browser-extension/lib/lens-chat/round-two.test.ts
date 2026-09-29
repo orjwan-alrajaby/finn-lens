@@ -308,7 +308,7 @@ describe("when nothing stays within a hard maximum", () => {
         const budget = story.sections.find((section) => section.key === "budget")!;
 
         expect(budget.lines.map((line) => line.text).join(" ")).toMatch(/not the best match at any price/);
-        expect(budget.lines.map((line) => line.text).join(" ")).toMatch(/km a month you drive beyond the 500 it includes/);
+        expect(budget.lines.map((line) => line.text).join(" ")).toMatch(/per-kilometre charge for the [\d,]+ km a month you drive beyond the 500 km it includes/);
     });
 });
 

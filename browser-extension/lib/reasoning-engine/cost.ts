@@ -205,29 +205,58 @@ function energyComponent(
 }
 
 /**
- * Estimated charge for kilometres beyond FINN's included monthly allowance.
+ * What the reader's distance costs on top of the subscription.
  *
- * When the user drives less than the allowance there is genuinely nothing to
- * charge, so the component is €0 and available. When the vehicle has no
- * `extraKmPrice` and there *are* excess kilometres, the component is
- * unavailable instead.
+ * FINN sells mileage as packages — 500 km a month is in the price, 1,000 km
+ * adds a few euros, and so on up to 5,000 — and charges its per-kilometre
+ * price only for kilometres beyond the package booked. So the charge is the
+ * cheapest package that covers the reader's distance, plus the per-kilometre
+ * price for anything past FINN's largest package.
+ *
+ * This used to charge every kilometre past 500 at the per-kilometre price,
+ * which is what FINN charges for kilometres *outside* any package: 1,000 km a
+ * month came out at about €125 extra, where FINN's 1,000 km package costs €9.
+ * That remains the fallback only for a car stored before Lens read FINN's
+ * packages, and says so.
+ *
+ * When the distance is inside what's paid for there is genuinely nothing to
+ * charge, so the component is €0 and available. When there are kilometres to
+ * charge per kilometre and FINN gave no price for them, it is unavailable.
  */
 function excessMileageComponent(
   vehicle: PinnedFinnCar,
   preferences: LensPreferences,
 ): ExcessMileageCost {
   const monthlyKm = Math.max(0, preferences.monthlyKm);
-  const includedMonthlyKm = FINN_INCLUDED_MONTHLY_KM;
-  const excessKm = Math.max(0, monthlyKm - includedMonthlyKm);
+  const packages = vehicle.pricing?.mileagePackages ?? [];
+  /* What the base price includes: FINN's package that adds nothing. */
+  const includedMonthlyKm = packages.find((item) => item.monthly === 0)?.km ?? FINN_INCLUDED_MONTHLY_KM;
 
   const rawPrice = vehicle.pricing?.extraKmPrice;
   const extraKmPrice = isPositive(rawPrice) ? rawPrice : null;
+
+  if (packages.length) {
+    const covering = packages.find((item) => item.km >= monthlyKm) ?? null;
+    const largest = packages[packages.length - 1]!;
+    const mileagePackage = covering ?? largest;
+    const excessKm = covering ? 0 : monthlyKm - largest.km;
+    const base = { includedMonthlyKm, monthlyKm, excessKm, extraKmPrice, mileagePackage } as const;
+
+    if (excessKm > 0 && extraKmPrice == null) {
+      return { ...base, amount: null, available: false, reason: "missingExtraKmPrice" };
+    }
+
+    return { ...base, amount: mileagePackage.monthly + excessKm * (extraKmPrice ?? 0), available: true, reason: null };
+  }
+
+  const excessKm = Math.max(0, monthlyKm - includedMonthlyKm);
 
   const base = {
     includedMonthlyKm,
     monthlyKm,
     excessKm,
     extraKmPrice,
+    mileagePackage: null,
   } as const;
 
   if (excessKm === 0) {
@@ -552,20 +581,35 @@ function excessMileageLine(breakdown: CostBreakdown): CostLine {
     });
   }
 
+  const pack = excessMileage.mileagePackage;
+
+  if (pack) {
+    facts.push({ label: "Mileage package", value: `${formatKm(pack.km)}/month, +${formatEUR(pack.monthly)}/month`, source: "finn" });
+  }
+
   let explanation: string;
 
-  if (excessMileage.excessKm === 0) {
+  if (pack && excessMileage.excessKm === 0) {
+    explanation =
+      pack.monthly === 0
+        ? `FINN's price includes ${formatKm(pack.km)} a month, which covers your ${formatKm(excessMileage.monthlyKm)}, so there's nothing extra to pay.`
+        : `FINN's price includes ${formatKm(excessMileage.includedMonthlyKm)} a month. For your ${formatKm(excessMileage.monthlyKm)}, FINN's ${formatKm(pack.km)} package adds ${formatEUR(pack.monthly)} a month.`;
+  } else if (pack && excessMileage.available && excessMileage.extraKmPrice != null) {
+    explanation =
+      `FINN's largest mileage package is ${formatKm(pack.km)} a month (+${formatEUR(pack.monthly)}). ` +
+      `The ${formatKm(excessMileage.excessKm)} a month beyond it cost ${formatPrice(excessMileage.extraKmPrice)}/km, ` +
+      `so about ${formatEUR(excessMileage.amount ?? 0)} a month in all.`;
+  } else if (excessMileage.excessKm === 0) {
     explanation =
       `FINN includes ${formatKm(excessMileage.includedMonthlyKm)}/month. ` +
       `At ${formatKm(excessMileage.monthlyKm)}/month you stay inside that allowance, ` +
       "so there's nothing extra to pay.";
   } else if (excessMileage.available && excessMileage.extraKmPrice != null) {
     explanation =
-      `FINN includes ${formatKm(excessMileage.includedMonthlyKm)}/month. ` +
-      `At ${formatKm(excessMileage.monthlyKm)}/month you're estimated to drive ` +
-      `${formatKm(excessMileage.excessKm)} beyond that. ` +
-      `At ${formatPrice(excessMileage.extraKmPrice)}/km, that's about ` +
-      `${formatEUR(excessMileage.amount ?? 0)}.`;
+      `Lens doesn't have FINN's mileage packages for this car, so this charges the ` +
+      `${formatKm(excessMileage.excessKm)} a month beyond the included ${formatKm(excessMileage.includedMonthlyKm)} ` +
+      `at FINN's ${formatPrice(excessMileage.extraKmPrice)}/km: about ${formatEUR(excessMileage.amount ?? 0)}. ` +
+      "A mileage package, if FINN offers one for this car, would usually cost less.";
   } else {
     explanation =
       `FINN includes ${formatKm(excessMileage.includedMonthlyKm)}/month and you expect to drive ` +
@@ -576,7 +620,7 @@ function excessMileageLine(breakdown: CostBreakdown): CostLine {
 
   return {
     id: "excessMileage",
-    label: "Estimated extra mileage",
+    label: excessMileage.mileagePackage ? "Mileage package" : "Estimated extra mileage",
     amount: excessMileage.amount,
     available: excessMileage.available,
     source: "estimate",
