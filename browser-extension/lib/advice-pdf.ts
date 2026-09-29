@@ -230,7 +230,36 @@ export function advicePdfOptions(filename: string): Options {
         /* Long enough for a CDN image, short enough not to hang the button. */
         imageTimeout: 6000,
         logging: false,
+        onclone: (clone: Document) => inlineStyles(document, clone),
       },
     },
   };
+}
+
+/**
+ * The page's own CSS, copied into the clone the capture photographs.
+ *
+ * html2canvas draws a clone of the document, and the clone re-requests the
+ * page's linked stylesheet. When the photograph is taken before that request
+ * lands, the file comes out in browser defaults — unstyled, and twice as
+ * long. Copying the rules the page already has into the clone as a <style>
+ * means there is nothing left to wait for.
+ */
+export function inlineStyles(source: Document, clone: Document): void {
+    const css = [...source.styleSheets]
+        .map((sheet) => {
+            try {
+                return [...sheet.cssRules].map((rule) => rule.cssText).join("\n");
+            } catch {
+                /* A sheet from another origin can't be read, and isn't ours. */
+                return "";
+            }
+        })
+        .join("\n");
+
+    if (!css) return;
+
+    const style = clone.createElement("style");
+    style.textContent = css;
+    clone.head.append(style);
 }
