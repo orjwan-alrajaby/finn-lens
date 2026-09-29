@@ -1,3 +1,5 @@
+import { CHAT_SIZE_KEY } from "@/lib/chats/data";
+
 import { brandMark, el, panelStyles } from "../page/dom";
 
 import { lensFrame, notifyPageChanged } from "./frames";
@@ -28,7 +30,7 @@ let isOpen = false;
 /* -------------------------------------------------------------------------- */
 
 /** Where the size the reader dragged the chat to is kept, so it opens that size next time. */
-const SIZE_KEY = "finnLensChatSize";
+const SIZE_KEY = CHAT_SIZE_KEY;
 
 /** Never smaller than it opens at on a laptop; never past the window. */
 const MIN_SIZE = { width: 360, height: 420 };

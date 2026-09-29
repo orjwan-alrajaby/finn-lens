@@ -70,16 +70,27 @@ export function App() {
         })();
     }, [pageRead, conversation]);
 
-    /* The popup can open another chat while this one is on screen: follow it. */
+    /*
+     * The popup can open another chat while this one is on screen, and
+     * Settings can take it away: follow either.
+     */
     useEffect(() => {
         const listener = (changes: Record<string, { newValue?: unknown }>, area: string) => {
+            if (area !== "local" || !(ACTIVE_CHAT_KEY in changes)) return;
+
             const next = changes[ACTIVE_CHAT_KEY]?.newValue;
 
-            if (area !== "local" || typeof next !== "string" || next === conversation.chat?.id) return;
+            if (next === conversation.chat?.id) return;
 
-            setFresh(false);
             setView("chat");
-            void conversation.open(next);
+
+            if (typeof next === "string") {
+                setFresh(false);
+                void conversation.open(next);
+            } else {
+                setFresh(true);
+                void conversation.startNew();
+            }
         };
 
         browser.storage.onChanged.addListener(listener);
