@@ -488,7 +488,12 @@ function energyLine(breakdown: CostBreakdown): CostLine {
     explanation =
       `At ${formatKm(monthlyKm)}/month and ${formatNumber(energy.consumption ?? 0)} ` +
       `${energy.consumptionUnit}, that's about ${formatEUR(energy.costPer100Km)} per 100 km ` +
-      `using the ${energy.energyLabel === "electricity" ? "electricity" : "fuel"} price you set.`;
+      /*
+       * Lens's typical price, named with its figure: nobody sets it any more,
+       * and "the price you set" claimed an answer the reader never gave.
+       */
+      `at a typical ${energy.energyLabel === "electricity" ? "electricity" : "fuel"} price of ` +
+      `€${(energy.energyPrice ?? 0).toFixed(2)} per ${energy.energyLabel === "electricity" ? "kWh" : "litre"}.`;
   } else if (energy.reason === "missingConsumption") {
     explanation =
       "FINN hasn't supplied a consumption figure for this car, so we can't estimate what it costs to run. " +
