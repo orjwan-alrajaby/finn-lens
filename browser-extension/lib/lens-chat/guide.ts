@@ -222,15 +222,21 @@ const LIFE: GuideChoice[] = [
             ["hasSplitFoldingRearSeats", "so a bigger dog or a crate gets more floor space"],
             ["rearDoors", "so a dog can get in and out of the back seat directly"],
         ]),
-    need("access", "people", "Older passengers", "I often drive older or less mobile passengers.",
-        "Rear doors so back passengers don't climb past the front seats, front seats adjusted with buttons, and keyless entry so the car unlocks with the key in your pocket.",
-        ["comfort", "practicality"],
+    /*
+     * Adults, not elderly passengers. What makes a car easier for someone
+     * who struggles to get in — seat height, step-in height, how wide the
+     * doors open — isn't in FINN's data, so Lens can't judge it and doesn't
+     * offer to. What adults in the back need, it can check.
+     */
+    need("adults", "people", "Adults in the back", "I often have adults in the back — friends or family.",
+        "Rear doors so adults get in without anyone moving the front seats, room for five, a temperature setting of their own in the back, and USB ports to charge their phones.",
+        ["practicality", "comfort"],
         [
-            ["rearDoors", "so back-seat passengers get in without squeezing past a front seat"],
-            ["hasElectricFrontSeatAdjustment", "so the passenger seat can be slid back to make getting in easier"],
-            ["hasKeylessEntryAndStart", "so the doors unlock as you reach them, while your hands are busy helping someone in"],
-        ],
-        "Easy for older passengers"),
+            ["rearDoors", "so adults get in and out without anyone moving the front seats"],
+            ["seatsFivePlus", "so everyone fits when the car is full"],
+            ["hasThreeZoneAutomaticClimateControls", "so passengers in the back can set their own temperature"],
+            ["hasBackUSBPorts", "so passengers in the back can charge their phones"],
+        ]),
     need("city", "driving", "City driving and parking", "It's mostly city driving, and parking is the hard part.",
         "A shorter and narrower car, a reversing camera, parking sensors that beep near obstacles, and mirrors that fold in at the press of a button.",
         ["cityParking"],
