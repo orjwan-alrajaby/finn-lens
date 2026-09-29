@@ -327,15 +327,22 @@ export function guideSteps(
 ): GuideStep[] {
     const allowed = (priority: CategoryId) => !enabled?.length || enabled.includes(priority);
 
+    /*
+     * With no cars in hand — a chat started on FINN's home page — there is
+     * nothing to narrow by, and narrowing by nothing would drop every choice.
+     * The questions are asked whole, and the judgement narrows later.
+     */
+    const narrow = cars.length > 0;
+
     const life = LIFE.map((choice) => {
         const need = choice.need!;
         const priorities = need.priorities.filter(allowed);
-        const evidence = need.evidence.filter((id) => findable(cars, id));
+        const evidence = narrow ? need.evidence.filter((id) => findable(cars, id)) : need.evidence;
 
         return { ...choice, need: { ...need, priorities, evidence } };
     }).filter((choice) => choice.need.priorities.length > 0 && (choice.need.evidence.length > 0 || CATEGORIES[choice.need.priorities[0]!].numericOnly));
 
-    const rules = RULES.filter((choice) => ruleSplits(cars, choice));
+    const rules = narrow ? RULES.filter((choice) => ruleSplits(cars, choice)) : RULES;
 
     const steps: GuideStep[] = [
         {
