@@ -198,7 +198,7 @@ describe("a conversation, not a form", () => {
         const chat = startChat(null, cars(), TODAY);
         const kids = openAsk(chat)!.step.choices.find((choice) => choice.id === "kids")!;
 
-        expect(kids.description).toMatch(/child seats/i);
+        expect(kids.description).toMatch(/ISOFIX anchors for child seats/);
         expect(kids.looksFor).toContain("ISOFIX child seat anchors");
         expect(openAsk(chat)!.step.ask).toMatch(/who's usually in the car/i);
     });
@@ -215,7 +215,7 @@ describe("a conversation, not a form", () => {
         const ids = driving.understanding.needs.map((need) => need.id);
 
         expect(ids).toContain("life-kids");
-        expect(texts(driving).at(-1)).toMatch(/no one kind of driving/);
+        expect(texts(driving).at(-1)).toMatch(/won't add anything for how you drive/);
         expect(driving.messages.filter((message) => message.from === "reader").at(-1)).toMatchObject({ text: "None of these" });
 
         const weather = answer(driving, openAsk(driving)!.id, [], cars(), TODAY).chat;
@@ -270,7 +270,7 @@ describe("a conversation, not a form", () => {
         const offers = chat.messages.filter((message): message is Ask => message.kind === "ask" && Boolean(message.step.offer));
 
         expect(offers.length).toBeGreaterThan(0);
-        expect(offers[0]!.step.why).toMatch(/You said kids in the back\. \d+ of the 5 cars here list/);
+        expect(offers[0]!.step.why).toMatch(/^You said kids in the back\. .+\. \d+ of the 5 cars here list it and \d+ don't/);
 
         for (const offer of offers) expect(EVIDENCE[offer.step.offer!.id].raisable).toBe(true);
 

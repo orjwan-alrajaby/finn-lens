@@ -87,7 +87,7 @@ export function App() {
                         </span>
                         <div>
                             <h1 className="text-[15px] font-black leading-none tracking-tight">Finn Lens</h1>
-                            <p className="mt-1 text-[11px] text-white/65">Your car-choosing companion for finn.com</p>
+                            <p className="mt-1 text-[11px] text-white/65">Ranks finn.com's cars against what you need</p>
                         </div>
                     </div>
                     <button
@@ -119,7 +119,7 @@ export function App() {
                         </>
                     ) : (
                         <>
-                            <h2 className="text-[22px] font-black leading-snug tracking-[-0.02em]">Tell Lens what you need, and it'll find your fit</h2>
+                            <h2 className="text-[22px] font-black leading-snug tracking-[-0.02em]">Tell Lens what you need, and it'll rank the cars on this page</h2>
                             <p className="mt-1.5 text-[13px] leading-5 text-white/70">
                                 A few questions, a judgement on every car here, and the reasons behind it.
                             </p>

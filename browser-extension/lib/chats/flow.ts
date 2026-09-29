@@ -120,31 +120,31 @@ const labelsOf = (ids: EvidenceId[]) => ids.map((id) => EVIDENCE[id]?.label).fil
 const GROUP_ASK: Record<NeedGroup, { ask: string; why: string; none: string; placeholder: string }> = {
     people: {
         ask: "First, who's usually in the car with you?",
-        why: "Passengers change what a car needs — child seats, a dog, someone who needs an easy way in. Each points me at equipment I can check car by car; tap the “i” on any of them to see what.",
+        why: "Each answer adds equipment I check on every car here — ISOFIX anchors and rear doors for children, for example. Tap the “i” on an answer to see its list.",
         none: "Just me",
         placeholder: "e.g. “my mum, who uses a walker”",
     },
     driving: {
         ask: "Where do you do most of your driving?",
-        why: "City streets, a daily commute and long motorway runs ask for different things — help parking, less work in traffic, or comfort at speed.",
+        why: "Each kind of driving adds different equipment: parking sensors and cameras for the city, adaptive cruise control for commuting and motorways, better headlights for night driving.",
         none: "None of these",
         placeholder: "e.g. “mountain roads at weekends”",
     },
     weather: {
         ask: "What's the weather like where you live?",
-        why: "Harsh winters or hot summers decide whether things like heated seats, all-wheel drive or cooled seats earn their keep.",
+        why: "Cold winters add heated seats, a heated steering wheel and rain and light sensors to what I check; hot summers add ventilated seats and 3-zone climate control.",
         none: "Nothing unusual",
         placeholder: "e.g. “lots of rain”",
     },
     loads: {
         ask: "What do you carry?",
-        why: "Bulky shopping, bikes or a trailer need a boot, seats and fittings that suit them.",
+        why: "What you carry adds equipment: folding rear seats and an electric tailgate for bulky loads, roof rails and a towbar for bikes, trailers and roof boxes.",
         none: "Nothing much",
         placeholder: "e.g. “a double buggy”",
     },
     you: {
         ask: "Last one about you: anything else that matters in a car?",
-        why: "How you feel behind the wheel, the tech you use, day-to-day comfort, emissions — these tip the balance between cars that otherwise fit.",
+        why: "These add driver assistance, phone connection, comfort features, or each car's CO₂ emissions to what I check.",
         none: "Nothing else",
         placeholder: "In your own words, e.g. “I drive home after night shifts”",
     },
@@ -155,7 +155,7 @@ const WHY: Record<string, string> = {
     budget: "A car over your limit can't be my pick. FINN's price is only part of the cost, so I add fuel or charging and any extra kilometres to compare them fairly.",
     period: "FINN prices each car by how long you subscribe, and not every car is offered for every length — so this changes both the price and which cars fit.",
     distance: `Every FINN price includes ${FINN_INCLUDED_MONTHLY_KM.toLocaleString("en-GB")} km a month and charges for the rest, and your distance sets what fuel or charging costs you.`,
-    focus: "When no car has everything, I'll favour the one that does best on this. It moves that need to the top of how I judge.",
+    focus: "When no car has everything, the need you pick counts most in the ranking, and the others count a step less.",
 };
 
 const fromGuide = (step: GuideStep): ChatStep => ({
@@ -170,6 +170,9 @@ const fromGuide = (step: GuideStep): ChatStep => ({
         description,
         group,
         looksFor: need ? labelsOf(need.evidence) : undefined,
+        features: need?.evidence
+            .filter((evidence) => EVIDENCE[evidence])
+            .map((evidence) => ({ label: EVIDENCE[evidence].label, does: purposeOf(evidence) })),
     })),
     none: step.none,
     guide: step,
@@ -270,7 +273,7 @@ export function stepFor(id: StepId, cars: FinnCar[], u: Understanding = EMPTY_UN
         return {
             id,
             ask: `Worth a look: ${lower(def.label)}. Should I count it?`,
-            why: `You said ${lower(need.label)}. ${counts.listed} of the ${counts.total} cars here list ${lower(def.label)} and ${without} don't — it gives you ${purposeOf(evidence) || "something that bears on it"}. Counting it would favour the ones that have it.`,
+            why: `You said ${lower(need.label)}. ${def.label}${purposeOf(evidence) ? `: ${purposeOf(evidence)}` : ""}. ${counts.listed} of the ${counts.total} cars here list it and ${without} don't, so counting it would favour the ${counts.listed}.`,
             multiple: false,
             choices: [
                 { id: "yes", label: "Yes, count it", said: `Yes, count ${lower(def.label)}.` },
@@ -360,11 +363,11 @@ export function answered(id: StepId, u: Understanding): boolean {
 
 /** What Lens says to a group none of whose needs apply. */
 const NOTHING_HERE: Record<NeedGroup, string> = {
-    people: "Just you — noted.",
-    driving: "Fine — no one kind of driving, then.",
-    weather: "Nothing unusual — I won't weigh the weather.",
-    loads: "Nothing much to carry — noted.",
-    you: "Nothing else — good.",
+    people: "Just you — I won't add anything for passengers.",
+    driving: "None of these — I won't add anything for how you drive.",
+    weather: "Nothing unusual — I won't add anything for the weather.",
+    loads: "Nothing much — I won't add anything for loads.",
+    you: "Nothing else — I won't add anything more.",
 };
 
 /** What Lens says after an answer: that it heard, and what it will do with it. */
@@ -374,7 +377,7 @@ export function acknowledge(step: ChatStep, u: Understanding, chosen: string[] =
 
         if (!replies.length) return "Fine — I'll keep it as it was.";
 
-        return step.followUp.multiple ? `Got it. I'll look for ${joined(replies.map((reply) => lower(reply.replace(/[.]$/, ""))))}.` : replies.join(" ");
+        return step.followUp.multiple ? `Got it. I'll also count ${joined(replies)}.` : replies.join(" ");
     }
 
     if (step.offer) {
@@ -403,7 +406,7 @@ export function acknowledge(step: ChatStep, u: Understanding, chosen: string[] =
             const others = step.choices.filter((choice) => !chosen.includes(choice.id)).map((choice) => lower(choice.label));
 
             return top
-                ? `${top.label} first, then — when the cars disagree, that's what tips it. ${joined(others).replace(/^./, (c) => c.toUpperCase())} still ${others.length === 1 ? "counts" : "count"}, just a step behind.`
+                ? `${top.label} now counts most in the ranking. ${joined(others).replace(/^./, (c) => c.toUpperCase())} ${others.length === 1 ? "counts" : "count"} one step less.`
                 : "Equal it is — none of them outranks the others.";
         }
         case "rules": {

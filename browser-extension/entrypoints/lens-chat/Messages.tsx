@@ -209,13 +209,33 @@ function Chip({
 
 /** One choice explained, under the chips, when its "i" is pressed. */
 function Explainer({ choice, onClose }: { choice: Choice; onClose: () => void }) {
+    const card = useRef<HTMLDivElement>(null);
+
+    /* Opened below the fold of the chat, it would go unread: bring it into view. */
+    useEffect(() => {
+        card.current?.scrollIntoView({ behavior: reducedMotion() ? "auto" : "smooth", block: "nearest" });
+    }, [choice.id]);
+
     return (
-        <div role="note" className="mt-1.5 flex gap-2 rounded-2xl bg-white p-3 text-[12px] leading-snug shadow-sm ring-1 ring-finn-accent-blue/25">
+        <div ref={card} role="note" className="mt-1.5 flex gap-2 rounded-2xl bg-white p-3 text-[12px] leading-snug shadow-sm ring-1 ring-finn-accent-blue/25">
             <Info aria-hidden="true" className="mt-0.5 h-4 w-4 shrink-0 text-finn-accent-blue" />
             <div className="min-w-0 flex-1">
                 <p className="font-black text-finn-black">{choice.label}</p>
-                {choice.description ? <p className="text-finn-black/80">{choice.description}</p> : null}
-                {choice.looksFor?.length ? <p className="mt-1 text-finn-iron">I'll look for: {choice.looksFor.join(" · ")}</p> : null}
+                {choice.features?.length ? (
+                    <>
+                        <p className="mt-0.5 text-finn-iron">I'll check each car for:</p>
+                        <ul className="mt-1 space-y-1">
+                            {choice.features.map((feature) => (
+                                <li key={feature.label} className="text-finn-black/85">
+                                    <span className="font-bold text-finn-black">{feature.label}</span>
+                                    {feature.does ? ` — ${feature.does}` : ""}
+                                </li>
+                            ))}
+                        </ul>
+                    </>
+                ) : choice.description ? (
+                    <p className="text-finn-black/80">{choice.description}</p>
+                ) : null}
             </div>
             <button type="button" onClick={onClose} aria-label="Close" className="-mt-0.5 -mr-0.5 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-finn-iron hover:bg-finn-snow hover:text-finn-black">
                 <X aria-hidden="true" className="h-3.5 w-3.5" />
@@ -252,8 +272,11 @@ function Picked({ choices }: { choices: Choice[] }) {
             {choices.map((choice) => (
                 <div key={choice.id} className="text-[12px] leading-snug">
                     <p className="font-black text-finn-black">{choice.label}</p>
-                    {choice.description ? <p className="text-finn-black/80">{choice.description}</p> : null}
-                    {choice.looksFor?.length ? <p className="mt-0.5 text-finn-iron">I'll look for: {choice.looksFor.join(" · ")}</p> : null}
+                    {choice.looksFor?.length ? (
+                        <p className="text-finn-iron">I'll check: {choice.looksFor.join(" · ")}</p>
+                    ) : choice.description ? (
+                        <p className="text-finn-black/80">{choice.description}</p>
+                    ) : null}
                 </div>
             ))}
         </div>

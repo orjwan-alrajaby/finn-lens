@@ -49,6 +49,8 @@ export interface Choice {
     group?: NeedGroup;
     /** The equipment Lens will check for it, by name. */
     looksFor?: string[];
+    /** The same equipment, each with what it does — for the "i" on the chip. */
+    features?: { label: string; does: string }[];
 }
 
 /** An answer of the reader's own, where the pre-made ones don't fit. */
