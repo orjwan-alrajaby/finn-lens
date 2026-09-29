@@ -3,7 +3,7 @@ import { FINN_INCLUDED_MONTHLY_KM } from "@/lib/reasoning-engine/constants";
 import { addMonths, monthLabel, type MonthString } from "@/lib/reasoning-engine/contract";
 import type { NeedImportance } from "@/lib/lens-ai/contract";
 import { asPhrase, coverage, EVIDENCE, type EvidenceId } from "@/lib/lens-chat/evidence";
-import { applyChoices, guideSteps, NEED_GROUPS, purposeOf, saidFor, type GuideStep, type NeedGroup } from "@/lib/lens-chat/guide";
+import { applyChoices, explain, guideSteps, NEED_GROUPS, saidFor, type GuideStep, type NeedGroup } from "@/lib/lens-chat/guide";
 import {
     EMPTY_UNDERSTANDING,
     ruledOut,
@@ -17,7 +17,7 @@ import {
 } from "@/lib/lens-chat/understanding";
 import type { FinnCar } from "@/lib/types";
 
-import { applyFollowUp, followUpFor, worthALook } from "./follow-ups";
+import { applyFollowUp, followUpFor, offerReason, worthALook } from "./follow-ups";
 import { BASE_ANSWERS } from "./judge";
 import { messageId, newChatId } from "./store";
 import type { Chat, ChatMessage, ChatStep, SavedSettings, StepId } from "./types";
@@ -172,7 +172,7 @@ const fromGuide = (step: GuideStep): ChatStep => ({
         looksFor: need ? labelsOf(need.evidence) : undefined,
         features: need?.evidence
             .filter((evidence) => EVIDENCE[evidence])
-            .map((evidence) => ({ label: EVIDENCE[evidence].label, does: purposeOf(evidence) })),
+            .map((evidence) => ({ label: EVIDENCE[evidence].label, does: explain(evidence, need.reasons?.[evidence]) })),
     })),
     none: step.none,
     guide: step,
@@ -269,11 +269,13 @@ export function stepFor(id: StepId, cars: FinnCar[], u: Understanding = EMPTY_UN
 
         const counts = coverage(cars, evidence);
         const without = counts.total - counts.listed;
+        /* Why this equipment is offered for this need — never just what it is. */
+        const why = offerReason(need.id, evidence);
 
         return {
             id,
             ask: `Worth a look: ${lower(def.label)}. Should I count it?`,
-            why: `You said ${lower(need.label)}. ${def.label}${purposeOf(evidence) ? `: ${purposeOf(evidence)}` : ""}. ${counts.listed} of the ${counts.total} cars here list it and ${without} don't, so counting it would favour the ${counts.listed}.`,
+            why: `You said ${lower(need.label)}. ${def.label}: ${explain(evidence, why)}. ${counts.listed} of the ${counts.total} cars here list it and ${without} don't, so counting it would favour the ${counts.listed}.`,
             multiple: false,
             choices: [
                 { id: "yes", label: "Yes, count it", said: `Yes, count ${lower(def.label)}.` },
@@ -711,7 +713,7 @@ export function answer(
         understanding = applyFollowUp(understanding, step.followUp, chosen);
     } else if (step.offer) {
         understanding = chosen.includes("yes")
-            ? withSuggestion(understanding, step.offer.id, purposeOf(step.offer.id), step.offer.needId)
+            ? withSuggestion(understanding, step.offer.id, explain(step.offer.id, offerReason(step.offer.needId, step.offer.id)), step.offer.needId)
             : withoutSuggestion(understanding, step.offer.id);
     } else if (step.id === "focus" && chosen.length) {
         /* The one they chose goes to the top; the others it tied with step down one. */

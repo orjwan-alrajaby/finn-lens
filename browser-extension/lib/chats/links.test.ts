@@ -1,0 +1,66 @@
+import { describe, expect, it } from "vitest";
+
+import { GARAGE } from "@/lib/reasoning-engine/test-garage";
+import { guideSteps } from "@/lib/lens-chat/guide";
+
+import { FOLLOW_UPS, offerReason, WORTH_A_LOOK } from "./follow-ups";
+import { stepFor } from "./flow";
+
+/*
+ * Wherever Lens puts a need and a feature together, it says why they belong
+ * together. "You said kids in the back. Sunroof: a glass panel in the roof."
+ * named the feature and left the reader to guess the connection — so every
+ * link carries its reason, and a link with no honest reason isn't made.
+ */
+
+const needs = guideSteps([]).find((step) => step.id === "life")!.choices;
+
+describe("the link between a need and its equipment", () => {
+    it("says why each need counts each of its features", () => {
+        for (const choice of needs) {
+            for (const id of choice.need!.evidence) {
+                expect(choice.need!.reasons?.[id], `${choice.id} → ${id}`).toMatch(/\w{3,}/);
+            }
+        }
+    });
+
+    it("says why a follow-up answer adds each feature", () => {
+        for (const followUp of Object.values(FOLLOW_UPS)) {
+            for (const choice of followUp.choices) {
+                for (const add of choice.add ?? []) expect(add.why, `${followUp.need}/${choice.id} → ${add.id}`).toMatch(/\w{3,}/);
+            }
+        }
+    });
+
+    it("says why each piece of equipment is worth a look for its need", () => {
+        for (const [need, entries] of Object.entries(WORTH_A_LOOK)) {
+            expect(needs.some((choice) => choice.id === need), need).toBe(true);
+            for (const entry of entries) expect(entry.why, `${need} → ${entry.id}`).toMatch(/\w{3,}/);
+        }
+    });
+
+    it("doesn't offer a sunroof for kids, or anything else it can't give a reason for", () => {
+        expect(WORTH_A_LOOK.kids?.map((entry) => entry.id)).not.toContain("hasSunroof");
+        expect(offerReason("life-kids", "hasSunroof")).toBeUndefined();
+    });
+
+    it("puts the reason in the offer itself", () => {
+        const cars = [GARAGE.safeCompact(), GARAGE.familySuv(), GARAGE.cityHatch()];
+        const step = stepFor("offer-hasElectricTailgate|life-kids", cars, {
+            budget: null,
+            rental: null,
+            monthlyKm: null,
+            needs: [{ id: "life-kids", label: "Kids in the back", importance: "important", said: "", priorities: ["practicality"], evidence: [], notInData: null, status: "active" }],
+            context: [],
+            capabilities: [],
+            droppedPriorities: [],
+            declined: [],
+            tension: "",
+            notModelled: [],
+            waived: [],
+        })!;
+
+        expect(step.why).toContain("so you can open the boot while holding a child or a pram");
+        expect(step.why).toMatch(/^You said kids in the back\. Electric tailgate: /);
+    });
+});

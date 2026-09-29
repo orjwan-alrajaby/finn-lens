@@ -48,17 +48,17 @@ import { budgetCeiling, type Need, type Understanding } from "./understanding";
  */
 const USE: Partial<Record<EvidenceId, string>> = {
     hasIsofix: "anchor points that fix a child seat to the car's frame",
-    rearDoors: "separate doors for the back seats, so no one climbs past the front",
+    rearDoors: "separate doors for the back seats",
     seatsFivePlus: "at least five seats",
     seatsSixPlus: "six or more seats",
     hasSplitFoldingRearSeats: "rear seats that fold down in parts to make the boot longer",
     hasElectricTailgate: "a boot lid that opens and closes at the press of a button",
-    hasBackUSBPorts: "USB ports for charging devices from the back seats",
+    hasBackUSBPorts: "USB ports at the back seats",
     hasRoofRails: "rails on the roof for mounting a roof box or a bike rack",
     hasTowbar: "a hitch for towing a trailer or caravan",
-    towingCapacity1500: "a towing limit of 1,500 kg or more, enough for a trailer or small caravan",
-    compactLength: "a shorter car that fits smaller parking spaces",
-    compactWidth: "a narrower car for narrow lanes and car-park bays",
+    towingCapacity1500: "a towing limit of 1,500 kg or more",
+    compactLength: "a shorter car",
+    compactWidth: "a narrower car",
     hasThreeSixtyDegreesCamera: "a camera view of all four sides of the car while you park",
     hasOneEightyDegreesReversingCamera: "a camera view of what's behind the car when you reverse",
     hasParkingSensors: "beeps that speed up as you get close to an obstacle",
@@ -75,7 +75,7 @@ const USE: Partial<Record<EvidenceId, string>> = {
     hasAdaptiveCruiseControl: "cruise control that brakes and speeds up to keep a set distance to the car ahead",
     hasCruiseControl: "a set speed held without your foot on the pedal",
     hasLumbarSupport: "an adjustable lower-back support in the driver's seat",
-    hasHeadUpDisplay: "your speed and directions shown on the windscreen in front of you",
+    hasHeadUpDisplay: "your speed and directions shown on the windscreen",
     hasMatrixLedHeadlights: "full beam that stays on but dims the part that would dazzle other drivers",
     hasBlindSpotAssist: "a warning light in the mirror when a car is in your blind spot",
     hasRearCrosswalkWarning: "a warning when a car is coming as you reverse out of a space",
@@ -85,13 +85,13 @@ const USE: Partial<Record<EvidenceId, string>> = {
     hasHeatedSeats: "front seats that heat up",
     hasHeatedSteeringWheel: "a steering wheel that heats up",
     hasRainSlashLightSensors: "wipers that switch on when rain hits the windscreen, and headlights that switch on when it gets dark",
-    hasFogLights: "extra low lights that make the road edge easier to see in fog",
+    hasFogLights: "extra lights low on the front of the car that light the road edge in fog",
     hasCorneringLights: "a light that shines into the bend as you turn",
     hasHeadlightCleaningSystem: "washers that spray salt and dirt off the headlights",
-    hasAllWheelDrive: "power to all four wheels, for grip on snow and ice",
+    hasAllWheelDrive: "power sent to all four wheels",
     hasAuxiliaryHeater: "a heater that warms the car before you get in, with the engine off",
-    hasHeatPump: "heating that uses less battery, so an electric car loses less range in winter",
-    hasSeatCooling: "air blown through the seat to keep you cool",
+    hasHeatPump: "heating that uses less battery power",
+    hasSeatCooling: "air blown through the seat",
     hasElectricFrontSeatAdjustment: "front seats adjusted with buttons instead of levers",
     hasKeylessEntryAndStart: "unlocking and starting the car with the key still in your pocket",
     hasWirelessChargingStation: "a pad that charges your phone without a cable",
@@ -107,6 +107,15 @@ const USE: Partial<Record<EvidenceId, string>> = {
 
 /** What a piece of equipment is for, in the words above, or nothing. */
 export const purposeOf = (id: EvidenceId): string => USE[id] ?? "";
+
+/**
+ * A piece of equipment as it serves one need: what it does, and why it's
+ * there for this need — "separate doors for the back seats, so children get
+ * in and out…". Wherever a need and a feature are shown together, the link
+ * between them is said, so the reader never has to guess it.
+ */
+export const explain = (id: EvidenceId, why?: string): string =>
+    [purposeOf(id), why].filter(Boolean).join(", ");
 
 /* -------------------------------------------------------------------------- */
 /* The steps                                                                  */
@@ -142,6 +151,8 @@ export interface GuideChoice {
         importance: NeedImportance;
         priorities: CategoryId[];
         evidence: EvidenceId[];
+        /** Why each piece of equipment belongs to this need, as a clause: "so children can…". */
+        reasons?: Partial<Record<EvidenceId, string>>;
     };
     /** A car Lens should keep or set aside outright. */
     rule?: { id: EvidenceId; mode: "must" | "without"; label: string };
@@ -169,7 +180,8 @@ const need = (
     said: string,
     description: string,
     priorities: CategoryId[],
-    evidence: EvidenceId[],
+    /** Each piece of equipment, with why it belongs to this need — said wherever the link is shown. */
+    evidence: [EvidenceId, string][],
     needLabel = label,
 ): GuideChoice => ({
     id,
@@ -177,7 +189,13 @@ const need = (
     label,
     said,
     description,
-    need: { label: needLabel, importance: "important", priorities, evidence },
+    need: {
+        label: needLabel,
+        importance: "important",
+        priorities,
+        evidence: evidence.map(([item]) => item),
+        reasons: Object.fromEntries(evidence),
+    },
 });
 
 /*
@@ -189,72 +207,150 @@ const LIFE: GuideChoice[] = [
     need("kids", "people", "Kids in the back", "I have kids in the back.",
         "ISOFIX anchors for child seats, rear doors for getting children in and out, at least five seats, rear seats that fold, and USB ports in the back.",
         ["practicality", "safetyAssistance"],
-        ["hasIsofix", "rearDoors", "seatsFivePlus", "hasSplitFoldingRearSeats", "hasBackUSBPorts"]),
+        [
+            ["hasIsofix", "the most secure way to fit one"],
+            ["rearDoors", "so children get in and out, and seats get fitted, without climbing past the front seats"],
+            ["seatsFivePlus", "so there's a seat for each child alongside two adults"],
+            ["hasSplitFoldingRearSeats", "so you can fold one part for a pram and still seat a child"],
+            ["hasBackUSBPorts", "so children can charge tablets and phones on longer drives"],
+        ]),
     need("dog", "people", "A dog in the car", "A dog comes with us.",
         "An electric tailgate that opens the boot at the press of a button, rear seats that fold down for more floor space, and rear doors.",
         ["practicality"],
-        ["hasElectricTailgate", "hasSplitFoldingRearSeats", "rearDoors"]),
+        [
+            ["hasElectricTailgate", "so you can open the boot while holding the lead"],
+            ["hasSplitFoldingRearSeats", "so a bigger dog or a crate gets more floor space"],
+            ["rearDoors", "so a dog can get in and out of the back seat directly"],
+        ]),
     need("access", "people", "Older passengers", "I often drive older or less mobile passengers.",
         "Rear doors so back passengers don't climb past the front seats, front seats adjusted with buttons, and keyless entry so the car unlocks with the key in your pocket.",
         ["comfort", "practicality"],
-        ["rearDoors", "hasElectricFrontSeatAdjustment", "hasKeylessEntryAndStart"],
+        [
+            ["rearDoors", "so back-seat passengers get in without squeezing past a front seat"],
+            ["hasElectricFrontSeatAdjustment", "so the passenger seat can be slid back to make getting in easier"],
+            ["hasKeylessEntryAndStart", "so the doors unlock as you reach them, while your hands are busy helping someone in"],
+        ],
         "Easy for older passengers"),
     need("city", "driving", "City driving and parking", "It's mostly city driving, and parking is the hard part.",
         "A shorter and narrower car, a reversing camera, parking sensors that beep near obstacles, and mirrors that fold in at the press of a button.",
         ["cityParking"],
-        ["compactLength", "compactWidth", "hasOneEightyDegreesReversingCamera", "hasParkingSensors", "hasElectricallyFoldingMirrors"]),
+        [
+            ["compactLength", "so it fits shorter street spaces"],
+            ["compactWidth", "so it fits narrow streets and car-park bays"],
+            ["hasOneEightyDegreesReversingCamera", "so you can see how close you are when reversing into a space"],
+            ["hasParkingSensors", "so you know when you're about to touch another car"],
+            ["hasElectricallyFoldingMirrors", "so the mirrors aren't clipped when you're parked on a narrow street"],
+        ]),
     need("commute", "driving", "A daily commute", "I commute by car every day.",
         "Adaptive cruise control that keeps a set distance in traffic, an automatic gearbox, keyless entry and start, and Apple CarPlay or Android Auto.",
         ["longDistance", "comfort"],
-        ["hasAdaptiveCruiseControl", "hasAutomaticTransmission", "hasKeylessEntryAndStart", "hasAppleCarPlaySlashAndroidAuto"]),
+        [
+            ["hasAdaptiveCruiseControl", "so in stop-and-go traffic you aren't braking and accelerating yourself"],
+            ["hasAutomaticTransmission", "so stop-and-go traffic doesn't mean constant clutch work"],
+            ["hasKeylessEntryAndStart", "so you don't take the key out of your pocket twice a day"],
+            ["hasAppleCarPlaySlashAndroidAuto", "so navigation with live traffic is on screen for the daily route"],
+        ]),
     need("motorway", "driving", "Long motorway drives", "I do long motorway drives.",
         "Level 2 driver assistance that steers to stay in lane and keeps its distance while you supervise, adaptive cruise control, lower-back support in the seat, and a head-up display.",
         ["longDistance"],
-        ["driverAssistLevel2", "hasAdaptiveCruiseControl", "hasLumbarSupport", "hasHeadUpDisplay"]),
+        [
+            ["driverAssistLevel2", "which cuts down the steering and braking you do over hours of motorway"],
+            ["hasAdaptiveCruiseControl", "so you aren't adjusting your speed to the car ahead for hours"],
+            ["hasLumbarSupport", "for several hours in the seat"],
+            ["hasHeadUpDisplay", "so you don't look down from the road at motorway speed"],
+        ]),
     need("roadtrips", "driving", "Road trips and holidays", "We take the car on road trips and holidays.",
         "Roof rails for a roof box, rear seats that fold for longer luggage, Level 2 driver assistance for the motorway, and lower-back support in the seat.",
         ["practicality", "longDistance"],
-        ["hasRoofRails", "hasSplitFoldingRearSeats", "driverAssistLevel2", "hasLumbarSupport"]),
+        [
+            ["hasRoofRails", "so a roof box can take the luggage that doesn't fit in the boot"],
+            ["hasSplitFoldingRearSeats", "so long items fit while a rear seat stays free"],
+            ["driverAssistLevel2", "for the long motorway stretches of a trip"],
+            ["hasLumbarSupport", "for hours in the driver's seat"],
+        ]),
     need("night", "driving", "Driving at night", "I drive a lot at night.",
         "Matrix LED headlights that keep full beam on without dazzling other drivers, cornering lights, headlights that switch on when it gets dark, and fog lights.",
         ["safetyAssistance", "climateSuitability"],
-        ["hasMatrixLedHeadlights", "hasCorneringLights", "hasRainSlashLightSensors", "hasFogLights"]),
+        [
+            ["hasMatrixLedHeadlights", "so you can drive unlit roads with full beam on"],
+            ["hasCorneringLights", "so bends on unlit roads are lit before you drive into them"],
+            ["hasRainSlashLightSensors", "so you can't forget the headlights at dusk"],
+            ["hasFogLights", "which matters most at night, when fog hides the road edge completely"],
+        ]),
     need("winter", "weather", "Cold winters, bad weather", "The winters here are cold and the weather is often bad.",
-        "Heated seats and a heated steering wheel, wipers and headlights that switch on by themselves in rain and darkness (rain and light sensors), fog lights, and cornering lights.",
+        "Heated seats and a heated steering wheel, wipers and headlights that switch on by themselves in rain and darkness (rain and light sensors), and fog lights.",
         ["climateSuitability"],
-        ["hasHeatedSeats", "hasHeatedSteeringWheel", "hasRainSlashLightSensors", "hasFogLights", "hasCorneringLights"],
+        [
+            ["hasHeatedSeats", "so you're warm before the heater catches up on a cold morning"],
+            ["hasHeatedSteeringWheel", "so the wheel isn't ice-cold to hold on winter mornings"],
+            ["hasRainSlashLightSensors", "so you aren't reaching for switches in snow and early winter darkness"],
+            ["hasFogLights", "and in heavy snowfall too"],
+        ],
         "Cold mornings and bad weather"),
     need("summer", "weather", "Hot summers", "Our summers get hot.",
         "Ventilated seats that blow air through the seat, and 3-zone climate control with separate temperatures for the driver, the front passenger and the back.",
         ["climateSuitability", "comfort"],
-        ["hasSeatCooling", "hasThreeZoneAutomaticClimateControls"],
+        [
+            ["hasSeatCooling", "so the seat cools down after the car has stood in the sun"],
+            ["hasThreeZoneAutomaticClimateControls", "so passengers in the back can set a cooler temperature for themselves"],
+        ],
         "Staying cool in summer"),
     need("carrying", "loads", "Carrying a lot", "I carry a lot in the car.",
-        "Rear seats that fold down, an electric tailgate, roof rails for a roof box, and at least five seats.",
+        "Rear seats that fold down, an electric tailgate, and roof rails for a roof box.",
         ["practicality"],
-        ["hasSplitFoldingRearSeats", "hasElectricTailgate", "hasRoofRails", "seatsFivePlus"]),
+        [
+            ["hasSplitFoldingRearSeats", "so long or bulky things fit"],
+            ["hasElectricTailgate", "so you can open the boot with your hands full"],
+            ["hasRoofRails", "so a roof box or rack can take what doesn't fit inside"],
+        ]),
     need("towing", "loads", "Towing or a roof box", "I tow, or I carry things on the roof.",
         "A towbar, a towing limit of 1,500 kg or more for a trailer or small caravan, and roof rails for a roof box.",
         ["practicality"],
-        ["hasTowbar", "towingCapacity1500", "hasRoofRails"],
+        [
+            ["hasTowbar", "which you need to tow anything"],
+            ["towingCapacity1500", "enough for a trailer or a small caravan"],
+            ["hasRoofRails", "for a roof box instead of, or as well as, a trailer"],
+        ],
         "Towing and roof loads"),
     need("nervous", "you", "I'm a nervous driver", "I'm a nervous driver.",
         "Blind spot warning, rear cross-traffic alert when reversing out, a 360° camera and parking sensors for parking, and lane keeping assist.",
         ["safetyAssistance", "cityParking"],
-        ["hasBlindSpotAssist", "hasRearCrosswalkWarning", "hasThreeSixtyDegreesCamera", "hasParkingSensors", "hasLaneKeepingAssist"],
+        [
+            ["hasBlindSpotAssist", "so you're warned about cars you can't see when changing lanes"],
+            ["hasRearCrosswalkWarning", "for reversing out between parked cars, where you can't see traffic coming"],
+            ["hasThreeSixtyDegreesCamera", "so you can check every side before you move"],
+            ["hasParkingSensors", "so you know how much room is left"],
+            ["hasLaneKeepingAssist", "for a moment's inattention"],
+        ],
         "Help for a nervous driver"),
     need("safety", "you", "Safety above all", "Safety matters more than anything else to me.",
         "Automatic emergency braking, blind spot warning, lane keeping assist, rear cross-traffic alert, and traffic sign recognition.",
         ["safetyAssistance"],
-        ["hasEmergencyBrakingAssist", "hasBlindSpotAssist", "hasLaneKeepingAssist", "hasRearCrosswalkWarning", "hasTrafficSignRecognition"]),
+        [
+            ["hasEmergencyBrakingAssist", "which can prevent a collision, or make it less severe, if you react too late"],
+            ["hasBlindSpotAssist", "which covers what the mirrors don't show"],
+            ["hasLaneKeepingAssist", "for a moment's inattention"],
+            ["hasRearCrosswalkWarning", "for reversing out between parked cars, where you can't see traffic coming"],
+            ["hasTrafficSignRecognition", "so you always know the current limit"],
+        ]),
     need("tech", "you", "Phone and tech", "I want my phone to connect to the car.",
         "Apple CarPlay or Android Auto (wired or wireless), a wireless charging pad for your phone, and a head-up display.",
         ["comfort"],
-        ["hasWirelessAppleCarPlaySlashAndroidAuto", "hasAppleCarPlaySlashAndroidAuto", "hasWirelessChargingStation", "hasHeadUpDisplay"]),
+        [
+            ["hasWirelessAppleCarPlaySlashAndroidAuto", "so your phone connects to the car's screen as soon as you get in"],
+            ["hasAppleCarPlaySlashAndroidAuto", "so the apps you already use run on the car's screen"],
+            ["hasWirelessChargingStation", "so your phone charges while it runs maps and music"],
+            ["hasHeadUpDisplay", "so your phone's navigation directions can appear in front of you"],
+        ]),
     need("comfort", "you", "Everyday comfort", "I want comfort features I'd use every day.",
         "Front seats adjusted with buttons, keyless entry and start, a wireless charging pad, and 3-zone climate control.",
         ["comfort"],
-        ["hasElectricFrontSeatAdjustment", "hasKeylessEntryAndStart", "hasWirelessChargingStation", "hasThreeZoneAutomaticClimateControls"],
+        [
+            ["hasElectricFrontSeatAdjustment", "so you can set your seating position precisely"],
+            ["hasKeylessEntryAndStart", "which saves taking the key out every time"],
+            ["hasWirelessChargingStation", "so your phone is charged when you arrive"],
+            ["hasThreeZoneAutomaticClimateControls", "so each passenger sets their own temperature"],
+        ],
         "Everyday comfort"),
     {
         id: "emissions",
@@ -426,7 +522,7 @@ const needFor = (step: GuideStepId, choice: GuideChoice): Need | null => {
             priorities: choice.need.priorities,
             evidence: choice.need.evidence.map((item) => ({
                 id: item,
-                use: USE[item] ?? "",
+                use: explain(item, choice.need!.reasons?.[item]),
                 unwanted: false,
                 mustHave: false,
             })),
