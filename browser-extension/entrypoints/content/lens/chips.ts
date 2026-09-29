@@ -12,7 +12,9 @@ import { openDrawer } from "./drawer";
  * Nothing goes on a card until the chat has judged. A chip is a reading of a
  * judgement, never a judgement of its own, so before there is one there is
  * nothing honest to put there. After it, every car the chat judged carries its
- * verdict and its place. Clicking a chip opens the drawer on that car.
+ * verdict and its place, and the one it picked wears a gold chip with a
+ * trophy. Clicking a chip opens the drawer on that car — for the gold one,
+ * the whole case for it.
  *
  * Each chip lives in a shadow root of its own, with its own few lines of CSS:
  * the card is FINN's, and neither page's styles should reach the other's.
@@ -44,8 +46,22 @@ const CSS = `
   .partial { background: #fff7ed; color: #b45309; }
   .limited { background: #fff1f2; color: #c70036; }
   .unknown { background: #f3f3f3; color: #707070; }
+  .winner {
+    background: linear-gradient(135deg, #fff3c4 0%, #fcd34d 45%, #f59e0b 100%);
+    color: #5b3a00; padding-left: 5px;
+    box-shadow: 0 0 0 1px #fff, 0 0 0 3px rgba(245,158,11,.35), 0 2px 10px rgba(180,110,0,.35);
+  }
+  .winner:hover { box-shadow: 0 0 0 1px #fff, 0 0 0 3px rgba(245,158,11,.5), 0 3px 14px rgba(180,110,0,.45); }
+  .trophy {
+    display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0;
+    width: 18px; height: 18px; border-radius: 9999px; background: #fff; color: #b7791f;
+    box-shadow: 0 1px 2px rgba(0,0,0,.15);
+  }
   @media (prefers-reduced-motion: reduce) { button { transition: none; } button:hover { transform: none; } }
 `;
+
+const TROPHY =
+    '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></svg>';
 
 /** Said beside the verdict when a ranked car is past one of the reader's limits. */
 const OVER: Record<NonNullable<Verdict["over"]>, string> = {
@@ -67,21 +83,33 @@ function chipFor(carId: number, verdict: Verdict, chatId: string, name: string |
     const label = document.createElement("span");
     label.className = "label";
 
-    button.className = verdict.setAside ? "unknown" : verdict.band;
-    label.textContent = verdict.over ? `${verdict.label} · ${OVER[verdict.over]}` : verdict.label;
-    button.append(brandMark(16), label);
+    if (verdict.winner) {
+        button.className = "winner";
 
-    if (verdict.rank != null) {
-        const rank = document.createElement("span");
-        rank.className = "rank";
-        rank.textContent = `#${verdict.rank}`;
-        button.append(rank);
+        const trophy = document.createElement("span");
+        trophy.className = "trophy";
+        trophy.innerHTML = TROPHY;
+
+        label.textContent = "Best for you";
+        button.append(trophy, label);
+        button.setAttribute("aria-label", `Lens's best match for you${name ? `: ${name}` : ""}. See why it won.`);
+    } else {
+        button.className = verdict.setAside ? "unknown" : verdict.band;
+        label.textContent = verdict.over ? `${verdict.label} · ${OVER[verdict.over]}` : verdict.label;
+        button.append(brandMark(16), label);
+
+        if (verdict.rank != null) {
+            const rank = document.createElement("span");
+            rank.className = "rank";
+            rank.textContent = `#${verdict.rank}`;
+            button.append(rank);
+        }
+
+        button.setAttribute(
+            "aria-label",
+            `Lens: ${label.textContent}${verdict.rank != null ? `, number ${verdict.rank}` : ""}${name ? ` for ${name}` : ""}. See how it fits you.`,
+        );
     }
-
-    button.setAttribute(
-        "aria-label",
-        `Lens: ${label.textContent}${verdict.rank != null ? `, number ${verdict.rank}` : ""}${name ? ` for ${name}` : ""}. See how it fits you.`,
-    );
 
     if (verdict.setAside) button.title = verdict.setAside;
 

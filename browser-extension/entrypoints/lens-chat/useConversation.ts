@@ -1,5 +1,6 @@
 import { useCallback, useRef, useState } from "react";
 
+import { requestOpenDrawer } from "@/lib/chats/bridge";
 import { answer, askNext, changeAnswers, rentalMonths, startChat, STEP_ORDER, withExchange, withLensSaying } from "@/lib/chats/flow";
 import { judgementFrom, judgeWith, resultMessage } from "@/lib/chats/judge";
 import { judgedCars, loadedCars } from "@/lib/chats/scope";
@@ -29,6 +30,8 @@ export interface PageCars {
 const WHY = /^\s*why\s+(this|that|the)\s+(car|one)\s*\??\s*$|^\s*why\s*\??\s*$|^\s*why\s+(did\s+it|it)\s+win\b/i;
 /** "Why not the MG 4?", "what about the Qashqai?" — about another car. */
 const WHY_NOT = /\bwhy\s+(not|didn'?t|did\s+you\s+not)\b|\bwhat\s+about\b|\binstead\s+of\b/i;
+
+const BESIDE = "The whole case for it — how it fits each thing you told me, what you'd give up, and why not the others — is open beside the page, and you can save it as a PDF.";
 
 /** The engine's own reasons for its pick, in the chat. */
 function whyItWon(run: LensRun): string {
@@ -189,7 +192,8 @@ export function useConversation(page: PageCars) {
                     const run = await lastRun(current);
 
                     if (run && WHY.test(message)) {
-                        await commit(withExchange(current, message, whyItWon(run)));
+                        await commit(withExchange(current, message, `${whyItWon(run)} ${BESIDE}`));
+                        if (current.judgement.winnerId != null) void requestOpenDrawer(current.id, current.judgement.winnerId);
                         return;
                     }
 
@@ -242,7 +246,8 @@ export function useConversation(page: PageCars) {
 
         if (!current || !run) return;
 
-        await commit(withExchange(current, "Why this car?", whyItWon(run)));
+        await commit(withExchange(current, "Why this car?", `${whyItWon(run)} ${BESIDE}`));
+        if (current.judgement?.winnerId != null) void requestOpenDrawer(current.id, current.judgement.winnerId);
     }, [commit, lastRun]);
 
     const change = useCallback(async () => {

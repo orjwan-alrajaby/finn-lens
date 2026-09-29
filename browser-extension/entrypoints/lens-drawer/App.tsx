@@ -1,4 +1,6 @@
 import { useEffect } from "react";
+
+import { adviceFileName } from "@/lib/advice-pdf";
 import { ExternalLink, LocateFixed, X } from "lucide-react";
 
 import { BrandMark, IconButton } from "@/components/lens-parts";
@@ -6,10 +8,14 @@ import { LoadingScreen } from "@/components/Spinner";
 import { requestCloseDrawer, requestOpenDrawer, requestShowCar } from "@/lib/chats/bridge";
 
 import { Catch, CarHeader, CostTable, Section, StoryList } from "./parts";
+import { ExportButton, usePdfExport } from "./usePdfExport";
 import { useJudgedCar, type JudgedCar } from "./useJudgedCar";
+import { WinnerView } from "./WinnerView";
 
 /**
- * The drawer behind a chip: how one car fits what the reader told the chat.
+ * The drawer behind a chip: how one car fits what the reader told the chat —
+ * or, behind the gold one, the whole case for the car Lens picked, which can
+ * be saved as a PDF.
  *
  * Opened from a card's chip, or from a car in the chat's result. Everything in
  * it is read off the chat's judgement — see `useJudgedCar`.
@@ -21,6 +27,8 @@ const CAR_ID = Number(params.get("car")) || null;
 
 export function App() {
     const loaded = useJudgedCar(CHAT_ID, CAR_ID);
+    const winner = loaded.state === "ready" && loaded.value.isWinner ? loaded.value : null;
+    const pdf = usePdfExport(winner ? adviceFileName(winner.car.name) : null);
 
     useEffect(() => {
         const onKey = (event: KeyboardEvent) => {
@@ -36,7 +44,7 @@ export function App() {
             <header className="flex shrink-0 items-center gap-2.5 border-b border-finn-cotton px-4 py-3">
                 <BrandMark size={30} className="ring-1 ring-finn-cotton" />
                 <div className="min-w-0 flex-1">
-                    <p className="text-[14px] font-black leading-tight">How it fits you</p>
+                    <p className="text-[14px] font-black leading-tight">{winner ? "Why it's the best for you" : "How it fits you"}</p>
                     <p className="truncate text-[11.5px] text-finn-iron">
                         {loaded.state === "ready" ? `From your chat: ${loaded.value.chat.title}` : "From your chat with Lens"}
                     </p>
@@ -49,10 +57,25 @@ export function App() {
             <main className="min-h-0 flex-1 overflow-y-auto">
                 {loaded.state === "loading" ? <LoadingScreen className="py-24">Reading this car…</LoadingScreen> : null}
                 {loaded.state === "gone" ? <p className="px-5 py-10 text-center text-[13px] text-finn-iron">{loaded.reason}</p> : null}
-                {loaded.state === "ready" ? <CarView value={loaded.value} /> : null}
+                {winner ? <WinnerView value={winner} /> : null}
+                {loaded.state === "ready" && !winner ? <CarView value={loaded.value} /> : null}
             </main>
 
-            {loaded.state === "ready" ? <Footer value={loaded.value} /> : null}
+            {loaded.state === "ready" ? (
+                <Footer value={loaded.value}>{winner ? <ExportButton exporting={pdf.exporting} onExport={pdf.start} /> : null}</Footer>
+            ) : null}
+
+            {/*
+             * The PDF's copy of the argument: laid out wider than the drawer,
+             * off-screen, and only while a file is being made.
+             */}
+            {winner && pdf.exporting ? (
+                <div aria-hidden="true" className="pointer-events-none fixed top-0 -left-[10000px]">
+                    <div ref={pdf.printable} data-exporting="" className="w-[760px] bg-white font-sans text-finn-black">
+                        <WinnerView value={winner} print />
+                    </div>
+                </div>
+            ) : null}
         </div>
     );
 }
@@ -119,16 +142,18 @@ function CarView({ value }: { value: JudgedCar }) {
     );
 }
 
-function Footer({ value }: { value: JudgedCar }) {
+function Footer({ value, children }: { value: JudgedCar; children?: React.ReactNode }) {
     return (
         <footer className="flex shrink-0 items-center gap-2 border-t border-finn-cotton px-4 py-3">
+            {children}
             <button
                 type="button"
                 onClick={() => void requestShowCar(value.car.id)}
-                className="inline-flex h-10 items-center gap-1.5 rounded-full bg-finn-cotton px-4 text-[12.5px] font-black text-finn-black transition-colors hover:bg-finn-pale-blue hover:text-finn-accent-blue"
+                aria-label="Show this car on the page"
+                title="Show this car on the page"
+                className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-finn-cotton text-finn-black transition-colors hover:bg-finn-pale-blue hover:text-finn-accent-blue"
             >
                 <LocateFixed aria-hidden="true" className="h-4 w-4" />
-                Show on the page
             </button>
             {value.url ? (
                 <a

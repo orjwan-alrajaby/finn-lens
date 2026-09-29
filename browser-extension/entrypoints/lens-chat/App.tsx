@@ -163,7 +163,7 @@ export function App() {
                                 busy={busy}
                                 onAnswer={(askId, chosen) => void conversation.tap(askId, chosen)}
                                 onOpenCar={(id) => chat && void requestOpenDrawer(chat.id, id)}
-                                onWhy={() => void conversation.whyWinner()}
+                                onWhy={() => chat?.judgement?.winnerId != null && void requestOpenDrawer(chat.id, chat.judgement.winnerId)}
                             />
                         ) : null}
                     </div>
