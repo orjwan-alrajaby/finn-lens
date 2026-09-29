@@ -10,6 +10,7 @@ import { listenToFrames } from "./lens/bridge";
 import { paintChips, refreshChips } from "./lens/chips";
 import { closeDrawer } from "./lens/drawer";
 import { notifyPageChanged } from "./lens/frames";
+import { answerStats } from "./page/stats";
 
 export default defineContentScript({
   matches: ["https://www.finn.com/*"],
@@ -31,6 +32,7 @@ export default defineContentScript({
     }
 
     listenToFrames();
+    answerStats();
 
     /*
      * Every car FINN's own page loads, kept.
