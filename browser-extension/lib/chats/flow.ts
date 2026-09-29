@@ -7,7 +7,6 @@ import { applyChoices, explain, guideSteps, NEED_GROUPS, saidFor, type GuideStep
 import {
     EMPTY_UNDERSTANDING,
     ruledOut,
-    toAnswers,
     waiveEssential,
     withBudget,
     withoutSuggestion,
@@ -18,7 +17,7 @@ import {
 import type { FinnCar } from "@/lib/types";
 
 import { applyFollowUp, followUpFor, offerReason, worthALook } from "./follow-ups";
-import { BASE_ANSWERS } from "./judge";
+import { BASE_ANSWERS, chatAnswers } from "./judge";
 import { messageId, newChatId } from "./store";
 import type { Chat, ChatMessage, ChatStep, SavedSettings, StepId } from "./types";
 
@@ -463,7 +462,7 @@ export function summaryOf(u: Understanding, id: string = messageId()): Extract<C
         step: "distance",
     });
 
-    const translation = toAnswers(BASE_ANSWERS, u);
+    const translation = chatAnswers(u);
 
     return {
         id,
@@ -511,6 +510,15 @@ const KEEP: ChatStep = {
         { id: "keep-settings", label: "Save as my settings", said: "Save these as my settings." },
         { id: "keep-chat", label: "Just for this chat", said: "Just for this chat." },
     ],
+};
+
+const NO_NEEDS: ChatStep = {
+    id: "noNeeds",
+    ask: "Want to name something the car has to do?",
+    why: "Everything I judge is how well a car's listed equipment matches what you need. With nothing named, every car would score the same.",
+    multiple: false,
+    choices: [{ id: "add", label: "Pick something", said: "Let me pick something." }],
+    custom: { kind: "text", label: "Say it in my own words…", placeholder: "e.g. “long drives with two kids”" },
 };
 
 /**
@@ -561,6 +569,24 @@ export function askNext(chat: Chat, cars: FinnCar[]): Chat {
         };
 
         return touch({ ...chat, messages: closeAsks(chat.messages) }, [ask], { queue, phase: "asking" });
+    }
+
+    /*
+     * Nothing named that the car has to do: there's nothing to judge fit on.
+     * The engine would fall back on its own default order and then tell the
+     * reader "you put safety first" — so Lens says so and asks, instead.
+     */
+    if (!lifeNeeds(u).length) {
+        return touch(
+            { ...chat, messages: closeAsks(chat.messages) },
+            [
+                lens(
+                    "You haven't named anything the car has to do, so I have nothing to judge how well each car fits you — only what it costs. For cost alone, FINN's own list and its price filter are the better tool.",
+                ),
+                { id: messageId(), at: now(), from: "lens", kind: "ask", step: NO_NEEDS, answered: false },
+            ],
+            { queue: [], phase: "asking" },
+        );
     }
 
     return touch(
@@ -679,6 +705,17 @@ export function answer(
         }
 
         return { chat, after: "wait" };
+    }
+
+    /* -- Nothing named yet: back to the needs ---------------------------- */
+    if (step.id === "noNeeds") {
+        if (extra.heard) {
+            const next = touch(base, [reader(extra.heard.text), lens(extra.heard.reply || "Got it.")], { understanding: extra.heard.understanding, queue: [] });
+            return { chat: askNext(next, cars), after: "wait" };
+        }
+
+        const next = touch(base, [reader(tapped || "Let me pick something."), lens("Here they are again.")], { queue: ["life"], revising: true });
+        return { chat: askNext(next, cars), after: "wait" };
     }
 
     /* -- Keep as settings, or this chat only ----------------------------- */

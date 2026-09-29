@@ -34,6 +34,7 @@ export type StepId =
     | "keep"
     | "focus"
     | "offers"
+    | "noNeeds"
     | `life-${NeedGroup}`
     | `follow-${string}`
     | `offer-${string}`;

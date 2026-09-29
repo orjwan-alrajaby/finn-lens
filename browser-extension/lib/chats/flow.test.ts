@@ -30,7 +30,7 @@ function walk(chat: Chat, picks: Partial<Record<StepId | "offer", string[]>>): C
 
     for (let guard = 0; guard < 20; guard += 1) {
         const ask = openAsk(current);
-        if (!ask || ask.step.id === "keep" || ask.step.id === "start") return current;
+        if (!ask || ask.step.id === "keep" || ask.step.id === "start" || ask.step.id === "noNeeds") return current;
 
         const id = ask.step.id.startsWith("offer-") ? "offer" : ask.step.id.startsWith("life-") ? "life" : ask.step.id;
         const own = new Set(ask.step.choices.map((choice) => choice.id));
@@ -98,11 +98,21 @@ describe("a first chat", () => {
     });
 
     it("takes no limit and no period as answers, not as questions to repeat", () => {
-        const chat = walk(startChat(null, cars(), TODAY), { life: [], budget: [], period: [], distance: [] });
+        const chat = walk(startChat(null, cars(), TODAY), { life: ["kids"], budget: [], period: [], distance: [] });
 
         expect(chat.understanding.budget).toBeNull();
         expect(chat.understanding.waived).toEqual(expect.arrayContaining(["budget", "rental"]));
         expect(openAsk(chat)?.step.id).toBe("keep");
+    });
+
+    it("won't judge fit on nothing: with no needs named, it says so and asks again", () => {
+        const chat = walk(startChat(null, cars(), TODAY), { life: [] });
+
+        expect(openAsk(chat)?.step.id).toBe("noNeeds");
+        expect(texts(chat).at(-1)).toMatch(/nothing to judge how well each car fits you/);
+
+        const again = answer(chat, openAsk(chat)!.id, ["add"], cars(), TODAY).chat;
+        expect(openAsk(again)?.step.id).toBe("life-people");
     });
 
     it("keeps the answers as settings or for this chat, then asks for a judgement", () => {

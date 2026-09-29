@@ -1,5 +1,5 @@
 import { buildRecommendation } from "@/lib/reasoning-engine";
-import { copyFeatures, type Answers } from "@/lib/reasoning-engine/answers";
+import type { Answers } from "@/lib/reasoning-engine/answers";
 import { bandForScore } from "@/lib/reasoning-engine/bands";
 import { DEFAULT_CATEGORY_FEATURES, DEFAULT_PREFERENCES, DEFAULT_PRIORITIES } from "@/lib/reasoning-engine/constants";
 import { FIT_BANDS, type FitLevel } from "@/lib/reasoning-engine/fit";
@@ -23,16 +23,23 @@ import type { CarSnapshot, ChatMessage, Judgement, Verdict } from "./types";
  */
 
 /**
- * What a chat starts from before the reader has said anything: Lens's own
- * defaults, with no budget. The engine's default budget is a placeholder, and
- * a limit the reader never gave must not set cars aside.
+ * What a chat starts from before the reader has said anything.
+ *
+ * No budget: the engine's default is a placeholder, and a limit the reader
+ * never gave must not set cars aside. No raised equipment either: the
+ * engine's defaults raise five features per priority from published buyer
+ * surveys, and in a chat that would be Lens deciding what this reader wants.
+ * Only what the reader said is raised; everything else counts the same.
  */
 export const BASE_ANSWERS: Answers = {
     priorities: [...DEFAULT_PRIORITIES],
     preferences: { ...DEFAULT_PREFERENCES, monthlyBudget: 0 },
-    features: copyFeatures(DEFAULT_CATEGORY_FEATURES),
+    features: Object.fromEntries(Object.keys(DEFAULT_CATEGORY_FEATURES).map((id) => [id, []])) as unknown as Answers["features"],
     basedOn: null,
 };
+
+/** How a chat's answers become the engine's: only what the reader's needs point to. */
+export const chatAnswers = (u: Understanding): Translation => toAnswers(BASE_ANSWERS, u, undefined, { fill: false });
 
 export interface Judged {
     run: LensRun;
@@ -40,7 +47,7 @@ export interface Judged {
 }
 
 export function judgeWith(u: Understanding, cars: PinnedFinnCar[], headline: string): Judged | null {
-    const translation = toAnswers(BASE_ANSWERS, u);
+    const translation = chatAnswers(u);
     const run = runLens(cars, translation.answers, "page", headline, ruledOut(u));
 
     return run ? { run, translation } : null;

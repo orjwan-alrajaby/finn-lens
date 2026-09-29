@@ -715,7 +715,17 @@ export interface SessionProfile {
  * priority no need speaks to keeps its saved emphasis. Evidence a capability
  * made less relevant is never raised.
  */
-export function toAnswers(base: Answers, u: Understanding, enabled: CategoryId[] = CATEGORY_IDS): Translation {
+export function toAnswers(
+    base: Answers,
+    u: Understanding,
+    enabled: CategoryId[] = CATEGORY_IDS,
+    /**
+     * Pad the order to `MIN_PRIORITIES` from the base's own priorities. The
+     * chat doesn't: a priority nothing the reader said points to is Lens
+     * judging cars on something they never asked about.
+     */
+    { fill = true }: { fill?: boolean } = {},
+): Translation {
     const active = u.needs.filter((need) => need.status === "active");
     const dropped = new Set(u.droppedPriorities);
     const lessRelevant = [...new Set([...u.capabilities.flatMap((item) => item.lessRelevant), ...u.declined])];
@@ -773,7 +783,7 @@ export function toAnswers(base: Answers, u: Understanding, enabled: CategoryId[]
 
     const order = [...ranked];
 
-    for (const id of [...base.priorities, ...CATEGORY_IDS]) {
+    for (const id of fill ? [...base.priorities, ...CATEGORY_IDS] : []) {
         if (order.length >= MIN_PRIORITIES) break;
         if (order.some((item) => item.id === id) || dropped.has(id) || !enabled.includes(id)) continue;
 
@@ -785,7 +795,7 @@ export function toAnswers(base: Answers, u: Understanding, enabled: CategoryId[]
      * filler — the ones dropped last-mentioned first, so an explicit "I don't
      * care about comfort" (usually named first) is the last to return.
      */
-    for (const id of [...u.droppedPriorities].reverse()) {
+    for (const id of fill ? [...u.droppedPriorities].reverse() : []) {
         if (order.length >= MIN_PRIORITIES) break;
         if (order.some((item) => item.id === id)) continue;
 
