@@ -1,5 +1,9 @@
 import type { FitLevel } from "@/lib/reasoning-engine/fit";
-import type { GuideStep } from "@/lib/lens-chat/guide";
+import type { NeedImportance } from "@/lib/lens-ai/contract";
+import type { EvidenceId } from "@/lib/lens-chat/evidence";
+import type { GuideStep, NeedGroup } from "@/lib/lens-chat/guide";
+
+import type { FollowUp } from "./follow-ups";
 import type { Understanding } from "@/lib/lens-chat/understanding";
 
 /**
@@ -16,7 +20,21 @@ import type { Understanding } from "@/lib/lens-chat/understanding";
  * chat shows what it actually said then, whatever FINN's data says now.
  */
 
-export type StepId = GuideStep["id"] | "budget" | "period" | "start" | "keep";
+/**
+ * Lens's questions. `focus` asks which need matters most; `offers` stands for
+ * the equipment worth a look, expanded into one `offer-…` question each when
+ * it's reached; `follow-…` is the second question about one need.
+ */
+export type StepId =
+    | GuideStep["id"]
+    | "budget"
+    | "period"
+    | "start"
+    | "keep"
+    | "focus"
+    | "offers"
+    | `follow-${string}`
+    | `offer-${string}`;
 
 /** One thing the reader can tap. */
 export interface Choice {
@@ -24,6 +42,22 @@ export interface Choice {
     label: string;
     /** Recorded as the reader's own words when tapped. */
     said: string;
+    /** What choosing it means, shown before and after it's picked. */
+    description?: string;
+    group?: NeedGroup;
+    /** The equipment Lens will check for it, by name. */
+    looksFor?: string[];
+}
+
+/** An answer of the reader's own, where the pre-made ones don't fit. */
+export interface CustomAnswer {
+    /** Words, read by Lens's reader, or a number with a unit. */
+    kind: "text" | "amount" | "months" | "km";
+    /** On the chip that opens it. */
+    label: string;
+    placeholder: string;
+    min?: number;
+    max?: number;
 }
 
 /**
@@ -41,6 +75,14 @@ export interface ChatStep {
     choices: Choice[];
     /** The answer for someone none of the choices fit. */
     none?: string;
+    /** Why Lens is asking: what the answer changes. Said with every question. */
+    why?: string;
+    custom?: CustomAnswer;
+    /** Headings for the choices' groups, in order. */
+    groups?: { id: NeedGroup; title: string }[];
+    followUp?: FollowUp;
+    /** Equipment offered for a need the reader gave. */
+    offer?: { id: EvidenceId; needId: string };
     /** Choices preselected: what the reader said last time, when they're changing an answer. */
     selected?: string[];
     /** The guide's step, for `applyChoices`. Absent on Lens's own steps (budget, period, start). */
@@ -109,8 +151,10 @@ export type ChatMessage =
           at: string;
           from: "lens";
           kind: "summary";
-          /** What Lens will judge by, in plain lines. */
-          lines: { label: string; value: string }[];
+          /** What the reader said matters, and how much. Absent on chats from before it was kept. */
+          needs?: { id: string; label: string; importance: NeedImportance; looksFor: string[] }[];
+          /** What Lens will judge by, in plain lines, each with the question that sets it. */
+          lines: { label: string; value: string; step?: StepId }[];
           /** The priorities those answers came to, with how much each counts. */
           priorities: { label: string; share: number }[];
       }
@@ -159,6 +203,8 @@ export interface Chat {
      * have answered.
      */
     revising: boolean;
+    /** What was tapped for each question, so asking it again starts from it. */
+    picks?: Record<string, string[]>;
     judgement: Judgement | null;
 }
 
@@ -174,4 +220,6 @@ export interface SavedSettings {
     fromChatId: string;
     understanding: Understanding;
     rentalMonths: number | null;
+    /** What was tapped for each question, so changing them starts from it. */
+    picks?: Record<string, string[]>;
 }

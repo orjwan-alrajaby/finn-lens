@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Check, ChevronRight } from "lucide-react";
+import { Check, ChevronDown, ChevronRight, Info, PencilLine } from "lucide-react";
 
 import { BandChip, BrandMark, CarPhoto, euros, WinnerChip } from "@/components/lens-parts";
-import type { CarSnapshot, ChatMessage } from "@/lib/chats/types";
+import { IMPORTANCE_LABEL } from "@/lib/chats/flow";
+import type { CarSnapshot, ChatMessage, Choice, CustomAnswer, StepId } from "@/lib/chats/types";
+import type { NeedImportance } from "@/lib/lens-ai/contract";
 
 /**
  * The conversation, as the reader sees it.
@@ -115,12 +117,16 @@ function Chip({
     onClick,
     disabled,
     muted,
+    title,
+    icon,
 }: {
     label: string;
     selected?: boolean;
     onClick: () => void;
     disabled?: boolean;
     muted?: boolean;
+    title?: string;
+    icon?: React.ReactNode;
 }) {
     return (
         <button
@@ -128,6 +134,7 @@ function Chip({
             onClick={onClick}
             disabled={disabled}
             aria-pressed={selected}
+            title={title}
             className={[
                 "inline-flex items-center gap-1.5 rounded-full px-3.5 py-2 text-[12.5px] font-bold transition-colors",
                 "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-finn-accent-blue disabled:cursor-default",
@@ -138,9 +145,101 @@ function Chip({
                       : "bg-white text-finn-accent-blue ring-1 ring-finn-accent-blue/35 hover:bg-finn-pale-blue",
             ].join(" ")}
         >
-            {selected ? <Check aria-hidden="true" className="h-3.5 w-3.5" strokeWidth={3} /> : null}
+            {selected ? <Check aria-hidden="true" className="h-3.5 w-3.5" strokeWidth={3} /> : icon}
             {label}
         </button>
+    );
+}
+
+/** What the reader can add to a question beyond the pre-made answers. */
+export interface AnswerExtra {
+    amount?: number;
+    text?: string;
+}
+
+function Why({ text }: { text: string }) {
+    return (
+        <p className="mt-1.5 flex gap-1.5 text-[12px] leading-snug text-finn-iron">
+            <Info aria-hidden="true" className="mt-px h-3.5 w-3.5 shrink-0 text-finn-accent-blue" />
+            <span>
+                <span className="font-bold text-finn-accent-blue">Why I'm asking: </span>
+                {text}
+            </span>
+        </p>
+    );
+}
+
+/** The meaning of each need the reader has picked, and exactly what Lens will check for it. */
+function Picked({ choices }: { choices: Choice[] }) {
+    if (!choices.length) return null;
+
+    return (
+        <div className="space-y-2 rounded-2xl bg-finn-pale-blue/60 p-3 ring-1 ring-finn-accent-blue/15">
+            <p className="text-[10.5px] font-black uppercase tracking-wide text-finn-accent-blue">What you've picked means</p>
+            {choices.map((choice) => (
+                <div key={choice.id} className="text-[12px] leading-snug">
+                    <p className="font-black text-finn-black">{choice.label}</p>
+                    {choice.description ? <p className="text-finn-black/80">{choice.description}</p> : null}
+                    {choice.looksFor?.length ? <p className="mt-0.5 text-finn-iron">I'll look for: {choice.looksFor.join(" · ")}</p> : null}
+                </div>
+            ))}
+        </div>
+    );
+}
+
+/** The reader's own answer: words, or a number with its unit. */
+function OwnAnswer({
+    custom,
+    onSubmit,
+    onText,
+    inline,
+}: {
+    custom: CustomAnswer;
+    onSubmit: (extra: AnswerExtra) => void;
+    /** On a question with several answers, the words go in with the taps on "Continue". */
+    onText?: (text: string) => void;
+    inline: boolean;
+}) {
+    const [value, setValue] = useState("");
+    const number = Number(value.replace(/[^\d.]/g, ""));
+    const unit = custom.kind === "amount" ? "€ a month" : custom.kind === "months" ? "months" : custom.kind === "km" ? "km a month" : null;
+    const valid = custom.kind === "text" ? value.trim().length > 1 : Number.isFinite(number) && number >= (custom.min ?? 1) && number <= (custom.max ?? Infinity);
+
+    const submit = () => {
+        if (!valid) return;
+        onSubmit(custom.kind === "text" ? { text: value.trim() } : { amount: number });
+    };
+
+    return (
+        <div className="flex w-full items-center gap-2 rounded-2xl bg-white p-1.5 pl-3 ring-1 ring-finn-accent-blue/35">
+            {custom.kind === "amount" ? <span className="text-[13px] font-bold text-finn-iron">€</span> : null}
+            <input
+                autoFocus
+                value={value}
+                inputMode={custom.kind === "text" ? "text" : "numeric"}
+                onChange={(event) => {
+                    setValue(event.target.value);
+                    onText?.(event.target.value);
+                }}
+                onKeyDown={(event) => {
+                    if (event.key === "Enter" && !inline) submit();
+                }}
+                placeholder={custom.placeholder}
+                aria-label={custom.label}
+                className="min-w-0 flex-1 bg-transparent text-[13px] text-finn-black outline-none placeholder:text-finn-iron/70"
+            />
+            {unit ? <span className="shrink-0 text-[12px] text-finn-iron">{unit}</span> : null}
+            {inline ? null : (
+                <button
+                    type="button"
+                    onClick={submit}
+                    disabled={!valid}
+                    className="shrink-0 rounded-full bg-finn-accent-blue px-3 py-1.5 text-[12px] font-black text-white disabled:bg-finn-cotton disabled:text-finn-iron"
+                >
+                    {custom.kind === "text" ? "Send" : "Use this"}
+                </button>
+            )}
+        </div>
     );
 }
 
@@ -151,41 +250,82 @@ function Ask({
 }: {
     message: Extract<ChatMessage, { kind: "ask" }>;
     live: boolean;
-    onAnswer: (chosen: string[]) => void;
+    onAnswer: (chosen: string[], extra?: AnswerExtra) => void;
 }) {
     const { step } = message;
     const [picked, setPicked] = useState<string[]>(step.selected ?? []);
+    const [own, setOwn] = useState(false);
+    const [ownText, setOwnText] = useState("");
+    const [meanings, setMeanings] = useState(false);
+
+    const toggle = (id: string) => setPicked((current) => (current.includes(id) ? current.filter((item) => item !== id) : [...current, id]));
+    const chosen = step.choices.filter((choice) => picked.includes(choice.id));
+    const described = step.choices.some((choice) => choice.description);
+    const ready = picked.length > 0 || (own && ownText.trim().length > 1);
+
+    const chip = (choice: Choice) => (
+        <Chip
+            key={choice.id}
+            label={choice.label}
+            title={choice.description}
+            selected={step.multiple && picked.includes(choice.id)}
+            onClick={() => (step.multiple ? toggle(choice.id) : onAnswer([choice.id]))}
+        />
+    );
+
+    const groups = step.groups?.length
+        ? step.groups.map((group) => ({ ...group, choices: step.choices.filter((choice) => choice.group === group.id) }))
+        : null;
 
     return (
         <>
             <LensBubble>
                 <p className="font-semibold">{step.ask}</p>
-                {step.hint && live ? <p className="mt-1 text-[12px] leading-snug text-finn-iron">{step.hint}</p> : null}
+                {live && (step.why ?? step.hint) ? <Why text={(step.why ?? step.hint)!} /> : null}
             </LensBubble>
 
             {live ? (
-                <div className="flex flex-wrap gap-1.5 pt-0.5">
-                    {step.choices.map((choice) => (
-                        <Chip
-                            key={choice.id}
-                            label={choice.label}
-                            selected={step.multiple && picked.includes(choice.id)}
-                            onClick={() =>
-                                step.multiple
-                                    ? setPicked((current) =>
-                                          current.includes(choice.id) ? current.filter((id) => id !== choice.id) : [...current, choice.id],
-                                      )
-                                    : onAnswer([choice.id])
-                            }
+                <div className="space-y-2 pt-0.5">
+                    {groups ? (
+                        groups.map((group) => (
+                            <div key={group.id}>
+                                <p className="mb-1 px-1 text-[10.5px] font-black uppercase tracking-wide text-finn-iron">{group.title}</p>
+                                <div className="flex flex-wrap gap-1.5">{group.choices.map(chip)}</div>
+                            </div>
+                        ))
+                    ) : (
+                        <div className="flex flex-wrap gap-1.5">{step.choices.map(chip)}</div>
+                    )}
+
+                    <div className="flex flex-wrap gap-1.5">
+                        {step.custom && !own ? <Chip label={step.custom.label} muted icon={<PencilLine aria-hidden="true" className="h-3.5 w-3.5" />} onClick={() => setOwn(true)} /> : null}
+                        {step.none && !(step.multiple && ready) && !own ? <Chip label={step.none} muted onClick={() => onAnswer([])} /> : null}
+                        {described && !meanings ? (
+                            <button type="button" onClick={() => setMeanings(true)} className="px-1 text-[12px] font-bold text-finn-accent-blue hover:underline">
+                                What does each one mean?
+                            </button>
+                        ) : null}
+                    </div>
+
+                    {own && step.custom ? (
+                        <OwnAnswer
+                            custom={step.custom}
+                            inline={step.multiple}
+                            onText={setOwnText}
+                            onSubmit={(extra) => onAnswer(picked, extra)}
                         />
-                    ))}
+                    ) : null}
 
-                    {step.none && !(step.multiple && picked.length) ? <Chip label={step.none} muted onClick={() => onAnswer([])} /> : null}
+                    {meanings ? (
+                        <Picked choices={step.choices.filter((choice) => choice.description)} />
+                    ) : step.multiple ? (
+                        <Picked choices={chosen.filter((choice) => choice.description || choice.looksFor?.length)} />
+                    ) : null}
 
-                    {step.multiple && picked.length ? (
+                    {step.multiple && ready ? (
                         <button
                             type="button"
-                            onClick={() => onAnswer(picked)}
+                            onClick={() => onAnswer(picked, own && ownText.trim() ? { text: ownText.trim() } : undefined)}
                             className="inline-flex items-center gap-1 rounded-full bg-finn-highlight-navy px-4 py-2 text-[12.5px] font-black text-white shadow-sm transition-colors hover:bg-finn-accent-blue focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-finn-accent-blue"
                         >
                             Continue
@@ -202,32 +342,105 @@ function Ask({
 /* What Lens will judge by                                                    */
 /* -------------------------------------------------------------------------- */
 
-function Summary({ message }: { message: Extract<ChatMessage, { kind: "summary" }> }) {
+const LEVELS: NeedImportance[] = ["essential", "important", "niceToHave"];
+
+function Summary({
+    message,
+    live,
+    onImportance,
+    onChange,
+}: {
+    message: Extract<ChatMessage, { kind: "summary" }>;
+    live: boolean;
+    onImportance: (needId: string, importance: NeedImportance) => void;
+    onChange: (step: StepId) => void;
+}) {
+    const [weights, setWeights] = useState(false);
+
     return (
         <div className="overflow-hidden rounded-2xl bg-white ring-1 ring-black/5 shadow-[0_1px_2px_rgba(0,0,0,0.06)]">
-            <dl className="divide-y divide-finn-cotton">
+            {message.needs?.length ? (
+                <div className="px-3.5 pt-3 pb-2">
+                    <div className="flex items-baseline justify-between gap-2">
+                        <p className="text-[11px] font-black uppercase tracking-wide text-finn-iron">What matters to you</p>
+                        {live ? (
+                            <button type="button" onClick={() => onChange("life")} className="text-[11.5px] font-bold text-finn-accent-blue hover:underline">
+                                Change
+                            </button>
+                        ) : null}
+                    </div>
+                    <ul className="mt-2 space-y-2.5">
+                        {message.needs.map((need) => (
+                            <li key={need.id}>
+                                <div className={live ? "space-y-1" : "flex items-center justify-between gap-2"}>
+                                    <span className="block text-[13px] font-black text-finn-black">{need.label}</span>
+                                    {live ? (
+                                        <span role="radiogroup" aria-label={`How much ${need.label.toLowerCase()} matters`} className="inline-flex rounded-full bg-finn-snow p-0.5 ring-1 ring-finn-cotton">
+                                            {LEVELS.map((level) => (
+                                                <button
+                                                    key={level}
+                                                    type="button"
+                                                    role="radio"
+                                                    aria-checked={need.importance === level}
+                                                    onClick={() => onImportance(need.id, level)}
+                                                    className={[
+                                                        "rounded-full px-2.5 py-1 text-[11px] font-black transition-colors",
+                                                        need.importance === level ? "bg-finn-accent-blue text-white shadow-sm" : "text-finn-iron hover:text-finn-black",
+                                                    ].join(" ")}
+                                                >
+                                                    {IMPORTANCE_LABEL[level]}
+                                                </button>
+                                            ))}
+                                        </span>
+                                    ) : (
+                                        <span className="shrink-0 rounded-full bg-finn-pale-blue px-2 py-0.5 text-[10.5px] font-black text-finn-accent-blue">{IMPORTANCE_LABEL[need.importance]}</span>
+                                    )}
+                                </div>
+                                {need.looksFor.length ? <p className="mt-0.5 text-[11.5px] leading-snug text-finn-iron">I'll look for: {need.looksFor.join(" · ")}</p> : null}
+                            </li>
+                        ))}
+                    </ul>
+                </div>
+            ) : null}
+
+            <dl className="divide-y divide-finn-cotton border-t border-finn-cotton">
                 {message.lines.map((line) => (
-                    <div key={line.label} className="grid grid-cols-[104px_1fr] gap-3 px-3.5 py-2.5 text-[12.5px]">
+                    <div key={line.label} className="grid grid-cols-[96px_1fr_auto] items-baseline gap-3 px-3.5 py-2.5 text-[12.5px]">
                         <dt className="font-bold text-finn-iron">{line.label}</dt>
                         <dd className="font-semibold text-finn-black">{line.value}</dd>
+                        {live && line.step ? (
+                            <button type="button" onClick={() => onChange(line.step!)} className="text-[11.5px] font-bold text-finn-accent-blue hover:underline">
+                                Change
+                            </button>
+                        ) : (
+                            <span />
+                        )}
                     </div>
                 ))}
             </dl>
 
             {message.priorities.length ? (
-                <div className="border-t border-finn-cotton bg-finn-snow px-3.5 py-3">
-                    <p className="text-[11px] font-black uppercase tracking-wide text-finn-iron">What counts most</p>
-                    <ul className="mt-2 space-y-1.5">
-                        {message.priorities.map((priority) => (
-                            <li key={priority.label} className="grid grid-cols-[1fr_auto] items-center gap-x-3 gap-y-1 text-[12px]">
-                                <span className="font-semibold text-finn-black">{priority.label}</span>
-                                <span className="font-bold tabular-nums text-finn-iron">{priority.share}%</span>
-                                <span className="col-span-2 block h-1.5 overflow-hidden rounded-full bg-finn-cotton">
-                                    <span className="block h-full rounded-full bg-finn-accent-blue" style={{ width: `${Math.max(4, priority.share)}%` }} />
-                                </span>
-                            </li>
-                        ))}
-                    </ul>
+                <div className="border-t border-finn-cotton bg-finn-snow px-3.5 py-2.5">
+                    <button type="button" onClick={() => setWeights((open) => !open)} aria-expanded={weights} className="flex w-full items-center justify-between text-[11.5px] font-bold text-finn-iron hover:text-finn-black">
+                        How this weighs the cars
+                        <ChevronDown aria-hidden="true" className={`h-4 w-4 transition-transform ${weights ? "rotate-180" : ""}`} />
+                    </button>
+                    {weights ? (
+                        <>
+                            <p className="mt-1.5 text-[11.5px] leading-snug text-finn-iron">Your answers become weights on what FINN lists for each car. The more a need matters, the more its part of the car counts:</p>
+                            <ul className="mt-2 space-y-1.5">
+                                {message.priorities.map((priority) => (
+                                    <li key={priority.label} className="grid grid-cols-[1fr_auto] items-center gap-x-3 gap-y-1 text-[12px]">
+                                        <span className="font-semibold text-finn-black">{priority.label}</span>
+                                        <span className="font-bold tabular-nums text-finn-iron">{priority.share}%</span>
+                                        <span className="col-span-2 block h-1.5 overflow-hidden rounded-full bg-finn-cotton">
+                                            <span className="block h-full rounded-full bg-finn-accent-blue" style={{ width: `${Math.max(4, priority.share)}%` }} />
+                                        </span>
+                                    </li>
+                                ))}
+                            </ul>
+                        </>
+                    ) : null}
                 </div>
             ) : null}
         </div>
@@ -335,13 +548,17 @@ export function MessageList({
     onAnswer,
     onOpenCar,
     onWhy,
+    onImportance,
+    onChange,
     busy,
 }: {
     messages: ChatMessage[];
     typing: boolean;
-    onAnswer: (askId: string, chosen: string[]) => void;
+    onAnswer: (askId: string, chosen: string[], extra?: AnswerExtra) => void;
     onOpenCar: (id: number) => void;
     onWhy: () => void;
+    onImportance: (needId: string, importance: NeedImportance) => void;
+    onChange: (step: StepId) => void;
     busy: boolean;
 }) {
     /* Only the newest open question takes answers; older ones read as what was asked. */
@@ -349,6 +566,16 @@ export function MessageList({
         const last = [...messages].reverse().find((message) => message.kind === "ask");
         return last?.kind === "ask" && !last.answered ? last.id : null;
     }, [messages]);
+
+    /* The summary can be edited while its "keep these?" is still open — older ones are a record. */
+    const liveSummary = useMemo(() => {
+        const last = [...messages].reverse().find((message) => message.kind === "summary");
+        const keep = messages.find((message) => message.id === liveAsk);
+
+        return last && keep?.kind === "ask" && keep.step.id === "keep" && messages.indexOf(keep) > messages.indexOf(last) ? last.id : null;
+    }, [messages, liveAsk]);
+
+    const settled = !typing && !busy;
 
     const rows: React.ReactNode[] = [];
 
@@ -374,13 +601,13 @@ export function MessageList({
                     <Ask
                         key={message.id}
                         message={message}
-                        live={message.id === liveAsk && !typing && !busy}
-                        onAnswer={(chosen) => onAnswer(message.id, chosen)}
+                        live={message.id === liveAsk && settled}
+                        onAnswer={(chosen, extra) => onAnswer(message.id, chosen, extra)}
                     />
                 );
                 break;
             case "summary":
-                body = <Summary message={message} />;
+                body = <Summary message={message} live={message.id === liveSummary && settled} onImportance={onImportance} onChange={onChange} />;
                 break;
             case "result":
                 body = <Result message={message} onOpenCar={onOpenCar} onWhy={onWhy} />;

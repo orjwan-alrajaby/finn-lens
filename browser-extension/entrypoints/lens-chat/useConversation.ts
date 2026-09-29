@@ -1,7 +1,19 @@
 import { useCallback, useRef, useState } from "react";
 
 import { requestOpenDrawer } from "@/lib/chats/bridge";
-import { answer, askNext, changeAnswers, rentalMonths, startChat, STEP_ORDER, withExchange, withLensSaying } from "@/lib/chats/flow";
+import {
+    answer,
+    askNext,
+    changeAnswers,
+    rentalMonths,
+    startChat,
+    STEP_ORDER,
+    withExchange,
+    withLensSaying,
+    changeOne as changeOneAnswer,
+    setImportance as setNeedImportance,
+    type Heard,
+} from "@/lib/chats/flow";
 import { judgementFrom, judgeWith, resultMessage } from "@/lib/chats/judge";
 import { judgedCars, loadedCars } from "@/lib/chats/scope";
 import { loadChat, loadSettings, messageId, saveChat, saveSettings, setActiveChat } from "@/lib/chats/store";
@@ -78,6 +90,24 @@ export function useConversation(page: PageCars) {
         return found;
     }, []);
 
+    /** One need's importance, set from the summary. */
+    const importance = useCallback(
+        async (needId: string, level: "essential" | "important" | "niceToHave") => {
+            const current = latest.current;
+            if (current) await commit(setNeedImportance(current, needId, level));
+        },
+        [commit],
+    );
+
+    /** One answer, changed from the summary. */
+    const changeOne = useCallback(
+        async (step: Parameters<typeof changeOneAnswer>[1]) => {
+            const current = latest.current;
+            if (current) await commit(changeOneAnswer(current, step, pageRef.current.cars));
+        },
+        [commit],
+    );
+
     /** The chat on screen was deleted. */
     const clear = useCallback(() => {
         latest.current = null;
@@ -141,12 +171,46 @@ export function useConversation(page: PageCars) {
     /* -- Tapping an answer -------------------------------------------------- */
 
     const tap = useCallback(
-        async (askId: string, chosen: string[]) => {
+        async (askId: string, chosen: string[], extra: { amount?: number; text?: string } = {}) => {
             const current = latest.current;
             if (!current || busy) return;
 
             const ask = current.messages.find((message) => message.id === askId);
-            const { chat: next, then } = answer(current, askId, chosen, pageRef.current.cars);
+
+            /*
+             * Their own words, read in the question's context before the taps
+             * are applied on top — so "I also drive home after night shifts"
+             * joins "kids in the back" rather than replacing it.
+             */
+            let heard: Heard | undefined;
+
+            if (extra.text) {
+                setBusy(true);
+
+                try {
+                    const read = await readTyped(current, extra.text, pageRef.current.cars, null);
+
+                    heard = {
+                        text: extra.text,
+                        understanding: read.understanding,
+                        /*
+                         * On the needs and rules questions Lens's own
+                         * acknowledgement names everything it heard, the
+                         * typed part included — the reader's echo would say
+                         * it twice.
+                         */
+                        reply: !read.changes.length
+                            ? `I couldn't find anything in “${extra.text}” that I can check on a car, so I've gone with what you tapped.`
+                            : ask?.kind === "ask" && (ask.step.id === "life" || ask.step.id === "rules")
+                              ? ""
+                              : read.reply || "Got it.",
+                    };
+                } finally {
+                    setBusy(false);
+                }
+            }
+
+            const { chat: next, after } = answer(current, askId, chosen, pageRef.current.cars, new Date(), { amount: extra.amount, heard });
 
             if (next === current) return;
 
@@ -156,12 +220,13 @@ export function useConversation(page: PageCars) {
                     fromChatId: next.id,
                     understanding: next.understanding,
                     rentalMonths: rentalMonths(next.understanding),
+                    picks: next.picks,
                 });
             }
 
             await commit(next);
 
-            if (then === "judge") await judge(next);
+            if (after === "judge") await judge(next);
         },
         [busy, commit, judge],
     );
@@ -260,5 +325,5 @@ export function useConversation(page: PageCars) {
         if (current) await judge(withExchange(current, "Judge the cars on this page.", null));
     }, [judge]);
 
-    return { chat, busy, startNew, open, clear, tap, type, whyWinner, change, judgeHere };
+    return { chat, busy, startNew, open, clear, tap, type, whyWinner, change, changeOne, importance, judgeHere };
 }

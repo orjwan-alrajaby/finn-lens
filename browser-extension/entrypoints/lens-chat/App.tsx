@@ -188,7 +188,9 @@ export function App() {
                                 messages={shown}
                                 typing={typing || busy}
                                 busy={busy}
-                                onAnswer={(askId, chosen) => void conversation.tap(askId, chosen)}
+                                onAnswer={(askId, chosen, extra) => void conversation.tap(askId, chosen, extra)}
+                                onImportance={(needId, level) => void conversation.importance(needId, level)}
+                                onChange={(step) => void conversation.changeOne(step)}
                                 onOpenCar={(id) => chat && void requestOpenDrawer(chat.id, id)}
                                 onWhy={() => chat?.judgement?.winnerId != null && void requestOpenDrawer(chat.id, chat.judgement.winnerId)}
                             />
