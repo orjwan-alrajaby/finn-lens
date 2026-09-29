@@ -114,6 +114,17 @@ export const purposeOf = (id: EvidenceId): string => USE[id] ?? "";
 
 export type GuideStepId = "life" | "rules" | "distance";
 
+/** How the needs are laid out: the way people describe their own lives. */
+export const NEED_GROUPS = {
+    people: "Who's in the car",
+    driving: "Where you drive",
+    weather: "The weather",
+    loads: "What you carry",
+    you: "What makes it yours",
+} as const;
+
+export type NeedGroup = keyof typeof NEED_GROUPS;
+
 /** One thing the reader can tap, and what it means to Lens. */
 export interface GuideChoice {
     id: string;
@@ -121,6 +132,10 @@ export interface GuideChoice {
     label: string;
     /** Recorded in the conversation as the reader's own words. */
     said: string;
+    /** What choosing it means, in a sentence, shown before and after it's picked. */
+    description?: string;
+    /** Where it sits among the others, so a long list can be scanned. */
+    group?: NeedGroup;
     /** A need this stands for: what the car has to do, and what Lens looks at. */
     need?: {
         label: string;
@@ -147,106 +162,113 @@ export interface GuideStep {
     none: string;
 }
 
+const need = (
+    id: string,
+    group: NeedGroup,
+    label: string,
+    said: string,
+    description: string,
+    priorities: CategoryId[],
+    evidence: EvidenceId[],
+    needLabel = label,
+): GuideChoice => ({
+    id,
+    group,
+    label,
+    said,
+    description,
+    need: { label: needLabel, importance: "important", priorities, evidence },
+});
+
+/*
+ * Every need names equipment FINN lists and Lens can check, and the
+ * priorities that equipment is scored under — so choosing one moves the
+ * judgement, and the reader can be told exactly how.
+ */
 const LIFE: GuideChoice[] = [
-    {
-        id: "kids",
-        label: "Kids in the back",
-        said: "I have kids in the back.",
-        need: {
-            label: "Kids in the back",
-            importance: "important",
-            priorities: ["practicality", "safetyAssistance"],
-            evidence: ["hasIsofix", "rearDoors", "seatsFivePlus", "hasSplitFoldingRearSeats", "hasBackUSBPorts"],
-        },
-    },
-    {
-        id: "carrying",
-        label: "Carrying a lot",
-        said: "I carry a lot in the car.",
-        need: {
-            label: "Carrying a lot",
-            importance: "important",
-            priorities: ["practicality"],
-            evidence: ["hasSplitFoldingRearSeats", "hasElectricTailgate", "hasRoofRails", "seatsFivePlus"],
-        },
-    },
-    {
-        id: "city",
-        label: "City driving and parking",
-        said: "It's mostly city driving, and parking is the hard part.",
-        need: {
-            label: "City driving and parking",
-            importance: "important",
-            priorities: ["cityParking"],
-            evidence: ["compactLength", "compactWidth", "hasOneEightyDegreesReversingCamera", "hasParkingSensors", "hasElectricallyFoldingMirrors"],
-        },
-    },
-    {
-        id: "motorway",
-        label: "Long motorway drives",
-        said: "I do long motorway drives.",
-        need: {
-            label: "Long motorway drives",
-            importance: "important",
-            priorities: ["longDistance"],
-            evidence: ["driverAssistLevel2", "hasAdaptiveCruiseControl", "hasLumbarSupport", "hasHeadUpDisplay"],
-        },
-    },
-    {
-        id: "nervous",
-        label: "I'm a nervous driver",
-        said: "I'm a nervous driver.",
-        need: {
-            label: "Feeling safe behind the wheel",
-            importance: "important",
-            priorities: ["safetyAssistance", "cityParking"],
-            evidence: ["hasBlindSpotAssist", "hasRearCrosswalkWarning", "hasThreeSixtyDegreesCamera", "hasParkingSensors", "hasLaneKeepingAssist"],
-        },
-    },
-    {
-        id: "winter",
-        label: "Cold winters, bad weather",
-        said: "The winters here are cold and the weather is often bad.",
-        need: {
-            label: "Cold mornings and bad weather",
-            importance: "important",
-            priorities: ["climateSuitability"],
-            evidence: ["hasHeatedSeats", "hasHeatedSteeringWheel", "hasRainSlashLightSensors", "hasFogLights", "hasCorneringLights"],
-        },
-    },
-    {
-        id: "towing",
-        label: "Towing or a roof box",
-        said: "I tow, or I carry things on the roof.",
-        need: {
-            label: "Towing and roof loads",
-            importance: "important",
-            priorities: ["practicality"],
-            evidence: ["hasTowbar", "towingCapacity1500", "hasRoofRails"],
-        },
-    },
-    {
-        id: "comfort",
-        label: "Comfortable day to day",
-        said: "I want it to be pleasant to sit in day to day.",
-        need: {
-            label: "Pleasant on an ordinary day",
-            importance: "important",
-            priorities: ["comfort"],
-            evidence: ["hasElectricFrontSeatAdjustment", "hasKeylessEntryAndStart", "hasWirelessChargingStation", "hasThreeZoneAutomaticClimateControls"],
-        },
-    },
+    need("kids", "people", "Kids in the back", "I have kids in the back.",
+        "Child seats, little ones getting in and out, and a back row that works for a family.",
+        ["practicality", "safetyAssistance"],
+        ["hasIsofix", "rearDoors", "seatsFivePlus", "hasSplitFoldingRearSeats", "hasBackUSBPorts"]),
+    need("dog", "people", "A dog in the car", "A dog comes with us.",
+        "A boot that's easy to load a dog into, and seats that fold when it needs the room.",
+        ["practicality"],
+        ["hasElectricTailgate", "hasSplitFoldingRearSeats", "rearDoors"]),
+    need("access", "people", "Older passengers", "I often drive older or less mobile passengers.",
+        "Easy getting in and out: doors for the back, seats that adjust, no fumbling for a key.",
+        ["comfort", "practicality"],
+        ["rearDoors", "hasElectricFrontSeatAdjustment", "hasKeylessEntryAndStart"],
+        "Easy for older passengers"),
+    need("city", "driving", "City driving and parking", "It's mostly city driving, and parking is the hard part.",
+        "Tight streets and tighter spaces: a car that's easy to place and to park.",
+        ["cityParking"],
+        ["compactLength", "compactWidth", "hasOneEightyDegreesReversingCamera", "hasParkingSensors", "hasElectricallyFoldingMirrors"]),
+    need("commute", "driving", "A daily commute", "I commute by car every day.",
+        "The same drive twice a day: less work in traffic, and your phone on the screen.",
+        ["longDistance", "comfort"],
+        ["hasAdaptiveCruiseControl", "hasAutomaticTransmission", "hasKeylessEntryAndStart", "hasAppleCarPlaySlashAndroidAuto"]),
+    need("motorway", "driving", "Long motorway drives", "I do long motorway drives.",
+        "Hours at speed: a car that holds its lane and distance, and a seat that's kind to your back.",
+        ["longDistance"],
+        ["driverAssistLevel2", "hasAdaptiveCruiseControl", "hasLumbarSupport", "hasHeadUpDisplay"]),
+    need("roadtrips", "driving", "Road trips and holidays", "We take the car on road trips and holidays.",
+        "Packed for a week away: room for luggage on the roof and inside, and comfort for the long haul.",
+        ["practicality", "longDistance"],
+        ["hasRoofRails", "hasSplitFoldingRearSeats", "driverAssistLevel2", "hasLumbarSupport"]),
+    need("night", "driving", "Driving at night", "I drive a lot at night.",
+        "Dark and unlit roads: lights that see further and into the bends.",
+        ["safetyAssistance", "climateSuitability"],
+        ["hasMatrixLedHeadlights", "hasCorneringLights", "hasRainSlashLightSensors", "hasFogLights"]),
+    need("winter", "weather", "Cold winters, bad weather", "The winters here are cold and the weather is often bad.",
+        "Frozen mornings and bad weather: warmth fast, and lights and wipers that look after themselves.",
+        ["climateSuitability"],
+        ["hasHeatedSeats", "hasHeatedSteeringWheel", "hasRainSlashLightSensors", "hasFogLights", "hasCorneringLights"],
+        "Cold mornings and bad weather"),
+    need("summer", "weather", "Hot summers", "Our summers get hot.",
+        "Heat that lingers: seats that breathe, and climate control that keeps everyone cool.",
+        ["climateSuitability", "comfort"],
+        ["hasSeatCooling", "hasThreeZoneAutomaticClimateControls"],
+        "Staying cool in summer"),
+    need("carrying", "loads", "Carrying a lot", "I carry a lot in the car.",
+        "Bulky loads: a boot that opens easily and seats that fold flat.",
+        ["practicality"],
+        ["hasSplitFoldingRearSeats", "hasElectricTailgate", "hasRoofRails", "seatsFivePlus"]),
+    need("towing", "loads", "Towing or a roof box", "I tow, or I carry things on the roof.",
+        "A trailer, a caravan or a roof box: something to tow with, and rails to mount on.",
+        ["practicality"],
+        ["hasTowbar", "towingCapacity1500", "hasRoofRails"],
+        "Towing and roof loads"),
+    need("nervous", "you", "I'm a nervous driver", "I'm a nervous driver.",
+        "A car that watches what you can't: blind spots, traffic behind you, and every side while you park.",
+        ["safetyAssistance", "cityParking"],
+        ["hasBlindSpotAssist", "hasRearCrosswalkWarning", "hasThreeSixtyDegreesCamera", "hasParkingSensors", "hasLaneKeepingAssist"],
+        "Feeling safe behind the wheel"),
+    need("safety", "you", "Safety above all", "Safety matters more than anything else to me.",
+        "The assistance that prevents accidents: emergency braking, blind spots, lane keeping and more.",
+        ["safetyAssistance"],
+        ["hasEmergencyBrakingAssist", "hasBlindSpotAssist", "hasLaneKeepingAssist", "hasRearCrosswalkWarning", "hasTrafficSignRecognition"]),
+    need("tech", "you", "Phone and tech", "I want my phone to work seamlessly with the car.",
+        "Your maps and music on the screen without a cable, and a phone that charges as you drive.",
+        ["comfort"],
+        ["hasWirelessAppleCarPlaySlashAndroidAuto", "hasAppleCarPlaySlashAndroidAuto", "hasWirelessChargingStation", "hasHeadUpDisplay"]),
+    need("comfort", "you", "Comfortable day to day", "I want it to be pleasant to sit in day to day.",
+        "The small things every day: seats that remember you, keyless entry, and a nice place to be.",
+        ["comfort"],
+        ["hasElectricFrontSeatAdjustment", "hasKeylessEntryAndStart", "hasWirelessChargingStation", "hasThreeZoneAutomaticClimateControls"],
+        "Pleasant on an ordinary day"),
     {
         id: "emissions",
+        group: "you",
         label: "Low emissions matter",
         said: "Emissions matter to me.",
+        description: "Judged on each car's own CO₂ figure, on the EU's A–G label — there's no equipment to point at.",
         /*
          * No evidence: Environmental Impact is scored from the car's own CO₂
          * figure, and there is no equipment to point at. A need with an empty
          * evidence list still moves the priority, which is the whole of what
-         * Lens can honestly do here.
+         * Lens can honestly do here. The reader's wish, not a verdict: "Low
+         * emissions" in a summary read as a claim about the car.
          */
-        /* The reader's wish, not a verdict: "Low emissions" in the focus strip read as a claim about the car. */
         need: { label: "Emissions matter", importance: "important", priorities: ["environmental"], evidence: [] },
     },
 ];
