@@ -5,7 +5,7 @@ import { DEFAULT_CATEGORY_FEATURES, DEFAULT_PREFERENCES, DEFAULT_PRIORITIES } fr
 import { FIT_BANDS, type FitLevel } from "@/lib/reasoning-engine/fit";
 import { totalFor } from "@/lib/reasoning-engine/scoring";
 import { asPhrase } from "@/lib/lens-chat/evidence";
-import { allowedByRules, compareRows, runLens, summariseMatch, type CarLine, type LensRun } from "@/lib/lens-chat/run";
+import { allowedByRules, alternativesWithinLimits, compareRows, runLens, summariseMatch, type CarLine, type LensRun } from "@/lib/lens-chat/run";
 import { ruledOut, toAnswers, type Translation, type Understanding } from "@/lib/lens-chat/understanding";
 import type { PinnedFinnCar } from "@/lib/types";
 
@@ -140,6 +140,7 @@ const snapshot = (line: CarLine, urls: Record<number, string>): CarSnapshot => (
     band: line.band,
     bandLabel: line.bandLabel,
     url: urls[line.id] ?? null,
+    overLimit: line.budget === "over" || line.rental === "doesNotFit",
 });
 
 export function resultMessage(
@@ -152,8 +153,7 @@ export function resultMessage(
 ): Extract<ChatMessage, { kind: "result" }> {
     const { run } = judged;
     const summary = summariseMatch(run);
-    const rows = compareRows(run, 4);
-    const winner = rows.find((row) => row.isMatch) ?? null;
+    const winner = compareRows(run, 1)[0] ?? null;
 
     const note = run.ruledOut?.nothingLeft
         ? "Every car here broke one of your rules, so I judged them all as if the rules weren't there."
@@ -171,7 +171,12 @@ export function resultMessage(
         winner: winner ? snapshot(winner, urls) : null,
         reason: summary.reason,
         note,
-        runnersUp: rows.filter((row) => !row.isMatch).slice(0, 3).map((row) => snapshot(row, urls)),
+        /*
+         * The ones that respect the reader's limits first: "closest by score"
+         * put a €1,638 car under a €500 limit's pick, which answers a question
+         * nobody asked.
+         */
+        runnersUp: alternativesWithinLimits(run, 3).map((line) => snapshot(line, urls)),
         setAside: run.ruledOut && !run.ruledOut.nothingLeft ? run.ruledOut.setAside : 0,
     };
 }

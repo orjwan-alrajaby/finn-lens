@@ -1,9 +1,13 @@
 import "@/assets/tailwind.css";
+import { OPEN_BUBBLE_KEY, takeOpenRequest } from "@/lib/chats/store";
 
 import { HOME_PAGE_SELECTOR, LISTINGS_PAGE_SELECTOR, DETAILS_PAGE_SELECTOR } from "./constants";
 import { mapFinnConfigToAll } from "./manipulateApiData";
 import { mergeLoadedCars } from "./data/cache";
 import { ensurePageCars, forgetAsked } from "./car-data";
+import { setChatOpen, syncChatBubble } from "./lens/bubble";
+import { listenToFrames } from "./lens/bridge";
+import { notifyPageChanged } from "./lens/frames";
 
 export default defineContentScript({
   matches: ["https://www.finn.com/*"],
@@ -11,7 +15,7 @@ export default defineContentScript({
   /*
    * The stylesheet is built but never put on finn.com itself: it is a full
    * Tailwind build with a reset, and it is only ever wanted inside Lens's own
-   * shadow roots.
+   * shadow roots (the bubble fetches it from there).
    */
   cssInjectionMode: "manual",
 
@@ -22,6 +26,8 @@ export default defineContentScript({
     } catch (e) {
       console.error("[FinnLens] injection failed", e);
     }
+
+    listenToFrames();
 
     /*
      * Every car FINN's own page loads, kept.
@@ -69,6 +75,12 @@ export default defineContentScript({
       window.dispatchEvent(new Event("finnlens:navigate"))
     );
 
+    const runInjections = () => {
+      void syncChatBubble().catch((error: unknown) => {
+        console.error("[FinnLens] couldn't add the Lens bubble", error);
+      });
+    };
+
     const startObserving = () => {
       activeObserver?.disconnect();
 
@@ -79,6 +91,8 @@ export default defineContentScript({
 
         mutationDebounceTimer = setTimeout(() => {
           mutationDebounceTimer = null;
+
+          runInjections();
 
           /*
            * The cards a listing just drew, given cars to be about. FINN adds
@@ -96,6 +110,7 @@ export default defineContentScript({
     };
 
     const handleNavigation = () => {
+      runInjections();
       startObserving();
 
       /* Whatever this page already shows, before anyone asks about it. */
@@ -143,11 +158,40 @@ export default defineContentScript({
       navDebounceTimer = setTimeout(() => {
         navDebounceTimer = null;
         handleNavigation();
+        notifyPageChanged();
       }, 150);
     };
 
     window.addEventListener("finnlens:navigate", onNavigate);
 
+    /*
+     * More cars reaching Lens means the chat's "cars on this page" grew, so an
+     * open chat is told to re-read the page. And a request to open the bubble
+     * here — on install — is answered.
+     */
+    browser.storage.onChanged.addListener((changes, areaName) => {
+      if (areaName !== "local") return;
+
+      if ("loadedCarsFromFinnApi" in changes) notifyPageChanged();
+
+      if (OPEN_BUBBLE_KEY in changes && changes[OPEN_BUBBLE_KEY]?.newValue) {
+        void openIfAsked();
+      }
+    });
+
+    const openIfAsked = async () => {
+      /* Only the tab the reader is looking at answers; the others leave the request for it. */
+      if (document.visibilityState !== "visible") return;
+      if (!(await takeOpenRequest())) return;
+
+      await syncChatBubble();
+      setChatOpen(true);
+    };
+
     handleNavigation();
+
+    /* Just installed: the bubble opens by itself. */
+    void openIfAsked();
+    document.addEventListener("visibilitychange", () => void openIfAsked());
   },
 });

@@ -1,12 +1,13 @@
 import type { FinnSearch } from "@/lib/finn-search";
 
 /**
- * The messages between the Lens chat and the finn.com page it sits on.
+ * The messages between Lens's frames and the finn.com page they sit on.
  *
- * The chat is an extension page in an iframe; the page facts it needs — which
- * cars are drawn here, which configuration the reader is looking at — are only
- * visible to the content script. The two talk through the background script,
- * which knows which tab a frame belongs to (`sender.tab`), rather than through
+ * The chat and the drawer are extension pages in iframes; the page facts they
+ * need — which cars are drawn here, which configuration the reader is looking
+ * at — are only visible to the content script, and so is the page itself: the
+ * drawer, the chips, the cards. They talk through the background script, which
+ * knows which tab a frame belongs to (`sender.tab`), rather than through
  * `window.postMessage`, which finn.com's own scripts could also send.
  */
 
@@ -43,25 +44,26 @@ export interface PageContext {
 }
 
 /**
- * Sent by the chat, relayed by the background script to the tab's top frame.
+ * Sent by a Lens frame, relayed by the background script to the tab's top frame.
  *
  * Every request carries the token the tab's content script registered. The
- * chat page is web-accessible on finn.com, so FINN's own scripts could frame a
- * copy of it; the token is what makes such a copy unable to act on the page.
+ * frames are web-accessible on finn.com, so FINN's own scripts could frame a
+ * copy of one; the token is what makes such a copy unable to act on the page.
  */
 export type ChatToPage = { token: string } & (
     | { type: "LENS_CHAT_CONTEXT" }
-    | { type: "LENS_CHAT_PIN"; carId: number; pinned: boolean }
     | { type: "LENS_CHAT_SHOW_CAR"; carId: number }
     | { type: "LENS_CHAT_CLOSE" }
 );
 
 export const CHAT_TO_PAGE_TYPES = new Set<string>([
     "LENS_CHAT_CONTEXT",
-    "LENS_CHAT_PIN",
     "LENS_CHAT_SHOW_CAR",
     "LENS_CHAT_CLOSE",
 ]);
+
+/** The extension pages allowed to use the bridge. */
+export const FRAME_PAGES = ["/lens-chat.html"] as const;
 
 /** Content script → background: the token this tab's chat frame will present. */
 export interface RegisterChat {
@@ -69,13 +71,13 @@ export interface RegisterChat {
     token: string;
 }
 
-/** Chat → background: is this the token my tab registered? */
+/** Frame → background: is this the token my tab registered? */
 export interface VerifyChat {
     type: "LENS_CHAT_VERIFY";
     token: string;
 }
 
-/** Content script → its own chat frame, by postMessage to the extension's origin. */
+/** Content script → a frame it created, by postMessage to the extension's origin. */
 export interface ChatHandshake {
     source: "finn-lens-chat";
     token: string;

@@ -68,6 +68,8 @@ export interface CarSnapshot {
     band: FitLevel;
     bandLabel: string;
     url: string | null;
+    /** Over the reader's monthly limit, or on no FINN term that covers their period. */
+    overLimit: boolean;
 }
 
 /**

@@ -1,0 +1,253 @@
+import { useCallback, useRef, useState } from "react";
+
+import { answer, askNext, changeAnswers, rentalMonths, startChat, STEP_ORDER, withExchange, withLensSaying } from "@/lib/chats/flow";
+import { judgementFrom, judgeWith, resultMessage } from "@/lib/chats/judge";
+import { judgedCars, loadedCars } from "@/lib/chats/scope";
+import { loadChat, loadSettings, messageId, saveChat, saveSettings, setActiveChat } from "@/lib/chats/store";
+import type { Chat } from "@/lib/chats/types";
+import { readTyped } from "@/lib/chats/typing";
+import type { LensRun } from "@/lib/lens-chat/run";
+import { carNamed, whyNot } from "@/lib/lens-chat/why-not";
+import type { PinnedFinnCar } from "@/lib/types";
+
+/**
+ * The chat on screen, and everything the reader can do to it.
+ *
+ * The conversation's rules live in `lib/chats/flow.ts`; this is the part that
+ * waits — for the reader's words to be read, for the engine, for storage — and
+ * keeps the page's chips on the chat that is open.
+ */
+
+export interface PageCars {
+    cars: PinnedFinnCar[];
+    headline: string;
+    url: string;
+    urls: Record<number, string>;
+}
+
+/** "Why this car?", "why?" — about the pick. */
+const WHY = /^\s*why\s+(this|that|the)\s+(car|one)\s*\??\s*$|^\s*why\s*\??\s*$|^\s*why\s+(did\s+it|it)\s+win\b/i;
+/** "Why not the MG 4?", "what about the Qashqai?" — about another car. */
+const WHY_NOT = /\bwhy\s+(not|didn'?t|did\s+you\s+not)\b|\bwhat\s+about\b|\binstead\s+of\b/i;
+
+/** The engine's own reasons for its pick, in the chat. */
+function whyItWon(run: LensRun): string {
+    const { verdict } = run.narrative;
+    const reasons = verdict.reasons.slice(0, 2).join(" ");
+
+    return [reasons || verdict.headline, verdict.budgetNote ?? verdict.marginNote].filter(Boolean).join(" ");
+}
+
+export function useConversation(page: PageCars) {
+    const [chat, setChat] = useState<Chat | null>(null);
+    const [busy, setBusy] = useState(false);
+    const latest = useRef<Chat | null>(null);
+    const pageRef = useRef(page);
+    pageRef.current = page;
+
+    const commit = useCallback(async (next: Chat) => {
+        latest.current = next;
+        setChat(next);
+        await saveChat(next);
+    }, []);
+
+    /* -- Which chat --------------------------------------------------------- */
+
+    const startNew = useCallback(async () => {
+        const next = startChat(await loadSettings(), pageRef.current.cars);
+
+        await commit(next);
+        /* A chat with no judgement takes the chips off the page: they belong to the chat on screen. */
+        await setActiveChat(next.id);
+
+        return next;
+    }, [commit]);
+
+    const open = useCallback(async (id: string) => {
+        const found = await loadChat(id);
+
+        if (!found) return null;
+
+        latest.current = found;
+        setChat(found);
+        await setActiveChat(found.id);
+
+        return found;
+    }, []);
+
+    /* -- Judging ------------------------------------------------------------ */
+
+    const judge = useCallback(
+        async (from: Chat) => {
+            const { cars, headline, url, urls } = pageRef.current;
+
+            if (!cars.length) {
+                await commit(
+                    withLensSaying(
+                        { ...from, phase: "ready" },
+                        "I can't see any cars on this page to judge yet. Open a car listing on finn.com — your filters are fine — and I'll judge the cars there.",
+                    ),
+                );
+                return;
+            }
+
+            setBusy(true);
+
+            try {
+                const judged = judgeWith(from.understanding, cars, headline);
+
+                if (!judged) throw new Error("the engine returned nothing");
+
+                const at = new Date().toISOString();
+                const result = resultMessage(judged, cars, headline, urls, messageId(), at);
+                const judgement = judgementFrom(judged, cars, from.understanding, headline, url, urls, at);
+
+                const next = withLensSaying({ ...from, phase: "judged", judgement }, `I've judged the ${headline}. Here's what I found:`);
+
+                await commit({
+                    ...next,
+                    messages: [
+                        ...next.messages,
+                        result,
+                        {
+                            id: messageId(),
+                            at,
+                            from: "lens",
+                            kind: "text",
+                            text: "Every car I judged now has a chip on its card. Tap any chip to see how that car fits you, or the gold one to see why it won.",
+                        },
+                    ],
+                });
+                await setActiveChat(from.id);
+            } catch (error) {
+                console.error("[Lens] couldn't judge these cars", error);
+                await commit(withLensSaying(from, "Something went wrong while I was judging these cars. Try again in a moment."));
+            } finally {
+                setBusy(false);
+            }
+        },
+        [commit],
+    );
+
+    /* -- Tapping an answer -------------------------------------------------- */
+
+    const tap = useCallback(
+        async (askId: string, chosen: string[]) => {
+            const current = latest.current;
+            if (!current || busy) return;
+
+            const ask = current.messages.find((message) => message.id === askId);
+            const { chat: next, then } = answer(current, askId, chosen, pageRef.current.cars);
+
+            if (next === current) return;
+
+            if (ask?.kind === "ask" && ask.step.id === "keep" && next.kept === "settings") {
+                await saveSettings({
+                    savedAt: new Date().toISOString(),
+                    fromChatId: next.id,
+                    understanding: next.understanding,
+                    rentalMonths: rentalMonths(next.understanding),
+                });
+            }
+
+            await commit(next);
+
+            if (then === "judge") await judge(next);
+        },
+        [busy, commit, judge],
+    );
+
+    /* -- Typing ------------------------------------------------------------- */
+
+    /** The last judgement, run again, for questions about it. */
+    const lastRun = useCallback(async (current: Chat) => {
+        if (!current.judgement) return null;
+
+        const { cars } = judgedCars(current.judgement.carIds, await loadedCars());
+
+        return judgeWith(current.judgement.understanding, cars, current.judgement.headline)?.run ?? null;
+    }, []);
+
+    const type = useCallback(
+        async (text: string) => {
+            const current = latest.current;
+            const message = text.trim();
+
+            if (!current || !message || busy) return;
+
+            setBusy(true);
+
+            try {
+                /* Questions about a judgement Lens can answer from the judgement itself. */
+                if (current.phase === "judged" && current.judgement) {
+                    const run = await lastRun(current);
+
+                    if (run && WHY.test(message)) {
+                        await commit(withExchange(current, message, whyItWon(run)));
+                        return;
+                    }
+
+                    const named = run && WHY_NOT.test(message) ? carNamed(run, message) : null;
+                    const reasons = named && run ? whyNot(run, named.id) : null;
+
+                    if (reasons) {
+                        await commit(withExchange(current, message, reasons.sentences.join(" ")));
+                        return;
+                    }
+                }
+
+                const read = await readTyped(current, message, pageRef.current.cars, current.phase === "judged" ? await lastRun(current) : null);
+
+                if (!read.changes.length) {
+                    await commit(withExchange(current, message, read.reply || "I didn't catch anything I can judge cars by in that. You can tap one of the answers instead."));
+                    return;
+                }
+
+                const heard = withExchange(current, message, read.reply || "Got it.", read.understanding);
+
+                /*
+                 * The question on screen wasn't answered by what they typed:
+                 * ask it again after, rather than losing it.
+                 */
+                const open = [...current.messages].reverse().find((item) => item.kind === "ask" && !item.answered);
+                const queue =
+                    open?.kind === "ask" && STEP_ORDER.includes(open.step.id) ? [open.step.id, ...heard.queue.filter((id) => id !== open.step.id)] : heard.queue;
+
+                /*
+                 * Anything that changes what Lens judges by comes back round to
+                 * "here's what I'll judge by — keep it?", however it was said.
+                 */
+                await commit(askNext({ ...heard, queue: current.phase === "asking" ? queue : [], phase: current.phase === "asking" ? "asking" : "keep" }, pageRef.current.cars));
+            } catch (error) {
+                console.error("[Lens] couldn't read that", error);
+                await commit(withExchange(current, message, "Sorry, I couldn't read that one. Could you tap an answer instead?"));
+            } finally {
+                setBusy(false);
+            }
+        },
+        [busy, commit, lastRun],
+    );
+
+    /* -- Quick replies ------------------------------------------------------ */
+
+    const whyWinner = useCallback(async () => {
+        const current = latest.current;
+        const run = current ? await lastRun(current) : null;
+
+        if (!current || !run) return;
+
+        await commit(withExchange(current, "Why this car?", whyItWon(run)));
+    }, [commit, lastRun]);
+
+    const change = useCallback(async () => {
+        const current = latest.current;
+        if (current) await commit(changeAnswers(current, pageRef.current.cars));
+    }, [commit]);
+
+    const judgeHere = useCallback(async () => {
+        const current = latest.current;
+        if (current) await judge(withExchange(current, "Judge the cars on this page.", null));
+    }, [judge]);
+
+    return { chat, busy, startNew, open, tap, type, whyWinner, change, judgeHere };
+}
