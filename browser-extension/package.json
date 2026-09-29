@@ -1,8 +1,8 @@
 {
-  "name": "wxt-react-starter",
-  "description": "manifest.json description",
+  "name": "finn-lens",
+  "description": "Browser extension that helps you choose between FINN car subscriptions by chatting with Lens, which judges the cars on finn.com against what you told it.",
   "private": true,
-  "version": "0.0.0",
+  "version": "1.0.0",
   "type": "module",
   "scripts": {
     "dev": "wxt",
@@ -12,25 +12,26 @@
     "zip": "wxt zip",
     "zip:firefox": "wxt zip -b firefox",
     "compile": "tsc --noEmit",
-    "postinstall": "wxt prepare"
+    "postinstall": "wxt prepare",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
-    "@heroicons/react": "^2.2.0",
-    "@radix-ui/react-tabs": "^1.1.21",
     "@tailwindcss/postcss": "^4.3.3",
+    "html2canvas-pro": "^2.4.1",
+    "lucide-react": "^1.41.0",
     "postcss": "^8.5.26",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
-    "react-hot-toast": "^2.6.0",
-    "tailwindcss": "^4.3.3",
-    "toastify-js": "^1.12.0"
+    "react-to-pdf": "^3.2.2",
+    "tailwindcss": "^4.3.3"
   },
   "devDependencies": {
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
-    "@types/toastify-js": "^1.12.4",
     "@wxt-dev/module-react": "^1.1.5",
     "typescript": "^5.9.3",
+    "vitest": "^4.1.11",
     "web-ext": "^10.5.0",
     "wxt": "^0.21.3"
   }

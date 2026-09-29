@@ -1,11 +1,81 @@
 @import "tailwindcss";
 
 /* ========================================
+   INTER
+   Shipped with the extension, not fetched.
+
+   An extension cannot lean on Google Fonts: the panel runs inside finn.com's
+   page under that site's CSP, the extension's own pages run under the
+   browser's, and a webfont request from either is both blockable and a third
+   party watching someone browse cars. The file ships instead, so the type is
+   identical offline and on a first paint.
+
+   Written out here rather than `@import`ed from the `@fontsource-variable`
+   package, which is what this did first and why it looked like it worked:
+   Tailwind v4 resolves `@import` itself and inlines the file *without*
+   rebasing its relative `url()`s, so Vite never saw them as assets. Nothing
+   was emitted, `./files/…` pointed at nothing, and every page quietly fell
+   back to system sans — a failure with no error anywhere to notice it by.
+   The files are in `public/` for that reason: WXT copies that directory
+   verbatim, so these paths are the ones that ship.
+
+   `url()` resolves against the stylesheet's own URL, never the document's,
+   and both builds of this file sit one directory below the extension root —
+   `/assets/…` for the pages, `/content-scripts/…` for the panel. So the same
+   absolute `/fonts/…` resolves to the extension origin from either, which is
+   what lets one stylesheet serve both. The panel needs them listed in
+   `web_accessible_resources` as well; see wxt.config.ts.
+
+   The variable cut carries 100-900 in a single file, which is the range this
+   design actually spends — `font-black` page headers down to `font-normal`
+   reasoning copy — with no separate download per weight. Upright only: the
+   app sets italic nowhere. Latin and latin-ext are the only subsets kept;
+   English copy and German feature names ("Ambientebeleuchtung") both live in
+   them, and `unicode-range` means a reader downloads the second only if a
+   character actually calls for it.
+
+   LICENSE.txt beside the files is Inter's OFL.
+======================================== */
+
+@font-face {
+  font-family: "Inter Variable";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 900;
+  src: url("/fonts/inter-latin-wght-normal.woff2") format("woff2-variations");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA,
+    U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191,
+    U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: "Inter Variable";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 900;
+  src: url("/fonts/inter-latin-ext-wght-normal.woff2")
+    format("woff2-variations");
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7,
+    U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F,
+    U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F,
+    U+A720-A7FF;
+}
+
+/* ========================================
    FINN LENS DESIGN TOKENS
    Colors pulled straight from finn.com's brand system.
 ======================================== */
 
 @theme {
+  /* -- Typeface --
+     Tailwind's preflight sets the document's default family from `--font-sans`,
+     so naming it here is what puts Inter on every page without a utility on a
+     single element. The stack behind it is the system UI list the browser would
+     otherwise have used, so a failed font file degrades to what the extension
+     looked like before rather than to Times. */
+  --font-sans: "Inter Variable", ui-sans-serif, system-ui, -apple-system,
+    "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+
   /* -- Brand colors -- */
   --color-finn-accent-blue: #0072ea;
   --color-finn-highlight-navy: #003087;
@@ -18,9 +88,89 @@
   --color-finn-error: #e71d3f;
   --color-finn-pale-blue: #eaf4ff;
 
+  /* -- Over budget --
+     For the one case where the whole recommendation carries a caveat: the
+     best match costs more than the reader said they wanted to spend. The
+     hero is drawn in these instead of navy there, because a verdict that
+     doesn't fit the budget should not look identical to one that does — and
+     a small amber note under a confident blue card is the easiest thing on
+     the page to miss.
+
+     What the navy card actually gets right is not its hue but its *values*:
+     a settled ground, a distinctly lighter panel beside it, and white
+     layered over both. Copying the hue at full chroma instead gave a card
+     that glared and whose two halves sat 1.36:1 apart — the seam between
+     them disappeared. These two are 1.6:1 apart, a shade wider than the blue
+     card's own 1.5:1, so the split reads at a glance.
+
+     Chroma is what makes a large warm block tiring, not warmth. The ground
+     is therefore a muted gold rather than the brand's signal amber:
+     unmistakably the warning hue, without the glow of a colour meant for
+     11px of text and a 16px icon.
+
+     The rule this hue forces: amber is a *light* colour, so white text on it
+     fails (2.3:1) where white on navy sails through. Every warm surface here
+     carries dark ink instead — 8.2:1 for the headline, 6.2:1 for the
+     secondary text, ~12:1 on the white-tinted chips.
+
+     `-deep` is the strong one, for amber text that has to sit on a pale
+     ground, where the brand amber itself manages only 1.9:1. */
+  --color-finn-warning-ground: #e0a63f;
+  --color-finn-warning-lift: #f8e3b6;
+  --color-finn-warning-ink: #4a2600;
+  --color-finn-warning-deep: #9a4a00;
+
+  /* -- Influence scale --
+     How much a feature the user picked out should count. Three separate hues
+     rather than three tints of one, so the levels are told apart at a glance
+     instead of asking the reader to judge depth of colour.
+
+     Emerald and orange are darker than they were, and that is the fix the
+     previous note here asked for and never got: white on #009966 measured
+     3.65:1 and on #f54900 3.60:1, both short of the 4.5:1 the 10px labels
+     they carry need. At #047857 and #b45309 the ramp is unchanged and the
+     numbers are 5.48:1 and 5.02:1, with rose already fine at 6.03:1. The
+     pale grounds hold their own text too — 5.21, 4.73 and 5.49:1.
+
+     The same tokens double as the has-it/doesn't markers in the fit analysis
+     and the lens panel, where emerald means present. */
+  --color-finn-influence-emerald: #047857;
+  --color-finn-influence-emerald-pale: #ecfdf5;
+  --color-finn-influence-orange: #b45309;
+  --color-finn-influence-orange-pale: #fff7ed;
+  --color-finn-influence-red: #c70036;
+  --color-finn-influence-red-pale: #fff1f2;
+
+  /* -- Fit bands --
+     How well one car serves what the reader asked for. Four steps, and they
+     have to be told apart before they are read: a page of cards is scanned,
+     not studied, and four chips of the same blue make the reader stop and
+     read every one of them.
+
+     Blue at the top because blue is FINN's own accent and the best answer
+     Lens can give about a car should look like the site it is given on; then
+     green, amber and red down the ramp. These are deliberately not the
+     influence scale's
+     emerald/orange/rose — that answers "how much does this feature count",
+     which is the reader's own statement about a feature and not a verdict
+     about a car, and one scale wearing two meanings is worse than two scales.
+
+     Darker than the influence hues on purpose. These carry 11px bold text on
+     their own pale backgrounds, so they are picked for contrast at that size
+     rather than for brightness: 4.6:1, 5.4:1, 5.1:1 and 6.0:1 on white. */
+  --color-finn-fit-strong: #0072ea;
+  --color-finn-fit-strong-pale: #eaf4ff;
+  --color-finn-fit-good: #047857;
+  --color-finn-fit-good-pale: #ecfdf5;
+  --color-finn-fit-partial: #b45309;
+  --color-finn-fit-partial-pale: #fff7ed;
+  --color-finn-fit-limited: #c70036;
+  --color-finn-fit-limited-pale: #fff1f2;
+
   /* -- Breakpoints --
      Redeclaring these overrides Tailwind's defaults and generates
      2xs:, xs:, sm:, md:, lg:, xl:, 2xl:, 3xl:, 4xl:, 5xl: variants. */
+  --breakpoint-3xs: 375px;
   --breakpoint-2xs: 480px;
   --breakpoint-xs: 640px;
   --breakpoint-sm: 768px;
@@ -37,12 +187,85 @@
    GLOBAL BASE STYLES
 ======================================== */
 
-@layer base {}
+@layer base {
+  /*
+     What's clickable should look clickable.
+
+     Tailwind v4's preflight sets `cursor: default` on buttons, which is the
+     HTML spec's cursor for them and the wrong one for this app. Every button
+     here is something the reader is meant to press — a tag that opens its
+     footnote, a chip that explains itself, a card that puts a car in the hot
+     seat — and several of them are styled as text or as a panel rather than
+     as anything obviously pressable. Without the hand, finding out what
+     responds means clicking around to see.
+
+     So it goes back, once, for everything that takes a click, rather than as
+     a `cursor-pointer` remembered on each new control. `:disabled` is excluded
+     because a control that will not respond should not invite the press;
+     anything setting its own cursor — the wait cursor on the export button,
+     `cursor-not-allowed` on a blocked action — still wins, since utilities
+     beat the base layer.
+  */
+  button:not(:disabled),
+  summary,
+  label:has(input[type="checkbox"]:not(:disabled)),
+  label:has(input[type="radio"]:not(:disabled)),
+  input[type="checkbox"]:not(:disabled),
+  input[type="radio"]:not(:disabled),
+  select:not(:disabled),
+  [role="button"]:not([aria-disabled="true"]),
+  [role="tab"]:not([aria-disabled="true"]),
+  a[href] {
+    cursor: pointer;
+  }
+}
 
 /* ========================================
    COMPONENT STYLES
 ======================================== */
 @layer components {
+  /*
+     Parts of a page that only mean something while it is on screen: the
+     controls that change the answers, and any picker whose whole job is to
+     choose what the page shows. They are dropped from a PDF capture, which
+     is a photograph of the page rather than a second rendering of it — see
+     lib/advice-pdf.ts.
+
+     Marked on the element rather than decided by the exporter, because only
+     the thing itself knows whether it is evidence or a control.
+  */
+  [data-exporting] .finn-lens-screen-only {
+    display: none !important;
+  }
+
+  /*
+     The other half of that bargain. Some of the page's evidence is folded
+     away behind something the reader taps — the "i" on a feature chip, the
+     tag that opens its own footnote — and a photograph of the page catches
+     the fold, not what is inside it. So those places carry a second
+     rendering of the same facts, laid flat as a table, which exists only in
+     the file.
+
+     Both renderings are written from the same data by the same component,
+     which is what keeps them from drifting into two different claims.
+  */
+  .finn-lens-export-only {
+    display: none;
+  }
+
+  [data-exporting] .finn-lens-export-only {
+    display: block;
+  }
+
+  /*
+     A fold that should simply be open in the file. The environmental result's
+     table and its questions stay mounted while closed, so a capture can lay
+     every answer flat instead of photographing a row of closed headings.
+  */
+  [data-exporting] .finn-lens-reveal-on-export {
+    display: block !important;
+  }
+
   .finn-lens-toast {
     @apply rounded-2xl text-sm text-white shadow-lg relative;
     min-width: 320px;
@@ -107,5 +330,211 @@
     font-size: 0.7rem;
     opacity: 0.75;
     font-family: monospace;
+  }
+}
+
+/* ========================================
+   ATTENTION PULSE
+   For the settings Save button, the moment there is something to save.
+   Two beats and then still: a control that pulsed forever would be nagging,
+   and the ring is drawn with box-shadow so it costs the page no layout and
+   cannot nudge anything beside it.
+======================================== */
+
+@keyframes finn-lens-attention {
+  0%   { box-shadow: 0 0 0 0 rgba(0, 114, 234, 0.55); }
+  70%  { box-shadow: 0 0 0 9px rgba(0, 114, 234, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(0, 114, 234, 0); }
+}
+
+.finn-lens-attention {
+  animation: finn-lens-attention 1.4s ease-out 2;
+}
+
+/* Honour a reader who has asked the system for less movement. */
+@media (prefers-reduced-motion: reduce) {
+  .finn-lens-attention {
+    animation: none;
+  }
+}
+
+/* ========================================
+   BECKON
+   The same halo, but it does not stop.
+
+   `finn-lens-attention` above pulses twice and gives up, which is right for
+   the Save button it was written for: unsaved work is a state the reader can
+   see stated in words beside the control, so the animation only has to point
+   at it once.
+
+   A guided tour is the other case. Its whole premise is that the reader is
+   being asked to do one specific thing, right now, and nothing else on the
+   screen is asking — so the ask has to survive being read, thought about, and
+   come back to. It stops the moment the step is done, which is what keeps it
+   from being the nagging the two-beat version was avoiding.
+
+   Under reduced motion it becomes a still ring rather than nothing. Killing
+   it outright would take the pointing away from the reader who needs it most.
+======================================== */
+
+@keyframes finn-lens-beckon {
+  0%   { box-shadow: 0 0 0 0 rgba(0, 114, 234, 0.5); }
+  70%  { box-shadow: 0 0 0 11px rgba(0, 114, 234, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(0, 114, 234, 0); }
+}
+
+.finn-lens-beckon {
+  animation: finn-lens-beckon 2s ease-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .finn-lens-beckon {
+    animation: none;
+    box-shadow: 0 0 0 3px rgba(0, 114, 234, 0.35);
+  }
+}
+
+/* The same halo in white, for the one place that asks from a dark ground —
+   the tour's coach mark, which is navy so that it cannot be mistaken for one
+   more white card among the white cards it hangs over. A blue glow on navy is
+   a smudge; this is the same gesture, legible. */
+
+@keyframes finn-lens-beckon-light {
+  0%   { box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.55); }
+  70%  { box-shadow: 0 0 0 11px rgba(255, 255, 255, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(255, 255, 255, 0); }
+}
+
+.finn-lens-beckon-light {
+  animation: finn-lens-beckon-light 2s ease-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .finn-lens-beckon-light {
+    animation: none;
+    box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.4);
+  }
+}
+
+/* ========================================
+   IDLE SPIN, ON FINN.COM
+   `BRAND_IDLE_SPIN` from lib/brand-spinner.ts — fourteen seconds a turn,
+   stopped under reduced motion — spelled out for the mark drawn into
+   finn.com's page by `brandMark`.
+
+   The utility spelling does not survive there. Tailwind's utilities live in
+   `@layer utilities`, and any rule the page writes outside a layer outranks
+   every layered rule whatever the order, so a stylesheet of FINN's that
+   touches `animation` on the same element puts the wheel back to a turn a
+   second: a loader, not an idle.
+
+   Hence unlayered, `!important`, and a keyframe name nobody else can have.
+   Keep the duration in step with `BRAND_IDLE_SPIN`.
+======================================== */
+
+@keyframes finn-lens-idle-spin {
+  to { transform: rotate(360deg); }
+}
+
+.finn-lens-idle-spin {
+  animation: finn-lens-idle-spin 14s linear infinite !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .finn-lens-idle-spin {
+    animation: none !important;
+  }
+}
+
+/* ========================================
+   DRAWER
+   Every right-hand sheet in the product: the compare page's Adjust panel,
+   the priority panel that explains one row of it, the mock of both on the
+   setup tour, and the in-page panel over finn.com. They come in from the
+   right edge and go back out the same way. See `components/drawer.ts` for
+   the shell the React ones share.
+
+   Radix stamps `data-state` on the panel and on any scrim, and holds both in
+   the tree until their animations finish, so the keyframes below are all the
+   movement this needs — no transition classes, and nothing to keep in step
+   with the open flag in React. The in-page panel has no Radix, so
+   `lens-panel/panel.ts` stamps `data-state` itself and holds its host on the
+   page until the slide-out ends.
+======================================== */
+
+@keyframes finn-lens-drawer-in {
+  from { transform: translateX(100%); }
+  to   { transform: translateX(0); }
+}
+
+@keyframes finn-lens-drawer-out {
+  from { transform: translateX(0); }
+  to   { transform: translateX(100%); }
+}
+
+@keyframes finn-lens-scrim-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.finn-lens-drawer[data-state="open"] {
+  animation: finn-lens-drawer-in 260ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+.finn-lens-drawer[data-state="closed"] {
+  animation: finn-lens-drawer-out 200ms ease-in;
+}
+
+.finn-lens-scrim[data-state="open"] {
+  animation: finn-lens-scrim-in 200ms ease-out;
+}
+
+.finn-lens-scrim[data-state="closed"] {
+  animation: finn-lens-scrim-in 160ms ease-in reverse;
+}
+
+/* Honour a reader who has asked the system for less movement. */
+@media (prefers-reduced-motion: reduce) {
+  .finn-lens-drawer[data-state],
+  .finn-lens-scrim[data-state] {
+    animation: none;
+  }
+}
+
+/* ========================================
+   MODAL
+   The centred confirm dialog — see `entrypoints/settings/components/
+   ConfirmDialog.tsx`. It borrows `finn-lens-scrim` from the block above,
+   because a scrim is a scrim, and needs its own entrance: a drawer arrives
+   from an edge, a modal arrives in place.
+
+   These keyframes own `transform` outright, and can only do that because the
+   dialog is centred by a flex wrapper rather than by `-translate-x-1/2`.
+   Tailwind v4 writes its translate utilities to the `translate` property,
+   which composes with `transform` rather than replacing it — so centring by
+   class and animating `transform` here would move the modal twice.
+======================================== */
+
+@keyframes finn-lens-modal-in {
+  from { opacity: 0; transform: translateY(10px) scale(0.97); }
+  to   { opacity: 1; transform: none; }
+}
+
+@keyframes finn-lens-modal-out {
+  from { opacity: 1; transform: none; }
+  to   { opacity: 0; transform: translateY(4px) scale(0.98); }
+}
+
+.finn-lens-modal[data-state="open"] {
+  animation: finn-lens-modal-in 220ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+.finn-lens-modal[data-state="closed"] {
+  animation: finn-lens-modal-out 150ms ease-in;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .finn-lens-modal[data-state] {
+    animation: none;
   }
 }

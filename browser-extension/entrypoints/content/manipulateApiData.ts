@@ -2,9 +2,17 @@ import type { FinnApiConfig, FinnCar, FuelType, Transmission } from "@/lib/types
 import {
   getFeature,
   extractFeatures,
+  hasSuppliedEquipment,
+  extractUnansweredFeatures,
+  extractEquipmentText,
   extractAvailability,
   extractPricing,
+  extractContract,
   extractDriveType,
+  extractDriverAssistanceLevel,
+  extractDcChargeMinutes,
+  extractTowingCapacityKg,
+  extractTyres,
 } from "@/lib/helpers";
 import { germanToEnglish } from "@/lib/translate";
 
@@ -40,6 +48,7 @@ function mapFinnConfig(config: FinnApiConfig): FinnCar {
 
     availability: extractAvailability(config),
     pricing: extractPricing(config),
+    contract: extractContract(config),
 
     consumption: {
       combined: config.consumption,
@@ -81,6 +90,13 @@ function mapFinnConfig(config: FinnApiConfig): FinnCar {
     },
 
     features: extractFeatures(config),
+    featuresSupplied: hasSuppliedEquipment(config),
+    unansweredFeatures: extractUnansweredFeatures(config),
+    equipmentText: extractEquipmentText(config),
+    driverAssistanceLevel: extractDriverAssistanceLevel(config),
+    dcChargeMinutes: isElectric ? extractDcChargeMinutes(config) : null,
+    towingCapacityKg: extractTowingCapacityKg(config),
+    tyres: extractTyres(config),
 
     dimensions: {
       length: config.vehicle_size.length_mm,
