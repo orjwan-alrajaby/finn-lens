@@ -5,8 +5,7 @@ import type { ConverseRequest, WireUnderstanding } from "./contract";
 import { createMockAdapter } from "./mock";
 import { fleet } from "@/lib/reasoning-engine/test-data/fleet";
 import { evidenceCatalogue } from "@/lib/lens-chat/evidence";
-import { EMPTY_UNDERSTANDING, groundInWhatWasSaid, readQuestion, readUnderstanding, toWire } from "@/lib/lens-chat/understanding";
-import { quotesAreFinns } from "@/lib/lens-chat/fit-story";
+import { EMPTY_UNDERSTANDING, readQuestion, toWire } from "@/lib/lens-chat/understanding";
 
 /*
  * The stand-in for Gemini, held to the shapes the chat relies on. Everything
@@ -86,20 +85,5 @@ describe("the simulated Lens AI", () => {
         });
 
         expect(result.scope).toBe("pinned");
-    });
-
-    it("provokes the failures Lens has to catch", async () => {
-        const facts = { recommendation: { car: "Nissan Qashqai" } };
-        const quote = await turn("mock:bad-quote does it have screens?", { facts });
-
-        expect(quotesAreFinns(quote.reply, [{ car: "Nissan Qashqai", text: "Klimaanlage" }]).reply).toBe("");
-
-        const ages = await turn("mock:invented-age I have two kids and hate parking.");
-        const grounded = groundInWhatWasSaid(ages.reply, readUnderstanding(ages.understanding, EMPTY_UNDERSTANDING), ["I have two kids and hate parking."]);
-
-        expect(grounded.reply).not.toMatch(/3 and 7/);
-        expect(grounded.understanding.context.some((item) => /3 and 7/.test(item.label))).toBe(false);
-
-        expect((await turn("mock:empty I hate parking")).reply).toBe("");
     });
 });

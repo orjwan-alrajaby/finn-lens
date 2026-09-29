@@ -26,14 +26,10 @@ import type { Answered, LensAiAdapter } from "./contract";
  * the engine, the story. It never ranks anything, exactly like the model.
  *
  * It is not clever, and isn't meant to be. It covers the behaviours seen from
- * the live model in the round-two conversations, so each part of the chat can
- * be exercised on purpose. A few messages provoke the model's known failure
- * modes, to check Lens's guards still catch them:
- *
- *   mock:bad-quote       an answer quoting German FINN never wrote
- *   mock:invented-age    a reply stating children's ages nobody gave
- *   mock:empty           a reply with nothing in it
- *   mock:slow            a six-second wait, for the thinking state
+ * the live model in the round-two conversations. It is Lens's own reader in
+ * the chat now, so it only ever reads back what was said: the playground's
+ * triggers that made it quote German FINN never wrote, or state children's
+ * ages nobody gave, to test Lens's guards, are gone.
  */
 
 /* -------------------------------------------------------------------------- */
@@ -216,7 +212,7 @@ function readSituation(message: string, previous: WireUnderstanding) {
                 evidence: [
                     { id: "seatsFivePlus", use: "", mustHave: true },
                     { id: "seatsSixPlus", use: "", unwanted: true },
-                    { id: "rearDoors", use: "lets the kids get in and out on their own" },
+                    { id: "rearDoors", use: "separate doors for the back seats" },
                 ],
                 notInData: "how comfortably three fit across the back row",
             });
@@ -294,7 +290,7 @@ function readSituation(message: string, previous: WireUnderstanding) {
             said: "parking stresses you out",
             priorities: ["cityParking"],
             evidence: [
-                { id: "hasParkingSensors", use: "beeps faster as you get close to something you can't see" },
+                { id: "hasParkingSensors", use: "warns you as you get close to something you can't see" },
                 { id: "hasOneEightyDegreesReversingCamera", use: "shows you what's behind while you reverse" },
                 { id: "compactLength", use: "fits into more street spaces" },
             ],
@@ -362,14 +358,15 @@ function readSituation(message: string, previous: WireUnderstanding) {
     if (/mobility|getting in and out|get in and out|difficult (for her|for him) to get/i.test(text)) {
         add({
             id: "easy-in-out",
-            label: "Easy getting in and out for her",
+            label: "Easy getting in and out",
             importance: /more important/i.test(text) ? "essential" : "important",
-            said: "getting in and out is difficult for your mother",
-            priorities: ["practicality", "comfort"],
-            evidence: [
-                { id: "rearDoors", use: "gives her a door of her own if she sits in the back" },
-                { id: "hasElectricFrontSeatAdjustment", use: "lets the passenger seat be set where she can get in" },
-            ],
+            said: "getting in and out is difficult for someone who rides with you",
+            priorities: ["practicality"],
+            /*
+             * Only rear doors: FINN doesn't say whether the passenger seat is
+             * electric, and what matters most here isn't in its data at all.
+             */
+            evidence: [{ id: "rearDoors", use: "a door of their own if they sit in the back" }],
             notInData: "seat height and how wide the doors open",
         });
     }
@@ -383,7 +380,7 @@ function readSituation(message: string, previous: WireUnderstanding) {
             id: "kids-in-and-out",
             label: young ? "Getting the little ones in and out" : "Room for the kids",
             importance: young ? "essential" : "important",
-            said: young ? "getting the children into the car is a whole production" : "the kids come with you",
+            said: young ? "you have young children" : "the kids come with you",
             priorities: ["practicality"],
             evidence: [
                 { id: "rearDoors", use: "lets you reach the back seats without climbing past the front" },
@@ -461,7 +458,7 @@ function readSituation(message: string, previous: WireUnderstanding) {
             priorities: ["climateSuitability"],
             evidence: [
                 { id: "hasHeatedSeats", use: "warms you up on a cold start" },
-                { id: "hasHeatedSteeringWheel", use: "means no gloves on a cold morning" },
+                { id: "hasHeatedSteeringWheel", use: "is warm to hold on a cold morning" },
             ],
         });
     }
@@ -494,7 +491,8 @@ function readSituation(message: string, previous: WireUnderstanding) {
     }
 
     if (/efficien|economical|cheap to run/i.test(text)) {
-        add({ id: "efficient", label: "Cheap to run", importance: "important", said: "you want something efficient", priorities: ["environmental"], evidence: [] });
+        /* Judged on CO₂ per km, and named for it: running cost is already in every car's monthly figure. */
+        add({ id: "efficient", label: "Low CO₂ per km", importance: "important", said: "you want something efficient", priorities: ["environmental"], evidence: [] });
     }
 
     if (electricWanted && !partnerSplit) {
@@ -532,9 +530,7 @@ function readSituation(message: string, previous: WireUnderstanding) {
         context.push({ label: `Kids aged ${list.slice(0, -1).join(", ")} and ${list.at(-1)}`, said: `children aged ${list.join(", ")}` });
     }
     if (/charge at home|home charging|charging at home/i.test(text)) context.push({ label: "Can charge at home", said: "you can charge at home" });
-    if (/moving (from|to)|new job|small town/i.test(text)) context.push({ label: "Moving from the city to a small town", said: "you're moving to a small town for a new job" });
     if (/live alone|single|just me/i.test(text)) context.push({ label: "Mostly just you in the car", said: "it's mostly just you" });
-    if (/husband works nights|works nights/i.test(text)) context.push({ label: "Driving the kids home late while your husband works nights", said: "your husband works nights" });
 
     return { needs, context, capabilities, notModelled, droppedPriorities, dropNeeds, electricWanted, partnerSplit, young, ages: Boolean(ages) };
 }
@@ -592,7 +588,7 @@ function replyFor(
 
     /* A question inside the message is answered first, from what Lens does with it. */
     if (/does (that|this|the move) change|i don't know if|would it make sense|what kind of car makes sense/i.test(message) && u.monthlyKm && u.monthlyKm.value > 500) {
-        return `Your commute puts you at around ${u.monthlyKm.value.toLocaleString("en-GB")} km a month, well past the 500 km FINN includes, so extra-mileage pricing will be part of every car's cost — that matters more than the shape of the car.`;
+        return `At around ${u.monthlyKm.value.toLocaleString("en-GB")} km a month — more than the 500 km FINN's price includes — each car's cost includes the FINN mileage package that distance needs.`;
     }
 
     if (/don't (really )?know (what|which) (safety|features)/i.test(message)) {
@@ -629,10 +625,6 @@ function answerFromFacts(request: ConverseRequest): string {
     };
     const message = request.message.toLowerCase();
     const car = facts.recommendation?.car ?? "this car";
-
-    if (message.includes("mock:bad-quote")) {
-        return `FINN writes "Rücksitz-Unterhaltungssystem mit Doppelbildschirm" for the ${car}, a rear entertainment system with two screens.`;
-    }
 
     /* Equipment asked about in everyday words, and the label Lens gives it. */
     const topics: [RegExp, string][] = [
@@ -737,7 +729,7 @@ const TOUR_BASE: NeedRule[] = [
         said: "parking is the part you'd most like to be easier",
         priorities: ["cityParking"],
         evidence: [
-            { id: "hasParkingSensors", use: "beeps faster as you get close to something you can't see" },
+            { id: "hasParkingSensors", use: "warns you as you get close to something you can't see" },
             { id: "hasOneEightyDegreesReversingCamera", use: "shows you what's behind while you reverse" },
             { id: "compactLength", use: "fits into more street spaces" },
         ],
@@ -890,7 +882,7 @@ function converse(request: ConverseRequest): ConverseResult {
 
             answeredNeeds = [{ ...TOUR_BASE[3]!, importance: often as NeedImportance, said: /week/.test(reply) ? "you do longer drives every week" : /month/.test(reply) ? "you do a longer drive about once a month" : "longer drives hardly ever come up" }];
         } else if (/nervous|anxious/i.test(open.ask)) {
-            if (/park/.test(reply)) answeredNeeds = [{ id: "parking", label: "Parking without the stress", importance: "essential", said: "parking is what makes you nervous", priorities: ["cityParking"], evidence: [{ id: "hasParkingSensors", use: "beeps as you get close" }, { id: "hasThreeSixtyDegreesCamera", use: "shows every side while you park" }] }];
+            if (/park/.test(reply)) answeredNeeds = [{ id: "parking", label: "Parking without the stress", importance: "essential", said: "parking is what makes you nervous", priorities: ["cityParking"], evidence: [{ id: "hasParkingSensors", use: "warns you as you get close" }, { id: "hasThreeSixtyDegreesCamera", use: "shows every side while you park" }] }];
             if (/lane/.test(reply)) answeredNeeds = [{ id: "beside-you", label: "Cars you can't see beside you", importance: "essential", said: "changing lanes is what makes you nervous", priorities: ["safetyAssistance"], evidence: [{ id: "hasBlindSpotAssist", use: "warns you about a car in your blind spot" }] }];
             if (/traffic|motorway/.test(reply)) answeredNeeds = [{ id: "busy-traffic", label: "Busy traffic", importance: "essential", said: "busy traffic is what makes you nervous", priorities: ["safetyAssistance"], evidence: [{ id: "hasAdaptiveCruiseControl", use: "keeps your distance in stop-start traffic" }, { id: "hasEmergencyBrakingAssist", use: "brakes if you don't" }] }];
         }
@@ -941,7 +933,6 @@ function converse(request: ConverseRequest): ConverseResult {
         cleared: /no budget|forget the budget|no limit/i.test(message) ? ["budget"] : [],
     };
 
-    if (message.includes("mock:invented-age")) understanding.context = [...understanding.context, { label: "Kids aged 3 and 7", said: "two children aged 3 and 7" }];
 
     /* -- One question, only where the answer could change the cars --------- */
     const alreadyAsked = (ask: string) => request.answered.some((item) => item.question === ask);
@@ -1000,11 +991,7 @@ function converse(request: ConverseRequest): ConverseResult {
     }
     if (tourStep === 1 && !request.facts) offers.length = 0;
 
-    const reply = message.includes("mock:empty")
-        ? ""
-        : message.includes("mock:invented-age")
-          ? "Two kids aged 3 and 7 and a buggy to fit. Parking is the other thing you want easier."
-          : !request.facts && tourStep === 1
+    const reply = !request.facts && tourStep === 1
             ? `Got it — ${(answeredNeeds[0]?.label ?? "that").toLowerCase()} is what I'll lean on most now. One more thing, and then I can compare.`
             : !request.facts && tourStep === 2
               ? `That settles it — ${(answeredNeeds[0]?.said ?? "that").replace(/^you /, "you ")}, so I've weighed longer trips to match. Everything's in focus.`
@@ -1079,7 +1066,7 @@ function changeFrom(text: string, request: InterpretRequest | AskRequest): Propo
 /* -------------------------------------------------------------------------- */
 
 const pause = (message: string) =>
-    new Promise((resolve) => setTimeout(resolve, message.includes("mock:slow") ? 6000 : 450 + Math.random() * 600));
+    new Promise((resolve) => setTimeout(resolve, 450 + Math.random() * 600));
 
 const answered = <T>(result: T): Answered<T> => ({ result, model: "simulated" });
 
