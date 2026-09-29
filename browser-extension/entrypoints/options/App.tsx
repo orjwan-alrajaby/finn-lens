@@ -135,7 +135,7 @@ export function App() {
                 <Card
                     icon={<Database className="h-5 w-5" />}
                     title="Your data"
-                    subtitle={summary ? `Lens keeps about ${summary.kilobytes.toLocaleString("en-GB")} kB in this browser. Nothing is sent anywhere.` : "Everything Lens keeps in this browser."}
+                    subtitle={summary ? `Lens keeps about ${summary.kilobytes.toLocaleString("en-GB")} kB in this browser. None of it is sent anywhere.` : "Everything Lens keeps in this browser."}
                 >
                     <ul className="space-y-2">
                         {visible.map((group) => (
@@ -204,8 +204,8 @@ export function App() {
                             </a>
                             .
                         </li>
-                        <li>It only works on finn.com, reading the same car data FINN's own pages load while you browse.</li>
-                        <li>Everything it keeps stays in this browser. There's no account and no server.</li>
+                        <li>It only works on finn.com. It reads FINN's car data: what FINN's pages load as you browse, and FINN's own API for cars on the page it doesn't have yet.</li>
+                        <li>Everything it keeps stays in this browser, and nothing you tell it leaves it. There's no account and no Lens server: its only requests are to finn.com for car data, and for the car photos FINN's data links to.</li>
                     </ul>
                 </Card>
             </div>

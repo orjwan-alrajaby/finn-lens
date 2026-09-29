@@ -87,12 +87,17 @@ const COMMON_SHARE = 0.9;
 const joinNames = (names: string[]): string =>
     names.length <= 1 ? (names[0] ?? "") : `${names.slice(0, -1).join(", ")} and ${names.at(-1)}`;
 
+/*
+ * What a band is, not how much a car has: a band is a weighted score, and
+ * "covers most of what Lens could check" said of a car at 45 of 100 claimed a
+ * share the number doesn't carry.
+ */
 const BAND_MEANING: Record<FitLevel, string> = {
-    strong: "it covers what Lens could check for you well",
-    good: "it covers most of what Lens could check for you, with some gaps",
-    partial: "it covers some of what Lens could check for you, with clear gaps",
-    limited: "it misses much of what Lens could check for you",
-    unknown: "FINN's data on it is too thin for Lens to judge it confidently",
+    strong: "the top of Lens's four bands, worked out from which of the things you asked for FINN lists on it, weighted by how much each matters to you",
+    good: "the second of Lens's four bands, worked out from which of the things you asked for FINN lists on it, weighted by how much each matters to you",
+    partial: "the third of Lens's four bands, worked out from which of the things you asked for FINN lists on it, weighted by how much each matters to you",
+    limited: "the lowest of Lens's four bands, worked out from which of the things you asked for FINN lists on it, weighted by how much each matters to you",
+    unknown: "FINN's data on it is too thin for Lens to place it in a band",
 };
 
 /* "Blind spot warning" → "blind spot warning", but never "I" → "i" or "ISOFIX" → "iSOFIX". */
@@ -767,7 +772,10 @@ export function tellFitStory(
         carName: name(winner),
         band,
         bandLabel: FIT_BANDS[band].label,
-        bandMeaning: `Lens rates it a ${FIT_BANDS[band].label.toLowerCase()}: ${BAND_MEANING[band]}.`,
+        bandMeaning:
+            band === "unknown"
+                ? `${BAND_MEANING.unknown.charAt(0).toUpperCase()}${BAND_MEANING.unknown.slice(1)}.`
+                : `Lens rates it a ${FIT_BANDS[band].label.toLowerCase()}: ${BAND_MEANING[band]}.`,
         sections,
         catch: catchNote,
         stillToKnow,

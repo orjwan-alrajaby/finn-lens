@@ -125,13 +125,13 @@ const GROUP_ASK: Record<NeedGroup, { ask: string; why: string; none: string; pla
     },
     driving: {
         ask: "Where do you do most of your driving?",
-        why: "Each kind of driving adds different equipment: parking sensors and cameras for the city, adaptive cruise control for commuting and motorways, better headlights for night driving.",
+        why: "Each kind of driving adds different equipment: parking sensors and cameras for the city, adaptive cruise control for commuting and motorways, matrix LED and cornering lights for night driving.",
         none: "None of these",
         placeholder: "e.g. “mountain roads at weekends”",
     },
     weather: {
         ask: "What's the weather like where you live?",
-        why: "Cold winters add heated seats, a heated steering wheel and rain and light sensors to what I check; hot summers add ventilated seats and 3-zone climate control.",
+        why: "Cold winters add seat heating, a heated steering wheel and rain and light sensors to what I check; hot summers add seat cooling and 3-zone climate control.",
         none: "Nothing unusual",
         placeholder: "e.g. “lots of rain”",
     },
@@ -426,13 +426,13 @@ export function acknowledge(step: ChatStep, u: Understanding, chosen: string[] =
         case "period":
             return u.rental
                 ? `${monthLabel(u.rental.from)} to ${monthLabel(u.rental.to)}. I'll price each car on the FINN term that covers it.`
-                : "Fine — I'll go by each car's usual price.";
+                : "Fine — I'll use each car's price on FINN's default term.";
         case "distance":
             return u.monthlyKm
                 ? u.monthlyKm.value > FINN_INCLUDED_MONTHLY_KM
                     ? `About ${u.monthlyKm.value.toLocaleString("en-GB")} km a month. That's more than the ${FINN_INCLUDED_MONTHLY_KM.toLocaleString("en-GB")} km FINN's price includes, so I'll add the price of the mileage package each car needs for it.`
                     : `About ${u.monthlyKm.value.toLocaleString("en-GB")} km a month — that goes into each car's running cost.`
-                : `I'll assume about ${BASE_ANSWERS.preferences.monthlyKm.toLocaleString("en-GB")} km a month, then.`;
+                : `Then I'll assume about ${BASE_ANSWERS.preferences.monthlyKm.toLocaleString("en-GB")} km a month for fuel and mileage costs.`;
         default:
             return "";
     }
@@ -458,7 +458,7 @@ export function summaryOf(u: Understanding, id: string = messageId()): Extract<C
         label: "Driving",
         value: u.monthlyKm
             ? `About ${u.monthlyKm.value.toLocaleString("en-GB")} km a month`
-            : `About ${BASE_ANSWERS.preferences.monthlyKm.toLocaleString("en-GB")} km a month (my guess)`,
+            : `About ${BASE_ANSWERS.preferences.monthlyKm.toLocaleString("en-GB")} km a month (assumed — you didn't say)`,
         step: "distance",
     });
 
@@ -515,7 +515,7 @@ const KEEP: ChatStep = {
 const NO_NEEDS: ChatStep = {
     id: "noNeeds",
     ask: "Want to name something the car has to do?",
-    why: "Everything I judge is how well a car's listed equipment matches what you need. With nothing named, every car would score the same.",
+    why: "Everything I judge comes from what you name: the equipment a need points me at, or a car's CO₂. With nothing named, I have nothing to judge fit on.",
     multiple: false,
     choices: [{ id: "add", label: "Pick something", said: "Let me pick something." }],
     custom: { kind: "text", label: "Say it in my own words…", placeholder: "e.g. “long drives with two kids”" },
