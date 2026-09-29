@@ -3,7 +3,7 @@ import { ChevronRight, Scale, Trophy } from "lucide-react";
 
 import { BandChip, CarPhoto, euros } from "@/components/lens-parts";
 import { configurationName } from "@/lib/car-labels";
-import { summaryOf } from "@/lib/chats/flow";
+import { IMPORTANCE_LABEL, summaryOf } from "@/lib/chats/flow";
 import { requestOpenDrawer } from "@/lib/chats/bridge";
 import { alternativesWithinLimits } from "@/lib/lens-chat/run";
 import { whyNot } from "@/lib/lens-chat/why-not";
@@ -200,6 +200,17 @@ export function WinnerView({ value, print = false }: { value: JudgedCar; print?:
             ) : null}
 
             <Section title="What you told me">
+                {told.needs?.length ? (
+                    <ul className="mb-3 space-y-1.5">
+                        {told.needs.map((need) => (
+                            <li key={need.id} className="text-[12.5px]">
+                                <span className="font-black text-finn-black">{need.label}</span>
+                                <span className="text-finn-iron"> — {IMPORTANCE_LABEL[need.importance].toLowerCase()}</span>
+                                {need.looksFor.length ? <span className="block text-[11.5px] text-finn-iron">Looked for: {need.looksFor.join(" · ")}</span> : null}
+                            </li>
+                        ))}
+                    </ul>
+                ) : null}
                 <dl className="space-y-1.5">
                     {told.lines.map((line) => (
                         <div key={line.label} className="grid grid-cols-[112px_1fr] gap-3 text-[12.5px]">

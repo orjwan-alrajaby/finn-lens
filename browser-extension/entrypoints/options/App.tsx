@@ -4,7 +4,7 @@ import { Database, MessageCircle, ShieldCheck, Trash2 } from "lucide-react";
 import { BRAND_IDLE_SPIN } from "@/lib/brand-spinner";
 import { FINN_BASE_URL } from "@/lib/constants";
 import { clearGroups, DATA_GROUPS, summarise, type DataGroupId, type DataSummary } from "@/lib/chats/data";
-import { summaryOf } from "@/lib/chats/flow";
+import { IMPORTANCE_LABEL, summaryOf } from "@/lib/chats/flow";
 import { loadSettings, setActiveChat } from "@/lib/chats/store";
 import type { SavedSettings } from "@/lib/chats/types";
 
@@ -90,6 +90,19 @@ export function App() {
                 <Card icon={<MessageCircle className="h-5 w-5" />} title="Your answers" subtitle="What new chats start from. You change them by talking to Lens, not here.">
                     {settings === undefined ? null : told ? (
                         <>
+                            {told.needs?.length ? (
+                                <ul className="mb-3 space-y-2 rounded-2xl bg-white p-4 ring-1 ring-finn-cotton">
+                                    {told.needs.map((need) => (
+                                        <li key={need.id}>
+                                            <p className="flex items-baseline gap-2 text-[13.5px] font-black">
+                                                {need.label}
+                                                <span className="rounded-full bg-finn-pale-blue px-2 py-0.5 text-[11px] font-black text-finn-accent-blue">{IMPORTANCE_LABEL[need.importance]}</span>
+                                            </p>
+                                            {need.looksFor.length ? <p className="text-[12px] text-finn-iron">Lens looks for: {need.looksFor.join(" · ")}</p> : null}
+                                        </li>
+                                    ))}
+                                </ul>
+                            ) : null}
                             <dl className="divide-y divide-finn-cotton overflow-hidden rounded-2xl ring-1 ring-finn-cotton">
                                 {told.lines.map((line) => (
                                     <div key={line.label} className="grid grid-cols-[150px_1fr] gap-4 bg-white px-4 py-3 text-[13px]">
