@@ -68,6 +68,7 @@ export default defineConfig({
            * into it, or into the storage holding the reader's Lens AI key.
            */
           "lens-chat.html",
+          "lens-drawer.html",
           "chunks/*",
           "assets/*",
         ],

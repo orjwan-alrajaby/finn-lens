@@ -1,5 +1,5 @@
 import "@/assets/tailwind.css";
-import { OPEN_BUBBLE_KEY, takeOpenRequest } from "@/lib/chats/store";
+import { ACTIVE_CHAT_KEY, CHATS_KEY, OPEN_BUBBLE_KEY, takeOpenRequest } from "@/lib/chats/store";
 
 import { HOME_PAGE_SELECTOR, LISTINGS_PAGE_SELECTOR, DETAILS_PAGE_SELECTOR } from "./constants";
 import { mapFinnConfigToAll } from "./manipulateApiData";
@@ -7,6 +7,8 @@ import { mergeLoadedCars } from "./data/cache";
 import { ensurePageCars, forgetAsked } from "./car-data";
 import { setChatOpen, syncChatBubble } from "./lens/bubble";
 import { listenToFrames } from "./lens/bridge";
+import { paintChips, refreshChips } from "./lens/chips";
+import { closeDrawer } from "./lens/drawer";
 import { notifyPageChanged } from "./lens/frames";
 
 export default defineContentScript({
@@ -15,7 +17,8 @@ export default defineContentScript({
   /*
    * The stylesheet is built but never put on finn.com itself: it is a full
    * Tailwind build with a reset, and it is only ever wanted inside Lens's own
-   * shadow roots (the bubble fetches it from there).
+   * shadow roots (the bubble and the drawer fetch it from there). The chips
+   * carry their own few lines of CSS.
    */
   cssInjectionMode: "manual",
 
@@ -76,6 +79,9 @@ export default defineContentScript({
     );
 
     const runInjections = () => {
+      /* The chat's verdicts on whatever cards FINN has drawn now. */
+      paintChips();
+
       void syncChatBubble().catch((error: unknown) => {
         console.error("[FinnLens] couldn't add the Lens bubble", error);
       });
@@ -148,8 +154,12 @@ export default defineContentScript({
 
       lastPageKey = key;
 
-      /* A new page may show cars the last one couldn't get; let it try again. */
-      if (moved) forgetAsked();
+      /* A drawer still describing the car the reader has just left is worse than none. */
+      if (moved) {
+        closeDrawer();
+        /* A new page may show cars the last one couldn't get; let it try again. */
+        forgetAsked();
+      }
 
       if (navDebounceTimer !== null) {
         clearTimeout(navDebounceTimer);
@@ -165,12 +175,21 @@ export default defineContentScript({
     window.addEventListener("finnlens:navigate", onNavigate);
 
     /*
-     * More cars reaching Lens means the chat's "cars on this page" grew, so an
-     * open chat is told to re-read the page. And a request to open the bubble
-     * here — on install — is answered.
+     * Two things in storage change what the page shows:
+     *
+     * - **The active chat, or what it judged.** The chips follow the chat open
+     *   in the bubble, and come off when it has no judgement.
+     * - **The cars.** More of them reaching Lens means the chat's "cars on
+     *   this page" grew, so an open chat is told to re-read the page.
+     *
+     * And one asks for something: a request to open the bubble here.
      */
     browser.storage.onChanged.addListener((changes, areaName) => {
       if (areaName !== "local") return;
+
+      if (CHATS_KEY in changes || ACTIVE_CHAT_KEY in changes) {
+        void refreshChips().catch(reportChipFailure);
+      }
 
       if ("loadedCarsFromFinnApi" in changes) notifyPageChanged();
 
@@ -189,9 +208,19 @@ export default defineContentScript({
     };
 
     handleNavigation();
+    void refreshChips().catch(reportChipFailure);
 
     /* Just installed: the bubble opens by itself. */
     void openIfAsked();
     document.addEventListener("visibilitychange", () => void openIfAsked());
   },
 });
+
+/**
+ * A chip that couldn't be drawn is worth a line in the console and nothing
+ * more: FINN's page is unaffected, and the reader has lost a verdict rather
+ * than the use of the site.
+ */
+function reportChipFailure(error: unknown) {
+  console.error("[FinnLens] couldn't put Lens's verdicts on these cards", error);
+}

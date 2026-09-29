@@ -56,6 +56,7 @@ const lineVerdict = (line: CarLine, rank: number, winner: boolean): Verdict => (
     rank,
     winner,
     setAside: null,
+    over: line.budget === "over" ? "budget" : line.rental === "doesNotFit" ? "period" : null,
 });
 
 /**
@@ -102,6 +103,7 @@ export function verdictsFor(judged: Judged, cars: PinnedFinnCar[]): Record<numbe
                 rank: null,
                 winner: false,
                 setAside: "Further over your budget than the cars Lens ranked",
+                over: "budget",
             };
         }
     }
@@ -116,6 +118,7 @@ export function verdictsFor(judged: Judged, cars: PinnedFinnCar[]): Record<numbe
             label: "Ruled out",
             rank: null,
             winner: false,
+            over: null,
             setAside: broken
                 ? broken.mode === "without"
                     ? `You ruled out ${asPhrase(broken.id)}`

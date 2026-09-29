@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ArrowLeft, ArrowUp, MessagesSquare, SquarePen, X } from "lucide-react";
 
 import { BrandMark, IconButton } from "@/components/lens-parts";
-import { onPageChanged, requestCloseChat, requestPageContext, requestShowCar } from "@/lib/chats/bridge";
+import { onPageChanged, requestCloseChat, requestOpenDrawer, requestPageContext } from "@/lib/chats/bridge";
 import { loadedCars, pageCars } from "@/lib/chats/scope";
 import { activeChatId } from "@/lib/chats/store";
 
@@ -162,7 +162,7 @@ export function App() {
                                 typing={typing || busy}
                                 busy={busy}
                                 onAnswer={(askId, chosen) => void conversation.tap(askId, chosen)}
-                                onOpenCar={(id) => void requestShowCar(id)}
+                                onOpenCar={(id) => chat && void requestOpenDrawer(chat.id, id)}
                                 onWhy={() => void conversation.whyWinner()}
                             />
                         ) : null}

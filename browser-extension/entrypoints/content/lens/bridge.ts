@@ -8,13 +8,14 @@ import { highlightConfiguration } from "../page/highlight";
 import { currentSearch } from "../search";
 
 import { setChatOpen } from "./bubble";
+import { closeDrawer, openDrawer } from "./drawer";
 import { token } from "./frames";
 
 /**
  * What the page does for Lens's frames.
  *
- * The chat asks what the page shows and which cars it can judge, and can
- * point at a car's card or close itself. Every
+ * The chat asks what the page shows and which cars it can judge; either frame
+ * can open the drawer on a car, point at a car's card, or close itself. Every
  * request arrives through the background script with this page's token, so
  * only the frames this page created can ask.
  */
@@ -109,6 +110,13 @@ async function handle(message: ChatToPage): Promise<unknown> {
             setChatOpen(false);
             return { closed: true };
 
+        case "LENS_OPEN_DRAWER":
+            await openDrawer(message.chatId, message.carId);
+            return { opened: true };
+
+        case "LENS_CLOSE_DRAWER":
+            closeDrawer();
+            return { closed: true };
     }
 }
 

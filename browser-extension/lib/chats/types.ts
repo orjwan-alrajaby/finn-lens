@@ -56,6 +56,8 @@ export interface Verdict {
     winner: boolean;
     /** Why the car wasn't ranked, when the reader's rules set it aside. */
     setAside: string | null;
+    /** Ranked, but past one of the reader's limits: said on the chip beside the verdict. */
+    over: "budget" | "period" | null;
 }
 
 /** A car as a result message shows it. */

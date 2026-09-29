@@ -62,6 +62,15 @@ describe("judging", () => {
         expect(judgement.verdicts[judgement.winnerId!]?.setAside).toBeNull();
     });
 
+    it("says on the chip when a ranked car is over the reader's limit", () => {
+        const u = withBudget(EMPTY_UNDERSTANDING, 1, "a euro");
+        const judgement = judgementFrom(judged(u), cars(), u, "", "", {}, "");
+        const ranked = Object.values(judgement.verdicts).filter((verdict) => verdict.rank != null);
+
+        expect(ranked.length).toBeGreaterThan(0);
+        expect(ranked.every((verdict) => verdict.over === "budget")).toBe(true);
+    });
+
     it("says in the chat which car won, and names the ones closest behind it", () => {
         const u = withBudget(EMPTY_UNDERSTANDING, 2000, "up to 2000");
         const result = judged(u);

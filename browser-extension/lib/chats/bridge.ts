@@ -67,6 +67,11 @@ export const requestShowCar = (carId: number) => send<{ shown: boolean }>({ type
 
 export const requestCloseChat = () => send<{ closed: boolean }>({ type: "LENS_CHAT_CLOSE" });
 
+export const requestOpenDrawer = (chatId: string, carId: number) =>
+    send<{ opened: boolean }>({ type: "LENS_OPEN_DRAWER", chatId, carId });
+
+export const requestCloseDrawer = () => send<{ closed: boolean }>({ type: "LENS_CLOSE_DRAWER" });
+
 /** Calls `handler` whenever this frame's page says it changed. */
 export function onPageChanged(handler: () => void): () => void {
     const listener = (message: PageChanged) => {

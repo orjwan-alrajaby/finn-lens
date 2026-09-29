@@ -264,3 +264,8 @@ async function mount(): Promise<void> {
 
     document.documentElement.append(host);
 }
+
+/** Hides the bubble and the chat while the drawer has the right of the screen, and brings them back. */
+export function setBubbleVisible(visible: boolean): void {
+    if (host) host.style.display = visible ? "block" : "none";
+}

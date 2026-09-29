@@ -54,16 +54,20 @@ export type ChatToPage = { token: string } & (
     | { type: "LENS_CHAT_CONTEXT" }
     | { type: "LENS_CHAT_SHOW_CAR"; carId: number }
     | { type: "LENS_CHAT_CLOSE" }
+    | { type: "LENS_OPEN_DRAWER"; chatId: string; carId: number }
+    | { type: "LENS_CLOSE_DRAWER" }
 );
 
 export const CHAT_TO_PAGE_TYPES = new Set<string>([
     "LENS_CHAT_CONTEXT",
     "LENS_CHAT_SHOW_CAR",
     "LENS_CHAT_CLOSE",
+    "LENS_OPEN_DRAWER",
+    "LENS_CLOSE_DRAWER",
 ]);
 
 /** The extension pages allowed to use the bridge. */
-export const FRAME_PAGES = ["/lens-chat.html"] as const;
+export const FRAME_PAGES = ["/lens-chat.html", "/lens-drawer.html"] as const;
 
 /** Content script → background: the token this tab's chat frame will present. */
 export interface RegisterChat {

@@ -1,0 +1,165 @@
+import type { ReactNode } from "react";
+import { Check, CircleHelp, Info, Minus, X } from "lucide-react";
+
+import { BandChip, CarPhoto, euros, WinnerChip } from "@/components/lens-parts";
+import { configurationName } from "@/lib/car-labels";
+import type { CostAnalysis } from "@/lib/reasoning-engine/types";
+import type { FitStory, StorySection, Tone } from "@/lib/lens-chat/fit-story";
+
+import type { JudgedCar } from "./useJudgedCar";
+
+/**
+ * The pieces the drawer is built from: compact, so a car's whole reading fits
+ * the reader's eye, and every line still says what it is based on.
+ */
+
+export function Section({ title, children, aside }: { title: string; children: ReactNode; aside?: ReactNode }) {
+    return (
+        <section className="border-t border-finn-cotton px-5 py-4">
+            <div className="mb-2.5 flex items-baseline justify-between gap-3">
+                <h2 className="text-[11px] font-black uppercase tracking-wide text-finn-iron">{title}</h2>
+                {aside}
+            </div>
+            {children}
+        </section>
+    );
+}
+
+const TONE: Record<Tone, { icon: ReactNode; ring: string; label: string }> = {
+    good: { icon: <Check className="h-3 w-3" strokeWidth={3} />, ring: "bg-finn-fit-good-pale text-finn-fit-good", label: "Has it" },
+    missing: { icon: <X className="h-3 w-3" strokeWidth={3} />, ring: "bg-finn-fit-limited-pale text-finn-fit-limited", label: "Missing" },
+    unknown: { icon: <CircleHelp className="h-3 w-3" strokeWidth={2.5} />, ring: "bg-finn-cotton text-finn-iron", label: "Unknown" },
+    note: { icon: <Minus className="h-3 w-3" strokeWidth={3} />, ring: "bg-finn-fit-partial-pale text-finn-fit-partial", label: "Partly" },
+};
+
+export function ToneDot({ tone, size = "sm" }: { tone: Tone; size?: "sm" | "md" }) {
+    return (
+        <span
+            aria-label={TONE[tone].label}
+            className={`inline-flex shrink-0 items-center justify-center rounded-full ${TONE[tone].ring} ${size === "md" ? "h-6 w-6" : "h-[18px] w-[18px]"}`}
+        >
+            {TONE[tone].icon}
+        </span>
+    );
+}
+
+/** One thing the reader asked for, and what this car does about it. */
+export function StoryRow({ section }: { section: StorySection }) {
+    return (
+        <li className="rounded-xl bg-finn-snow p-3 ring-1 ring-black/[0.03]">
+            <div className="flex items-start gap-2.5">
+                <ToneDot tone={section.tone} size="md" />
+                <div className="min-w-0 flex-1">
+                    <p className="text-[13px] font-black leading-snug text-finn-black">{section.title}</p>
+                    <p className="text-[11px] text-finn-iron">You said: {section.short}</p>
+                </div>
+            </div>
+            <ul className="mt-2 space-y-1.5 pl-[34px]">
+                {section.lines.map((line, index) => (
+                    <li key={index} className="flex items-start gap-2 text-[12.5px] leading-snug text-finn-black">
+                        <span className="mt-px">
+                            <ToneDot tone={line.tone} />
+                        </span>
+                        <span className={line.tone === "note" ? "text-finn-iron" : ""}>{line.text}</span>
+                    </li>
+                ))}
+            </ul>
+        </li>
+    );
+}
+
+export function StoryList({ story }: { story: FitStory }) {
+    return (
+        <ul className="space-y-2">
+            {story.sections.map((section) => (
+                <StoryRow key={section.key} section={section} />
+            ))}
+        </ul>
+    );
+}
+
+export function Catch({ story }: { story: FitStory }) {
+    if (!story.catch) return null;
+
+    return (
+        <div className="flex gap-2.5 rounded-xl bg-finn-warning-lift/50 p-3 text-[12.5px] leading-snug text-finn-warning-ink">
+            <Info aria-hidden="true" className="mt-0.5 h-4 w-4 shrink-0" />
+            <div>
+                <p className="font-semibold">{story.catch.text}</p>
+                {story.catch.alternative ? <p className="mt-1">{story.catch.alternative}</p> : null}
+            </div>
+        </div>
+    );
+}
+
+/** Where the money goes, line by line, and what's estimated rather than FINN's own figure. */
+export function CostTable({ cost }: { cost: CostAnalysis }) {
+    const { breakdown } = cost;
+
+    return (
+        <div>
+            <dl className="divide-y divide-finn-cotton overflow-hidden rounded-xl ring-1 ring-finn-cotton">
+                {cost.lines.map((line) => (
+                    <div key={line.id} className="flex items-start justify-between gap-3 bg-white px-3 py-2.5">
+                        <dt className="min-w-0">
+                            <span className="block text-[12.5px] font-bold text-finn-black">{line.label}</span>
+                            <span className="block text-[11px] leading-snug text-finn-iron">{line.explanation}</span>
+                        </dt>
+                        <dd className="shrink-0 text-[13px] font-black tabular-nums text-finn-black">
+                            {line.available && line.amount != null ? euros(line.amount) : "—"}
+                        </dd>
+                    </div>
+                ))}
+                <div className="flex items-center justify-between gap-3 bg-finn-pale-blue px-3 py-2.5">
+                    <dt className="text-[12.5px] font-black text-finn-black">{breakdown.complete ? "A month, all in" : "A month, as far as Lens can tell"}</dt>
+                    <dd className="text-[15px] font-black tabular-nums text-finn-accent-blue">{euros(breakdown.totalMonthly)}</dd>
+                </div>
+            </dl>
+            {cost.budgetSentence ? <p className="mt-2 text-[12px] leading-snug text-finn-iron">{cost.budgetSentence}</p> : null}
+            {cost.caveats.map((caveat) => (
+                <p key={caveat} className="mt-1 text-[11.5px] leading-snug text-finn-iron">
+                    {caveat}
+                </p>
+            ))}
+        </div>
+    );
+}
+
+/** The car itself: photo, name, the chip it wears on FINN's card, and what it costs. */
+export function CarHeader({ value }: { value: JudgedCar }) {
+    const { car, verdict, judgement, cost, isWinner } = value;
+    const total = judgement.carIds.length;
+
+    return (
+        <div className="px-5 pt-4 pb-4">
+            <CarPhoto src={car.images?.thumbnail || null} alt={car.name} className="h-40 w-full rounded-2xl" />
+
+            <div className="mt-3 flex flex-wrap items-center gap-1.5">
+                {isWinner ? <WinnerChip /> : <BandChip band={verdict.setAside ? "unknown" : verdict.band} label={verdict.label} />}
+                {verdict.rank != null ? (
+                    <span className="rounded-full bg-finn-cotton px-2.5 py-1 text-[11px] font-black text-finn-black">
+                        #{verdict.rank} of {total}
+                    </span>
+                ) : null}
+                {verdict.over ? (
+                    <span className="rounded-full bg-finn-fit-limited-pale px-2.5 py-1 text-[11px] font-black text-finn-fit-limited">
+                        {verdict.over === "budget" ? "Over your budget" : "No term fits your period"}
+                    </span>
+                ) : null}
+            </div>
+
+            <div className="mt-2 flex items-end justify-between gap-3">
+                <div className="min-w-0">
+                    <h1 className="text-[19px] font-black leading-tight text-finn-black">{car.name}</h1>
+                    <p className="text-[12.5px] text-finn-iron">{configurationName(car)}</p>
+                </div>
+                {cost ? (
+                    <p className="shrink-0 text-right text-[11px] text-finn-iron">
+                        <span className="block text-[18px] font-black tabular-nums text-finn-black">{euros(cost.breakdown.totalMonthly)}</span>
+                        a month, all in
+                    </p>
+                ) : null}
+            </div>
+        </div>
+    );
+}
