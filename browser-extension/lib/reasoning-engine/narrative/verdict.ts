@@ -363,7 +363,7 @@ export function reasonAboutVerdict(
   const headline =
     evaluation.rank > 1 && budget != null
       ? sentence(
-          `${name} is the strongest match for what you told us that`,
+          `${name} is the strongest match for what you told Lens that`,
           fitsConfirmed(evaluation, context)
             ? `also fits your ${formatEUR(budget)}/month budget`
             : `isn't already over your ${formatEUR(budget)}/month budget`,

@@ -105,7 +105,7 @@ function describeComposition(
 
   return sentence(
     `That's ${first}, plus ${rest.join(", plus ")}, at the`,
-    `${formatKm(monthlyKm)}/month you told us you drive`,
+    `${formatKm(monthlyKm)}/month you told Lens you drive`,
   );
 }
 

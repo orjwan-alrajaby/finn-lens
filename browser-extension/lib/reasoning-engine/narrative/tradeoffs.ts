@@ -419,7 +419,7 @@ function costTradeoff(
       )
     : sentence(
         `Nothing you ranked separates the two by much, so that extra`,
-        `${formatEUR(difference)} a month isn't buying you anything you told us you wanted`,
+        `${formatEUR(difference)} a month isn't buying you anything you told Lens you wanted`,
       );
 
   return {

@@ -3,6 +3,8 @@ import { bandForScore } from "@/lib/reasoning-engine/bands";
 import { FIT_BANDS, type FitLevel } from "@/lib/reasoning-engine/fit";
 import { totalFor } from "@/lib/reasoning-engine/scoring";
 import { assessEnvironment } from "@/lib/reasoning-engine/environmental";
+import { isStatedFact } from "@/lib/reasoning-engine/evidence";
+import type { SignalId } from "@/lib/reasoning-engine/types";
 import type { WireQuestion } from "@/lib/lens-ai/contract";
 import { carLabel } from "@/lib/lens-ai/outcome";
 import type { PinnedFinnCar } from "@/lib/types";
@@ -79,6 +81,19 @@ export interface FitStory {
     catch: { text: string; alternative: string | null } | null;
     /** What Lens still needs to know, if the conversation left something open. */
     stillToKnow: WireQuestion | null;
+}
+
+/**
+ * Something the car doesn't have, said as what Lens actually knows. A stated
+ * fact — the gearbox, the drive type, the seat count — is a no: "it doesn't
+ * have all-wheel drive". An equipment list that doesn't mention something is
+ * only that: "FINN doesn't list fog lights for this car".
+ */
+function absent(id: EvidenceId): string {
+    const label = EVIDENCE[id].label;
+    const named = /^(I\b|[A-Z]{2,})/.test(label) ? label : label.charAt(0).toLowerCase() + label.slice(1);
+
+    return isStatedFact(id as SignalId) ? `It doesn't have ${named}` : `FINN doesn't list ${named} for this car`;
 }
 
 /** Equipment on at least this share of the cars in scope can't be why one of them was chosen. */
@@ -254,7 +269,7 @@ function evidenceLine(
             : isKind(entry.id)
               ? /* A kind of car is something it is, not an item on a list. */
                 { tone: "missing", text: `It isn't ${asPhrase(entry.id)}.` }
-              : { tone: "missing", text: `FINN doesn't list ${lower(def.label)} for this car.` };
+              : { tone: "missing", text: `${absent(entry.id)}.` };
     }
 
     return { tone: "unknown", text: `FINN doesn't say whether it has ${lower(def.label)}.` };
@@ -706,7 +721,7 @@ export function tellFitStory(
                          * mattered: that range against the trip they described.
                          */
                         `${MEASURED_LEAD[gap.entry.id] ?? "It's"} ${measuredDisplay(winner, gap.entry.id)} — worth weighing for ${lower(gap.need.label)}.`
-                      : `FINN doesn't list ${lower(EVIDENCE[gap.entry.id].label)} for this car — worth weighing for ${lower(gap.need.label)}.`,
+                      : `${absent(gap.entry.id)} — worth weighing for ${lower(gap.need.label)}.`,
                 alternative: gap.alternative
                     ? `${name(gap.alternative)} ${gap.entry.unwanted ?? EVIDENCE[gap.entry.id].undesirable ? "isn't one" : measuredDisplay(winner, gap.entry.id) ? "does better on it" : "has it"}${altCost ? `, at about ${formatEUR(altCost.totalMonthly)}/month` : ""}${u.budget?.kind === "hardMax" ? " — still within your maximum" : ""}${
                           lengthGap(gap.alternative, winner, "this one") ? `, and it's ${lengthGap(gap.alternative, winner, "this one")}` : ""

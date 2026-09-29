@@ -40,7 +40,7 @@ export const FOLLOW_UPS: Record<string, FollowUp> = {
     kids: {
         need: "kids",
         ask: "Do your kids still ride in child seats?",
-        why: "Child seats are fixed with ISOFIX anchors, and rear doors make fitting them easier. Older children don't need either, but use USB ports and climate settings in the back. Your answer decides which of these I count.",
+        why: "Your answer decides whether I count ISOFIX anchors, which child seats fix to, or instead rear USB ports and a rear climate setting for children who no longer use one.",
         choices: [
             {
                 id: "seats",
@@ -69,7 +69,7 @@ export const FOLLOW_UPS: Record<string, FollowUp> = {
     motorway: {
         need: "motorway",
         ask: "How often are you on the motorway?",
-        why: "Adaptive cruise control, Level 2 driver assistance and lower-back support are only used on long drives, so how often you do them decides how much they count.",
+        why: "Your answer sets how much long motorway drives count — and with them adaptive cruise control, Level 2 driver assistance, lower-back support and a head-up display — against your other needs.",
         choices: [
             { id: "weekly", label: "Every week", said: "Every week.", importance: "essential", reply: "Every week: I'll treat long motorway drives as a must-have." },
             { id: "monthly", label: "About once a month", said: "About once a month.", importance: "important", reply: "Once a month: I'll count long motorway drives as important." },
@@ -79,7 +79,7 @@ export const FOLLOW_UPS: Record<string, FollowUp> = {
     commute: {
         need: "commute",
         ask: "How long is your commute, one way?",
-        why: "The longer the commute, the more you use adaptive cruise control and an automatic gearbox in traffic, so its length decides how much they count.",
+        why: "Your answer sets how much your commute counts — and with it adaptive cruise control, an automatic gearbox, keyless entry and CarPlay — against your other needs.",
         choices: [
             { id: "short", label: "Under 20 minutes", said: "Under 20 minutes.", importance: "niceToHave", reply: "Under 20 minutes: I'll count your commute as nice to have." },
             { id: "medium", label: "20–45 minutes", said: "Between 20 and 45 minutes.", importance: "important", reply: "20–45 minutes: I'll count your commute as important." },
@@ -89,7 +89,7 @@ export const FOLLOW_UPS: Record<string, FollowUp> = {
     city: {
         need: "city",
         ask: "Where do you usually park?",
-        why: "On the street, a shorter car and a camera that shows all four sides help most. In garages and car parks, width and mirrors that fold in matter more. Your answer adds the one that fits.",
+        why: "Your answer decides whether I also count a 360° camera, for tight street spaces, or mirrors that fold in, for narrow garage and car-park bays.",
         choices: [
             {
                 id: "street",
@@ -117,7 +117,7 @@ export const FOLLOW_UPS: Record<string, FollowUp> = {
     winter: {
         need: "winter",
         ask: "What are your winters like?",
-        why: "On snow and ice I'd add all-wheel drive for grip and an auxiliary heater that warms the car before you get in. In a cold but dry winter, heated seats and a heated steering wheel cover it.",
+        why: "Snow and ice adds all-wheel drive and an auxiliary heater to what I check, and makes winter a must-have; a cold but dry winter keeps the list as it is.",
         choices: [
             {
                 id: "snow",
@@ -125,7 +125,7 @@ export const FOLLOW_UPS: Record<string, FollowUp> = {
                 said: "Snow and ice.",
                 importance: "essential",
                 add: [
-                    { id: "hasAllWheelDrive", why: "for grip pulling away and braking on snow and ice" },
+                    { id: "hasAllWheelDrive", why: "for grip pulling away and climbing on snow and ice — it doesn't shorten braking" },
                     { id: "hasAuxiliaryHeater", why: "so the car is warm and the windows clear before you set off" },
                 ],
                 reply: "Snow and ice: winter is a must-have, and I'll also count all-wheel drive and an auxiliary heater.",
@@ -249,7 +249,7 @@ export const WORTH_A_LOOK: Record<string, { id: EvidenceId; why: string }[]> = {
     winter: [
         { id: "hasHeatPump", why: "so an electric car loses less range heating the cabin in winter" },
         { id: "hasAuxiliaryHeater", why: "so the car is warm and the windows clear before you set off" },
-        { id: "hasAllWheelDrive", why: "for grip pulling away and braking on snow and ice" },
+        { id: "hasAllWheelDrive", why: "for grip pulling away and climbing on snow and ice — it doesn't shorten braking" },
         { id: "hasHeadlightCleaningSystem", why: "because winter roads coat them in salt" },
     ],
     carrying: [
