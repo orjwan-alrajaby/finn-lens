@@ -21,7 +21,8 @@ import type { Understanding } from "@/lib/lens-chat/understanding";
  */
 
 /**
- * Lens's questions. `focus` asks which need matters most; `offers` stands for
+ * Lens's questions. `life` stands for the needs, asked a group at a time as
+ * `life-people`, `life-driving`…; `focus` asks which need matters most; `offers` stands for
  * the equipment worth a look, expanded into one `offer-…` question each when
  * it's reached; `follow-…` is the second question about one need.
  */
@@ -33,6 +34,7 @@ export type StepId =
     | "keep"
     | "focus"
     | "offers"
+    | `life-${NeedGroup}`
     | `follow-${string}`
     | `offer-${string}`;
 

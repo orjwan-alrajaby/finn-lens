@@ -462,7 +462,7 @@ const needFor = (step: GuideStepId, choice: GuideChoice): Need | null => {
 /**
  * What the reader tapped, as something Lens understands.
  *
- * The step replaces its own answers and leaves everything else alone: someone
+ * The step replaces its own choices' answers and leaves everything else alone: someone
  * revisiting "what does the car have to do" is changing that answer, not
  * withdrawing their budget or their rules. Tapping nothing is an answer too —
  * it clears what that step had said.
@@ -470,7 +470,13 @@ const needFor = (step: GuideStepId, choice: GuideChoice): Need | null => {
 export function applyChoices(u: Understanding, step: GuideStep, chosen: string[]): Understanding {
     const picked = step.choices.filter((choice) => chosen.includes(choice.id));
     const mine = ownedBy(step.id);
-    const kept = u.needs.filter((need) => !need.id.startsWith(mine));
+    /*
+     * Only the needs this step's own choices stand for. The chat asks the
+     * needs a group at a time — who's in the car, then where you drive — and
+     * answering the weather must not undo what was said about passengers.
+     */
+    const owned = new Set(step.choices.map((choice) => `${mine}${choice.id}`));
+    const kept = u.needs.filter((need) => !owned.has(need.id));
     const added = picked.map((choice) => needFor(step.id, choice)).filter((need): need is Need => need != null);
 
     const distance = step.id === "distance" ? (picked.find((choice) => choice.monthlyKm != null) ?? null) : null;

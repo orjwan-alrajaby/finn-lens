@@ -112,8 +112,45 @@ export function rentalFor(u: Understanding, months: number, said: string, today 
 
 const labelsOf = (ids: EvidenceId[]) => ids.map((id) => EVIDENCE[id]?.label).filter((label): label is string => Boolean(label));
 
+/**
+ * The needs, asked a group at a time: a short question the reader can
+ * answer in a glance, rather than seventeen chips at once. Each says why it
+ * matters, and each has its own way of saying "none of these".
+ */
+const GROUP_ASK: Record<NeedGroup, { ask: string; why: string; none: string; placeholder: string }> = {
+    people: {
+        ask: "First, who's usually in the car with you?",
+        why: "Passengers change what a car needs — child seats, a dog, someone who needs an easy way in. Each points me at equipment I can check car by car; tap the “i” on any of them to see what.",
+        none: "Just me",
+        placeholder: "e.g. “my mum, who uses a walker”",
+    },
+    driving: {
+        ask: "Where do you do most of your driving?",
+        why: "City streets, a daily commute and long motorway runs ask for different things — help parking, less work in traffic, or comfort at speed.",
+        none: "None of these",
+        placeholder: "e.g. “mountain roads at weekends”",
+    },
+    weather: {
+        ask: "What's the weather like where you live?",
+        why: "Harsh winters or hot summers decide whether things like heated seats, all-wheel drive or cooled seats earn their keep.",
+        none: "Nothing unusual",
+        placeholder: "e.g. “lots of rain”",
+    },
+    loads: {
+        ask: "What do you carry?",
+        why: "Bulky shopping, bikes or a trailer need a boot, seats and fittings that suit them.",
+        none: "Nothing much",
+        placeholder: "e.g. “a double buggy”",
+    },
+    you: {
+        ask: "Last one about you: anything else that matters in a car?",
+        why: "How you feel behind the wheel, the tech you use, day-to-day comfort, emissions — these tip the balance between cars that otherwise fit.",
+        none: "Nothing else",
+        placeholder: "In your own words, e.g. “I drive home after night shifts”",
+    },
+};
+
 const WHY: Record<string, string> = {
-    life: "Everything I judge follows from this. Each one points me at equipment FINN lists, so I can check it car by car — and I'll show you what, as you choose.",
     rules: "Anything you pick here takes cars out before I score them, so only choose what you'd truly refuse.",
     budget: "A car over your limit can't be my pick. FINN's price is only part of the cost, so I add fuel or charging and any extra kilometres to compare them fairly.",
     period: "FINN prices each car by how long you subscribe, and not every car is offered for every length — so this changes both the price and which cars fit.",
@@ -243,22 +280,30 @@ export function stepFor(id: StepId, cars: FinnCar[], u: Understanding = EMPTY_UN
         };
     }
 
-    const step = guideSteps(cars).find((item) => item.id === id);
+    if (id.startsWith("life-")) {
+        const group = id.slice("life-".length) as NeedGroup;
+        const life = guideSteps(cars).find((item) => item.id === "life");
+        const choices = life?.choices.filter((choice) => choice.group === group) ?? [];
+        const words = GROUP_ASK[group];
 
-    if (!step || !step.choices.length) return null;
+        if (!life || !choices.length || !words) return null;
 
-    const chat = fromGuide(step);
-
-    if (step.id === "life") {
-        const present = [...new Set(step.choices.map((choice) => choice.group).filter((group): group is NeedGroup => Boolean(group)))];
-
+        /* The guide's own step, narrowed to this group, so answering it replaces this group's answers only. */
         return {
-            ...chat,
-            ask: "What does the car have to do for you?",
-            groups: present.map((group) => ({ id: group, title: NEED_GROUPS[group] })),
-            custom: { kind: "text", label: "Something else…", placeholder: "In your own words, e.g. “I drive home after night shifts”" },
+            ...fromGuide({ ...life, choices }),
+            id,
+            ask: words.ask,
+            why: words.why,
+            none: words.none,
+            custom: { kind: "text", label: "Something else…", placeholder: words.placeholder },
         };
     }
+
+    const step = guideSteps(cars).find((item) => item.id === id);
+
+    if (!step || !step.choices.length || step.id === "life") return null;
+
+    const chat = fromGuide(step);
 
     if (step.id === "rules") {
         return { ...chat, custom: { kind: "text", label: "Something else…", placeholder: "e.g. “no seven-seaters”" } };
@@ -271,10 +316,10 @@ export function stepFor(id: StepId, cars: FinnCar[], u: Understanding = EMPTY_UN
 export function selectedFor(step: ChatStep, u: Understanding, picks: Record<string, string[]> = {}): string[] {
     const valid = (ids: string[]) => ids.filter((id) => step.choices.some((choice) => choice.id === id));
 
-    if (step.id === "life" || step.id === "rules") {
+    if (step.guide && (step.guide.id === "life" || step.guide.id === "rules")) {
         const owned = new Set(u.needs.filter((need) => need.status === "active").map((need) => need.id));
 
-        return step.choices.filter((choice) => owned.has(`${step.id}-${choice.id}`)).map((choice) => choice.id);
+        return step.choices.filter((choice) => owned.has(`${step.guide!.id}-${choice.id}`)).map((choice) => choice.id);
     }
 
     if (step.id === "focus") return valid(u.needs.filter((need) => need.status === "active" && need.importance === "essential").map((need) => need.id)).slice(0, 1);
@@ -313,8 +358,17 @@ export function answered(id: StepId, u: Understanding): boolean {
 /* Saying it back                                                             */
 /* -------------------------------------------------------------------------- */
 
+/** What Lens says to a group none of whose needs apply. */
+const NOTHING_HERE: Record<NeedGroup, string> = {
+    people: "Just you — noted.",
+    driving: "Fine — no one kind of driving, then.",
+    weather: "Nothing unusual — I won't weigh the weather.",
+    loads: "Nothing much to carry — noted.",
+    you: "Nothing else — good.",
+};
+
 /** What Lens says after an answer: that it heard, and what it will do with it. */
-export function acknowledge(step: ChatStep, u: Understanding, chosen: string[] = []): string {
+export function acknowledge(step: ChatStep, u: Understanding, chosen: string[] = [], before: Set<string> = new Set()): string {
     if (step.followUp) {
         const replies = step.followUp.choices.filter((choice) => chosen.includes(choice.id)).map((choice) => choice.reply);
 
@@ -329,18 +383,21 @@ export function acknowledge(step: ChatStep, u: Understanding, chosen: string[] =
             : "Fine, I'll leave it out and won't offer it again.";
     }
 
+    if (step.id.startsWith("life-")) {
+        /* What this group heard — its own picks, and anything typed alongside them. */
+        const own = new Set(step.choices.map((choice) => `life-${choice.id}`));
+        const needs = lifeNeeds(u).filter((need) => own.has(need.id) || (!need.id.startsWith("life-") && !before.has(need.id)));
+
+        if (!needs.length) return NOTHING_HERE[step.id.slice("life-".length) as NeedGroup] ?? "Noted.";
+
+        const looks = [...new Set(needs.flatMap((need) => labelsOf(need.evidence.map((entry) => entry.id))))].slice(0, 4);
+
+        return looks.length
+            ? `Got it — ${joined(needs.map((need) => lower(need.label)))}. For ${needs.length === 1 ? "that" : "those"} I'll check things like ${joined(looks.map(lower))}.`
+            : `Got it — ${joined(needs.map((need) => lower(need.label)))}.`;
+    }
+
     switch (step.id) {
-        case "life": {
-            const needs = lifeNeeds(u);
-
-            if (!needs.length) return "No problem — I'll weigh what FINN lists on each car evenly.";
-
-            const looks = [...new Set(needs.flatMap((need) => labelsOf(need.evidence.map((entry) => entry.id))))].slice(0, 4);
-
-            return looks.length
-                ? `Got it — ${joined(needs.map((need) => lower(need.label)))}. For those I'll check things like ${joined(looks.map(lower))}.`
-                : `Got it — ${joined(needs.map((need) => lower(need.label)))}.`;
-        }
         case "focus": {
             const top = u.needs.find((need) => chosen.includes(need.id));
             const others = step.choices.filter((choice) => !chosen.includes(choice.id)).map((choice) => lower(choice.label));
@@ -462,6 +519,19 @@ export function askNext(chat: Chat, cars: FinnCar[]): Chat {
 
     while (queue.length) {
         const id = queue.shift()!;
+
+        /*
+         * The needs, reached: one short question per group of them. Skipped
+         * whole when the reader has already said what the car has to do in
+         * their own words — asking five more questions would be asking them
+         * to repeat themselves.
+         */
+        if (id === "life") {
+            if (!preselect && answered("life", u)) continue;
+
+            queue = [...(Object.keys(NEED_GROUPS) as NeedGroup[]).map((group) => `life-${group}` as StepId), ...queue];
+            continue;
+        }
 
         /* Equipment worth a look, reached: one question each, from what the cars here differ on. */
         if (id === "offers") {
@@ -656,10 +726,10 @@ export function answer(
     } else if (step.guide) {
         understanding = applyChoices(understanding, step.guide, chosen);
 
-        if (step.id === "life") {
-            /* The second question about each need where it changes something, straight after this one. */
+        if (step.id.startsWith("life-")) {
+            /* The second question about each need where it changes something, straight after its group. */
             const follow = chosen.filter((id) => followUpFor(id)).map((id) => `follow-${id}` as StepId);
-            queue = [...follow, ...queue.filter((id) => !id.startsWith("follow-"))];
+            queue = [...follow, ...queue.filter((id) => !follow.includes(id))];
         }
 
         if (step.id === "distance" && extra.amount != null) {
@@ -678,9 +748,11 @@ export function answer(
         understanding = months ? rentalFor(understanding, Math.round(months), said, today) : waiveEssential(understanding, "rental");
     }
 
-    if (!said) said = step.guide ? saidFor(step.guide, chosen) : (step.none ?? "");
+    /* Nothing tapped: the reader said this question's own "none" — "Just me", "Nothing much" — not the guide's. */
+    if (!said) said = chosen.length && step.guide ? saidFor(step.guide, chosen) : (step.none ?? "");
 
-    const reply = [extra.heard?.reply, acknowledge(step, understanding, chosen)].filter(Boolean).join(" ");
+    const before = new Set(chat.understanding.needs.map((need) => need.id));
+    const reply = [extra.heard?.reply, acknowledge(step, understanding, chosen, before)].filter(Boolean).join(" ");
     const next = touch(base, [reader(said), lens(reply)], { understanding, queue });
 
     return { chat: askNext(next, cars), after: "wait" };

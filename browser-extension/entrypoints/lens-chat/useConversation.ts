@@ -201,7 +201,7 @@ export function useConversation(page: PageCars) {
                          */
                         reply: !read.changes.length
                             ? `I couldn't find anything in “${extra.text}” that I can check on a car, so I've gone with what you tapped.`
-                            : ask?.kind === "ask" && (ask.step.id === "life" || ask.step.id === "rules")
+                            : ask?.kind === "ask" && (ask.step.id.startsWith("life-") || ask.step.id === "rules")
                               ? ""
                               : read.reply || "Got it.",
                     };
@@ -286,7 +286,9 @@ export function useConversation(page: PageCars) {
                  */
                 const open = [...current.messages].reverse().find((item) => item.kind === "ask" && !item.answered);
                 const queue =
-                    open?.kind === "ask" && STEP_ORDER.includes(open.step.id) ? [open.step.id, ...heard.queue.filter((id) => id !== open.step.id)] : heard.queue;
+                    open?.kind === "ask" && (STEP_ORDER.includes(open.step.id) || open.step.id.startsWith("life-"))
+                        ? [open.step.id, ...heard.queue.filter((id) => id !== open.step.id)]
+                        : heard.queue;
 
                 /*
                  * Anything that changes what Lens judges by comes back round to

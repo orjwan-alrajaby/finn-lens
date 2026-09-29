@@ -32,8 +32,11 @@ function walk(chat: Chat, picks: Partial<Record<StepId | "offer", string[]>>): C
         const ask = openAsk(current);
         if (!ask || ask.step.id === "keep" || ask.step.id === "start") return current;
 
-        const id = ask.step.id.startsWith("offer-") ? "offer" : ask.step.id;
-        current = answer(current, ask.id, picks[id as StepId | "offer"] ?? [], cars(), TODAY).chat;
+        const id = ask.step.id.startsWith("offer-") ? "offer" : ask.step.id.startsWith("life-") ? "life" : ask.step.id;
+        const own = new Set(ask.step.choices.map((choice) => choice.id));
+        /* The needs are asked a group at a time: each group gets the picks that are its own. */
+        const chosen = (picks[id as StepId | "offer"] ?? []).filter((pick) => id !== "life" || own.has(pick));
+        current = answer(current, ask.id, chosen, cars(), TODAY).chat;
     }
 
     throw new Error("Lens never stopped asking");
@@ -47,7 +50,7 @@ describe("a first chat", () => {
         expect(hello).toMatch(/I'm Lens/);
         expect(how).toMatch(/chip/);
         expect(how).toMatch(/trophy/);
-        expect(openAsk(chat)?.step.id).toBe("life");
+        expect(openAsk(chat)?.step.id).toBe("life-people");
         expect(chat.phase).toBe("asking");
         expect(chat.judgement).toBeNull();
     });
@@ -62,7 +65,12 @@ describe("a first chat", () => {
 
         const asked = chat.messages.filter((message): message is Ask => message.kind === "ask").map((message) => message.step.id);
 
-        expect(asked.filter((id) => id === "life")).toHaveLength(1);
+        for (const group of ["life-people", "life-driving", "life-weather", "life-loads", "life-you"]) {
+            expect(asked.filter((id) => id === group), group).toHaveLength(1);
+        }
+        /* A group's follow-up comes straight after it, before the next group. */
+        expect(asked.indexOf("follow-kids")).toBe(asked.indexOf("life-people") + 1);
+        expect(asked.indexOf("follow-motorway")).toBe(asked.indexOf("life-driving") + 1);
         expect(asked).toContain("budget");
         expect(asked).toContain("period");
         expect(asked).toContain("distance");
@@ -149,7 +157,7 @@ describe("a chat from saved settings", () => {
         const ask = openAsk(changing)!;
 
         expect(changing.revising).toBe(true);
-        expect(ask.step.id).toBe("life");
+        expect(ask.step.id).toBe("life-people");
         expect(ask.step.selected).toEqual(["kids"]);
     });
 
@@ -159,18 +167,18 @@ describe("a chat from saved settings", () => {
 
         expect(fresh.understanding.needs).toEqual([]);
         expect(fresh.kept).toBeNull();
-        expect(openAsk(fresh)?.step.id).toBe("life");
+        expect(openAsk(fresh)?.step.id).toBe("life-people");
     });
 });
 
 describe("after a judgement", () => {
     it("asks every question again, with what was said already picked", () => {
-        const asked = walk(startChat(null, cars(), TODAY), { life: ["winter"], budget: ["budget-500"] });
+        const asked = walk(startChat(null, cars(), TODAY), { life: ["kids", "winter"], budget: ["budget-500"] });
         const changed = changeAnswers({ ...asked, phase: "judged" }, cars());
         const ask = openAsk(changed)!;
 
-        expect(ask.step.id).toBe("life");
-        expect(ask.step.selected).toEqual(["winter"]);
+        expect(ask.step.id).toBe("life-people");
+        expect(ask.step.selected).toEqual(["kids"]);
         expect(changed.kept).toBeNull();
     });
 });
@@ -192,12 +200,31 @@ describe("a conversation, not a form", () => {
 
         expect(kids.description).toMatch(/child seats/i);
         expect(kids.looksFor).toContain("ISOFIX child seat anchors");
-        expect(openAsk(chat)!.step.groups!.map((group) => group.title)).toContain("Who's in the car");
+        expect(openAsk(chat)!.step.ask).toMatch(/who's usually in the car/i);
+    });
+
+    it("asks the needs a group at a time, each keeping the others' answers", () => {
+        const start = startChat(null, cars(), TODAY);
+        const people = answer(start, openAsk(start)!.id, ["kids"], cars(), TODAY).chat;
+        const afterFollowUp = answer(people, openAsk(people)!.id, ["boosters"], cars(), TODAY).chat;
+
+        expect(openAsk(afterFollowUp)?.step.id).toBe("life-driving");
+        expect(openAsk(afterFollowUp)!.step.choices.map((choice) => choice.id)).not.toContain("kids");
+
+        const driving = answer(afterFollowUp, openAsk(afterFollowUp)!.id, [], cars(), TODAY).chat;
+        const ids = driving.understanding.needs.map((need) => need.id);
+
+        expect(ids).toContain("life-kids");
+        expect(texts(driving).at(-1)).toMatch(/no one kind of driving/);
+        expect(driving.messages.filter((message) => message.from === "reader").at(-1)).toMatchObject({ text: "None of these" });
+
+        const weather = answer(driving, openAsk(driving)!.id, [], cars(), TODAY).chat;
+        expect(weather.messages.filter((message) => message.from === "reader").at(-1)).toMatchObject({ text: "Nothing unusual" });
     });
 
     it("follows a need up where the answer changes what it looks for, and says what changed", () => {
         const start = startChat(null, cars(), TODAY);
-        const { chat } = answer(start, openAsk(start)!.id, ["kids", "motorway"], cars(), TODAY);
+        const { chat } = answer(start, openAsk(start)!.id, ["kids"], cars(), TODAY);
 
         expect(openAsk(chat)?.step.id).toBe("follow-kids");
 
@@ -206,9 +233,12 @@ describe("a conversation, not a form", () => {
 
         expect(kids.evidence.map((entry) => entry.id)).not.toContain("hasIsofix");
         expect(texts(older).at(-1)).toMatch(/won't count ISOFIX/);
-        expect(openAsk(older)?.step.id).toBe("follow-motorway");
+        expect(openAsk(older)?.step.id).toBe("life-driving");
 
-        const weekly = answer(older, openAsk(older)!.id, ["weekly"], cars(), TODAY).chat;
+        const driving = answer(older, openAsk(older)!.id, ["motorway"], cars(), TODAY).chat;
+        expect(openAsk(driving)?.step.id).toBe("follow-motorway");
+
+        const weekly = answer(driving, openAsk(driving)!.id, ["weekly"], cars(), TODAY).chat;
         expect(weekly.understanding.needs.find((need) => need.id === "life-motorway")?.importance).toBe("essential");
     });
 
