@@ -172,7 +172,7 @@ function emissionsReading(car: PinnedFinnCar, cars: PinnedFinnCar[]): { tone: To
             ...(env.powertrain === "Plug-in Hybrid" && env.caveats[0] ? [{ tone: "note" as const, text: env.caveats[0] }] : []),
             {
                 tone: "note",
-                text: "Lens judges emissions on the EU CO₂ label: A is nothing at the tailpipe, B (up to 95 g/km) counts as low, C and D sit below and around the 136 g/km average for a new car that burns fuel, and E onwards above it.",
+                text: "Lens places emissions on the A–G CO₂ label German law uses for new cars (Pkw-EnVKV): A is nothing at the tailpipe, B up to 95 g/km, C up to 115, D up to 135, E up to 155, F up to 175, and G above. For comparison, new cars that burn fuel emit about 136 g/km on average (ICCT, from EU registrations 2021–2024).",
             },
         ],
     };

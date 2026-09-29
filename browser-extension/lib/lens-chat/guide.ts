@@ -4,7 +4,8 @@ import type { CategoryId } from "@/lib/reasoning-engine/types";
 import type { NeedImportance } from "@/lib/lens-ai/contract";
 import type { FinnCar } from "@/lib/types";
 
-import { coverage, EVIDENCE, withoutLabel, type EvidenceId } from "./evidence";
+import { coverage, EVIDENCE, listedUpTo, withoutLabel, type EvidenceId } from "./evidence";
+import { LENGTH_ANCHORS, WIDTH_ANCHORS } from "@/lib/reasoning-engine/evidence";
 import type { LensRun } from "./run";
 import { budgetCeiling, type Need, type Understanding } from "./understanding";
 
@@ -46,6 +47,9 @@ import { budgetCeiling, type Need, type Understanding } from "./understanding";
  * raised. Written once here, so no two conversations describe the same need
  * differently.
  */
+/** "4.54 m", from millimetres. */
+const metres = (mm: number): string => `${(mm / 1000).toFixed(mm % 10 ? 3 : 2).replace(/0+$/, "").replace(/\.$/, "")} m`;
+
 const USE: Partial<Record<EvidenceId, string>> = {
     hasIsofix: "anchor points that fix a child seat to the car's frame",
     rearDoors: "separate doors for the back seats",
@@ -56,12 +60,12 @@ const USE: Partial<Record<EvidenceId, string>> = {
     hasBackUSBPorts: "USB ports at the back seats",
     hasRoofRails: "rails on the roof for mounting a roof box or a bike rack",
     hasTowbar: "a hitch for towing a trailer or caravan",
-    towingCapacity1500: "a towing limit of 1,500 kg or more",
-    compactLength: "a shorter car",
-    compactWidth: "a narrower car",
+    towingCapacity1500: "a trailer load of 1,500 kg or more, as FINN lists it — FINN doesn't say whether braked or unbraked",
+    compactLength: `a length of ${metres(listedUpTo(LENGTH_ANCHORS))} or less, from FINN's measurements`,
+    compactWidth: `a width of ${metres(listedUpTo(WIDTH_ANCHORS))} or less, from FINN's measurements — FINN doesn't say whether that includes the mirrors`,
     hasThreeSixtyDegreesCamera: "a camera view of all four sides of the car while you park",
     hasOneEightyDegreesReversingCamera: "a camera view of what's behind the car when you reverse",
-    hasParkingSensors: "beeps that speed up as you get close to an obstacle",
+    hasParkingSensors: "sensors that warn you as you get close to an obstacle",
     /*
      * Not "the car steering itself in": this is FINN's own "Parkassistent"
      * flag, which is on 98% of its cars and is exactly what FINN's
@@ -74,15 +78,15 @@ const USE: Partial<Record<EvidenceId, string>> = {
     driverAssistLevel2: "the car steering to stay in its lane and keeping its distance, while you supervise",
     hasAdaptiveCruiseControl: "cruise control that brakes and speeds up to keep a set distance to the car ahead",
     hasCruiseControl: "a set speed held without your foot on the pedal",
-    hasLumbarSupport: "an adjustable lower-back support in the driver's seat",
-    hasHeadUpDisplay: "your speed and directions shown on the windscreen",
+    hasLumbarSupport: "an adjustable lower-back support — FINN doesn't say in which seats",
+    hasHeadUpDisplay: "driving information, such as your speed, shown on the windscreen",
     hasMatrixLedHeadlights: "full beam that stays on but dims the part that would dazzle other drivers",
-    hasBlindSpotAssist: "a warning light in the mirror when a car is in your blind spot",
+    hasBlindSpotAssist: "a warning when a car is in your blind spot",
     hasRearCrosswalkWarning: "a warning when a car is coming as you reverse out of a space",
     hasLaneKeepingAssist: "steering that nudges the car back if you drift out of your lane",
     hasEmergencyBrakingAssist: "the car braking by itself if it detects an obstacle ahead",
     hasTrafficSignRecognition: "the speed limit shown on the dashboard, read from road signs",
-    hasHeatedSeats: "front seats that heat up",
+    hasHeatedSeats: "seats that heat up — FINN doesn't say which ones",
     hasHeatedSteeringWheel: "a steering wheel that heats up",
     hasRainSlashLightSensors: "wipers that switch on when rain hits the windscreen, and headlights that switch on when it gets dark",
     hasFogLights: "extra lights low on the front of the car that light the road edge in fog",
@@ -91,15 +95,15 @@ const USE: Partial<Record<EvidenceId, string>> = {
     hasAllWheelDrive: "power sent to all four wheels",
     hasAuxiliaryHeater: "a heater that warms the car before you get in, with the engine off",
     hasHeatPump: "heating that uses less battery power",
-    hasSeatCooling: "air blown through the seat",
-    hasElectricFrontSeatAdjustment: "front seats adjusted with buttons instead of levers",
+    hasSeatCooling: "seat cooling, which FINN lists as “Sitzkühlung”",
+    hasElectricFrontSeatAdjustment: "front seats adjusted with buttons instead of levers — FINN doesn't say whether both or only the driver's",
     hasKeylessEntryAndStart: "unlocking and starting the car with the key still in your pocket",
     hasWirelessChargingStation: "a pad that charges your phone without a cable",
     hasWirelessAppleCarPlaySlashAndroidAuto: "Apple CarPlay or Android Auto without plugging your phone in",
     hasAppleCarPlaySlashAndroidAuto: "your phone's maps and music on the car's screen, through Apple CarPlay or Android Auto",
     hasThreeZoneAutomaticClimateControls: "separate temperature settings for the driver, the front passenger and the back",
     hasPremiumSoundSystem: "an upgraded speaker system",
-    hasSunroof: "a glass panel in the roof",
+    hasSunroof: "a sunroof, panoramic roof or glass roof — FINN lists them as one",
     hasSpareWheel: "a spare wheel to fit after a puncture",
     electricCar: "an electric car",
     winterReadyTyres: "winter or all-season tyres already fitted",
@@ -208,9 +212,9 @@ const LIFE: GuideChoice[] = [
         "ISOFIX anchors for child seats, rear doors for getting children in and out, at least five seats, rear seats that fold, and USB ports in the back.",
         ["practicality", "safetyAssistance"],
         [
-            ["hasIsofix", "the most secure way to fit one"],
+            ["hasIsofix", "so the seat is held by the car's frame, not only by a seat belt"],
             ["rearDoors", "so children get in and out, and seats get fitted, without climbing past the front seats"],
-            ["seatsFivePlus", "so there's a seat for each child alongside two adults"],
+            ["seatsFivePlus", "so three can sit in the back"],
             ["hasSplitFoldingRearSeats", "so you can fold one part for a pram and still seat a child"],
             ["hasBackUSBPorts", "so children can charge tablets and phones on longer drives"],
         ]),
@@ -238,7 +242,7 @@ const LIFE: GuideChoice[] = [
             ["hasBackUSBPorts", "so passengers in the back can charge their phones"],
         ]),
     need("city", "driving", "City driving and parking", "It's mostly city driving, and parking is the hard part.",
-        "A shorter and narrower car, a reversing camera, parking sensors that beep near obstacles, and mirrors that fold in at the press of a button.",
+        "A short, narrow car (the “i” gives the exact limits), a reversing camera, parking sensors, and mirrors that fold in at the press of a button.",
         ["cityParking"],
         [
             ["compactLength", "so it fits shorter street spaces"],
@@ -257,7 +261,7 @@ const LIFE: GuideChoice[] = [
             ["hasAppleCarPlaySlashAndroidAuto", "so navigation with live traffic is on screen for the daily route"],
         ]),
     need("motorway", "driving", "Long motorway drives", "I do long motorway drives.",
-        "Level 2 driver assistance that steers to stay in lane and keeps its distance while you supervise, adaptive cruise control, lower-back support in the seat, and a head-up display.",
+        "Level 2 driver assistance that steers to stay in lane and keeps its distance while you supervise, adaptive cruise control, adjustable lower-back support, and a head-up display.",
         ["longDistance"],
         [
             ["driverAssistLevel2", "which cuts down the steering and braking you do over hours of motorway"],
@@ -266,7 +270,7 @@ const LIFE: GuideChoice[] = [
             ["hasHeadUpDisplay", "so you don't look down from the road at motorway speed"],
         ]),
     need("roadtrips", "driving", "Road trips and holidays", "We take the car on road trips and holidays.",
-        "Roof rails for a roof box, rear seats that fold for longer luggage, Level 2 driver assistance for the motorway, and lower-back support in the seat.",
+        "Roof rails for a roof box, rear seats that fold for longer luggage, Level 2 driver assistance for the motorway, and adjustable lower-back support.",
         ["practicality", "longDistance"],
         [
             ["hasRoofRails", "so a roof box can take the luggage that doesn't fit in the boot"],
@@ -284,7 +288,7 @@ const LIFE: GuideChoice[] = [
             ["hasFogLights", "which matters most at night, when fog hides the road edge completely"],
         ]),
     need("winter", "weather", "Cold winters, bad weather", "The winters here are cold and the weather is often bad.",
-        "Heated seats and a heated steering wheel, wipers and headlights that switch on by themselves in rain and darkness (rain and light sensors), and fog lights.",
+        "Seat heating and a heated steering wheel, wipers and headlights that switch on by themselves in rain and darkness (rain and light sensors), and fog lights.",
         ["climateSuitability"],
         [
             ["hasHeatedSeats", "so you're warm before the heater catches up on a cold morning"],
@@ -310,11 +314,11 @@ const LIFE: GuideChoice[] = [
             ["hasRoofRails", "so a roof box or rack can take what doesn't fit inside"],
         ]),
     need("towing", "loads", "Towing or a roof box", "I tow, or I carry things on the roof.",
-        "A towbar, a towing limit of 1,500 kg or more for a trailer or small caravan, and roof rails for a roof box.",
+        "A towbar, a trailer load of 1,500 kg or more as FINN lists it, and roof rails for a roof box.",
         ["practicality"],
         [
             ["hasTowbar", "which you need to tow anything"],
-            ["towingCapacity1500", "enough for a trailer or a small caravan"],
+            ["towingCapacity1500", "so you can check it against the weight of what you tow"],
             ["hasRoofRails", "for a roof box instead of, or as well as, a trailer"],
         ],
         "Towing and roof loads"),
@@ -340,13 +344,12 @@ const LIFE: GuideChoice[] = [
             ["hasTrafficSignRecognition", "so you always know the current limit"],
         ]),
     need("tech", "you", "Phone and tech", "I want my phone to connect to the car.",
-        "Apple CarPlay or Android Auto (wired or wireless), a wireless charging pad for your phone, and a head-up display.",
+        "Apple CarPlay or Android Auto (wired or wireless), and a wireless charging pad for your phone.",
         ["comfort"],
         [
             ["hasWirelessAppleCarPlaySlashAndroidAuto", "so your phone connects to the car's screen as soon as you get in"],
             ["hasAppleCarPlaySlashAndroidAuto", "so the apps you already use run on the car's screen"],
             ["hasWirelessChargingStation", "so your phone charges while it runs maps and music"],
-            ["hasHeadUpDisplay", "so your phone's navigation directions can appear in front of you"],
         ]),
     need("comfort", "you", "Everyday comfort", "I want comfort features I'd use every day.",
         "Front seats adjusted with buttons, keyless entry and start, a wireless charging pad, and 3-zone climate control.",
@@ -363,7 +366,7 @@ const LIFE: GuideChoice[] = [
         group: "you",
         label: "Low emissions matter",
         said: "Emissions matter to me.",
-        description: "Judged on each car's CO₂ emissions per kilometre, placed on the EU's A–G CO₂ label. No equipment is involved.",
+        description: "Judged on each car's CO₂ emissions per kilometre, placed on the A–G CO₂ label German law uses for new cars (Pkw-EnVKV). No equipment is involved.",
         /*
          * No evidence: Environmental Impact is scored from the car's own CO₂
          * figure, and there is no equipment to point at. A need with an empty

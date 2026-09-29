@@ -1,5 +1,5 @@
 import { CATEGORIES, CATEGORY_IDS, SIGNALS } from "@/lib/reasoning-engine/constants";
-import { bootLitres, evRangeKm, isBinarySignal, lengthMm, signalUtility } from "@/lib/reasoning-engine/evidence";
+import { bootLitres, evRangeKm, isBinarySignal, lengthMm, signalUtility, type Anchors } from "@/lib/reasoning-engine/evidence";
 import type { CategoryId, SignalId } from "@/lib/reasoning-engine/types";
 import type { FinnCar } from "@/lib/types";
 
@@ -183,6 +183,28 @@ export type EvidenceState = "listed" | "notListed" | "unknown";
 /** Range enough to stop thinking about stopping, on FINN's own WLTP figure. */
 const LONG_RANGE_KM = 350;
 
+/** A measured figure counts as "listed" from this far up its curve. */
+export const MEASURED_LISTED = 0.6;
+
+/**
+ * The largest figure that still counts as listed on a falling curve — the
+ * length or width a car can have and still be "compact". Worked out from the
+ * same anchors the engine scores with, so what Lens says and what it scores
+ * can't drift apart.
+ */
+export function listedUpTo(anchors: Anchors): number {
+    for (let index = 1; index < anchors.length; index += 1) {
+        const [x0, y0] = anchors[index - 1]!;
+        const [x1, y1] = anchors[index]!;
+
+        if (y0 >= MEASURED_LISTED && y1 < MEASURED_LISTED) {
+            return Math.floor(x0 + ((y0 - MEASURED_LISTED) / (y0 - y1)) * (x1 - x0));
+        }
+    }
+
+    return anchors[anchors.length - 1]![0];
+}
+
 /** What FINN's data says about one piece of evidence on one car. */
 export function readEvidence(car: FinnCar, id: EvidenceId): EvidenceState {
     if (id === "electricRange") {
@@ -208,7 +230,7 @@ export function readEvidence(car: FinnCar, id: EvidenceId): EvidenceState {
     if (utility == null) return "unknown";
 
     /* A measured figure (length) is "listed" when it scores well on its own curve. */
-    if (!isBinarySignal(id)) return utility >= 0.6 ? "listed" : "notListed";
+    if (!isBinarySignal(id)) return utility >= MEASURED_LISTED ? "listed" : "notListed";
 
     return utility === 1 ? "listed" : "notListed";
 }

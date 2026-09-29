@@ -241,11 +241,11 @@ describe("emissions, which are a figure rather than equipment", () => {
         expect(section.title).toBe(co2.label);
     });
 
-    it("judges on the EU label the ranking scores, not on the cars around it", () => {
+    it("judges on the CO₂ label the ranking scores, not on the cars around it", () => {
         const expected = co2.level === "none" || co2.level === "low" ? "good" : co2.level === "high" ? "missing" : "note";
 
         expect(section.tone).toBe(expected);
-        expect(section.lines.some((line) => /EU CO₂ label/.test(line.text))).toBe(true);
+        expect(section.lines.some((line) => /A–G CO₂ label German law uses for new cars \(Pkw-EnVKV\)/.test(line.text))).toBe(true);
     });
 });
 

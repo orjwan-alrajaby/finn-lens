@@ -152,7 +152,7 @@ export const FOLLOW_UPS: Record<string, FollowUp> = {
             },
             { id: "bikes", label: "Bikes or sports gear", said: "Bikes and sports gear.", add: [
                     { id: "hasRoofRails", why: "for a bike rack on the roof" },
-                    { id: "hasTowbar", why: "for a bike rack on the towbar, which is easier to load" },
+                    { id: "hasTowbar", why: "for a bike rack on the towbar" },
                 ], reply: "roof rails and a towbar for a bike rack" },
             { id: "work", label: "Tools for work", said: "Tools and equipment for work.", add: [{ id: "hasSplitFoldingRearSeats", why: "so long tools and equipment fit" }], remove: ["seatsFivePlus"], reply: "folding rear seats, without counting the number of seats" },
         ],

@@ -64,3 +64,24 @@ describe("the link between a need and its equipment", () => {
         expect(step.why).toMatch(/^You said kids in the back\. Electric tailgate: /);
     });
 });
+
+describe("the limits Lens states", () => {
+    it("calls a car compact exactly up to the length and width it says", async () => {
+        const { LENGTH_ANCHORS, WIDTH_ANCHORS } = await import("@/lib/reasoning-engine/evidence");
+        const { listedUpTo, readEvidence } = await import("@/lib/lens-chat/evidence");
+        const { purposeOf } = await import("@/lib/lens-chat/guide");
+        const sized = (length: number, width: number) => {
+            const car = GARAGE.safeCompact();
+            return { ...car, dimensions: { ...car.dimensions, length, width } };
+        };
+
+        const long = listedUpTo(LENGTH_ANCHORS);
+        const wide = listedUpTo(WIDTH_ANCHORS);
+
+        expect(purposeOf("compactLength")).toContain(`${(long / 1000).toString()} m`);
+        expect(readEvidence(sized(long, 1700), "compactLength")).toBe("listed");
+        expect(readEvidence(sized(long + 1, 1700), "compactLength")).toBe("notListed");
+        expect(readEvidence(sized(4000, wide), "compactWidth")).toBe("listed");
+        expect(readEvidence(sized(4000, wide + 1), "compactWidth")).toBe("notListed");
+    });
+});

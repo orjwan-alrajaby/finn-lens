@@ -458,14 +458,26 @@ function assessEmissions(
    * average, which aren't published separately. Saying "more than a typical
    * petrol car" would be claiming a benchmark this doesn't have.
    */
-  const average = `the ${COMBUSTION_FLEET_CO2} g/km average for a new car that burns fuel`;
+  /*
+   * Facts, not characterisations: the car's class and that class's range from
+   * the label table, then what new cars that burn fuel average. "Close to the
+   * average" said of 117 g/km — 19 g under it — was a judgement the numbers
+   * didn't support. "About": the published figure moved from about 137 (2021)
+   * to about 134 (2024) g/km.
+   */
+  const band = CO2_CLASS_BANDS.findIndex((item) => item.letter === className);
+  const lower = band > 0 ? CO2_CLASS_BANDS[band - 1]!.upTo + 1 : 0;
+  const upper = CO2_CLASS_BANDS[band]?.upTo;
+  const range = className === "G" ? `over ${CO2_CLASS_BANDS[band - 1]!.upTo} g/km` : upper != null ? `${lower}–${upper} g/km` : "";
+  const placed = `At ${figure} g of CO₂ per kilometre it's in class ${className}${range ? ` (${range})` : ""}.`;
+  const average = `New cars that burn fuel average about ${COMBUSTION_FLEET_CO2} g/km.`;
 
-  /* Class A–B: below the 95 g/km line the EU label treats as low. */
+  /* Class A–B: at or under the 95 g/km top of class B on the label. */
   if (gPerKm <= 95) {
     return {
       level: "low",
       label: "Low emissions",
-      explanation: `At ${figure} g of CO₂ per kilometre it emits well under ${average}.`,
+      explanation: `${placed} ${average}`,
       display,
       gPerKm,
       className,
@@ -477,7 +489,7 @@ function assessEmissions(
     return {
       level: "moderate",
       label: "Below-average emissions",
-      explanation: `It puts out ${figure} g of CO₂ for every kilometre driven, under ${average}.`,
+      explanation: `${placed} ${average}`,
       display,
       gPerKm,
       className,
@@ -489,7 +501,7 @@ function assessEmissions(
     return {
       level: "moderate",
       label: "Around-average emissions",
-      explanation: `It puts out ${figure} g of CO₂ for every kilometre driven, close to ${average}.`,
+      explanation: `${placed} ${average}`,
       display,
       gPerKm,
       className,
@@ -501,12 +513,10 @@ function assessEmissions(
    * so the sentence says how far above rather than treating 140 g/km and
    * 240 g/km as the same statement.
    */
-  const margin = gPerKm >= COMBUSTION_FLEET_CO2 * 1.25 ? "well above" : "above";
-
   return {
     level: "high",
     label: "Above-average emissions",
-    explanation: `At ${figure} g of CO₂ per kilometre it emits ${margin} ${average}.`,
+    explanation: `${placed} ${average}`,
     display,
     gPerKm,
     className,
@@ -1019,20 +1029,16 @@ export function describeEnvironment(
    * on; "close to the reference FINN Lens uses for petrol cars" claims only
    * what was done.
    */
-  const clause = `${formatNumber(efficiency.value)} ${efficiency.measure}, ${efficiencyInWords(efficiency.level)} the FINN Lens benchmark for ${kindOf(powertrain)}`;
+  /*
+   * Both figures, side by side, and no word for the gap: "noticeably under"
+   * stood for a band the reader never saw, and a percentage against Lens's
+   * own derived benchmark would read as a measured saving.
+   */
+  const clause = `${formatNumber(efficiency.value)} ${efficiency.measure}; the FINN Lens benchmark for ${kindOf(powertrain)} is ${efficiency.reference}`;
 
   return disagrees
     ? `${co2.explanation} Even so, it uses ${clause}.`
     : `${co2.explanation} It uses ${clause}.`;
-}
-
-/** The efficiency level as a comparison with the reference, rather than as a label. */
-function efficiencyInWords(level: EfficiencyLevel): string {
-  return {
-    high: "noticeably under",
-    moderate: "broadly in line with",
-    low: "noticeably over",
-  }[level];
 }
 
 /* -------------------------------------------------------------------------- */

@@ -452,9 +452,9 @@ describe("what the reader is told", () => {
      * two-part answer where the reader's eye lands first.
      */
     expect(line.indexOf("CO₂")).toBeLessThan(line.indexOf("litres of petrol"));
-    expect(line).toMatch(/close to the 136 g\/km average/);
+    expect(line).toMatch(/At 117 g of CO₂ per kilometre it.s in class D \(116–135 g\/km\)\. New cars that burn fuel average about 136 g\/km\./);
     expect(line).toMatch(
-      /4.6 litres of petrol per 100 km, noticeably under the FINN Lens benchmark for petrol cars/,
+      /4.6 litres of petrol per 100 km; the FINN Lens benchmark for petrol cars is [\d.]+ ?L\/100km/,
     );
   });
 
