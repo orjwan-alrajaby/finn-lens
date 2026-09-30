@@ -475,7 +475,8 @@ describe("the catch, when the car has what they didn't want", () => {
         const story = tellFitStory(run, understanding, translation.lessRelevant, null);
         const line = story.sections.find((section) => section.key === "no-self-driving")!.lines[0]!;
 
-        expect(line.text).toMatch(/FINN lists this one as a car that steers itself|It isn't a car that steers itself/);
+        /* Level 2 assists a driver who supervises; nothing in FINN's data says the car drives itself. */
+        expect(line.text).toBe("FINN lists Level 2 driver assistance on this one, which you'd rather avoid.");
         expect(story.catch?.text ?? "").not.toMatch(/doesn't list level 2 driver assistance/i);
     });
 });
@@ -516,7 +517,9 @@ describe("a budget with a stretch the reader named", () => {
 
 describe("naming a rule in a sentence", () => {
     it("reads as English in both directions", () => {
-        expect(ruleLabel("seatsSixPlus", "without")).toBe("No seven-seater");
+        /* FINN's seat count says six or more, not seven. */
+        expect(ruleLabel("seatsSixPlus", "without")).toBe("Fewer than six seats");
+        expect(ruleLabel("seatsSixPlus", "must")).toBe("Must be a six-seater or bigger");
         expect(ruleLabel("seatsFivePlus", "must")).toBe("Must be a five-seater or bigger");
         expect(ruleLabel("electricCar", "must")).toBe("Must be an electric car");
         expect(ruleLabel("suvBody", "without")).toBe("No SUV");

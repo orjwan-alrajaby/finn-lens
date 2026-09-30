@@ -166,9 +166,11 @@ const isSuv = (car: FinnCar): boolean => /\bsuv\b/i.test(String(car.vehicleType 
  * falls back to "No <label>", which reads well enough for equipment.
  */
 for (const [id, label] of [
-    ["seatsSixPlus", "Not a seven-seater"],
+    /* FINN's seat count, which says six or more — not seven. */
+    ["seatsSixPlus", "Fewer than six seats"],
     ["hasTowbar", "No towbar"],
-    ["driverAssistLevel2", "Doesn't drive itself"],
+    /* Level 2 steers and brakes while the driver supervises: it never drives itself. */
+    ["driverAssistLevel2", "No Level 2 driver assistance"],
 ] as const) {
     EVIDENCE[id].negativeLabel = label;
 }
@@ -270,8 +272,8 @@ const PHRASES: Partial<Record<EvidenceId, string>> = {
     seatsFivePlus: "a five-seater or bigger",
     hasAutomaticTransmission: "an automatic",
     suvBody: "an SUV",
-    seatsSixPlus: "a seven-seater",
-    driverAssistLevel2: "a car that steers itself",
+    seatsSixPlus: "a six-seater or bigger",
+    driverAssistLevel2: "Level 2 driver assistance",
     hasTowbar: "a towbar",
 };
 
@@ -293,7 +295,9 @@ export const isKind = (id: EvidenceId): boolean => KINDS.has(id);
  */
 export const ruleLabel = (id: EvidenceId, mode: "without" | "must"): string =>
     mode === "without"
-        ? `No ${barePhrase(id)}`
+        ? id === "seatsSixPlus"
+            ? "Fewer than six seats"
+            : `No ${barePhrase(id)}`
         : KINDS.has(id)
           ? `Must be ${asPhrase(id)}`
           : `Must have ${EVIDENCE[id].label.toLowerCase()}`;

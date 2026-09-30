@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { totalFor } from "@/lib/reasoning-engine/scoring";
 import { BASELINE, GARAGE, garageCar } from "@/lib/reasoning-engine/test-garage";
 import { EVIDENCE } from "@/lib/lens-chat/evidence";
+import { tellFitStory } from "@/lib/lens-chat/fit-story";
 import { applyChoices, guideSteps } from "@/lib/lens-chat/guide";
 import { EMPTY_UNDERSTANDING, withBudget, withSuggestion, type Understanding } from "@/lib/lens-chat/understanding";
 import type { PinnedFinnCar } from "@/lib/types";
@@ -165,5 +166,20 @@ describe("counting only what the reader asked for", () => {
         const { answers } = chatAnswers(u);
 
         expect(Object.values(answers.features).flat().map((item) => item.key)).not.toContain("hasTowbar");
+    });
+});
+
+describe("the rules, in the story", () => {
+    it("says what a car has or is once, where the rule is, and not again as a need", () => {
+        const towing = garageCar({ id: 911, name: "Tows", extra: ["hasTowbar"], transmission: "Automatic" });
+        const plain = garageCar({ id: 912, name: "Plain", transmission: "Manual" });
+        const rules = guideSteps([towing, plain]).find((step) => step.id === "rules")!;
+        const u = applyChoices(EMPTY_UNDERSTANDING, rules, ["must-tow", "automatic"]);
+        const { run, translation } = judgeWith(u, [towing, plain], "2 cars")!;
+        const story = tellFitStory(run, u, translation.lessRelevant, null);
+        const titles = story.sections.map((section) => section.title);
+
+        expect(titles).toContain("It is an automatic and has a towbar");
+        expect(titles.filter((title) => /towbar|automatic/i.test(title))).toHaveLength(1);
     });
 });

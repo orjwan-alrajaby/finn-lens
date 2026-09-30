@@ -89,6 +89,34 @@ export interface FitStory {
  * have all-wheel drive". An equipment list that doesn't mention something is
  * only that: "FINN doesn't list fog lights for this car".
  */
+/**
+ * What a car must be or have, as one sentence: a kind of car is something it
+ * is, equipment something it has — "It is a towbar" was neither.
+ */
+function mustSentence(ids: EvidenceId[]): string {
+    const is = ids.filter(isKind).map(asPhrase);
+    const has = ids.filter((id) => !isKind(id)).map(asPhrase);
+
+    return [is.length ? `It is ${joinNames(is)}` : null, has.length ? `${is.length ? "has" : "It has"} ${joinNames(has)}` : null]
+        .filter(Boolean)
+        .join(" and ");
+}
+
+/** Something FINN lists that the reader didn't want: a kind of car it is, or equipment it has. */
+function listedOnIt(id: EvidenceId, measured: string | null = null): string {
+    return measured || isKind(id) ? `FINN lists this one as ${measured ?? asPhrase(id)}` : `FINN lists ${asPhrase(id)} on this one`;
+}
+
+/** The same for what it mustn't be or have: "It isn't an SUV and has no towbar". */
+function withoutSentence(ids: EvidenceId[]): string {
+    const isnt = ids.filter(isKind).map(asPhrase);
+    const hasNo = ids.filter((id) => !isKind(id)).map(barePhrase);
+
+    return [isnt.length ? `It isn't ${isnt.join(" or ")}` : null, hasNo.length ? `${isnt.length ? "has" : "It has"} no ${joinNames(hasNo)}` : null]
+        .filter(Boolean)
+        .join(" and ");
+}
+
 function absent(id: EvidenceId): string {
     const label = EVIDENCE[id].label;
     const named = /^(I\b|[A-Z]{2,})/.test(label) ? label : label.charAt(0).toLowerCase() + label.slice(1);
@@ -259,7 +287,7 @@ function evidenceLine(
 
     if (state === "listed") {
         return def.undesirable
-            ? { tone: "missing", text: `FINN lists this one as ${asPhrase(entry.id)}, which you'd rather avoid.` }
+            ? { tone: "missing", text: `${listedOnIt(entry.id)}, which you'd rather avoid.` }
             : { tone: "good", text: sentence(`${def.label} ${useClause ? `— ${useClause}` : "is listed"}`) };
     }
 
@@ -466,8 +494,8 @@ export function tellFitStory(
             title: nothingLeft
                 ? `Nothing here is ${asked}`
                 : kept
-                  ? `It isn't ${rules.map((rule) => asPhrase(rule.id)).join(" or ")}`
-                  : `It is ${rules.filter((rule) => rule.mode === "must").map((rule) => asPhrase(rule.id)).join(" and ")}`,
+                  ? withoutSentence(rules.map((rule) => rule.id))
+                  : mustSentence(rules.filter((rule) => rule.mode === "must").map((rule) => rule.id)),
             short: asked,
             kind: "budget",
             importance: "constraint",
@@ -533,8 +561,16 @@ export function tellFitStory(
     /* -- The needs ------------------------------------------------------- */
 
     const active = u.needs.filter((need) => need.status === "active");
+    /*
+     * A need that is nothing but a rule — "Towbar", from "it must tow" — is
+     * already answered above, where the rule is. Told again here it read
+     * "It helps with towbar" under "It has a towbar".
+     */
+    const rules = new Set((run.ruledOut?.evidence ?? []).map((rule) => rule.id));
+    const onlyARule = (need: (typeof active)[number]) =>
+        need.evidence.length > 0 && need.evidence.every((entry) => (entry.mustHave || entry.unwanted) && rules.has(entry.id));
 
-    for (const need of active) {
+    for (const need of active.filter((item) => !onlyARule(item))) {
         /*
          * Lead with what the car does, then what it doesn't, then what nobody
          * can tell — and within each, the evidence that sets this car apart
@@ -712,7 +748,7 @@ export function tellFitStory(
             catchNote = {
                 /* Named by the need's own label, so the sentence can't inherit a paraphrase's grammar. */
                 text: (gap.entry.unwanted ?? EVIDENCE[gap.entry.id].undesirable)
-                    ? `FINN lists this one as ${measuredDisplay(winner, gap.entry.id) ?? asPhrase(gap.entry.id)} — worth weighing for ${lower(gap.need.label)}.`
+                    ? `${listedOnIt(gap.entry.id, measuredDisplay(winner, gap.entry.id))} — worth weighing for ${lower(gap.need.label)}.`
                     : measuredDisplay(winner, gap.entry.id)
                       ? /*
                          * A figure that falls short is still a figure. "FINN
