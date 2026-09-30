@@ -6,7 +6,7 @@ import { withBudget } from "@/lib/lens-chat/understanding";
 
 import { fleet } from "@/lib/reasoning-engine/test-data/fleet";
 
-import { answer, askNext, changeAnswers, changeOne, rentalMonths, setImportance, startChat, startMonth, summaryOf, withinLimits } from "./flow";
+import { answer, askNext, changeAnswers, changeOne, coveredBy, rentalMonths, setImportance, startChat, startMonth, stepFor, summaryOf, withinLimits } from "./flow";
 import { readTyped } from "./typing";
 import type { Chat, ChatMessage, SavedSettings, StepId } from "./types";
 
@@ -657,5 +657,35 @@ describe("how often", () => {
 
         expect(often.step.choices.map((choice) => choice.label)).toEqual(["Every day", "Every week, or most weekends", "About once a month", "A few times a year"]);
         expect(start.understanding.needs.find((need) => need.id === "life-motorway")?.importance).toBe("essential");
+    });
+});
+
+describe("answers that mostly overlap", () => {
+    const page = () => fleet().sort((a, b) => a.id - b.id).slice(0, 24);
+
+    it("sets aside an answer another picked one mostly covers, and says what they share", () => {
+        const parking = stepFor("life-parking", page())!;
+        const shared = coveredBy(parking, "garage", "multi-storey");
+
+        /* A home garage and a multi-storey car park share width, folding mirrors and sensors: three of four. */
+        expect(shared?.length).toBeGreaterThanOrEqual(3);
+        expect(withinLimits(parking, ["garage", "multi-storey"])).toEqual(["garage"]);
+        /* Which stays is the reader's first pick. */
+        expect(withinLimits(parking, ["multi-storey", "garage"])).toEqual(["multi-storey"]);
+    });
+
+    it("leaves answers that only share a little", () => {
+        const driving = stepFor("life-driving", page())!;
+
+        expect(coveredBy(driving, "city", "commute")).toBeNull();
+        expect(withinLimits(driving, ["city", "commute", "night"])).toEqual(["city", "commute", "night"]);
+    });
+
+    it("holds in the conversation, not only on the page", () => {
+        let chat = startChat(null, page(), TODAY);
+        while (openAsk(chat)?.step.id !== "life-parking") chat = answer(chat, openAsk(chat)!.id, [], page(), TODAY).chat;
+        chat = answer(chat, openAsk(chat)!.id, ["garage", "multi-storey"], page(), TODAY).chat;
+
+        expect(chat.understanding.needs.map((need) => need.id)).toEqual(["life-garage"]);
     });
 });

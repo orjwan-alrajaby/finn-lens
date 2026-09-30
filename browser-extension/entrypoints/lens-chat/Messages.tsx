@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Check, ChevronDown, ChevronRight, Info, PencilLine, X } from "lucide-react";
 
 import { BandChip, BrandMark, CarPhoto, euros, WinnerChip } from "@/components/lens-parts";
-import { IMPORTANCE_LABEL } from "@/lib/chats/flow";
+import { coveredBy, IMPORTANCE_LABEL } from "@/lib/chats/flow";
 import type { CarSnapshot, ChatMessage, Choice, CustomAnswer, StepId } from "@/lib/chats/types";
 import type { NeedImportance } from "@/lib/lens-ai/contract";
 import { lowerFirst } from "@/lib/reasoning-engine/format";
@@ -362,6 +362,13 @@ function OwnAnswer({
     );
 }
 
+/** "a, b and c", lower-cased after the first word of each: equipment named in a sentence. */
+const joinedLabels = (labels: string[]): string => {
+    const lowered = labels.map(lowerFirst);
+
+    return lowered.length <= 1 ? (lowered[0] ?? "") : `${lowered.slice(0, -1).join(", ")} and ${lowered.at(-1)}`;
+};
+
 /** The reader's own words, added beside the taps: tap them to edit, × to take them back. */
 function AddedWords({ text, onEdit, onRemove }: { text: string; onEdit: () => void; onRemove: () => void }) {
     return (
@@ -419,6 +426,17 @@ function Ask({
             return step.max && kept.length >= step.max ? kept : [...kept, id];
         });
     const full = Boolean(step.max && picked.length >= step.max);
+
+    /* An answer something already picked mostly covers: set aside, and said why beneath the chips. */
+    const covered = step.choices.flatMap((choice) => {
+        if (picked.includes(choice.id)) return [];
+
+        const by = picked.map((id) => ({ id, shared: coveredBy(step, id, choice.id) })).find((entry) => entry.shared);
+        const picker = by ? step.choices.find((item) => item.id === by.id) : null;
+
+        return by && picker ? [{ choice, by: picker, shared: by.shared! }] : [];
+    });
+    const setAside = new Set(covered.map((entry) => entry.choice.id));
     const chosen = step.choices.filter((choice) => picked.includes(choice.id));
     const typing = own && ownText.trim().length > 1;
     const ready = picked.length > 0 || added != null || typing;
@@ -430,7 +448,11 @@ function Ask({
             key={choice.id}
             label={choice.label}
             selected={step.multiple && picked.includes(choice.id)}
-            disabled={step.multiple && full && !picked.includes(choice.id) && !(step.exclusive ?? []).some((set) => set.includes(choice.id) && set.some((id) => picked.includes(id)))}
+            disabled={
+                step.multiple &&
+                (setAside.has(choice.id) ||
+                    (full && !picked.includes(choice.id) && !(step.exclusive ?? []).some((set) => set.includes(choice.id) && set.some((id) => picked.includes(id)))))
+            }
             onClick={() => (step.multiple ? toggle(choice.id) : onAnswer([choice.id]))}
             onInfo={choice.description ? () => setExplained((open) => (open === choice.id ? null : choice.id)) : undefined}
             infoOpen={explained === choice.id}
@@ -468,6 +490,14 @@ function Ask({
                         <div>
                             <div className="flex flex-wrap gap-1.5">{step.choices.map(chip)}</div>
                             {explanation(step.choices)}
+                            {covered.map(({ choice, by, shared }) => (
+                                <p key={choice.id} className="mt-1.5 flex gap-1.5 px-1 text-[11.5px] leading-snug text-finn-iron">
+                                    <Info aria-hidden="true" className="mt-px h-3.5 w-3.5 shrink-0 text-finn-accent-blue" />
+                                    <span>
+                                        “{choice.label}” is mostly covered by “{by.label}”: both check {joinedLabels(shared)}.
+                                    </span>
+                                </p>
+                            ))}
                         </div>
                     )}
 

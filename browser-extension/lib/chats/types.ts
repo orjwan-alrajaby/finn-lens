@@ -89,6 +89,12 @@ export interface ChatStep {
     max?: number;
     /** Answers that can't both be true — "Electric only" and "Not electric": picking one takes back the other. */
     exclusive?: string[][];
+    /**
+     * Answers another one mostly covers, by what Lens checks for them: once
+     * the key is picked, each listed answer is set aside, with what the two
+     * share as the reason.
+     */
+    covers?: Record<string, { id: string; shared: string[] }[]>;
     choices: Choice[];
     /** The answer for someone none of the choices fit. */
     none?: string;

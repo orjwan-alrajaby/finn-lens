@@ -301,12 +301,32 @@ const WHY: Record<string, string> = {
     focus: "When no car has everything, the need you pick counts most in the ranking, and the others count a step less.",
 };
 
-const fromGuide = (step: GuideStep): ChatStep => ({
-    id: step.id,
-    ask: step.ask,
-    why: WHY[step.id],
-    multiple: step.multiple,
-    choices: step.choices.map(({ id, label, said, description, means, group, need }) => ({
+/** An answer this much of whose checks another picked answer already makes is set aside. */
+const MOSTLY = 0.75;
+
+/**
+ * Which answers each one mostly covers: at least three quarters of what Lens
+ * would check for the other is already on its own list. Worked out from the
+ * equipment on these cars, so it holds for this page and says why.
+ */
+function coverageOf(choices: ChatStep["choices"]): ChatStep["covers"] {
+    const covers: NonNullable<ChatStep["covers"]> = {};
+
+    for (const picked of choices) {
+        for (const other of choices) {
+            if (other.id === picked.id || !picked.looksFor?.length || !other.looksFor?.length) continue;
+
+            const shared = other.looksFor.filter((label) => picked.looksFor!.includes(label));
+
+            if (shared.length / other.looksFor.length >= MOSTLY) (covers[picked.id] ??= []).push({ id: other.id, shared });
+        }
+    }
+
+    return Object.keys(covers).length ? covers : undefined;
+}
+
+const fromGuide = (step: GuideStep): ChatStep => {
+    const choices = step.choices.map(({ id, label, said, description, means, group, need }) => ({
         id,
         label,
         said,
@@ -317,10 +337,19 @@ const fromGuide = (step: GuideStep): ChatStep => ({
         features: need?.evidence
             .filter((evidence) => EVIDENCE[evidence])
             .map((evidence) => ({ label: EVIDENCE[evidence].label, does: explain(evidence, need.reasons?.[evidence]) })),
-    })),
-    none: step.none,
-    guide: step,
-});
+    }));
+
+    return {
+        id: step.id,
+        ask: step.ask,
+        why: WHY[step.id],
+        multiple: step.multiple,
+        choices,
+        covers: step.multiple ? coverageOf(choices) : undefined,
+        none: step.none,
+        guide: step,
+    };
+};
 
 /**
  * Who rides along, asked in the light of how many do: with nobody, only
@@ -351,7 +380,7 @@ function whoRides(choices: GuideChoice[], passengers: number | null): { choices:
 }
 
 /** Taps held to what the question allows: the first of answers that exclude each other, and no more than its limit. */
-export function withinLimits(step: Pick<ChatStep, "max" | "exclusive">, chosen: string[]): string[] {
+export function withinLimits(step: Pick<ChatStep, "max" | "exclusive" | "covers">, chosen: string[]): string[] {
     let kept = [...new Set(chosen)];
 
     for (const set of step.exclusive ?? []) {
@@ -359,7 +388,15 @@ export function withinLimits(step: Pick<ChatStep, "max" | "exclusive">, chosen: 
         kept = kept.filter((id) => !set.includes(id) || id === first);
     }
 
+    /* In the order picked: an answer something picked before it mostly covers is set aside, as the page does. */
+    kept = kept.filter((id, index) => !kept.slice(0, index).some((earlier) => coveredBy(step, earlier, id)));
+
     return step.max ? kept.slice(0, step.max) : kept;
+}
+
+/** What `picked` shares with `other`, when it mostly covers it; null when it doesn't. */
+export function coveredBy(step: Pick<ChatStep, "covers">, picked: string, other: string): string[] | null {
+    return step.covers?.[picked]?.find((entry) => entry.id === other)?.shared ?? null;
 }
 
 /** Lens's question for `id`, narrowed to what's worth asking about these cars. Null when it isn't. */
