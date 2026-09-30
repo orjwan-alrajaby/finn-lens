@@ -233,7 +233,7 @@ describe("the rental period, in the story", () => {
 
 describe("what the band was worked out from", () => {
     it("names the CO₂ figure, not a list, for a reader who asked about emissions alone", () => {
-        const u = applyChoices(EMPTY_UNDERSTANDING, guideSteps([]).find((step) => step.id === "life")!, ["emissions"]);
+        const u = applyChoices(EMPTY_UNDERSTANDING, guideSteps([]).find((step) => step.id === "life")!, ["co2-matters"]);
         const { run, translation } = judgeWith(u, cars(), "5 cars")!;
         const { bandMeaning } = tellFitStory(run, u, translation.lessRelevant, null);
 
@@ -257,7 +257,7 @@ describe("how much each need counts", () => {
 
     it("counts a need by its importance, however many items Lens checks for it", () => {
         /* Kids (five items) and emissions (one figure), both important: equal shares. */
-        const split = shares(picked("kids", "emissions"));
+        const split = shares(picked("kids", "co2-matters"));
         const kids = (split.practicality ?? 0) + (split.comfort ?? 0);
 
         expect(kids).toBeCloseTo(split.environmental!, 5);

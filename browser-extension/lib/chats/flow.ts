@@ -120,7 +120,7 @@ const inWords = (n: number) => NUMBER_WORDS[n] ?? String(n);
 /* -------------------------------------------------------------------------- */
 
 /** The questions a reader can pick to answer again, in the order they're asked. */
-const CHANGEABLE: StepId[] = ["life-passengers", "life-people", "life-driving", "life-parking", "life-weather", "life-loads", "life-you", "rules", "budget", "period", "distance"];
+const CHANGEABLE: StepId[] = ["life-passengers", "life-people", "life-driving", "life-parking", "life-weather", "life-loads", "life-you", "life-co2", "life-efficiency", "rules", "budget", "period", "distance"];
 
 const CHANGE_LABEL: Partial<Record<StepId, string>> = {
     "life-passengers": "How many ride with you",
@@ -130,6 +130,8 @@ const CHANGE_LABEL: Partial<Record<StepId, string>> = {
     "life-weather": "The weather",
     "life-loads": "What you carry or tow",
     "life-you": "Anything else",
+    "life-co2": "CO₂ emissions",
+    "life-efficiency": "Fuel or electricity use",
     rules: "Must-haves & must-nots",
     budget: "Monthly limit",
     period: "How long",
@@ -152,11 +154,24 @@ function nowSaid(step: StepId, u: Understanding, cars: FinnCar[]): string {
     }
 
     const group = step.slice("life-".length);
+
+    /* How much CO₂ or consumption matters: the answer given, in its own words. */
+    if (group === "co2" || group === "efficiency") {
+        const answer = (guideSteps(cars).find((item) => item.id === "life")?.choices ?? []).find((choice) => choice.group === group && lifeNeeds(u).some((need) => need.id === `life-${choice.id}`));
+        return answer ? lowerFirst(answer.label) : "not really";
+    }
+
     const own = new Set((guideSteps(cars).find((item) => item.id === "life")?.choices ?? []).filter((choice) => choice.group === group).map((choice) => `life-${choice.id}`));
     const labels = lifeNeeds(u).filter((need) => own.has(need.id)).map((need) => lower(need.label));
 
     return labels.length ? joined(labels) : "nothing";
 }
+
+/**
+ * Questions with one answer, and no words of the reader's own: a count, and
+ * how much CO₂ or consumption matters. Their answers cover every case.
+ */
+const ONE_ANSWER = new Set<NeedGroup>(["passengers", "co2", "efficiency"]);
 
 /** A level this crowded says little: with this many needs on it, each counts for too little to decide anything. */
 const CROWDED = 5;
@@ -284,6 +299,18 @@ const GROUP_ASK: Record<NeedGroup, { ask: string; why: string; none: string; pla
         why: "Tap each you carry or tow regularly. Different loads need different equipment — the “i” on an answer shows what I'd check.",
         none: "Nothing much",
         placeholder: "e.g. “a double buggy”",
+    },
+    co2: {
+        ask: "How much do the car's CO₂ emissions matter to you?",
+        why: "I judge them on each car's official CO₂ per km — an electric car is zero at the tailpipe. That's what it emits while driving, not its whole environmental story, which isn't in FINN's data.",
+        none: "Not really",
+        placeholder: "",
+    },
+    efficiency: {
+        ask: "How much does it matter that the car uses little fuel or electricity?",
+        why: "I compare each car's consumption with others that run on the same thing — petrol with petrol, electric with electric. What it costs you to run is already in every car's monthly price.",
+        none: "Not really",
+        placeholder: "",
     },
     you: {
         ask: "Anything else that matters to you in a car?",
@@ -577,7 +604,7 @@ export function stepFor(id: StepId, cars: FinnCar[], u: Understanding = EMPTY_UN
         const { choices, ...ask } =
             group === "people"
                 ? whoRides(own, u.passengers ?? null)
-                : { choices: own, ask: words?.ask ?? "", none: words?.none, multiple: group !== "passengers", exclusive: undefined };
+                : { choices: own, ask: words?.ask ?? "", none: words?.none, multiple: !ONE_ANSWER.has(group), exclusive: undefined };
 
         if (!life || !choices.length || !words) return null;
 
@@ -591,7 +618,7 @@ export function stepFor(id: StepId, cars: FinnCar[], u: Understanding = EMPTY_UN
             max: words.max,
             exclusive: ask.exclusive,
             /* The count needs no words: the numbers cover it, and who they are comes next. */
-            custom: group === "passengers" ? undefined : { kind: "text", label: "Something else…", placeholder: words.placeholder },
+            custom: ONE_ANSWER.has(group) ? undefined : { kind: "text", label: "Something else…", placeholder: words.placeholder },
         };
     }
 
@@ -672,6 +699,8 @@ const NOTHING_HERE: Record<NeedGroup, string> = {
     weather: "Nothing unusual — I won't add anything for the weather.",
     loads: "Nothing much — I won't add anything for loads.",
     you: "Nothing else — I won't add anything more.",
+    co2: "Fine — CO₂ won't count.",
+    efficiency: "Fine — consumption won't count. What each car costs to run is still in its price.",
 };
 
 /** What Lens says to one group of needs: what it heard — its own picks, and anything typed alongside them. */
@@ -687,6 +716,13 @@ function acknowledgeGroup(step: ChatStep, u: Understanding, chosen: string[], be
         /* No need at all — not a need judged on a figure, like emissions, whose list is simply empty. */
         .filter((choice) => chosen.includes(choice.id) && choice.looksFor === undefined && choice.description)
         .map((choice) => choice.description!);
+
+    /* How much CO₂ or consumption matters: said as how much it will count. */
+    const scale = step.id === "life-co2" || step.id === "life-efficiency";
+    if (scale && needs[0]) {
+        const counts = { essential: "a must-have", important: "important", niceToHave: "nice to have" }[needs[0].importance];
+        return `${needs[0].label} will count as ${counts}.`;
+    }
 
     if (!needs.length) {
         if (nothingToCheck.length) return nothingToCheck.join(" ");
@@ -814,7 +850,13 @@ export function summaryOf(u: Understanding, id: string = messageId()): Extract<C
             .sort((a, b) => rank[a.importance] - rank[b.importance])
             .map((need) => {
                 /* A need judged on a figure has no equipment to name, but it isn't looking at nothing. */
-                const all = need.evidence.length ? labelsOf(checked(need, u)) : need.priorities.includes("environmental") ? ["Each car's CO₂ per km"] : [];
+                const all = need.evidence.length
+                    ? labelsOf(checked(need, u))
+                    : need.priorities.includes("environmental")
+                      ? ["Each car's CO₂ per km"]
+                      : need.priorities.includes("efficiency")
+                        ? ["Each car's consumption, against others of its kind"]
+                        : [];
                 const looksFor = all.filter((label) => !seen.has(label));
 
                 all.forEach((label) => seen.add(label));

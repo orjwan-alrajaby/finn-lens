@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { fleet } from "@/lib/reasoning-engine/test-data/fleet";
 import { totalFor } from "@/lib/reasoning-engine/scoring";
+import { CATEGORIES } from "@/lib/reasoning-engine/constants";
 import { EVIDENCE, readEvidence } from "@/lib/lens-chat/evidence";
 import { tellFitStory } from "@/lib/lens-chat/fit-story";
 import { ruledOut } from "@/lib/lens-chat/understanding";
@@ -62,7 +63,7 @@ async function converse(cars: PinnedFinnCar[], picks: Picks): Promise<Chat> {
 const PERSONAS: { name: string; picks: Picks }[] = [
     { name: "a young family parking on the street", picks: { life: ["passengers-2", "kids", "city", "street"], "follow-kids": ["seats"], rules: [], budget: { amount: 600 }, period: ["period-12"], distance: ["km-1000"], offer: ["yes"] } },
     { name: "a sales rep on the motorway every week, automatic only", picks: { life: ["commute", "motorway"], "follow-commute": ["long"], "follow-motorway": ["weekly"], rules: ["automatic"], budget: { amount: 800 }, period: ["period-24"], distance: { amount: 3000 }, offer: ["yes"] } },
-    { name: "an electric-only city dweller for six months", picks: { life: ["emissions", "tech", "city", "garage"], rules: ["electric-only"], budget: { amount: 450 }, period: ["period-6"], distance: ["km-500"], offer: ["no"] } },
+    { name: "an electric-only city dweller for six months", picks: { life: ["co2-decides", "tech", "city", "garage"], rules: ["electric-only"], budget: { amount: 450 }, period: ["period-6"], distance: ["km-500"], offer: ["no"] } },
     { name: "a nervous new driver who puts safety first", picks: { life: ["nervous", "safety"], "follow-nervous": ["parking", "traffic"], rules: [], budget: ["budget-400"], period: ["period-12"], distance: ["km-500"], focus: ["life-safety"], offer: ["yes"] } },
     { name: "a dog owner in snow who needs all-wheel drive", picks: { life: ["dog", "winter", "bulky"], "follow-winter": ["snow"], rules: ["awd"], budget: ["budget-700"], period: ["period-18"], distance: ["km-1500"], offer: ["yes"] } },
     { name: "a road-trip couple who won't go electric", picks: { life: ["passengers-1", "adults", "roadtrips", "comfort"], rules: ["not-electric"], budget: { amount: 900 }, period: ["period-24"], distance: ["km-1500"], offer: ["yes"] } },
@@ -70,9 +71,9 @@ const PERSONAS: { name: string; picks: Picks }[] = [
     { name: "a student on €300 in the city", picks: { life: ["city", "street"], rules: [], budget: ["budget-300"], period: ["period-6"], distance: ["km-500"], offer: ["no"] } },
     { name: "a night-shift nurse who types", picks: { "life-people": { text: "I drive home after night shifts on unlit country roads, and I can't spend more than 550 a month" }, rules: [], period: ["period-12"], distance: ["km-1500"], offer: ["yes"] } },
     { name: "a big family who need six seats", picks: { life: ["passengers-5", "kids", "bulky"], "follow-kids": ["boosters"], rules: ["six-seats"], budget: ["budget-1000"], period: ["period-24"], distance: { amount: 2000 }, offer: ["yes"] } },
-    { name: "someone who cares only about emissions, with no budget or dates", picks: { life: ["emissions"], rules: [], budget: [], period: [], distance: ["km-1000"], offer: ["no"] } },
+    { name: "someone who cares only about emissions, with no budget or dates", picks: { life: ["co2-matters"], rules: [], budget: [], period: [], distance: ["km-1000"], offer: ["no"] } },
     { name: "a family who type everything at once", picks: { "life-people": { text: "We're a family of four with a dog. I commute 40 minutes each way on the Autobahn, our winters are snowy, and we can spend around 700 a month." }, rules: [], period: ["period-12"], distance: ["km-2500"], offer: ["yes"] } },
-    { name: "someone who picks every need", picks: { life: ["passengers-4", "kids", "dog", "adults", "city", "commute", "motorway", "roadtrips", "night", "winter", "street", "garage", "summer", "bulky", "bikes", "towing", "nervous", "safety", "tech", "comfort", "emissions"], rules: [], budget: { amount: 800 }, period: ["period-12"], distance: ["km-1500"], offer: ["yes"] } },
+    { name: "someone who picks every need", picks: { life: ["passengers-4", "kids", "dog", "adults", "city", "commute", "motorway", "roadtrips", "night", "winter", "street", "garage", "summer", "bulky", "bikes", "towing", "nervous", "safety", "tech", "comfort", "co2-matters", "efficiency-matters"], rules: [], budget: { amount: 800 }, period: ["period-12"], distance: ["km-1500"], offer: ["yes"] } },
     { name: "a nervous electric-only city driver on €350", picks: { life: ["nervous", "city", "street"], "follow-nervous": ["parking", "reversing"], rules: ["electric-only"], budget: { amount: 350 }, period: ["period-12"], distance: ["km-500"], offer: ["yes"] } },
 ];
 
@@ -140,7 +141,8 @@ function problemsWith(chat: Chat, cars: PinnedFinnCar[]): string[] {
         const trace = translation.profile.trace.find((item) => item.need === need.label);
 
         for (const priority of trace?.priorities.map((item) => item.id) ?? []) {
-            if (priority !== "environmental" && !need.evidence.some((entry) => EVIDENCE[entry.id].scoredIn === priority)) {
+            /* CO₂ and consumption are figures: a need about them holds no equipment by design. */
+            if (!CATEGORIES[priority].numericOnly && !need.evidence.some((entry) => EVIDENCE[entry.id].scoredIn === priority)) {
                 problems.push(`${need.label} brings in ${priority} without any equipment scored there`);
             }
         }

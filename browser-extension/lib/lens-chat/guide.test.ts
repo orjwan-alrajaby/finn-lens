@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { copyFeatures, type Answers } from "@/lib/reasoning-engine/answers";
-import { CATEGORY_IDS, DEFAULT_CATEGORY_FEATURES, DEFAULT_PREFERENCES, DEFAULT_PRIORITIES } from "@/lib/reasoning-engine/constants";
+import { CATEGORIES, CATEGORY_IDS, DEFAULT_CATEGORY_FEATURES, DEFAULT_PREFERENCES, DEFAULT_PRIORITIES } from "@/lib/reasoning-engine/constants";
 import { fleet } from "@/lib/reasoning-engine/test-data/fleet";
 import type { PinnedFinnCar } from "@/lib/types";
 
@@ -106,9 +106,9 @@ describe("what the taps mean", () => {
             const need = choice.need!;
             const homes = new Set(need.evidence.map((id) => EVIDENCE[id].scoredIn).filter(Boolean));
 
-            /* Every priority it names holds some of its equipment — emissions, a figure, holds none by design. */
+            /* Every priority it names holds some of its equipment — CO₂ and consumption, figures, hold none by design. */
             for (const priority of need.priorities) {
-                if (priority !== "environmental") expect(homes, `${choice.id} names ${priority}`).toContain(priority);
+                if (!CATEGORIES[priority].numericOnly) expect(homes, `${choice.id} names ${priority}`).toContain(priority);
             }
             /* And everything a reader can raise sits under a priority it names. */
             for (const id of need.evidence.filter((item) => EVIDENCE[item].raisable)) {
@@ -245,11 +245,11 @@ describe("what Lens never offers", () => {
 });
 
 describe("emissions, which are a figure rather than equipment", () => {
-    const u = answer(EMPTY_UNDERSTANDING, "life", ["emissions", "motorway"]);
+    const u = answer(EMPTY_UNDERSTANDING, "life", ["co2-matters", "motorway"]);
     const translation = toAnswers(base, u);
     const run = runLens(cars, translation.answers, "page", "Comparing 24 cars on this page", ruledOut(u))!;
     const story = tellFitStory(run, u, translation.lessRelevant, null);
-    const section = story.sections.find((item) => item.key === "life-emissions")!;
+    const section = story.sections.find((item) => item.key === "life-co2-matters")!;
     const co2 = assessEnvironment(run.recommendation.winner)!.co2!;
 
     it("says the car's CO₂, instead of claiming it couldn't judge it", () => {
@@ -278,5 +278,21 @@ describe("a reader with no budget", () => {
         const run = runLens(cars, translation.answers, "page", "Comparing 24 cars on this page", ruledOut(u))!;
 
         expect(matchSentence(tellFitStory(run, u, translation.lessRelevant, null))).not.toMatch(/aimed for|what you wanted to spend/);
+    });
+});
+
+describe("efficiency, which is a figure too", () => {
+    const u = answer(EMPTY_UNDERSTANDING, "life", ["efficiency-matters", "motorway"]);
+    const translation = toAnswers(base, u, undefined, { fill: false, onlyAsked: true });
+    const run = runLens(cars, translation.answers, "page", "Comparing 24 cars on this page", ruledOut(u))!;
+    const story = tellFitStory(run, u, translation.lessRelevant, null);
+    const section = story.sections.find((item) => item.key === "life-efficiency-matters")!;
+
+    it("says how much the car uses against others of its kind, instead of claiming it couldn't judge it", () => {
+        const text = section.lines.map((line) => line.text).join(" ");
+
+        expect(translation.answers.priorities).toContain("efficiency");
+        expect(text).toMatch(/This car consumes|plug-in hybrid|doesn't publish a consumption figure/);
+        expect(text).not.toMatch(/nothing on this car it can check/);
     });
 });

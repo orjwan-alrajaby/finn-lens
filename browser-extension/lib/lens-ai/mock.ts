@@ -495,6 +495,11 @@ function readSituation(message: string, previous: WireUnderstanding) {
         });
     }
 
+    /* Kind to the environment: judged on CO₂, and kept apart from how little it uses. */
+    if (/environment(ally)?[- ]friendly|\beco\b|\bgreen\b|\bco2\b|co₂|emissions|climate[- ]friendly/i.test(text) && !waved(text, /environment|eco|green|co2|co₂|emissions|climate/)) {
+        add({ id: "clean", label: "Kind to the environment", importance: "important", said: "you'd like it to be kind to the environment", priorities: ["environmental"], evidence: [] });
+    }
+
     if (/efficien|economical|cheap to run|fuel (consumption|economy)|thirsty|guzzl/i.test(text)) {
         /* Judged on CO₂ per km, and named for it: running cost is already in every car's monthly figure. */
         add({ id: "efficient", label: "Low CO₂ per km", importance: "important", said: "you want something efficient", priorities: ["environmental"], evidence: [] });

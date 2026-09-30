@@ -136,6 +136,8 @@ export const NEED_GROUPS = {
     weather: "The weather",
     loads: "What you carry",
     you: "What makes it yours",
+    co2: "CO₂ emissions",
+    efficiency: "Fuel or electricity use",
 } as const;
 
 export type NeedGroup = keyof typeof NEED_GROUPS;
@@ -223,6 +225,23 @@ const passengersNeed = (count: number, label: string, said: string, description:
     /* Six people can't share five seats: that one isn't a preference. */
     return { ...choice, passengers: count, need: { ...choice.need!, importance: count >= 5 ? "essential" : "important" } };
 };
+
+/** One question's three answers about how much something matters, each the same need at its own importance. */
+function howMuch(group: "co2" | "efficiency", needLabel: string, priority: CategoryId, what: string): GuideChoice[] {
+    const levels: [string, string, string, NeedImportance][] = [
+        ["decides", "A lot — it could decide it", `A lot — ${what} could decide it.`, "essential"],
+        ["matters", "It matters", `${what.charAt(0).toUpperCase()}${what.slice(1)} matters to me.`, "important"],
+        ["bonus", "A little — it's a bonus", `A little — ${what} is a bonus.`, "niceToHave"],
+    ];
+
+    return levels.map(([level, label, said, importance]) => ({
+        id: `${group}-${level}`,
+        group,
+        label,
+        said,
+        need: { label: needLabel, importance, priorities: [priority], evidence: [] },
+    }));
+}
 
 /*
  * How many people ride along, first: the count is what decides seats and
@@ -471,21 +490,14 @@ const CHOICES: GuideChoice[] = [
             ["hasThreeZoneAutomaticClimateControls", "so each passenger sets their own temperature"],
         ],
         "Everyday comfort"),
-    {
-        id: "emissions",
-        group: "you",
-        label: "Low emissions",
-        said: "Emissions matter to me.",
-        description: "Judged on each car's CO₂ emissions per kilometre, placed on the A–G CO₂ label German law uses for new cars (Pkw-EnVKV). No equipment is involved.",
-        /*
-         * No evidence: Environmental Impact is scored from the car's own CO₂
-         * figure, and there is no equipment to point at. A need with an empty
-         * evidence list still moves the priority, which is the whole of what
-         * Lens can honestly do here. The reader's wish, not a verdict: "Low
-         * emissions" in a summary read as a claim about the car.
-         */
-        need: { label: "CO₂ emissions", importance: "important", priorities: ["environmental"], evidence: [] },
-    },
+    /*
+     * How much CO₂ and consumption matter are their own questions, each
+     * answered in words on the reader's own scale — not a tick among
+     * comforts. Each answer is the same need at the importance it names;
+     * "Not really" is no need at all.
+     */
+    ...howMuch("co2", "CO₂ emissions", "environmental", "the CO₂ it puts out"),
+    ...howMuch("efficiency", "Using little fuel or electricity", "efficiency", "how little it uses"),
 ];
 
 /*
@@ -515,7 +527,6 @@ const MEANS: Record<string, string> = {
     safety: "As much help avoiding a collision as the cars offer, whoever is driving.",
     tech: "Your phone's maps, music and calls on the car's screen, and charging it without a cable.",
     comfort: "Small comforts you'd use every day: electric seats, keyless entry, wireless charging, your own temperature.",
-    emissions: "How much CO₂ each car puts out per kilometre — not what it costs to run.",
 };
 
 const LIFE: GuideChoice[] = CHOICES.map((choice) => (MEANS[choice.id] ? { ...choice, means: MEANS[choice.id] } : choice));

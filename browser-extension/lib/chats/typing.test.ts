@@ -94,7 +94,7 @@ describe("a long list of needs", () => {
         const start = startChat(null, cars());
         const read = await readTyped({ ...start, understanding: { ...start.understanding, needs: many } }, "something with low fuel consumption", cars(), null);
 
-        expect(read.heardAs).toContain("low emissions");
+        expect(read.heardAs).toContain("using little fuel or electricity");
         expect(read.understanding.needs).toHaveLength(17);
     });
 });
@@ -139,5 +139,17 @@ describe("counts that don't add up", () => {
         expect(await next(["passengers-4"], "2 teenagers, 2 kids")).toBe("follow-kids");
         /* Two or three passengers ask the same of the car: rear doors. */
         expect(await next(["passengers-2"], "3 kids")).toBe("follow-kids");
+    });
+});
+
+describe("words about CO₂ and consumption", () => {
+    it("reads them onto their own questions, not onto each other", async () => {
+        const start = startChat(null, cars());
+        const green = await readTyped(start, "I'd like something eco-friendly", cars(), null);
+        const frugal = await readTyped(start, "it shouldn't guzzle fuel, low fuel consumption", cars(), null);
+
+        expect(green.understanding.needs.map((need) => need.id)).toEqual(["life-co2-matters"]);
+        expect(green.heardAs).toEqual(["CO₂ emissions"]);
+        expect(frugal.understanding.needs.map((need) => need.id)).toEqual(["life-efficiency-matters"]);
     });
 });

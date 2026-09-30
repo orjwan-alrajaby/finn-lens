@@ -510,11 +510,19 @@ describe("what Lens says back", () => {
         expect(reply.match(/ and /g)).toHaveLength(1);
     });
 
-    it("doesn't call emissions \"nothing to check\" — it's judged on a figure", () => {
-        const chat = walk(startChat(null, cars(), TODAY), { life: ["emissions", "tech"] });
+    it("asks how much CO₂ and consumption matter as questions of their own, answered in words", () => {
+        const chat = walk(startChat(null, cars(), TODAY), { life: ["tech", "co2-decides", "efficiency-bonus"] });
+        const asks = chat.messages.filter((message): message is Ask => message.kind === "ask");
+        const you = asks.find((ask) => ask.step.id === "life-you")!;
+        const co2 = asks.find((ask) => ask.step.id === "life-co2")!;
 
-        expect(texts(chat).join(" ")).not.toMatch(/No equipment is involved/);
-        expect(texts(chat).join(" ")).toMatch(/phone connection and co₂ emissions/i);
+        expect(you.step.choices.map((choice) => choice.id)).not.toContain("emissions");
+        expect(co2.step.multiple).toBe(false);
+        expect(co2.step.choices.map((choice) => choice.label)).toEqual(["A lot — it could decide it", "It matters", "A little — it's a bonus"]);
+        expect(co2.step.none).toBe("Not really");
+        expect(texts(chat)).toContain("CO₂ emissions will count as a must-have.");
+        expect(texts(chat)).toContain("Using little fuel or electricity will count as nice to have.");
+        expect(chat.understanding.needs.find((need) => need.id === "life-efficiency-bonus")?.priorities).toEqual(["efficiency"]);
     });
 
     it("says rules so they can't be misread, and stops looking for what a rule settles", () => {
@@ -578,8 +586,10 @@ describe("the summary", () => {
         expect(safety.also).toBeGreaterThan(0);
         expect(needs.flatMap((need) => need.looksFor)).toEqual([...new Set(needs.flatMap((need) => need.looksFor))]);
 
-        const emissions = walk(startChat(null, cars(), TODAY), { life: ["emissions"] });
-        expect(summaryOf(emissions.understanding).needs!.find((need) => need.id === "life-emissions")?.looksFor).toEqual(["Each car's CO₂ per km"]);
+        const figures = walk(startChat(null, cars(), TODAY), { life: ["co2-matters", "efficiency-matters"] });
+        const figureNeeds = summaryOf(figures.understanding).needs!;
+        expect(figureNeeds.find((need) => need.id === "life-co2-matters")?.looksFor).toEqual(["Each car's CO₂ per km"]);
+        expect(figureNeeds.find((need) => need.id === "life-efficiency-matters")?.looksFor).toEqual(["Each car's consumption, against others of its kind"]);
     });
 
     it("names the needs behind each priority's weight", () => {
@@ -629,7 +639,8 @@ describe("common sense in what can be picked", () => {
         const meanings: Record<string, string | undefined> = {};
 
         for (let guard = 0; guard < 12 && openAsk(chat)?.step.id.startsWith("life-"); guard += 1) {
-            for (const choice of openAsk(chat)!.step.choices) if (!choice.id.startsWith("passengers-") && choice.id !== "driveway") meanings[choice.id] = choice.means;
+            /* Counts, a driveway and how-much answers say what they mean on the chip itself. */
+            for (const choice of openAsk(chat)!.step.choices) if (!/^(passengers|co2|efficiency)-/.test(choice.id) && choice.id !== "driveway") meanings[choice.id] = choice.means;
             chat = answer(chat, openAsk(chat)!.id, openAsk(chat)!.step.id === "life-passengers" ? ["passengers-2"] : [], cars(), TODAY).chat;
         }
 

@@ -4,6 +4,7 @@ import { buildVocabulary } from "@/lib/lens-ai/vocabulary";
 import { evidenceCatalogue } from "@/lib/lens-chat/evidence";
 import { evidenceForNeeds } from "@/lib/lens-chat/fit-story";
 import { catalogueNeed, guideSteps } from "@/lib/lens-chat/guide";
+import { lowerFirst } from "@/lib/reasoning-engine/format";
 import type { LensRun } from "@/lib/lens-chat/run";
 import {
     diffUnderstanding,
@@ -76,12 +77,19 @@ const AS_TAPPED: Record<string, string> = {
     "dark-roads": "night",
     winter: "winter",
     safety: "safety",
-    efficient: "emissions",
+    efficient: "efficiency-matters",
+    clean: "co2-matters",
 };
 
 function asTapped(u: Understanding, before: Understanding, cars: FinnCar[]): { understanding: Understanding; heardAs: string[] } {
     const had = new Set(before.needs.map((need) => need.id));
-    const labels = new Map((guideSteps(cars).find((step) => step.id === "life")?.choices ?? []).map((choice) => [choice.id, choice.label]));
+    /* An answer's chip, or — where the chip is a degree, "It matters" — the need it is a degree of. */
+    const labels = new Map(
+        (guideSteps(cars).find((step) => step.id === "life")?.choices ?? []).map((choice) => [
+            choice.id,
+            choice.group === "co2" || choice.group === "efficiency" ? (choice.need?.label ?? choice.label) : choice.label,
+        ]),
+    );
     const heardAs: string[] = [];
     let needs = u.needs;
 
@@ -92,13 +100,13 @@ function asTapped(u: Understanding, before: Understanding, cars: FinnCar[]): { u
         const tapped = choice ? catalogueNeed(choice, cars) : null;
 
         if (!choice || !tapped) {
-            heardAs.push(need.label.toLowerCase());
+            heardAs.push(lowerFirst(need.label));
             continue;
         }
 
         needs = needs.filter((item) => item.id !== need.id);
         if (!needs.some((item) => item.id === tapped.id)) needs = [...needs, tapped];
-        heardAs.push((labels.get(choice) ?? tapped.label).toLowerCase());
+        heardAs.push(lowerFirst(labels.get(choice) ?? tapped.label));
     }
 
     return { understanding: { ...u, needs }, heardAs: [...new Set(heardAs)] };
@@ -141,7 +149,7 @@ export async function readTyped(chat: Chat, message: string, cars: FinnCar[], ru
     const { understanding, heardAs } = asTapped(grounded.understanding, chat.understanding, cars);
     const changes = diffUnderstanding(chat.understanding, understanding);
     /* Needs are said by name above; anything else that changed — the budget, the dates — by what it is now. */
-    const others = changes.filter((change) => !understanding.needs.some((need) => need.label === change.label)).map((change) => `${change.label.toLowerCase()}: ${change.to}`);
+    const others = changes.filter((change) => !understanding.needs.some((need) => need.label === change.label)).map((change) => `${lowerFirst(change.label)}: ${change.to}`);
 
     return { kind: "understanding", reply: grounded.reply, understanding, changes, heardAs: [...heardAs, ...others] };
 }

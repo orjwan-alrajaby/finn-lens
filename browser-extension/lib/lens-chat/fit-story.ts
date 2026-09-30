@@ -3,7 +3,7 @@ import { describeRentalProblem, formatEUR, monthLabel } from "@/lib/reasoning-en
 import { bandForScore } from "@/lib/reasoning-engine/bands";
 import { FIT_BANDS, type FitLevel } from "@/lib/reasoning-engine/fit";
 import { totalFor } from "@/lib/reasoning-engine/scoring";
-import { assessEnvironment } from "@/lib/reasoning-engine/environmental";
+import { assessEfficiency, assessEnvironment, efficiencyScore } from "@/lib/reasoning-engine/environmental";
 import { isStatedFact } from "@/lib/reasoning-engine/evidence";
 import type { SignalId } from "@/lib/reasoning-engine/types";
 import type { WireQuestion } from "@/lib/lens-ai/contract";
@@ -151,12 +151,15 @@ const BAND_MEANING: Record<FitLevel, string> = {
  */
 function bandBasis(run: LensRun): string {
     const equipment = Object.values(run.answers.features).some((items) => items.length > 0);
-    const co2 = run.answers.priorities.includes("environmental");
-    const from = equipment && co2
-        ? "which of the things you asked for FINN lists on it, and its CO₂ figure"
-        : co2
-          ? "the CO₂ figure FINN lists for it"
-          : "which of the things you asked for FINN lists on it";
+    /* The figures it was judged on: CO₂, consumption, or both. */
+    const figures = [
+        ...(run.answers.priorities.includes("environmental") ? ["CO₂"] : []),
+        ...(run.answers.priorities.includes("efficiency") ? ["consumption"] : []),
+    ];
+    const named = figures.length ? `the ${figures.join(" and ")} figure${figures.length > 1 ? "s" : ""} FINN lists for it` : "";
+    const from = equipment && named
+        ? `which of the things you asked for FINN lists on it, and ${figures.length > 1 ? "its CO₂ and consumption figures" : `its ${figures[0]} figure`}`
+        : named || "which of the things you asked for FINN lists on it";
 
     return `worked out from ${from}${run.answers.priorities.length > 1 ? ", weighted by how much each matters to you" : ""}`;
 }
@@ -239,6 +242,47 @@ function emissionsReading(car: PinnedFinnCar, cars: PinnedFinnCar[]): { tone: To
                 tone: "note",
                 text: "Lens places emissions on the A–G CO₂ label German law uses for new cars (Pkw-EnVKV): A is nothing at the tailpipe, B up to 95 g/km, C up to 115, D up to 135, E up to 155, F up to 175, and G above. For comparison, new cars that burn fuel emit about 136 g/km on average (ICCT, from EU registrations 2021–2024).",
             },
+        ],
+    };
+}
+
+/**
+ * How much of its own kind of energy the car uses, as Efficiency scored it:
+ * the engine's own words for it, against the FINN Lens benchmark for cars
+ * that run on the same thing, and where it stands among those here.
+ */
+function efficiencyReading(car: PinnedFinnCar, cars: PinnedFinnCar[]): { tone: Tone; label: string; lines: StoryLine[] } {
+    const reading = assessEfficiency(car);
+
+    if (!reading) {
+        return {
+            tone: "unknown",
+            label: car.fuelType === "Plug-in Hybrid" ? "Not judged for a plug-in hybrid" : "No consumption figure",
+            lines: [
+                {
+                    tone: "unknown",
+                    text:
+                        car.fuelType === "Plug-in Hybrid"
+                            ? "FINN's one consumption figure for a plug-in hybrid mixes fuel and electricity, so Lens couldn't judge how efficient it is — it counted neither for nor against it."
+                            : "FINN doesn't publish a consumption figure for this car, so Lens couldn't judge how efficient it is — it counted neither for nor against it.",
+                },
+            ],
+        };
+    }
+
+    const tone: Tone = reading.level === "high" ? "good" : reading.level === "low" ? "missing" : "note";
+    /* Only cars that run on the same thing: litres and kWh don't compare. */
+    const mine = efficiencyScore(car)?.consumption;
+    const same = cars.filter((other) => other.id !== car.id && other.fuelType === car.fuelType).map((other) => efficiencyScore(other)?.consumption).filter((value): value is number => value != null);
+    const less = mine == null ? 0 : same.filter((value) => value < mine).length;
+    const among = !same.length || mine == null ? "" : less === 0 ? ` None of the other ${same.length} like it here uses less.` : ` ${less} of the other ${same.length} like it here ${less === 1 ? "uses" : "use"} less.`;
+
+    return {
+        tone,
+        label: reading.label,
+        lines: [
+            { tone, text: `${reading.consumes}. ${reading.explanation}${among}` },
+            { tone: "note", text: `${reading.provenance.title} ${reading.provenance.body.replace(/\n\n/g, " ")}` },
         ],
     };
 }
@@ -651,7 +695,11 @@ export function tellFitStory(
          * on it. The reader was told the car wasn't judged on the one thing it
          * was judged on. Now the figure is said, against the other cars.
          */
-        const emissions = need.priorities.includes("environmental") ? emissionsReading(winner, cars) : null;
+        const emissions = need.priorities.includes("environmental")
+            ? emissionsReading(winner, cars)
+            : need.priorities.includes("efficiency")
+              ? efficiencyReading(winner, cars)
+              : null;
 
         if (emissions) lines.unshift(...emissions.lines);
 
