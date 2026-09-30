@@ -174,8 +174,20 @@ function nowSaid(step: StepId, u: Understanding, cars: FinnCar[]): string {
  */
 const ONE_ANSWER = new Set<NeedGroup>(["passengers", "co2", "efficiency"]);
 
-/** How many a reader is asked to pick as what matters most. */
-const TOP = 3;
+/** With this many needs or fewer, they count as they are: ranking them would invent a preference. */
+const RANK_FROM = 3;
+
+/**
+ * How many to pick as what matters most: about a third of what the reader
+ * named, never fewer than two or more than five. A must-have counts twice
+ * an important need, so a third of them picked holds about half the
+ * ranking however long the list — three of ten, five of fifteen — and the
+ * pick means the same thing either way. Past five, picking stops being a
+ * choice.
+ */
+export const topOf = (needs: number): number => Math.min(5, Math.max(2, Math.round(needs / 3)));
+
+const COUNT = ["none", "one", "two", "three", "four", "five"];
 
 /**
  * The needs a reader can rank: everything they said matters, but not how
@@ -315,7 +327,6 @@ const WHY: Record<string, string> = {
     budget: "A car over your limit can't be my pick. I compare each car's FINN price plus estimated fuel or charging and the mileage package your distance needs.",
     period: "FINN prices each car by how long you subscribe, and not every car is offered for every length — so this changes both the price and which cars fit.",
     distance: `FINN's price includes ${FINN_INCLUDED_MONTHLY_KM.toLocaleString("en-GB")} km a month; more needs one of FINN's mileage packages, which adds to each car's price. Your distance also sets what fuel or charging costs you.`,
-    focus: "Your top three count twice as much as the rest in the ranking. You can change this later in the summary.",
 };
 
 /** An answer this much of whose checks another picked answer already makes is set aside. */
@@ -446,21 +457,23 @@ export function stepFor(id: StepId, cars: FinnCar[], u: Understanding = EMPTY_UN
             /*
              * With three things or fewer, they count as they are: ranking
              * them would invent a preference. With more, the reader says
-             * which three matter most — what their answers already marked as
-             * deciding it starts picked, and they confirm or change it.
+             * which matter most — about a third of them — and what their
+             * answers already marked as deciding it starts picked.
              */
             const needs = rankable(u);
 
-            if (needs.length <= TOP) return null;
+            if (needs.length <= RANK_FROM) return null;
+
+            const top = COUNT[topOf(needs.length)];
 
             return {
                 id,
-                ask: `You've told me about ${needs.length} things that matter to you. When no car has all of them, it helps me to know your top three — which are they?`,
+                ask: `You've told me about ${needs.length} things that matter to you. When no car has all of them, it helps me to know your top ${top} — which are they?`,
                 why: needs.some((need) => need.importance === "essential")
-                    ? "Your top three count twice as much as the rest in the ranking. I've started with the ones your answers said could decide it — change them if they're not your top three. You can change this later in the summary too."
-                    : WHY.focus,
+                    ? `Your top ${top} count twice as much as the rest in the ranking. I've started with the ones your answers said could decide it — change them if they're not your top ${top}. You can change this later in the summary too.`
+                    : `Your top ${top} count twice as much as the rest in the ranking. You can change this later in the summary.`,
                 multiple: true,
-                max: TOP,
+                max: topOf(needs.length),
                 /* "&" on a chip, where space is short; the reader's words keep "and". */
                 choices: needs.map((need) => ({ id: need.id, label: need.label.replace(/ and /g, " & "), said: need.label })),
                 none: "They matter equally",
@@ -1302,7 +1315,7 @@ function answerStep(
         const ranked = new Set(step.choices.map((choice) => choice.id));
         const labels = understanding.needs.filter((need) => chosen.includes(need.id)).map((need) => lower(need.label));
 
-        said = labels.length ? `My top ${labels.length === 1 ? "one" : labels.length === 2 ? "two" : "three"}: ${joined(labels)}.` : step.none ?? "";
+        said = labels.length ? `My top ${COUNT[labels.length] ?? labels.length}: ${joined(labels)}.` : step.none ?? "";
 
         understanding = {
             ...understanding,

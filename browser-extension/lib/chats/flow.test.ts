@@ -7,7 +7,7 @@ import { EMPTY_UNDERSTANDING, withBudget } from "@/lib/lens-chat/understanding";
 import { fleet } from "@/lib/reasoning-engine/test-data/fleet";
 
 import { judgementFrom, judgeWith } from "./judge";
-import { answer, askNext, changeAnswers, changeOne, coveredBy, rentalMonths, rewind, rewindable, setImportance, startChat, startMonth, stepFor, summaryOf, withinLimits } from "./flow";
+import { answer, askNext, changeAnswers, changeOne, coveredBy, rentalMonths, rewind, rewindable, setImportance, startChat, startMonth, stepFor, summaryOf, topOf, withinLimits } from "./flow";
 import { readTyped } from "./typing";
 import type { Chat, ChatMessage, SavedSettings, StepId } from "./types";
 
@@ -422,8 +422,8 @@ describe("a conversation, not a form", () => {
         const chat = walk(startChat(null, cars(), TODAY), { life: ["passengers-2", "kids", "winter", "city", "bulky"], "follow-kids": ["boosters"], "follow-winter": ["cold"], focus: ["life-winter"] });
         const focus = chat.messages.find((message): message is Ask => message.kind === "ask" && message.step.id === "focus")!;
 
-        expect(focus.step.ask).toBe("You've told me about 4 things that matter to you. When no car has all of them, it helps me to know your top three — which are they?");
-        expect(focus.step.max).toBe(3);
+        expect(focus.step.ask).toBe("You've told me about 4 things that matter to you. When no car has all of them, it helps me to know your top two — which are they?");
+        expect(focus.step.max).toBe(2);
         expect(chat.understanding.needs.find((need) => need.id === "life-winter")?.importance).toBe("essential");
         expect(chat.understanding.needs.find((need) => need.id === "life-kids")?.importance).toBe("important");
     });
@@ -843,5 +843,11 @@ describe("taking an answer back", () => {
 
         const typed = { ...start(), messages: [...start().messages, { id: "typed", at: "", from: "reader" as const, kind: "text" as const, text: "hello" }] };
         expect(rewindable(typed)).toBeNull();
+    });
+});
+
+describe("how many to pick", () => {
+    it("asks for about a third of what was named, between two and five", () => {
+        expect([4, 7, 8, 10, 11, 13, 14, 19].map(topOf)).toEqual([2, 2, 3, 3, 4, 4, 5, 5]);
     });
 });
