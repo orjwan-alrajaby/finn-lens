@@ -230,3 +230,14 @@ describe("the rental period, in the story", () => {
         expect(titles.join(" ")).not.toMatch(/may not work/);
     });
 });
+
+describe("what the band was worked out from", () => {
+    it("names the CO₂ figure, not a list, for a reader who asked about emissions alone", () => {
+        const u = applyChoices(EMPTY_UNDERSTANDING, guideSteps([]).find((step) => step.id === "life")!, ["emissions"]);
+        const { run, translation } = judgeWith(u, cars(), "5 cars")!;
+        const { bandMeaning } = tellFitStory(run, u, translation.lessRelevant, null);
+
+        expect(bandMeaning).toMatch(/the CO₂ figure FINN lists for it/);
+        expect(bandMeaning).not.toMatch(/things you asked for|weighted/);
+    });
+});

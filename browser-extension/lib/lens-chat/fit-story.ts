@@ -137,12 +137,29 @@ const joinNames = (names: string[]): string =>
  * share the number doesn't carry.
  */
 const BAND_MEANING: Record<FitLevel, string> = {
-    strong: "the top of Lens's four bands, worked out from which of the things you asked for FINN lists on it, weighted by how much each matters to you",
-    good: "the second of Lens's four bands, worked out from which of the things you asked for FINN lists on it, weighted by how much each matters to you",
-    partial: "the third of Lens's four bands, worked out from which of the things you asked for FINN lists on it, weighted by how much each matters to you",
-    limited: "the lowest of Lens's four bands, worked out from which of the things you asked for FINN lists on it, weighted by how much each matters to you",
+    strong: "the top of Lens's four bands",
+    good: "the second of Lens's four bands",
+    partial: "the third of Lens's four bands",
+    limited: "the lowest of Lens's four bands",
     unknown: "FINN's data on it is too thin for Lens to place it in a band",
 };
+
+/*
+ * What the band was worked out from, as it was: equipment, the CO₂ figure,
+ * or both. "Which of the things you asked for FINN lists on it" was said to
+ * a reader who asked about emissions alone, of a figure, not a list.
+ */
+function bandBasis(run: LensRun): string {
+    const equipment = Object.values(run.answers.features).some((items) => items.length > 0);
+    const co2 = run.answers.priorities.includes("environmental");
+    const from = equipment && co2
+        ? "which of the things you asked for FINN lists on it, and its CO₂ figure"
+        : co2
+          ? "the CO₂ figure FINN lists for it"
+          : "which of the things you asked for FINN lists on it";
+
+    return `worked out from ${from}${run.answers.priorities.length > 1 ? ", weighted by how much each matters to you" : ""}`;
+}
 
 /* "Blind spot warning" → "blind spot warning", but never "I" → "i" or "ISOFIX" → "iSOFIX". */
 const lower = lowerFirst;
@@ -833,7 +850,7 @@ export function tellFitStory(
         bandMeaning:
             band === "unknown"
                 ? `${BAND_MEANING.unknown.charAt(0).toUpperCase()}${BAND_MEANING.unknown.slice(1)}.`
-                : `Lens rates it a ${FIT_BANDS[band].label.toLowerCase()}: ${BAND_MEANING[band]}.`,
+                : `Lens rates it a ${FIT_BANDS[band].label.toLowerCase()}: ${BAND_MEANING[band]}, ${bandBasis(run)}.`,
         sections,
         catch: catchNote,
         stillToKnow,
