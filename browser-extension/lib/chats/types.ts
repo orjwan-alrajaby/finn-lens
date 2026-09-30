@@ -161,11 +161,19 @@ export type ChatMessage =
           from: "lens";
           kind: "summary";
           /** What the reader said matters, and how much. Absent on chats from before it was kept. */
-          needs?: { id: string; label: string; importance: NeedImportance; looksFor: string[] }[];
+          needs?: {
+              id: string;
+              label: string;
+              importance: NeedImportance;
+              /** Equipment this need is the first on the card to name. */
+              looksFor: string[];
+              /** How many more it counts that a need above already listed: each item is shown once. */
+              also?: number;
+          }[];
           /** What Lens will judge by, in plain lines, each with the question that sets it. */
           lines: { label: string; value: string; step?: StepId }[];
           /** The priorities those answers came to, with how much each counts. */
-          priorities: { label: string; share: number }[];
+          priorities: { label: string; share: number; from?: string[] }[];
       }
     | {
           id: string;

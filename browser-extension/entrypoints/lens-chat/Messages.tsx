@@ -5,6 +5,7 @@ import { BandChip, BrandMark, CarPhoto, euros, WinnerChip } from "@/components/l
 import { IMPORTANCE_LABEL } from "@/lib/chats/flow";
 import type { CarSnapshot, ChatMessage, Choice, CustomAnswer, StepId } from "@/lib/chats/types";
 import type { NeedImportance } from "@/lib/lens-ai/contract";
+import { lowerFirst } from "@/lib/reasoning-engine/format";
 
 /**
  * The conversation, as the reader sees it.
@@ -564,7 +565,14 @@ function Summary({
                                         <span className="shrink-0 rounded-full bg-finn-pale-blue px-2 py-0.5 text-[10.5px] font-black text-finn-accent-blue">{IMPORTANCE_LABEL[need.importance]}</span>
                                     )}
                                 </div>
-                                {need.looksFor.length ? <p className="mt-0.5 text-[11.5px] leading-snug text-finn-iron">I'll look for: {need.looksFor.join(" · ")}</p> : null}
+                                {need.looksFor.length ? (
+                                    <p className="mt-0.5 text-[11.5px] leading-snug text-finn-iron">
+                                        I'll look for: {need.looksFor.join(" · ")}
+                                        {need.also ? `, and ${need.also} listed above` : ""}
+                                    </p>
+                                ) : need.also ? (
+                                    <p className="mt-0.5 text-[11.5px] leading-snug text-finn-iron">Everything I'd look for is listed above.</p>
+                                ) : null}
                             </li>
                         ))}
                     </ul>
@@ -604,6 +612,9 @@ function Summary({
                                         <span className="col-span-2 block h-1.5 overflow-hidden rounded-full bg-finn-cotton">
                                             <span className="block h-full rounded-full bg-finn-accent-blue" style={{ width: `${Math.max(4, priority.share)}%` }} />
                                         </span>
+                                        {priority.from?.length ? (
+                                            <span className="col-span-2 text-[11px] leading-snug text-finn-iron">From: {priority.from.map((label, index) => (index ? lowerFirst(label) : label)).join(", ")}</span>
+                                        ) : null}
                                     </li>
                                 ))}
                             </ul>

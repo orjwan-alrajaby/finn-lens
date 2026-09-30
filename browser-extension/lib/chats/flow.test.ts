@@ -515,3 +515,25 @@ describe("a long list of needs", () => {
         expect(asked(chat)).not.toContain("focus");
     });
 });
+
+describe("the summary", () => {
+    it("lists each piece of equipment once, and says how many a need shares with those above", () => {
+        const chat = walk(startChat(null, cars(), TODAY), { life: ["nervous", "safety", "emissions"], "follow-nervous": ["traffic"] });
+        const needs = summaryOf(chat.understanding).needs!;
+        const nerves = needs.find((need) => need.id === "life-nervous")!;
+        const safety = needs.find((need) => need.id === "life-safety")!;
+
+        expect(nerves.looksFor).toContain("Blind spot warning");
+        expect(safety.looksFor).not.toContain("Blind spot warning");
+        expect(safety.also).toBeGreaterThan(0);
+        expect(needs.flatMap((need) => need.looksFor)).toEqual([...new Set(needs.flatMap((need) => need.looksFor))]);
+        expect(needs.find((need) => need.id === "life-emissions")?.looksFor).toEqual(["Each car's CO₂ per km"]);
+    });
+
+    it("names the needs behind each priority's weight", () => {
+        const chat = walk(startChat(null, cars(), TODAY), { life: ["passengers-2", "kids", "bulky"], "follow-kids": ["seats"] });
+        const practicality = summaryOf(chat.understanding).priorities.find((priority) => priority.label === "Practicality")!;
+
+        expect(practicality.from).toEqual(expect.arrayContaining(["Travelling with children", "Bulky loads"]));
+    });
+});

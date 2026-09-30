@@ -653,6 +653,8 @@ export function summaryOf(u: Understanding, id: string = messageId()): Extract<C
     });
 
     const translation = chatAnswers(u);
+    /* Each item once, under the first need to name it: blind spot warning under "Driving nerves" and again under "Safety" read as two things. */
+    const seen = new Set<string>();
 
     return {
         id,
@@ -661,9 +663,18 @@ export function summaryOf(u: Understanding, id: string = messageId()): Extract<C
         kind: "summary",
         needs: [...needs]
             .sort((a, b) => rank[a.importance] - rank[b.importance])
-            .map((need) => ({ id: need.id, label: need.label, importance: need.importance, looksFor: labelsOf(checked(need, u)) })),
+            .map((need) => {
+                /* A need judged on a figure has no equipment to name, but it isn't looking at nothing. */
+                const all = need.evidence.length ? labelsOf(checked(need, u)) : need.priorities.includes("environmental") ? ["Each car's CO₂ per km"] : [];
+                const looksFor = all.filter((label) => !seen.has(label));
+
+                all.forEach((label) => seen.add(label));
+
+                return { id: need.id, label: need.label, importance: need.importance, looksFor, also: all.length - looksFor.length };
+            }),
         lines,
-        priorities: translation.profile.priorities.map((item) => ({ label: item.label, share: item.sharePercent })),
+        /* Which needs put weight on each priority, so a share can be traced back to what was said. */
+        priorities: translation.profile.priorities.map((item) => ({ label: item.label, share: item.sharePercent, from: item.from })),
     };
 }
 
