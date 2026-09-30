@@ -43,4 +43,12 @@ export function joinList(items: string[]): string {
 }
 
 /** Labels that start with a name, which keeps its capital mid-sentence: not "apple CarPlay". */
-export const PROPER_NAME = /^(Apple|Android)\b/;
+export const PROPER_NAME = /^(Apple|Android|Level \d)\b/;
+
+/**
+ * A label or phrase as it reads mid-sentence: first letter lowered, unless
+ * it starts with an acronym ("ISOFIX"), "I", or a name ("Apple CarPlay",
+ * "Level 2 driver assistance").
+ */
+export const lowerFirst = (value: string): string =>
+    /^(I\b|[A-Z]{2,})/.test(value) || PROPER_NAME.test(value) ? value : value.charAt(0).toLowerCase() + value.slice(1);

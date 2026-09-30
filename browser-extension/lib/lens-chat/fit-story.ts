@@ -1,3 +1,4 @@
+import { lowerFirst } from "@/lib/reasoning-engine/format";
 import { describeRentalProblem, formatEUR, monthLabel } from "@/lib/reasoning-engine";
 import { bandForScore } from "@/lib/reasoning-engine/bands";
 import { FIT_BANDS, type FitLevel } from "@/lib/reasoning-engine/fit";
@@ -144,8 +145,7 @@ const BAND_MEANING: Record<FitLevel, string> = {
 };
 
 /* "Blind spot warning" → "blind spot warning", but never "I" → "i" or "ISOFIX" → "iSOFIX". */
-const lower = (value: string) =>
-    /^(I\b|[A-Z]{2,})/.test(value) ? value : value.charAt(0).toLowerCase() + value.slice(1);
+const lower = lowerFirst;
 
 const sentence = (value: string) => {
     const trimmed = value.trim().replace(/[.;,]+$/, "");

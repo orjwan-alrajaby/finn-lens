@@ -333,7 +333,8 @@ const LIFE: GuideChoice[] = [
             ["hasParkingSensors", "so you know how much room is left"],
             ["hasLaneKeepingAssist", "for a moment's inattention"],
         ],
-        "Help for a nervous driver"),
+        /* Said back as "It helps with driving nerves" — "help for a nervous driver" came out "It helps with help for…". */
+        "Driving nerves"),
     need("safety", "you", "Safety above all", "Safety matters more than anything else to me.",
         "Automatic emergency braking, blind spot warning, lane keeping assist, rear cross-traffic alert, and traffic sign recognition.",
         ["safetyAssistance"],
@@ -343,7 +344,9 @@ const LIFE: GuideChoice[] = [
             ["hasLaneKeepingAssist", "for a moment's inattention"],
             ["hasRearCrosswalkWarning", "for reversing out between parked cars, where you can't see traffic coming"],
             ["hasTrafficSignRecognition", "so you always know the current limit"],
-        ]),
+        ],
+        /* "It partly covers safety", not "It partly covers safety above all". */
+        "Safety"),
     need("tech", "you", "Phone and tech", "I want my phone to connect to the car.",
         "Apple CarPlay or Android Auto (wired or wireless), and a wireless charging pad for your phone.",
         ["comfort"],

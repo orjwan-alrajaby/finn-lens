@@ -1,3 +1,4 @@
+import { lowerFirst } from "@/lib/reasoning-engine/format";
 import { formatEUR, monthLabel } from "@/lib/reasoning-engine";
 import { CATEGORIES } from "@/lib/reasoning-engine/constants";
 
@@ -45,8 +46,7 @@ const joinLabels = (parts: string[]): string => {
     return join(kept);
 };
 
-const lower = (value: string): string =>
-    /^[A-Z]{2,}/.test(value) || value.startsWith("I ") ? value : `${value.charAt(0).toLowerCase()}${value.slice(1)}`;
+const lower = lowerFirst;
 
 export interface HeardLines {
     /** Their life, as they described it. */

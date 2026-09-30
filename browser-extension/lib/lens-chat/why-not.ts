@@ -1,3 +1,4 @@
+import { lowerFirst } from "@/lib/reasoning-engine/format";
 import { formatEUR } from "@/lib/reasoning-engine";
 import { CATEGORIES, SIGNALS } from "@/lib/reasoning-engine/constants";
 import { totalFor } from "@/lib/reasoning-engine/scoring";
@@ -46,7 +47,7 @@ export function carNamed(run: LensRun, text: string): PinnedFinnCar | null {
 }
 
 /* "Rear USB ports" belongs in a sentence as "rear USB ports", never "rear usb ports". */
-const lower = (value: string) => (/^(I\b|[A-Z]{2,})/.test(value) ? value : `${value.charAt(0).toLowerCase()}${value.slice(1)}`);
+const lower = lowerFirst;
 
 const names = (keys: SignalId[], limit = 3): string =>
     keys

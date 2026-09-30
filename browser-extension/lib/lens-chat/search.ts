@@ -1,3 +1,4 @@
+import { lowerFirst } from "@/lib/reasoning-engine/format";
 import { formatEUR, monthLabel } from "@/lib/reasoning-engine";
 import { addMonths, isMonthString, MAX_RENTAL_MONTHS } from "@/lib/reasoning-engine/contract";
 import type { FinnSearch } from "@/lib/finn-search";
@@ -98,7 +99,7 @@ const OFFERS: Record<string, string> = {
 const joined = (parts: string[]): string =>
     parts.length <= 1 ? (parts[0] ?? "") : `${parts.slice(0, -1).join(", ")} and ${parts.at(-1)}`;
 
-const lower = (value: string) => (/^[A-Z]{2,}|^\d/.test(value) ? value : `${value.charAt(0).toLowerCase()}${value.slice(1)}`);
+const lower = lowerFirst;
 
 /** A need that is exactly one piece of evidence the reader filtered for. */
 function need(key: string, evidence: EvidenceId, label: string, said: string): Need {

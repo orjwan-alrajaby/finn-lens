@@ -616,6 +616,7 @@ describe("language primitives", () => {
     );
     expect(inSentence("360° camera")).toBe("360° camera");
     expect(inSentence("Apple CarPlay / Android Auto")).toBe("Apple CarPlay / Android Auto");
+    expect(inSentence("Level 2 driver assistance")).toBe("Level 2 driver assistance");
     expect(phraseLabel("Family Friendly")).toBe("family friendly");
     expect(phraseLabel("CO₂ Impact")).toBe("CO₂ impact");
   });

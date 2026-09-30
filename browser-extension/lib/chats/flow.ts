@@ -1,3 +1,4 @@
+import { lowerFirst } from "@/lib/reasoning-engine/format";
 import { formatEUR } from "@/lib/reasoning-engine";
 import { FINN_INCLUDED_MONTHLY_KM } from "@/lib/reasoning-engine/constants";
 import { addMonths, monthLabel, type MonthString } from "@/lib/reasoning-engine/contract";
@@ -62,7 +63,7 @@ const reader = (text: string): ChatMessage => ({ id: messageId(), at: now(), fro
 const joined = (parts: string[]): string =>
     parts.length <= 1 ? (parts[0] ?? "") : `${parts.slice(0, -1).join(", ")} and ${parts.at(-1)}`;
 
-const lower = (value: string) => (/^(I\b|[A-Z]{2,})/.test(value) ? value : value.charAt(0).toLowerCase() + value.slice(1));
+const lower = lowerFirst;
 
 const lifeNeeds = (u: Understanding) => u.needs.filter((need) => need.status === "active" && need.priorities.length > 0);
 
