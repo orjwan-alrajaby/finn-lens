@@ -40,6 +40,9 @@ import {
  *   is still calculated, still checkable, and stays out of the sentence.
  */
 
+/** False in a chat, where the order comes from the reader's needs rather than from them. */
+export const rankedByReader = (context: ReasoningContext): boolean => context.preferences.priorityShares == null;
+
 /* -------------------------------------------------------------------------- */
 /* Why it won                                                                 */
 /* -------------------------------------------------------------------------- */
@@ -53,13 +56,24 @@ import {
 export function summarisePriority(
   reasoning: PriorityReasoning,
   position: "first" | "next",
+  /**
+   * Whether the reader ranked the priorities themselves. In a chat they
+   * named needs, and the priorities fall out of those — "You put city &
+   * parking first" was said to someone who had called kids in the back
+   * essential and parking merely important.
+   */
+  ranked = true,
 ): string | null {
   if (reasoning.standing === "unsupported") return null;
 
-  const opener =
-    position === "first"
-      ? `You put ${phraseLabel(reasoning.label)} first`
-      : `${toSentenceStart(phraseLabel(reasoning.label))} is your #${reasoning.rank}`;
+  const label = phraseLabel(reasoning.label);
+  const opener = ranked
+    ? position === "first"
+      ? `You put ${label} first`
+      : `${toSentenceStart(label)} is your #${reasoning.rank}`
+    : position === "first"
+      ? `${toSentenceStart(label)} holds the most of what you asked for`
+      : `${toSentenceStart(label)} holds the next most`;
 
   const { basis, picked, coverage: cover, measuredShort = [] } = reasoning.features;
   const { present, missing } = picked;
@@ -140,14 +154,14 @@ export function summarisePriority(
  * Capped at two priorities: the detail for every priority is directly below
  * on the page, and a summary that repeats all five isn't a summary.
  */
-function describeReasons(priorities: PriorityReasoning[]): string[] {
+function describeReasons(priorities: PriorityReasoning[], ranked = true): string[] {
   const usable = priorities.filter((item) => item.standing !== "unsupported");
 
   const [first, second] = usable;
 
   return paragraph(
-    first ? summarisePriority(first, "first") : null,
-    second ? summarisePriority(second, "next") : null,
+    first ? summarisePriority(first, "first", ranked) : null,
+    second ? summarisePriority(second, "next", ranked) : null,
   );
 }
 
@@ -451,7 +465,7 @@ export function reasonAboutVerdict(
           `${name} is the best estimate for what you told us, but FINN's data`,
           "doesn't cover enough of your top two priorities to recommend it with confidence",
         ),
-    reasons: describeReasons(priorities),
+    reasons: describeReasons(priorities, rankedByReader(context)),
     budgetNote: describeBudgetOverride(evaluation, context),
     margin,
     marginNote: describeMargin(margin),

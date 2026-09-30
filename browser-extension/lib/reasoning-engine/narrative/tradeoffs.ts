@@ -16,6 +16,7 @@ import { hasSignal } from "../evidence";
 import { absentList, emphasisClause } from "./evidence-phrases";
 import { formatEUR } from "../format";
 import { takeableIds } from "./cost";
+import { rankedByReader } from "./verdict";
 import { featureFact } from "./facts";
 import {
   classifyMonthlyCostGap,
@@ -140,19 +141,24 @@ function missingSelected(
   const high = missing.filter((fact) => fact.importance === "high");
   const who = emphasisClause(missing.map((fact) => fact.source));
 
+  /* In a chat the reader named needs, not a ranking of priorities. */
+  const under = rankedByReader(context)
+    ? `${phraseLabel(reasoning.label)}, your #${reasoning.rank} priority,`
+    : `${phraseLabel(reasoning.label)},`;
+
   const relevance = high.length
     ? sentence(
         toSentenceStart(who),
         high.length === missing.length && missing.length === 1
           ? "it as counting highly under"
           : `${joinCapped(high.map((fact) => fact.phrase), 5)} as counting highly under`,
-        `${phraseLabel(reasoning.label)}, your #${reasoning.rank} priority,`,
+        under,
         "so this is the compromise here most worth weighing",
       )
     : sentence(
         toSentenceStart(who),
         `${missing.length === 1 ? "it" : "them"} under`,
-        `${phraseLabel(reasoning.label)}, your #${reasoning.rank} priority,`,
+        under,
         "so it's worth weighing before you decide",
       );
 
@@ -226,7 +232,9 @@ function whyItStillWon(
   return sentence(
     `It still comes out on top because nothing close beats it on`,
     `${joinList(stronger.slice(0, 2).map((item) => phraseLabel(item.label)))},`,
-    "which you ranked higher — but this is a real compromise, not a rounding error",
+    rankedByReader(context)
+      ? "which you ranked higher — but this is a real compromise, not a rounding error"
+      : "which count for more in what you asked for — but this is a real compromise, not a rounding error",
   );
 }
 

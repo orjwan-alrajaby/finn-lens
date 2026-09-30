@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { totalFor } from "@/lib/reasoning-engine/scoring";
+import { priorityWeights, totalFor } from "@/lib/reasoning-engine/scoring";
 import { BASELINE, GARAGE, garageCar } from "@/lib/reasoning-engine/test-garage";
 import { EVIDENCE } from "@/lib/lens-chat/evidence";
 import { tellFitStory } from "@/lib/lens-chat/fit-story";
@@ -239,5 +239,34 @@ describe("what the band was worked out from", () => {
 
         expect(bandMeaning).toMatch(/the CO₂ figure FINN lists for it/);
         expect(bandMeaning).not.toMatch(/things you asked for|weighted/);
+    });
+});
+
+describe("how much each need counts", () => {
+    const life = () => guideSteps([]).find((step) => step.id === "life")!;
+    const picked = (...ids: string[]) => applyChoices(EMPTY_UNDERSTANDING, life(), ids);
+    const shares = (u: Understanding) => chatAnswers(u).answers.preferences.priorityShares!;
+
+    it("weighs one need's equipment the same wherever it is scored, not by the order of its priorities", () => {
+        /* Two needs of equal importance, one priority each: an even split, not 2:1. */
+        const { answers } = chatAnswers(picked("dog", "tech"));
+        const weights = priorityWeights(answers.priorities, answers.preferences.priorityShares);
+
+        expect(weights.map((item) => item.weightPercent)).toEqual([50, 50]);
+    });
+
+    it("counts a need by its importance, however many items Lens checks for it", () => {
+        /* Kids (five items) and emissions (one figure), both important: equal shares. */
+        const split = shares(picked("kids", "emissions"));
+        const kids = (split.practicality ?? 0) + (split.comfort ?? 0);
+
+        expect(kids).toBeCloseTo(split.environmental!, 5);
+    });
+
+    it("never claims the reader ranked priorities they only reached through their needs", () => {
+        const { run } = judgeWith(picked("kids", "city"), cars(), "5 cars")!;
+
+        expect(run.narrative.verdict.reasons.join(" ")).not.toMatch(/You put|your #/);
+        expect(run.narrative.tradeoffs.map((item) => item.sentences.join(" ")).join(" ")).not.toMatch(/your #\d|you ranked/);
     });
 });

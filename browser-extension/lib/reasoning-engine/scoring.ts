@@ -436,12 +436,19 @@ function environmentalDetail(vehicle: PinnedFinnCar): CategoryDetail {
  * Position 1 gets the largest share and each step down gets one unit less,
  * normalised so the weights sum to 1: 5:4:3:2:1 for five priorities.
  */
-export function priorityWeights(priorities: CategoryId[]): PriorityWeight[] {
+export function priorityWeights(
+  priorities: CategoryId[],
+  /** Explicit shares, used when every priority in the order has one. */
+  shares?: Partial<Record<CategoryId, number>>,
+): PriorityWeight[] {
   const ordered = priorities.length ? priorities : DEFAULT_PRIORITIES;
   const denominator = (ordered.length * (ordered.length + 1)) / 2;
+  const given = shares && ordered.every((priority) => (shares[priority] ?? 0) > 0)
+    ? ordered.reduce((sum, priority) => sum + shares[priority]!, 0)
+    : null;
 
   return ordered.map((priority, index) => {
-    const weight = (ordered.length - index) / denominator;
+    const weight = given ? shares![priority]! / given : (ordered.length - index) / denominator;
 
     return {
       priority,
@@ -474,7 +481,7 @@ export function scoreVehicle(
   preferences?: LensPreferences,
   categoryFeatures: Record<CategoryId, FeatureSelection> = DEFAULT_CATEGORY_FEATURES,
 ): VehicleScore {
-  const weights = priorityWeights(priorities);
+  const weights = priorityWeights(priorities, preferences?.priorityShares);
 
   const byCategory = {} as Record<CategoryId, number>;
   const details: Partial<Record<CategoryId, CategoryDetail>> = {};

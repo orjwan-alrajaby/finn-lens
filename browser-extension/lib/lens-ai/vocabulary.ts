@@ -88,7 +88,7 @@ export function buildVocabulary(enabled: CategoryId[] = CATEGORY_IDS): LensVocab
 /** The answers as they stand, in the same terms as the vocabulary. */
 export function describeCurrent(answers: Answers): CurrentAnswers {
     return {
-        priorities: priorityWeights(answers.priorities).map((weight) => ({
+        priorities: priorityWeights(answers.priorities, answers.preferences.priorityShares).map((weight) => ({
             id: weight.priority,
             label: CATEGORIES[weight.priority].label,
             rank: weight.rank,

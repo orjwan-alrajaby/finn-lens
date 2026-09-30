@@ -67,6 +67,13 @@ export interface LensPreferences {
    * then judged on blind spot warning and matrix headlights nobody asked for.
    */
   countOnlyAsked?: boolean;
+  /**
+   * Each priority's share of the result, where it isn't its place in the
+   * order. Set by a chat: the weight of what the reader asked for in each —
+   * so one need's matrix headlights and cornering lights count the same,
+   * rather than 2:1 because Safety happened to sort above Climate.
+   */
+  priorityShares?: Partial<Record<CategoryId, number>>;
 }
 
 /**

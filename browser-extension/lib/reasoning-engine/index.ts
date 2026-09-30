@@ -179,7 +179,7 @@ export function buildReasoningContext(
     categoryFeatures,
     scores,
     costs,
-    weights: priorityWeights(ordered),
+    weights: priorityWeights(ordered, preferences.priorityShares),
     ranked,
     budget: partitionByBudget(vehicles, costs, preferences),
     rental: partitionByRental(vehicles, costs),

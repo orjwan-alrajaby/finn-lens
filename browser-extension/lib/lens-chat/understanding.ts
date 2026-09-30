@@ -1,6 +1,7 @@
 import {
     CATEGORIES,
     CATEGORY_IDS,
+    FEATURE_IMPORTANCE,
     FINN_INCLUDED_MONTHLY_KM,
     MAX_FEATURES_PER_CATEGORY,
     MAX_PRIORITIES,
@@ -914,9 +915,38 @@ export function toAnswers(
         preferences.rentalTo = u.rental.to;
     }
     if (u.monthlyKm) preferences.monthlyKm = u.monthlyKm.value;
-    if (onlyAsked) preferences.countOnlyAsked = true;
+    if (onlyAsked) {
+        preferences.countOnlyAsked = true;
 
-    const weights = priorityWeights(order.map((item) => item.id));
+        /*
+         * Each need weighs what its importance says, split across the
+         * priorities its equipment sits in, and each priority's share is
+         * what its needs put there. By place in the order alone, one need's
+         * matrix headlights (Safety) counted twice its cornering lights
+         * (Climate) — and a need is a need however many items Lens checks
+         * for it, so seven for kids don't outweigh one CO₂ figure seven to
+         * one either.
+         */
+        const shares: Partial<Record<CategoryId, number>> = {};
+        const ranked = new Set(order.map((item) => item.id));
+
+        for (const need of active) {
+            const weight = FEATURE_IMPORTANCE[RAISE[need.importance]].weight;
+            const homes = need.evidence
+                .filter(counts)
+                .map((entry) => EVIDENCE[entry.id].scoredIn!)
+                .filter((id) => ranked.has(id));
+            const into = homes.length ? homes : prioritiesOf(need).filter((id) => ranked.has(id));
+
+            for (const id of into) shares[id] = (shares[id] ?? 0) + weight / into.length;
+        }
+
+        preferences.priorityShares = shares;
+        /* The order follows the shares, so "you put X first" names the heaviest. */
+        order.sort((a, b) => (shares[b.id] ?? 0) - (shares[a.id] ?? 0));
+    }
+
+    const weights = priorityWeights(order.map((item) => item.id), preferences.priorityShares);
     const raisedIn = (need: Need): { id: EvidenceId; label: string; importance: FeatureImportance }[] =>
         need.evidence
             .filter((entry) => {

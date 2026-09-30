@@ -1,3 +1,4 @@
+import { rankedByReader } from "@/lib/reasoning-engine/narrative/verdict";
 import { lowerFirst } from "@/lib/reasoning-engine/format";
 import { formatEUR } from "@/lib/reasoning-engine";
 import { CATEGORIES, SIGNALS } from "@/lib/reasoning-engine/constants";
@@ -114,7 +115,8 @@ export function whyNot(run: LensRun, carId: number): WhyNot | null {
 
         if (!ours?.assessed || !other?.assessed) continue;
 
-        const rank = context.weights.find((item) => item.priority === category)?.rank;
+        /* A rank only where the reader gave one: a chat's order comes from their needs. */
+        const rank = rankedByReader(context) ? context.weights.find((item) => item.priority === category)?.rank : null;
         const where = `${CATEGORIES[category].label.toLowerCase()}${rank ? ` (your #${rank})` : ""}`;
 
         if (ours.exactScore > other.exactScore) {
@@ -133,7 +135,7 @@ export function whyNot(run: LensRun, carId: number): WhyNot | null {
     if (ahead.length) {
         sentences.push(`The ${name(match)} is ahead on ${joined(ahead.slice(0, 2))}.`);
     } else if (!level) {
-        sentences.push(`Nothing you ranked separates them by much; the ${name(match)} simply covers a little more of it.`);
+        sentences.push(`Nothing you ${rankedByReader(context) ? "ranked" : "asked for"} separates them by much; the ${name(match)} simply covers a little more of it.`);
     }
 
     /* -- What the reader would gain by taking it anyway --------------------- */

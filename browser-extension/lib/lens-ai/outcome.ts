@@ -65,8 +65,8 @@ function outcomeCar(rec: Recommendation, cars: PinnedFinnCar[]): OutcomeCar {
 
 /** The single biggest thing that moved in the answers, as a sentence. */
 function describeCause(before: Answers, after: Answers): string | null {
-    const was = priorityWeights(before.priorities);
-    const now = priorityWeights(after.priorities);
+    const was = priorityWeights(before.priorities, before.preferences.priorityShares);
+    const now = priorityWeights(after.priorities, after.preferences.priorityShares);
 
     const moves = now
         .map((weight) => {
