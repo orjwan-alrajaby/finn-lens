@@ -15,6 +15,7 @@ import type {
 import { hasSignal } from "../evidence";
 import { absentList, emphasisClause } from "./evidence-phrases";
 import { formatEUR } from "../format";
+import { takeableIds } from "./cost";
 import { featureFact } from "./facts";
 import {
   classifyMonthlyCostGap,
@@ -388,7 +389,9 @@ function costTradeoff(
   priorities: PriorityReasoning[],
   context: ReasoningContext,
 ): Tradeoff | null {
-  const alternative: CostPosition | null = cost.cheapest ?? cost.rival;
+  /* A car the reader couldn't take is no measure of what this one costs them. */
+  const rival = cost.rival && takeableIds(context).has(cost.rival.vehicleId) ? cost.rival : null;
+  const alternative: CostPosition | null = cost.cheapest ?? rival;
 
   if (!alternative || !cost.subject.complete || !alternative.complete) return null;
 

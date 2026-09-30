@@ -168,23 +168,38 @@ function describeBudgetOverride(
   const topFit = context.costs[topScorer.id]?.contract;
   const winnerFit = context.costs[evaluation.vehicle.id]?.contract;
 
+  const cost = context.costs[topScorer.id];
+  const budget = context.budget.budget;
+
   if (
     topFit?.period &&
     winnerFit &&
     rentalTier(topFit.status) > rentalTier(winnerFit.status)
   ) {
+    const problem = describeRentalProblem(topFit) ?? "";
+    /*
+     * Over the budget as well: saying only the dates told a reader with
+     * €800 to spend that a €1,589 car lost on its contract terms.
+     */
+    const overToo = budget != null && cost?.budgetStatus === "over";
+    const winnerWithin = context.costs[evaluation.vehicle.id]?.budgetStatus === "within";
+    const why = overToo
+      ? `${topScorer.name} scores higher overall, but at about ${formatEUR(cost!.totalMonthly)}/month it's over the ${formatEUR(budget!)} budget you set, and it ${problem}`
+      : /* "…but it is due 21 Oct, but FINN says…" — one "but" is enough. */
+        problem.includes(", but ")
+        ? `${topScorer.name} scores higher overall. It ${problem}`
+        : `${topScorer.name} scores higher overall, but it ${problem}`;
+
     return sentence(
-      `${topScorer.name} scores higher overall, but it`,
-      describeRentalProblem(topFit),
+      why,
       `— so ${evaluation.vehicle.name} is the strongest car here that`,
       winnerFit.status === "fits"
-        ? `fits ${periodLabel(topFit.period)}`
+        ? overToo && winnerWithin
+          ? `fits both`
+          : `fits ${periodLabel(topFit.period)}`
         : `isn't ruled out for ${periodLabel(topFit.period)}, though FINN's data can't confirm it either`,
     );
   }
-
-  const cost = context.costs[topScorer.id];
-  const budget = context.budget.budget;
 
   if (budget == null) return null;
 
@@ -362,12 +377,15 @@ export function reasonAboutVerdict(
    */
   const headline =
     evaluation.rank > 1 && budget != null
-      ? sentence(
-          `${name} is the strongest match for what you told Lens that`,
-          fitsConfirmed(evaluation, context)
-            ? `also fits your ${formatEUR(budget)}/month budget`
-            : `isn't already over your ${formatEUR(budget)}/month budget`,
-        )
+      ? context.costs[evaluation.vehicle.id]?.budgetStatus === "over"
+        ? /* Nothing that can win fits the budget, and the headline mustn't say otherwise. */
+          sentence(`${name} is the strongest match for what you told Lens, though it's over your ${formatEUR(budget)}/month budget`)
+        : sentence(
+            `${name} is the strongest match for what you told Lens that`,
+            fitsConfirmed(evaluation, context)
+              ? `also fits your ${formatEUR(budget)}/month budget`
+              : `isn't already over your ${formatEUR(budget)}/month budget`,
+          )
       : sentence(`${name} is the strongest match for what you told us`);
 
   return {

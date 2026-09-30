@@ -5,6 +5,7 @@ import {
     describeRentalProblem,
 } from "@/lib/reasoning-engine";
 import { bandForScore } from "@/lib/reasoning-engine/bands";
+import { pickEligible } from "@/lib/reasoning-engine/decision";
 import { FIT_BANDS, type FitLevel } from "@/lib/reasoning-engine/fit";
 import type { AdviceNarrative } from "@/lib/reasoning-engine/narrative";
 import { totalFor } from "@/lib/reasoning-engine/scoring";
@@ -125,8 +126,16 @@ export function runLens(
     let nearestToLimit: LensRun["nearestToLimit"] = null;
 
     if (recommendation.isFallback && recommendation.fallbackReason === "allOverBudget") {
-        const costs = recommendation.context.costs;
-        const priced = pool.filter((car) => costs[car.id]?.complete);
+        const { costs, ranked, rental, gearbox } = recommendation.context;
+        /*
+         * Nearest the limit among the cars that could win at all. A car the
+         * reader can't rent for their dates, or isn't allowed to drive, is
+         * no nearer for being cheap.
+         */
+        const eligible = new Set(
+            pickEligible({ ...recommendation.context.budget, within: ranked, unknown: [], over: [] }, ranked, rental, gearbox).map((car) => car.id),
+        );
+        const priced = pool.filter((car) => costs[car.id]?.complete && eligible.has(car.id));
         const cheapest = Math.min(...priced.map((car) => costs[car.id]!.totalMonthly));
 
         if (priced.length > 1 && Number.isFinite(cheapest)) {

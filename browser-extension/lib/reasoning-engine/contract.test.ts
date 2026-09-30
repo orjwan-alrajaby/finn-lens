@@ -214,4 +214,32 @@ describe("the rental period as a hard rule", () => {
 
         expect(buildRecommendation([cheapShort, dearLong], order, budget)!.winner.id).toBe(5);
     });
+
+    it("flags a winner over budget even when the only car within it can't be rented for the dates", () => {
+        const budget = prefs({ ...OCT_TO_MAY, monthlyBudget: 300, monthlyKm: 0 });
+        const cheapShort = withTerms(makeCar({ id: 4, name: "Cheap Short" }), [term(6, { privateMonthly: 200 })]);
+        const dearLong = withTerms(makeCar({ id: 5, name: "Dear Long" }), [term(12, { privateMonthly: 900 })]);
+        const result = buildRecommendation([cheapShort, dearLong], order, budget)!;
+
+        expect(result.isFallback).toBe(true);
+        expect(result.fallbackReason).toBe("allOverBudget");
+
+        const narrative = buildAdviceNarrative(result.evaluation, result.context, result.alternatives);
+
+        expect(narrative.verdict.headline).not.toMatch(/isn't already over|also fits/);
+        /* Cheaper, but no one could take it on these dates: not the yardstick for what this one costs. */
+        expect(narrative.tradeoffs.map((item) => item.headline).join(" ")).not.toContain("Cheap Short");
+    });
+
+    it("names both problems when the top scorer is over budget and can't cover the dates", () => {
+        const budget = prefs({ ...OCT_TO_MAY, monthlyBudget: 700, monthlyKm: 0 });
+        const dearShort = withTerms({ ...strongShort, id: 6, name: "Dear Short" }, [term(6, { privateMonthly: 1200 })]);
+        const fairLong = withTerms(makeCar({ id: 7, name: "Fair Long" }), [term(12, { privateMonthly: 400 })]);
+        const result = buildRecommendation([dearShort, fairLong], order, budget)!;
+        const note = buildAdviceNarrative(result.evaluation, result.context, result.alternatives).verdict.budgetNote!;
+
+        expect(result.winner.id).toBe(7);
+        expect(note).toMatch(/over the €700 budget you set, and it only offers terms up to 6 months/);
+        expect(note).toMatch(/Fair Long is the strongest car here that fits both\.$/);
+    });
 });

@@ -2,6 +2,7 @@ import type { PinnedFinnCar } from "@/lib/types";
 import type { CostBreakdown, ReasoningContext } from "../types";
 import type { CostPosition, CostReasoning } from "./types";
 
+import { pickEligible } from "../decision";
 import { formatEUR, formatKm } from "../format";
 import { classifyMonthlyCostGap, isEffectivelyLevel } from "./magnitude";
 import { paragraph, sentence } from "./phrase";
@@ -40,6 +41,22 @@ function position(
 }
 
 /**
+ * Cars the reader could take on their own terms, price aside: the rental
+ * period and gearbox rules the winner is drawn under, with the budget left
+ * out — a price comparison is exactly where the budget is being discussed.
+ */
+export function takeableIds(context: ReasoningContext): Set<number> {
+  return new Set(
+    pickEligible(
+      { ...context.budget, within: context.ranked, over: [], unknown: [] },
+      context.ranked,
+      context.rental,
+      context.gearbox,
+    ).map((vehicle) => vehicle.id),
+  );
+}
+
+/**
  * The cheapest realistic alternative we can fully cost.
  *
  * Drawn from the recommendation's alternatives rather than everything pinned,
@@ -56,7 +73,15 @@ function cheapestComparable(
   candidates: PinnedFinnCar[],
   excludeIds: number[],
 ): CostPosition | null {
+  /*
+   * And one the reader could take on their own terms: "€230/month more than
+   * Ford Kuga" named a Kuga that couldn't be rented for their dates. The
+   * same rules the winner is drawn under, with the budget left out.
+   */
+  const takeable = takeableIds(context);
+
   const positions = candidates
+    .filter((vehicle) => takeable.has(vehicle.id))
     .map((vehicle) => position(vehicle, context.costs[vehicle.id]))
     .filter(
       (item): item is CostPosition =>

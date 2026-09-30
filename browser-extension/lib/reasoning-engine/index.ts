@@ -861,8 +861,12 @@ export function recommendFrom(
    */
   const winnerStatus = context.costs[winner.id]?.budgetStatus;
 
-  const isFallback =
-    budget.budget != null && !budget.anyFits && winnerStatus !== "within";
+  /*
+   * Not "nothing anywhere fits": a car within budget that can't be rented
+   * for the reader's dates can't win either, and a €977 winner beside it
+   * came back unflagged, headlined as not over a €700 budget.
+   */
+  const isFallback = budget.budget != null && winnerStatus !== "within";
 
   const topScorer = ranked[0] as PinnedFinnCar;
   const alternatives = selectAlternatives(context, winner.id);
