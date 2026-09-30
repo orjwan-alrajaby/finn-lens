@@ -51,6 +51,12 @@ export interface LensRun {
         /** The car that would have won at any price, and what it costs. */
         bestAtAnyPrice: { id: number; name: string; monthly: number } | null;
     } | null;
+    /**
+     * Cars set aside for costing more than a limit the reader made a rule:
+     * not ranked, and said why. Null when the limit isn't one, or nothing
+     * was over it, or everything was — then the nearest are ranked instead.
+     */
+    overLimit: { ids: number[]; limit: number } | null;
     /** "Comparing 12 cars on this page". */
     scopeHeadline: string;
     answers: Answers;
@@ -93,6 +99,8 @@ export function runLens(
     scopeHeadline: string,
     /** Evidence the reader ruled out: those cars are set aside before ranking. */
     ruledOut: Rule[] = [],
+    /** The monthly limit is a rule: cars over it are set aside too, not graded. */
+    firmBudget = false,
 ): LensRun | null {
     if (!cars.length) return null;
 
@@ -114,6 +122,30 @@ export function runLens(
     let recommendation = rank(pool);
 
     if (!recommendation) return null;
+
+    /*
+     * A limit made a rule sets the cars over it aside, as a rule about the
+     * car would. What each car costs is only known once it's priced, so the
+     * set is priced first. If nothing is within it, the rule can't hold, and
+     * the nearest are ranked below as for any limit — and said so.
+     */
+    let overLimit: LensRun["overLimit"] = null;
+    const limit = answers.preferences.monthlyBudget;
+
+    if (firmBudget && limit > 0) {
+        const { costs } = recommendation.context;
+        const over = pool.filter((car) => costs[car.id]?.budgetStatus === "over");
+
+        if (over.length && over.length < pool.length) {
+            const within = pool.filter((car) => !over.includes(car));
+            const narrowed = rank(within);
+
+            if (narrowed) {
+                recommendation = narrowed;
+                overLimit = { ids: over.map((car) => car.id), limit };
+            }
+        }
+    }
 
     /*
      * Nothing stays within the limit. The engine's answer is then the best
@@ -166,6 +198,7 @@ export function runLens(
     return {
         scope,
         scopeHeadline,
+        overLimit,
         answers,
         level: levelWith(recommendation),
         nearestToLimit,

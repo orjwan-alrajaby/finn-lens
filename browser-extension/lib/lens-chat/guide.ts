@@ -547,6 +547,21 @@ const RULES: GuideChoice[] = [
     { id: "must-tow", label: "Must tow", said: "It has to be able to tow.", rule: { id: "hasTowbar", mode: "must", label: "Towbar" } },
     { id: "six-seats", label: "Six seats or more", said: "I need six seats or more.", rule: { id: "seatsSixPlus", mode: "must", label: "Six or more seats" } },
     { id: "awd", label: "All-wheel drive", said: "It has to have all-wheel drive.", rule: { id: "hasAllWheelDrive", mode: "must", label: "All-wheel drive" } },
+    { id: "four-doors", label: "Four doors or more", said: "It needs four doors or more.", rule: { id: "rearDoors", mode: "must", label: "Rear doors" } },
+    {
+        id: "low-co2",
+        label: "Low CO₂ only (class A–C)",
+        said: "Only cars with low CO₂ — class A to C.",
+        description: "Only cars whose official CO₂ figure puts them in class A, B or C on the German CO₂ label: 115 g/km or less. Every electric car is class A.",
+        rule: { id: "lowCo2", mode: "must", label: "CO₂ class A to C" },
+    },
+    {
+        id: "frugal",
+        label: "Frugal for its kind only",
+        said: "Only cars that are frugal for their kind.",
+        description: "Only cars that use noticeably less fuel or electricity than FINN Lens's benchmark for cars that run on the same thing. Plug-in hybrids can't be judged on this, so they're set aside too.",
+        rule: { id: "frugal", mode: "must", label: "Frugal for its kind" },
+    },
 ];
 
 /**
@@ -646,18 +661,15 @@ export function guideSteps(
             choices: life,
             none: "None of these",
         },
-        ...(rules.length
-            ? [
-                  {
-                      id: "rules" as const,
-                      ask: "Anything a car must have, or must not be?",
-                      hint: "These set cars aside before Lens scores anything, so only pick what you'd refuse.",
-                      multiple: true,
-                      choices: rules,
-                      none: "Nothing's off the table",
-                  },
-              ]
-            : []),
+        /* Always there, even with no rule that splits these cars: the chat adds "nothing over my limit" to it. */
+        {
+            id: "rules" as const,
+            ask: "Anything a car must have, or must not be?",
+            hint: "These set cars aside before Lens scores anything, so only pick what you'd refuse.",
+            multiple: true,
+            choices: rules,
+            none: "Nothing's off the table",
+        },
         {
             id: "distance",
             ask: "How far do you drive in a month?",

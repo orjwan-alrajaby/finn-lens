@@ -57,7 +57,14 @@ export interface Need {
 }
 
 export interface Understanding {
-    budget: { kind: "hardMax" | "target"; monthly: number; stretchTo: number | null; said: string } | null;
+    budget: {
+        kind: "hardMax" | "target";
+        monthly: number;
+        stretchTo: number | null;
+        said: string;
+        /** A rule, not only a line: cars over it are set aside rather than graded. */
+        firm?: boolean;
+    } | null;
     rental: { from: string; to: string; startDay: number | null; said: string } | null;
     monthlyKm: { value: number; said: string } | null;
     needs: Need[];
@@ -190,7 +197,9 @@ export function readUnderstanding(
             const stretch = Math.round(Number(wire.budget.stretchTo));
 
             budget = {
-                kind: wire.budget.kind === "target" ? "target" : "hardMax",
+                /* A firm limit stays firm whatever words move the figure. */
+                kind: previous.budget?.firm ? "hardMax" : wire.budget.kind === "target" ? "target" : "hardMax",
+                firm: previous.budget?.firm,
                 monthly,
                 /* Only a stretch above the figure itself, and never a fantasy one. */
                 stretchTo: Number.isFinite(stretch) && stretch > monthly && stretch <= monthly * 2 ? stretch : null,
@@ -471,7 +480,7 @@ export const waiveEssential = (u: Understanding, part: "budget" | "rental"): Und
 /** A monthly maximum the reader picked from the chat, without a model turn. */
 export const withBudget = (u: Understanding, monthly: number | null, said: string): Understanding => ({
     ...u,
-    budget: monthly == null ? null : { kind: "hardMax", monthly, stretchTo: null, said },
+    budget: monthly == null ? null : { kind: "hardMax", monthly, stretchTo: null, said, firm: u.budget?.firm },
     waived: waiving(u, "budget", monthly == null),
 });
 

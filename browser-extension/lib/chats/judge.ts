@@ -52,7 +52,7 @@ export interface Judged {
 
 export function judgeWith(u: Understanding, cars: PinnedFinnCar[], headline: string): Judged | null {
     const translation = chatAnswers(u);
-    const run = runLens(cars, translation.answers, "page", headline, ruledOut(u));
+    const run = runLens(cars, translation.answers, "page", headline, ruledOut(u), u.budget?.firm === true);
 
     return run ? { run, translation } : null;
 }
@@ -95,6 +95,18 @@ export function verdictsFor(judged: Judged, cars: PinnedFinnCar[]): Record<numbe
     const understandingRules = judged.translation.profile.rules;
     const allowed = new Set(allowedByRules(cars, understandingRules).map((car) => car.id));
     const nothingLeft = run.ruledOut?.nothingLeft ?? false;
+
+    /* Over a limit the reader made a rule: set aside like a rule's cars, not graded. */
+    for (const id of run.overLimit?.ids ?? []) {
+        verdicts[id] = {
+            band: "unknown",
+            label: "Ruled out",
+            rank: null,
+            winner: false,
+            over: "budget",
+            setAside: `Over your €${run.overLimit!.limit.toLocaleString("en-GB")} limit, which you said to keep to`,
+        };
+    }
 
     const unranked = cars.filter((car) => !(car.id in verdicts));
     const overLimit = unranked.filter((car) => nothingLeft || allowed.has(car.id));
@@ -191,7 +203,7 @@ export function resultMessage(
          * nobody asked.
          */
         runnersUp: alternativesWithinLimits(run, 3).map((line) => snapshot(line, urls)),
-        setAside: run.ruledOut && !run.ruledOut.nothingLeft ? run.ruledOut.setAside : 0,
+        setAside: (run.ruledOut && !run.ruledOut.nothingLeft ? run.ruledOut.setAside : 0) + (run.overLimit?.ids.length ?? 0),
     };
 }
 

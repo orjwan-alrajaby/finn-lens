@@ -6,6 +6,7 @@ import { EMPTY_UNDERSTANDING, withBudget } from "@/lib/lens-chat/understanding";
 
 import { fleet } from "@/lib/reasoning-engine/test-data/fleet";
 
+import { judgementFrom, judgeWith } from "./judge";
 import { answer, askNext, changeAnswers, changeOne, coveredBy, rentalMonths, setImportance, startChat, startMonth, stepFor, summaryOf, withinLimits } from "./flow";
 import { readTyped } from "./typing";
 import type { Chat, ChatMessage, SavedSettings, StepId } from "./types";
@@ -444,6 +445,10 @@ describe("a conversation, not a form", () => {
         chat = answer(chat, openAsk(chat)!.id, [], cars(), TODAY, { amount: 650 }).chat;
         expect(chat.understanding.budget?.monthly).toBe(650);
 
+        /* The rules come between: "nothing over €650" is one of them now. */
+        expect(openAsk(chat)?.step.id).toBe("rules");
+        chat = answer(chat, openAsk(chat)!.id, [], cars(), TODAY).chat;
+
         chat = answer(chat, openAsk(chat)!.id, [], cars(), TODAY, { amount: 9 }).chat;
         expect(chat.understanding.rental).toMatchObject({ from: "2026-10", to: "2027-06" });
 
@@ -717,5 +722,53 @@ describe("the kinds of driving", () => {
         const people = stepFor("life-people", page(), { ...EMPTY_UNDERSTANDING, passengers: 3 })!;
 
         expect(withinLimits(people, ["kids", "dog", "adults"])).toEqual(["kids", "dog", "adults"]);
+    });
+});
+
+describe("rules about money, CO₂ and consumption", () => {
+    const page = () => fleet().sort((a, b) => a.id - b.id).slice(0, 24);
+    const toRules = (budget: string[]) => {
+        let chat = startChat(null, page(), TODAY);
+        for (let guard = 0; guard < 20 && openAsk(chat)?.step.id !== "rules"; guard += 1) {
+            const ask = openAsk(chat)!;
+            chat = answer(chat, ask.id, ask.step.id === "budget" ? budget : ask.step.id === "life-driving" ? ["city"] : [], page(), TODAY).chat;
+        }
+        return chat;
+    };
+
+    it("asks the limit before the rules, and offers it as one", () => {
+        const chat = toRules(["budget-500"]);
+        const rules = openAsk(chat)!.step;
+
+        expect(rules.choices[0]).toMatchObject({ id: "firm-budget", label: "Nothing over €500" });
+
+        const firm = answer(chat, openAsk(chat)!.id, ["firm-budget"], page(), TODAY).chat;
+        expect(firm.understanding.budget).toMatchObject({ monthly: 500, firm: true, kind: "hardMax" });
+        expect(texts(firm).at(-1)).toBe("Noted. Before judging, I'll set aside any car over €500 a month.");
+        expect(summaryOf(firm.understanding).lines.find((line) => line.label === "Monthly limit")?.value).toBe("€500 all in, nothing over it");
+    });
+
+    it("doesn't offer the limit as a rule when there's no limit", () => {
+        const rules = openAsk(toRules([]))!.step;
+
+        expect(rules.choices.map((choice) => choice.id)).not.toContain("firm-budget");
+    });
+
+    it("sets aside cars over a firm limit rather than grading them", () => {
+        const chat = toRules(["budget-500"]);
+        const firm = answer(chat, openAsk(chat)!.id, ["firm-budget"], page(), TODAY).chat;
+        const judged = judgeWith(firm.understanding, page(), "24 cars")!;
+        const verdicts = judgementFrom(judged, page(), firm.understanding, "", "", {}, "").verdicts;
+        const over = judged.run.overLimit?.ids ?? [];
+
+        expect(over.length).toBeGreaterThan(0);
+        for (const id of over) expect(verdicts[id]).toMatchObject({ label: "Ruled out", rank: null });
+        expect(judged.run.recommendation.context.costs[judged.run.recommendation.winner.id]?.budgetStatus).not.toBe("over");
+    });
+
+    it("offers low CO₂ and frugal as rules where they split the cars", () => {
+        const ids = openAsk(toRules(["budget-500"]))!.step.choices.map((choice) => choice.id);
+
+        expect(ids).toEqual(expect.arrayContaining(["low-co2", "frugal"]));
     });
 });

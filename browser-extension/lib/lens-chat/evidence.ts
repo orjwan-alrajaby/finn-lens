@@ -1,5 +1,6 @@
 import { CATEGORIES, CATEGORY_IDS, SIGNALS } from "@/lib/reasoning-engine/constants";
 import { bootLitres, evRangeKm, isBinarySignal, lengthMm, signalUtility, type Anchors } from "@/lib/reasoning-engine/evidence";
+import { assessEfficiency, assessEnvironment } from "@/lib/reasoning-engine/environmental";
 import { PROPER_NAME } from "@/lib/reasoning-engine/format";
 import type { CategoryId, SignalId } from "@/lib/reasoning-engine/types";
 import type { FinnCar } from "@/lib/types";
@@ -21,7 +22,7 @@ import type { FinnCar } from "@/lib/types";
  * but it's the first thing anyone driving far asks about, and FINN publishes
  * it. So Lens can point at it even though nobody can raise it.
  */
-export type EvidenceId = SignalId | "electricRange" | "electricCar" | "suvBody" | "winterReadyTyres";
+export type EvidenceId = SignalId | "electricRange" | "electricCar" | "suvBody" | "winterReadyTyres" | "lowCo2" | "frugal";
 
 /** Where Lens's own label would claim more than FINN's field says. */
 const RELABEL: Partial<Record<EvidenceId, string>> = {
@@ -130,6 +131,30 @@ export const EVIDENCE: Record<EvidenceId, EvidenceDef> = {
         undesirable: true,
     },
 
+    /*
+     * The two figures, read as yes or no for a rule: "low CO₂ only" and
+     * "frugal for its kind only". Neither is scored this way — Environmental
+     * Impact and Efficiency score the figures themselves — but either can be
+     * something a reader won't do without.
+     */
+    lowCo2: {
+        id: "lowCo2",
+        label: "CO₂ class A to C",
+        explanation:
+            "Whether the car's official CO₂ figure puts it in class A, B or C on the German CO₂ label (Pkw-EnVKV): 115 g/km or less. An electric car is class A. A plug-in hybrid's figure assumes it's charged often.",
+        scoredIn: null,
+        raisable: false,
+    },
+
+    frugal: {
+        id: "frugal",
+        label: "Frugal for its kind",
+        explanation:
+            "Whether the car uses noticeably less fuel or electricity than the FINN Lens benchmark for cars that run on the same thing. A plug-in hybrid isn't judged: FINN's one figure for it mixes the two.",
+        scoredIn: null,
+        raisable: false,
+    },
+
     winterReadyTyres: {
         id: "winterReadyTyres",
         label: "All-season or winter tyres",
@@ -228,6 +253,20 @@ export function readEvidence(car: FinnCar, id: EvidenceId): EvidenceState {
         return car.tyres == null ? "unknown" : "listed";
     }
 
+    /* Class C ends at 115 g/km on the label; no figure, no answer. */
+    if (id === "lowCo2") {
+        const co2 = assessEnvironment(car)?.co2;
+
+        return co2 == null ? "unknown" : co2.gPerKm <= 115 ? "listed" : "notListed";
+    }
+
+    /* "Uses noticeably less than the benchmark": the engine's own "high" efficiency. */
+    if (id === "frugal") {
+        const reading = assessEfficiency(car);
+
+        return reading == null ? "unknown" : reading.level === "high" ? "listed" : "notListed";
+    }
+
     const utility = signalUtility(id, car);
 
     if (utility == null) return "unknown";
@@ -275,6 +314,8 @@ const PHRASES: Partial<Record<EvidenceId, string>> = {
     suvBody: "an SUV",
     seatsSixPlus: "a six-seater or bigger",
     driverAssistLevel2: "Level 2 driver assistance",
+    lowCo2: "in CO₂ class A to C",
+    frugal: "frugal for its kind",
     hasTowbar: "a towbar",
 };
 
@@ -286,7 +327,7 @@ export const asPhrase = (id: EvidenceId): string => {
 };
 
 /** Evidence that describes what kind of car it is, rather than what it carries. */
-const KINDS = new Set<EvidenceId>(["electricCar", "suvBody", "seatsSixPlus", "seatsFivePlus", "hasAutomaticTransmission"]);
+const KINDS = new Set<EvidenceId>(["electricCar", "suvBody", "seatsSixPlus", "seatsFivePlus", "hasAutomaticTransmission", "lowCo2", "frugal"]);
 
 export const isKind = (id: EvidenceId): boolean => KINDS.has(id);
 

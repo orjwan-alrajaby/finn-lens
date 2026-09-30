@@ -3,7 +3,7 @@ import { formatEUR } from "@/lib/reasoning-engine";
 import { FINN_INCLUDED_MONTHLY_KM } from "@/lib/reasoning-engine/constants";
 import { addMonths, monthLabel, type MonthString } from "@/lib/reasoning-engine/contract";
 import type { NeedImportance } from "@/lib/lens-ai/contract";
-import { asPhrase, coverage, EVIDENCE, type EvidenceId } from "@/lib/lens-chat/evidence";
+import { asPhrase, barePhrase, coverage, EVIDENCE, isKind, type EvidenceId } from "@/lib/lens-chat/evidence";
 import { applyChoices, explain, guideSteps, NEED_GROUPS, saidFor, type GuideChoice, type GuideStep, type NeedGroup } from "@/lib/lens-chat/guide";
 import {
     EMPTY_UNDERSTANDING,
@@ -50,7 +50,8 @@ import type { Chat, ChatMessage, ChatStep, SavedSettings, StepId } from "./types
  */
 
 /** The questions, in the order Lens asks them. Follow-ups are slotted in behind "life". */
-export const STEP_ORDER: StepId[] = ["life", "focus", "rules", "budget", "period", "distance", "offers"];
+/* The limit before the rules: "nothing over €700" can only be offered once there's a €700. */
+export const STEP_ORDER: StepId[] = ["life", "focus", "budget", "rules", "period", "distance", "offers"];
 
 /** Equipment offered at most, so the questions end. */
 const MAX_OFFERS = 2;
@@ -120,7 +121,7 @@ const inWords = (n: number) => NUMBER_WORDS[n] ?? String(n);
 /* -------------------------------------------------------------------------- */
 
 /** The questions a reader can pick to answer again, in the order they're asked. */
-const CHANGEABLE: StepId[] = ["life-passengers", "life-people", "life-driving", "life-parking", "life-weather", "life-loads", "life-you", "life-co2", "life-efficiency", "rules", "budget", "period", "distance"];
+const CHANGEABLE: StepId[] = ["life-passengers", "life-people", "life-driving", "life-parking", "life-weather", "life-loads", "life-you", "life-co2", "life-efficiency", "budget", "rules", "period", "distance"];
 
 const CHANGE_LABEL: Partial<Record<StepId, string>> = {
     "life-passengers": "How many ride with you",
@@ -631,7 +632,20 @@ export function stepFor(id: StepId, cars: FinnCar[], u: Understanding = EMPTY_UN
         };
     }
 
-    const step = guideSteps(cars).find((item) => item.id === id);
+    const found = guideSteps(cars).find((item) => item.id === id);
+    /* A limit the reader gave can be a rule too: cars over it set aside rather than graded. */
+    const firm: GuideChoice[] =
+        found?.id === "rules" && u.budget
+            ? [
+                  {
+                      id: "firm-budget",
+                      label: `Nothing over ${formatEUR(u.budget.monthly)}`,
+                      said: `Nothing over ${formatEUR(u.budget.monthly)} a month, no exceptions.`,
+                      description: "Cars over your limit are set aside rather than graded, so none of them comes up as a match.",
+                  },
+              ]
+            : [];
+    const step = found ? { ...found, choices: [...firm, ...found.choices] } : null;
 
     if (!step || !step.choices.length || step.id === "life") return null;
 
@@ -659,7 +673,13 @@ export function selectedFor(step: ChatStep, u: Understanding, picks: Record<stri
         const tapped = new Set(picks[step.id] ?? []);
 
         return step.choices
-            .filter((choice) => owned.has(`${step.guide!.id}-${choice.id}`) || choice.id === `passengers-${u.passengers}` || (choice.looksFor === undefined && tapped.has(choice.id)))
+            .filter(
+                (choice) =>
+                    owned.has(`${step.guide!.id}-${choice.id}`) ||
+                    choice.id === `passengers-${u.passengers}` ||
+                    (choice.id === "firm-budget" && u.budget?.firm) ||
+                    (choice.looksFor === undefined && tapped.has(choice.id)),
+            )
             .map((choice) => choice.id);
     }
 
@@ -791,10 +811,19 @@ export function acknowledge(step: ChatStep, u: Understanding, chosen: string[] =
         case "rules": {
             const rules = ruledOut(u);
 
-            if (!rules.length) return "Good — nothing's off the table.";
-
             /* "Any SUV, and any car that isn't an automatic" — not "anything that isn't an automatic and an SUV". */
-            const parts = rules.map((rule) => (rule.mode === "without" ? asPhrase(rule.id).replace(/^an? /, "any ") : `any car that isn't ${asPhrase(rule.id)}`));
+            const parts = [
+                ...rules.map((rule) =>
+                    rule.mode === "without"
+                        ? asPhrase(rule.id).replace(/^an? /, "any ")
+                        : isKind(rule.id)
+                          ? `any car that isn't ${asPhrase(rule.id)}`
+                          : `any car without ${asPhrase(rule.id)}`,
+                ),
+                ...(u.budget?.firm ? [`any car over ${formatEUR(u.budget.monthly)} a month`] : []),
+            ];
+
+            if (!parts.length) return "Good — nothing's off the table.";
 
             return `Noted. Before judging, I'll set aside ${parts.length > 1 ? `${parts.slice(0, -1).join(", ")}, and ${parts.at(-1)}` : parts[0]}.`;
         }
@@ -821,9 +850,16 @@ export function acknowledge(step: ChatStep, u: Understanding, chosen: string[] =
 function rulesText(u: Understanding): string {
     const rules = ruledOut(u);
 
-    return rules.length
-        ? joined(rules.map((rule) => `${rule.mode === "without" ? "no " : ""}${asPhrase(rule.id).replace(/^an? /, "")}${rule.mode === "must" ? " only" : ""}`)).replace(/^./, (c) => c.toUpperCase())
-        : "None";
+    /* "No SUV", "automatic only", "must have rear doors": a kind of car is, anything else is had. */
+    const said = rules.map((rule) =>
+        rule.mode === "without"
+            ? `no ${barePhrase(rule.id)}`
+            : isKind(rule.id)
+              ? `${barePhrase(rule.id)} only`
+              : `must have ${asPhrase(rule.id)}`,
+    );
+
+    return said.length ? joined(said).replace(/^./, (c) => c.toUpperCase()) : "None";
 }
 
 /** What Lens will judge by, as the calibration card shows it. */
@@ -836,7 +872,7 @@ export function summaryOf(u: Understanding, id: string = messageId()): Extract<C
     if (!needs.length) lines.push({ label: "The car has to", value: "Nothing in particular", step: "life" });
 
     lines.push({ label: "Rules", value: rulesText(u), step: "rules" });
-    lines.push({ label: "Monthly limit", value: u.budget ? `${formatEUR(u.budget.monthly)} all in` : "No fixed limit", step: "budget" });
+    lines.push({ label: "Monthly limit", value: u.budget ? `${formatEUR(u.budget.monthly)} all in${u.budget.firm ? ", nothing over it" : ""}` : "No fixed limit", step: "budget" });
     lines.push({ label: "For", value: u.rental ? `${monthLabel(u.rental.from)} – ${monthLabel(u.rental.to)}` : "Not set", step: "period" });
     lines.push({
         label: "Driving",
@@ -1218,6 +1254,12 @@ export function answer(
 
         chosen = [...new Set([...chosen, ...typedHere])];
         understanding = applyChoices(understanding, step.guide, chosen);
+
+        /* "Nothing over my limit" is the budget's own rule, kept on the budget. */
+        if (step.id === "rules" && understanding.budget) {
+            const firm = chosen.includes("firm-budget");
+            understanding = { ...understanding, budget: { ...understanding.budget, firm, kind: firm ? "hardMax" : understanding.budget.kind } };
+        }
 
         if (step.id.startsWith("life-")) {
             /* The second question about each need where it changes something, straight after its group. */
