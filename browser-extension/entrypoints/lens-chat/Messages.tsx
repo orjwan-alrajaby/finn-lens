@@ -402,7 +402,11 @@ function Ask({
     const [added, setAdded] = useState<string | null>(null);
     const [explained, setExplained] = useState<string | null>(null);
 
-    const toggle = (id: string) => setPicked((current) => (current.includes(id) ? current.filter((item) => item !== id) : [...current, id]));
+    /* Up to the question's own limit: a new pick past it is ignored, and untapping one frees a place. */
+    const toggle = (id: string) =>
+        setPicked((current) =>
+            current.includes(id) ? current.filter((item) => item !== id) : step.max && current.length >= step.max ? current : [...current, id],
+        );
     const chosen = step.choices.filter((choice) => picked.includes(choice.id));
     const typing = own && ownText.trim().length > 1;
     const ready = picked.length > 0 || added != null || typing;

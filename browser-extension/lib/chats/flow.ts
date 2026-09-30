@@ -73,11 +73,34 @@ const LEVEL: Record<NeedImportance, number> = { essential: 3, important: 2, nice
  * The needs sharing the highest importance any of them has. How many ride
  * along is a fact about the reader, not something to rank against the rest.
  */
-const topNeeds = (u: Understanding) => {
-    const needs = lifeNeeds(u).filter((need) => !need.id.startsWith("life-passengers-"));
-    const top = Math.max(0, ...needs.map((need) => LEVEL[need.importance]));
+/** A level this crowded says little: with this many needs on it, each counts for too little to decide anything. */
+const CROWDED = 5;
 
-    return needs.filter((need) => LEVEL[need.importance] === top);
+/** At most this many can be picked out of a crowded level, or picking them says nothing either. */
+const PICK_UP_TO = 3;
+
+/**
+ * The needs worth ranking against each other: a tie at the top, or — when
+ * one need already leads — the most crowded level below it. A reader who
+ * named fifteen things at "important" had each counting for about 6%, and
+ * nothing asked which of them mattered.
+ *
+ * How many ride along is a fact about the reader, and a rule isn't a
+ * preference: neither is put up against the rest, and a rule stepped down
+ * here would stop being one.
+ */
+const contested = (u: Understanding) => {
+    const needs = lifeNeeds(u).filter(
+        (need) => !need.id.startsWith("life-passengers-") && !need.evidence.some((entry) => entry.mustHave || entry.unwanted),
+    );
+    const top = Math.max(0, ...needs.map((need) => LEVEL[need.importance]));
+    const atTop = needs.filter((need) => LEVEL[need.importance] === top);
+
+    if (atTop.length >= 2) return atTop;
+
+    const levels = [...new Set(needs.map((need) => LEVEL[need.importance]))].map((level) => needs.filter((need) => LEVEL[need.importance] === level));
+
+    return levels.sort((a, b) => b.length - a.length).find((level) => level.length >= CROWDED) ?? [];
 };
 
 /* -------------------------------------------------------------------------- */
@@ -253,22 +276,26 @@ export function stepFor(id: StepId, cars: FinnCar[], u: Understanding = EMPTY_UN
 
         case "focus": {
             /*
-             * Only a tie at the top needs breaking: when one need already
-             * counts more than the rest, the reader has answered this.
+             * Only a tie needs breaking: a tie at the top, or a crowd below
+             * one need that already leads. Otherwise the reader has answered.
              */
-            const needs = topNeeds(u);
+            const needs = contested(u);
 
             if (needs.length < 2) return null;
 
             const allMust = needs.every((need) => need.importance === "essential");
+            const crowd = needs.length >= CROWDED;
 
             return {
                 id,
-                ask: allMust
-                    ? "You've made these all must-haves. If the cars can't give you all of them, which wins?"
-                    : "If the cars can't give you everything, which of these matters most?",
-                why: WHY.focus,
-                multiple: false,
+                ask: crowd
+                    ? `That's ${needs.length} things at “${IMPORTANCE_LABEL[needs[0]!.importance]}”, so each counts for only a little. Which of them matter most?`
+                    : allMust
+                      ? "You've made these all must-haves. If the cars can't give you all of them, which wins?"
+                      : "If the cars can't give you everything, which of these matters most?",
+                why: crowd ? "Pick up to three. They'll count a step more than the rest, which stay as they are." : WHY.focus,
+                multiple: crowd,
+                max: crowd ? PICK_UP_TO : undefined,
                 /* "&" on a chip, where space is short; the reader's words keep "and". */
                 choices: needs.map((need) => ({ id: need.id, label: need.label.replace(/ and /g, " & "), said: `${need.label} matters most.` })),
                 none: "They matter equally",
@@ -385,7 +412,7 @@ export function selectedFor(step: ChatStep, u: Understanding, picks: Record<stri
             .map((choice) => choice.id);
     }
 
-    if (step.id === "focus") return valid(u.needs.filter((need) => need.status === "active" && need.importance === "essential").map((need) => need.id)).slice(0, 1);
+    if (step.id === "focus") return valid(u.needs.filter((need) => need.status === "active" && need.importance === "essential").map((need) => need.id)).slice(0, step.max ?? 1);
 
     if (picks[step.id]) return valid(picks[step.id]!);
 
@@ -489,6 +516,12 @@ export function acknowledge(step: ChatStep, u: Understanding, chosen: string[] =
             const top = u.needs.find((need) => chosen.includes(need.id));
             /* The needs' own names, not the chips': "&" is for chips, not sentences. */
             const others = u.needs.filter((need) => step.choices.some((choice) => choice.id === need.id) && !chosen.includes(need.id)).map((need) => lower(need.label));
+
+            if (step.multiple && top) {
+                const picked = u.needs.filter((need) => chosen.includes(need.id)).map((need) => need.label);
+
+                return `${joined(picked.map((label, index) => (index ? lower(label) : label)))} now ${picked.length === 1 ? "counts" : "count"} a step above the other ${others.length}.`;
+            }
 
             return top
                 ? `${top.label} now counts most in the ranking. ${joined(others).replace(/^./, (c) => c.toUpperCase())} ${others.length === 1 ? "counts" : "count"} one step less.`
@@ -851,6 +884,12 @@ export function answer(
          */
         const tied = new Set(step.choices.map((choice) => choice.id));
         const up: Record<NeedImportance, NeedImportance> = { niceToHave: "important", important: "essential", essential: "essential" };
+
+        /* Several picked: one sentence, not "…matters most." three times. */
+        if (step.multiple) {
+            const labels = understanding.needs.filter((need) => chosen.includes(need.id)).map((need) => lower(need.label));
+            said = `These matter most: ${joined(labels)}.`;
+        }
 
         understanding = {
             ...understanding,

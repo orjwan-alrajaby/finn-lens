@@ -450,7 +450,8 @@ describe("what Lens says back", () => {
             const read = await readTyped(startChat(null, page(), TODAY), example, page(), null);
             expect(read.heardAs, example).not.toEqual([]);
         }
-    });
+        /* Lens's reader pauses up to a second a read, as if typing. */
+    }, 20_000);
 
     it("lists the help it counts once, not reply after reply joined with \"and\"", () => {
         const chat = walk(startChat(null, cars(), TODAY), { life: ["nervous"], "follow-nervous": ["parking", "traffic", "reversing"] });
@@ -478,5 +479,39 @@ describe("what Lens says back", () => {
         const summary = summaryOf(chat.understanding);
         expect(summary.lines.find((line) => line.label === "Rules")?.value).toBe("Automatic only and no SUV");
         expect(summary.needs?.find((need) => need.id === "life-commute")?.looksFor).not.toContain("Automatic gearbox");
+    });
+});
+
+describe("a long list of needs", () => {
+    const asked = (chat: Chat) => chat.messages.filter((message): message is Ask => message.kind === "ask").map((message) => message.step.id);
+
+    it("asks which matter most when many share a level, and lifts up to three", () => {
+        const chat = walk(startChat(null, cars(), TODAY), {
+            life: ["passengers-2", "kids", "dog", "city", "commute", "night", "summer", "bulky", "safety", "tech", "comfort"],
+            "follow-kids": ["boosters"], "follow-city": ["street"], "follow-commute": ["long"],
+            focus: ["life-kids", "life-safety", "life-city"],
+        });
+        const focus = chat.messages.find((message): message is Ask => message.kind === "ask" && message.step.id === "focus")!;
+
+        /* The commute leads on its own; the crowd below it is what's asked about. */
+        expect(focus.step.multiple).toBe(true);
+        expect(focus.step.max).toBe(3);
+        expect(focus.step.ask).toMatch(/things at “Important”/);
+        expect(focus.step.choices.map((choice) => choice.id)).not.toContain("life-commute");
+        expect(focus.step.choices.map((choice) => choice.id)).not.toContain("life-passengers-2");
+
+        const level = (id: string) => chat.understanding.needs.find((need) => need.id === id)?.importance;
+        expect([level("life-kids"), level("life-safety"), level("life-city")]).toEqual(["essential", "essential", "essential"]);
+        expect(level("life-dog")).toBe("important");
+        expect(chat.messages.filter((message) => message.from === "reader").map((message) => (message as { text: string }).text)).toContain(
+            "These matter most: travelling with children, city driving and parking and safety.",
+        );
+        expect(texts(chat).find((text) => /a step above the other/.test(text))).toMatch(/^Travelling with children, city driving and parking and safety now count a step above the other \d+\.$/);
+    });
+
+    it("still asks nothing when one need leads and the rest are few", () => {
+        const chat = walk(startChat(null, cars(), TODAY), { life: ["commute", "city"], "follow-commute": ["long"], "follow-city": ["street"] });
+
+        expect(asked(chat)).not.toContain("focus");
     });
 });

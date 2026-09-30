@@ -77,6 +77,8 @@ export interface ChatStep {
     ask: string;
     hint?: string;
     multiple: boolean;
+    /** With several answers: how many at most, when picking all of them would say nothing. */
+    max?: number;
     choices: Choice[];
     /** The answer for someone none of the choices fit. */
     none?: string;
