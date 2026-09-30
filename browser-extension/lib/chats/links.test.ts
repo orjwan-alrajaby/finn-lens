@@ -8,7 +8,7 @@ import { stepFor } from "./flow";
 
 /*
  * Wherever Lens puts a need and a feature together, it says why they belong
- * together. "You said kids in the back. Sunroof: a glass panel in the roof."
+ * together. "You mentioned travelling with children. Sunroof: a glass panel in the roof."
  * named the feature and left the reader to guess the connection — so every
  * link carries its reason, and a link with no honest reason isn't made.
  */
@@ -17,7 +17,8 @@ const needs = guideSteps([]).find((step) => step.id === "life")!.choices;
 
 describe("the link between a need and its equipment", () => {
     it("says why each need counts each of its features", () => {
-        for (const choice of needs) {
+        /* The one choice with no need is a single passenger, who asks nothing of the car. */
+        for (const choice of needs.filter((item) => item.need)) {
             for (const id of choice.need!.evidence) {
                 expect(choice.need!.reasons?.[id], `${choice.id} → ${id}`).toMatch(/\w{3,}/);
             }
@@ -50,7 +51,7 @@ describe("the link between a need and its equipment", () => {
             budget: null,
             rental: null,
             monthlyKm: null,
-            needs: [{ id: "life-kids", label: "Kids in the back", importance: "important", said: "", priorities: ["practicality"], evidence: [], notInData: null, status: "active" }],
+            needs: [{ id: "life-kids", label: "Travelling with children", importance: "important", said: "", priorities: ["practicality"], evidence: [], notInData: null, status: "active" }],
             context: [],
             capabilities: [],
             droppedPriorities: [],
@@ -61,7 +62,7 @@ describe("the link between a need and its equipment", () => {
         })!;
 
         expect(step.why).toContain("so you can open the boot while holding a child or a pram");
-        expect(step.why).toMatch(/^You said kids in the back\. Electric tailgate: /);
+        expect(step.why).toMatch(/^You mentioned travelling with children\. Electric tailgate: /);
     });
 });
 

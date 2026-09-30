@@ -50,14 +50,14 @@ describe("a first chat", () => {
         expect(hello).toMatch(/I'm Lens/);
         expect(how).toMatch(/chip/);
         expect(how).toMatch(/trophy/);
-        expect(openAsk(chat)?.step.id).toBe("life-people");
+        expect(openAsk(chat)?.step.id).toBe("life-passengers");
         expect(chat.phase).toBe("asking");
         expect(chat.judgement).toBeNull();
     });
 
     it("asks each question once, then says what it will judge by and asks whether to keep it", () => {
         const chat = walk(startChat(null, cars(), TODAY), {
-            life: ["kids", "motorway"],
+            life: ["passengers-2", "kids", "motorway"],
             budget: ["budget-500"],
             period: ["period-12"],
             distance: ["km-1500"],
@@ -65,7 +65,7 @@ describe("a first chat", () => {
 
         const asked = chat.messages.filter((message): message is Ask => message.kind === "ask").map((message) => message.step.id);
 
-        for (const group of ["life-people", "life-driving", "life-weather", "life-loads", "life-you"]) {
+        for (const group of ["life-passengers", "life-people", "life-driving", "life-weather", "life-loads", "life-you"]) {
             expect(asked.filter((id) => id === group), group).toHaveLength(1);
         }
         /* A group's follow-up comes straight after it, before the next group. */
@@ -85,20 +85,20 @@ describe("a first chat", () => {
         expect(chat.understanding.monthlyKm?.value).toBe(1500);
         expect(chat.understanding.rental).toMatchObject({ from: "2026-10", to: "2027-09" });
         expect(chat.understanding.needs.map((need) => need.id)).toEqual(expect.arrayContaining(["life-kids", "life-motorway"]));
-        expect(chat.title).toMatch(/Kids in the back/);
+        expect(chat.title).toMatch(/Travelling with children/);
     });
 
     it("records each tap as the reader's own words, and answers it", () => {
         const start = startChat(null, cars(), TODAY);
-        const { chat } = answer(start, openAsk(start)!.id, ["kids"], cars(), TODAY);
+        const { chat } = answer(start, openAsk(start)!.id, ["passengers-2"], cars(), TODAY);
         const said = chat.messages.filter((message) => message.from === "reader");
 
-        expect(said.at(-1)).toMatchObject({ kind: "text", text: "I have kids in the back." });
-        expect(texts(chat).at(-1)).toMatch(/Got it/);
+        expect(said.at(-1)).toMatchObject({ kind: "text", text: "Usually two other people." });
+        expect(texts(chat).at(-1)).toMatch(/Got it — two passengers\. .*rear doors/);
     });
 
     it("takes no limit and no period as answers, not as questions to repeat", () => {
-        const chat = walk(startChat(null, cars(), TODAY), { life: ["kids"], budget: [], period: [], distance: [] });
+        const chat = walk(startChat(null, cars(), TODAY), { life: ["passengers-2", "kids"], budget: [], period: [], distance: [] });
 
         expect(chat.understanding.budget).toBeNull();
         expect(chat.understanding.waived).toEqual(expect.arrayContaining(["budget", "rental"]));
@@ -112,7 +112,7 @@ describe("a first chat", () => {
         expect(texts(chat).at(-1)).toMatch(/nothing to judge how well each car fits you/);
 
         const again = answer(chat, openAsk(chat)!.id, ["add"], cars(), TODAY).chat;
-        expect(openAsk(again)?.step.id).toBe("life-people");
+        expect(openAsk(again)?.step.id).toBe("life-passengers");
     });
 
     it("keeps the answers as settings or for this chat, then asks for a judgement", () => {
@@ -138,7 +138,7 @@ describe("a first chat", () => {
 
 describe("a chat from saved settings", () => {
     const settings = (): SavedSettings => {
-        const asked = walk(startChat(null, cars(), TODAY), { life: ["kids"], budget: ["budget-700"], period: ["period-6"] });
+        const asked = walk(startChat(null, cars(), TODAY), { life: ["passengers-2", "kids"], budget: ["budget-700"], period: ["period-6"] });
 
         return { savedAt: TODAY.toISOString(), fromChatId: asked.id, understanding: asked.understanding, rentalMonths: rentalMonths(asked.understanding) };
     };
@@ -167,8 +167,11 @@ describe("a chat from saved settings", () => {
         const ask = openAsk(changing)!;
 
         expect(changing.revising).toBe(true);
-        expect(ask.step.id).toBe("life-people");
-        expect(ask.step.selected).toEqual(["kids"]);
+        expect(ask.step.id).toBe("life-passengers");
+        expect(ask.step.selected).toEqual(["passengers-2"]);
+
+        const who = answer(changing, ask.id, ["passengers-2"], cars(), TODAY).chat;
+        expect(openAsk(who)?.step.selected).toEqual(["kids"]);
     });
 
     it("starts from nothing, when asked, without touching the settings", () => {
@@ -177,18 +180,18 @@ describe("a chat from saved settings", () => {
 
         expect(fresh.understanding.needs).toEqual([]);
         expect(fresh.kept).toBeNull();
-        expect(openAsk(fresh)?.step.id).toBe("life-people");
+        expect(openAsk(fresh)?.step.id).toBe("life-passengers");
     });
 });
 
 describe("after a judgement", () => {
     it("asks every question again, with what was said already picked", () => {
-        const asked = walk(startChat(null, cars(), TODAY), { life: ["kids", "winter"], budget: ["budget-500"] });
+        const asked = walk(startChat(null, cars(), TODAY), { life: ["passengers-2", "kids", "winter"], budget: ["budget-500"] });
         const changed = changeAnswers({ ...asked, phase: "judged" }, cars());
         const ask = openAsk(changed)!;
 
-        expect(ask.step.id).toBe("life-people");
-        expect(ask.step.selected).toEqual(["kids"]);
+        expect(ask.step.id).toBe("life-passengers");
+        expect(ask.step.selected).toEqual(["passengers-2"]);
         expect(changed.kept).toBeNull();
     });
 });
@@ -197,7 +200,7 @@ describe("a conversation, not a form", () => {
     const asked = (chat: Chat) => chat.messages.filter((message): message is Ask => message.kind === "ask").map((message) => message.step.id);
 
     it("says why it asks every question", () => {
-        const chat = walk(startChat(null, cars(), TODAY), { life: ["kids", "city"], "follow-kids": ["older"], "follow-city": ["street"], budget: ["budget-500"] });
+        const chat = walk(startChat(null, cars(), TODAY), { life: ["passengers-2", "kids", "city"], "follow-kids": ["older"], "follow-city": ["street"], budget: ["budget-500"] });
 
         for (const message of chat.messages) {
             if (message.kind === "ask" && message.step.id !== "start") expect(message.step.why, message.step.id).toBeTruthy();
@@ -205,17 +208,65 @@ describe("a conversation, not a form", () => {
     });
 
     it("shows what each need means, and what it will look for", () => {
-        const chat = startChat(null, cars(), TODAY);
+        const start = startChat(null, cars(), TODAY);
+        const chat = answer(start, openAsk(start)!.id, ["passengers-2"], cars(), TODAY).chat;
         const kids = openAsk(chat)!.step.choices.find((choice) => choice.id === "kids")!;
 
         expect(kids.description).toMatch(/ISOFIX anchors for child seats/);
         expect(kids.looksFor).toContain("ISOFIX child seat anchors");
-        expect(openAsk(chat)!.step.ask).toMatch(/who's usually in the car/i);
+        expect(openAsk(chat)!.step.ask).toMatch(/who are they/i);
+    });
+
+    it("asks how many ride along before who they are, and lets the count decide seats and doors", () => {
+        const start = startChat(null, cars(), TODAY);
+        const count = openAsk(start)!.step;
+
+        expect(count.multiple).toBe(false);
+        expect(count.choices.map((choice) => choice.label)).toEqual(["1", "2", "3", "4", "5 or more"]);
+        expect(count.none).toBe("Just me");
+
+        const four = answer(start, openAsk(start)!.id, ["passengers-4"], cars(), TODAY).chat;
+        const seats = four.understanding.needs.find((need) => need.id === "life-passengers-4")!;
+
+        expect(four.understanding.passengers).toBe(4);
+        expect(seats.evidence.map((entry) => entry.id)).toEqual(["rearDoors", "seatsFivePlus"]);
+        expect(openAsk(four)?.step.id).toBe("life-people");
+    });
+
+    it("asks nobody's kind of passenger when it's just the reader — only whether a pet comes", () => {
+        const start = startChat(null, cars(), TODAY);
+        const alone = answer(start, openAsk(start)!.id, [], cars(), TODAY).chat;
+        const pets = openAsk(alone)!.step;
+
+        expect(alone.understanding.passengers).toBe(0);
+        expect(pets.ask).toMatch(/pets/i);
+        expect(pets.choices.map((choice) => choice.id)).toEqual(["dog"]);
+        expect(pets.none).toBe("No pets");
+    });
+
+    it("adds nothing for one adult beside the driver, and says so", () => {
+        const start = startChat(null, cars(), TODAY);
+        const one = answer(start, openAsk(start)!.id, ["passengers-1"], cars(), TODAY).chat;
+
+        expect(one.understanding.needs).toEqual([]);
+        expect(texts(one).at(-1)).toMatch(/beside you/);
+
+        const adult = answer(one, openAsk(one)!.id, ["adults"], cars(), TODAY).chat;
+
+        expect(adult.understanding.needs).toEqual([]);
+        expect(texts(adult).at(-1)).toMatch(/nothing extra to check/);
+    });
+
+    it("doesn't ask whether a seat count matters more than a need", () => {
+        const chat = walk(startChat(null, cars(), TODAY), { life: ["passengers-2", "city"], "follow-city": ["street"] });
+
+        expect(asked(chat)).not.toContain("focus");
     });
 
     it("asks the needs a group at a time, each keeping the others' answers", () => {
         const start = startChat(null, cars(), TODAY);
-        const people = answer(start, openAsk(start)!.id, ["kids"], cars(), TODAY).chat;
+        const count = answer(start, openAsk(start)!.id, ["passengers-2"], cars(), TODAY).chat;
+        const people = answer(count, openAsk(count)!.id, ["kids"], cars(), TODAY).chat;
         const afterFollowUp = answer(people, openAsk(people)!.id, ["boosters"], cars(), TODAY).chat;
 
         expect(openAsk(afterFollowUp)?.step.id).toBe("life-driving");
@@ -234,7 +285,8 @@ describe("a conversation, not a form", () => {
 
     it("follows a need up where the answer changes what it looks for, and says what changed", () => {
         const start = startChat(null, cars(), TODAY);
-        const { chat } = answer(start, openAsk(start)!.id, ["kids"], cars(), TODAY);
+        const count = answer(start, openAsk(start)!.id, ["passengers-2"], cars(), TODAY).chat;
+        const { chat } = answer(count, openAsk(count)!.id, ["kids"], cars(), TODAY);
 
         expect(openAsk(chat)?.step.id).toBe("follow-kids");
 
@@ -253,9 +305,9 @@ describe("a conversation, not a form", () => {
     });
 
     it("asks which need matters most only when there's more than one", () => {
-        expect(asked(walk(startChat(null, cars(), TODAY), { life: ["kids"] }))).not.toContain("focus");
+        expect(asked(walk(startChat(null, cars(), TODAY), { life: ["passengers-2", "kids"] }))).not.toContain("focus");
 
-        const chat = walk(startChat(null, cars(), TODAY), { life: ["kids", "winter"], "follow-kids": ["boosters"], "follow-winter": ["cold"], focus: ["life-winter"] });
+        const chat = walk(startChat(null, cars(), TODAY), { life: ["passengers-2", "kids", "winter"], "follow-kids": ["boosters"], "follow-winter": ["cold"], focus: ["life-winter"] });
 
         expect(asked(chat)).toContain("focus");
         expect(chat.understanding.needs.find((need) => need.id === "life-winter")?.importance).toBe("essential");
@@ -264,24 +316,24 @@ describe("a conversation, not a form", () => {
     });
 
     it("doesn't ask what matters most when the answers already say", () => {
-        const chat = walk(startChat(null, cars(), TODAY), { life: ["kids", "winter"], "follow-kids": ["seats"], "follow-winter": ["cold"] });
+        const chat = walk(startChat(null, cars(), TODAY), { life: ["passengers-2", "kids", "winter"], "follow-kids": ["seats"], "follow-winter": ["cold"] });
 
         expect(asked(chat)).not.toContain("focus");
     });
 
     it("breaks a tie between must-haves, stepping the others down one", () => {
-        const chat = walk(startChat(null, cars(), TODAY), { life: ["kids", "winter"], "follow-kids": ["seats"], "follow-winter": ["snow"], focus: ["life-kids"] });
+        const chat = walk(startChat(null, cars(), TODAY), { life: ["passengers-2", "kids", "winter"], "follow-kids": ["seats"], "follow-winter": ["snow"], focus: ["life-kids"] });
 
         expect(chat.understanding.needs.find((need) => need.id === "life-kids")?.importance).toBe("essential");
         expect(chat.understanding.needs.find((need) => need.id === "life-winter")?.importance).toBe("important");
     });
 
     it("offers equipment the cars here differ on, says why, and counts it on a yes", () => {
-        const chat = walk(startChat(null, cars(), TODAY), { life: ["kids"], offer: ["yes"] });
+        const chat = walk(startChat(null, cars(), TODAY), { life: ["passengers-2", "kids"], offer: ["yes"] });
         const offers = chat.messages.filter((message): message is Ask => message.kind === "ask" && Boolean(message.step.offer));
 
         expect(offers.length).toBeGreaterThan(0);
-        expect(offers[0]!.step.why).toMatch(/^You said kids in the back\. .+\. \d+ of the 5 cars here list it and \d+ don't/);
+        expect(offers[0]!.step.why).toMatch(/^You mentioned travelling with children\. .+\. \d+ of the 5 cars here list it and \d+ don't/);
 
         for (const offer of offers) expect(EVIDENCE[offer.step.offer!.id].raisable).toBe(true);
 

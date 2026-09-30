@@ -54,7 +54,13 @@ describe("what Lens asks about a page of cars", () => {
 
     it("only offers choices it can check on these cars", () => {
         for (const choice of step("life").choices) {
-            const evidence = choice.need!.evidence;
+            /* A passenger count stays even when it checks nothing: it's still the reader's answer. */
+            if (!choice.need) {
+                expect(choice.passengers, choice.id).toBeDefined();
+                continue;
+            }
+
+            const evidence = choice.need.evidence;
 
             /* Either equipment some car here lists, or a priority scored from a figure. */
             expect(evidence.length > 0 || choice.need!.priorities.length > 0).toBe(true);
@@ -86,7 +92,7 @@ describe("what Lens asks about a page of cars", () => {
 describe("what the taps mean", () => {
     it("turns a choice into a need with the evidence behind it", () => {
         const u = answer(EMPTY_UNDERSTANDING, "life", ["kids"]);
-        const need = u.needs.find((item) => item.label === "Kids in the back");
+        const need = u.needs.find((item) => item.label === "Travelling with children");
 
         expect(need).toBeDefined();
         expect(need!.priorities).toContain("practicality");
@@ -96,7 +102,7 @@ describe("what the taps mean", () => {
     });
 
     it("names exactly the priorities that score a need's equipment", () => {
-        for (const choice of guideSteps([]).find((step) => step.id === "life")!.choices) {
+        for (const choice of guideSteps([]).find((step) => step.id === "life")!.choices.filter((item) => item.need)) {
             const need = choice.need!;
             const homes = new Set(need.evidence.map((id) => EVIDENCE[id].scoredIn).filter(Boolean));
 
@@ -115,7 +121,7 @@ describe("what the taps mean", () => {
         const u = answer(EMPTY_UNDERSTANDING, "life", ["city"]);
 
         expect(u.needs[0]!.said).toMatch(/city/i);
-        expect(saidFor(step("life"), ["city", "kids"])).toMatch(/city.*kids|kids.*city/is);
+        expect(saidFor(step("life"), ["city", "kids"])).toMatch(/city.*children|children.*city/is);
     });
 
     it("makes a rule an essential need, which is what narrows the set", () => {

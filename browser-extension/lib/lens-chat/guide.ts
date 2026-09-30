@@ -129,7 +129,8 @@ export type GuideStepId = "life" | "rules" | "distance";
 
 /** How the needs are laid out: the way people describe their own lives. */
 export const NEED_GROUPS = {
-    people: "Who's in the car",
+    passengers: "How many ride with you",
+    people: "Who rides with you",
     driving: "Where you drive",
     weather: "The weather",
     loads: "What you carry",
@@ -162,6 +163,8 @@ export interface GuideChoice {
     rule?: { id: EvidenceId; mode: "must" | "without"; label: string };
     /** Kilometres a month, for FINN's mileage charge. */
     monthlyKm?: number;
+    /** How many people usually ride with the driver. */
+    passengers?: number;
 }
 
 export interface GuideStep {
@@ -207,41 +210,76 @@ const need = (
  * priorities that equipment is scored under — so choosing one moves the
  * judgement, and the reader can be told exactly how.
  */
+/** Two or more passengers: someone sits in the back, plus whatever seats the count needs. */
+const passengersNeed = (count: number, label: string, said: string, description: string, needLabel: string, seats: [EvidenceId, string][]): GuideChoice => {
+    const choice = need(`passengers-${count}`, "passengers", label, said, description, ["practicality"], [
+        ["rearDoors", "so whoever sits in the back gets in without the front seat folding forward"],
+        ...seats,
+    ], needLabel);
+
+    /* Six people can't share five seats: that one isn't a preference. */
+    return { ...choice, passengers: count, need: { ...choice.need!, importance: count >= 5 ? "essential" : "important" } };
+};
+
+/*
+ * How many people ride along, first: the count is what decides seats and
+ * doors. One passenger sits beside the driver, so it asks nothing of the car;
+ * a second means someone sits in the back; five people need five seats, and
+ * six need six.
+ */
+const PASSENGERS: GuideChoice[] = [
+    {
+        id: "passengers-1",
+        group: "passengers",
+        label: "1",
+        said: "Usually one other person.",
+        description: "One passenger can sit beside you, so there's nothing extra to check for seats or doors.",
+        passengers: 1,
+    },
+    passengersNeed(2, "2", "Usually two other people.", "Someone sits in the back, so I'll check for rear doors.", "Two passengers", []),
+    passengersNeed(3, "3", "Usually three other people.", "Someone sits in the back, so I'll check for rear doors.", "Three passengers", []),
+    passengersNeed(4, "4", "Usually four other people.", "Room for everyone: rear doors, and five seats.", "Four passengers", [["seatsFivePlus", "so all five of you have a seat"]]),
+    passengersNeed(5, "5 or more", "Usually five or more other people.", "Room for everyone: rear doors, and six or more seats.", "Five or more passengers", [["seatsSixPlus", "so everyone has a seat"]]),
+];
+
 const LIFE: GuideChoice[] = [
-    need("kids", "people", "Kids in the back", "I have kids in the back.",
-        "ISOFIX anchors for child seats, rear doors for getting children in and out, at least five seats, rear seats that fold, and USB ports in the back.",
+    ...PASSENGERS,
+    /* Seats and doors come from the count; these are what each kind of passenger needs besides. */
+    need("kids", "people", "Children", "Children.",
+        "ISOFIX anchors for child seats, rear doors, rear seats that fold, and USB ports in the back.",
         /* Where its equipment is scored: ISOFIX under Practicality, rear USB ports under Comfort. */
         ["practicality", "comfort"],
         [
             ["hasIsofix", "so the seat is held by the car's frame, not only by a seat belt"],
+            /* A child seat goes in the back even when the child is the only passenger. */
             ["rearDoors", "so children get in and out, and seats get fitted, without climbing past the front seats"],
-            ["seatsFivePlus", "so three can sit in the back"],
             ["hasSplitFoldingRearSeats", "so you can fold one part for a pram and still seat a child"],
             ["hasBackUSBPorts", "so children can charge tablets and phones on longer drives"],
-        ]),
-    need("dog", "people", "A dog in the car", "A dog comes with us.",
-        "An electric tailgate that opens the boot at the press of a button, rear seats that fold down for more floor space, and rear doors.",
-        ["practicality"],
-        [
-            ["hasElectricTailgate", "so you can open the boot while holding the lead"],
-            ["hasSplitFoldingRearSeats", "so a bigger dog or a crate gets more floor space"],
-            ["rearDoors", "so a dog can get in and out of the back seat directly"],
-        ]),
+        ],
+        "Travelling with children"),
     /*
      * Adults, not elderly passengers. What makes a car easier for someone
      * who struggles to get in — seat height, step-in height, how wide the
      * doors open — isn't in FINN's data, so Lens can't judge it and doesn't
      * offer to. What adults in the back need, it can check.
      */
-    need("adults", "people", "Adults in the back", "I often have adults in the back — friends or family.",
-        "Rear doors so adults get in without anyone moving the front seats, room for five, a temperature setting of their own in the back, and USB ports to charge their phones.",
-        ["practicality", "comfort"],
+    need("adults", "people", "Adults", "Adults.",
+        "A temperature setting of their own in the back, and USB ports there to charge their phones.",
+        ["comfort"],
         [
-            ["rearDoors", "so adults get in and out without anyone moving the front seats"],
-            ["seatsFivePlus", "so everyone fits when the car is full"],
             ["hasThreeZoneAutomaticClimateControls", "so passengers in the back can set their own temperature"],
             ["hasBackUSBPorts", "so passengers in the back can charge their phones"],
-        ]),
+        ],
+        "Adult passengers"),
+    need("dog", "people", "Pets", "A pet.",
+        "An electric tailgate that opens the boot at the press of a button, rear seats that fold down for more floor space, and rear doors.",
+        ["practicality"],
+        [
+            ["hasElectricTailgate", "so you can open the boot while holding a lead or a carrier"],
+            ["hasSplitFoldingRearSeats", "so a bigger pet or a crate gets more floor space"],
+            ["rearDoors", "so a pet can get in and out of the back seat directly"],
+        ],
+        "Travelling with a pet"),
     need("city", "driving", "City driving and parking", "It's mostly city driving, and parking is the hard part.",
         "A short, narrow car (the “i” gives the exact limits), a reversing camera, parking sensors, and mirrors that fold in at the press of a button.",
         ["cityParking"],
@@ -465,13 +503,24 @@ export function guideSteps(
      */
     const narrow = cars.length > 0;
 
-    const life = LIFE.map((choice) => {
-        const need = choice.need!;
-        const priorities = need.priorities.filter(allowed);
-        const evidence = narrow ? need.evidence.filter((id) => findable(cars, id)) : need.evidence;
+    const life = LIFE.flatMap((choice): GuideChoice[] => {
+        if (!choice.need) return [choice];
 
-        return { ...choice, need: { ...need, priorities, evidence } };
-    }).filter((choice) => choice.need.priorities.length > 0 && (choice.need.evidence.length > 0 || CATEGORIES[choice.need.priorities[0]!].numericOnly));
+        const priorities = choice.need.priorities.filter(allowed);
+        const evidence = narrow ? choice.need.evidence.filter((id) => findable(cars, id)) : choice.need.evidence;
+        const checkable = priorities.length > 0 && (evidence.length > 0 || CATEGORIES[priorities[0]!].numericOnly);
+
+        if (checkable) return [{ ...choice, need: { ...choice.need, priorities, evidence } }];
+
+        /*
+         * Who rides along is the reader's answer whatever the cars here
+         * list: "Adults" can't go missing from "who are they?" because no car
+         * on the page has rear USB ports. It stays, and says it adds nothing.
+         */
+        return choice.group === "passengers" || choice.group === "people"
+            ? [{ ...choice, need: undefined, description: "None of the cars here list what I'd check for that, so there's nothing extra to check." }]
+            : [];
+    });
 
     const rules = narrow ? RULES.filter((choice) => ruleSplits(cars, choice)) : RULES;
 
@@ -589,11 +638,14 @@ export function applyChoices(u: Understanding, step: GuideStep, chosen: string[]
     const added = picked.map((choice) => needFor(step.id, choice)).filter((need): need is Need => need != null);
 
     const distance = step.id === "distance" ? (picked.find((choice) => choice.monthlyKm != null) ?? null) : null;
+    /* A step that asks how many ride along answers it even when nothing is tapped: "Just me" is none. */
+    const counts = step.choices.some((choice) => choice.passengers != null);
 
     return {
         ...u,
         needs: [...kept, ...added],
         monthlyKm: step.id !== "distance" ? u.monthlyKm : distance ? { value: distance.monthlyKm!, said: distance.said } : null,
+        passengers: counts ? (picked.find((choice) => choice.passengers != null)?.passengers ?? 0) : u.passengers,
     };
 }
 

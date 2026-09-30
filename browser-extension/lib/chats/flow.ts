@@ -4,7 +4,7 @@ import { FINN_INCLUDED_MONTHLY_KM } from "@/lib/reasoning-engine/constants";
 import { addMonths, monthLabel, type MonthString } from "@/lib/reasoning-engine/contract";
 import type { NeedImportance } from "@/lib/lens-ai/contract";
 import { asPhrase, coverage, EVIDENCE, type EvidenceId } from "@/lib/lens-chat/evidence";
-import { applyChoices, explain, guideSteps, NEED_GROUPS, saidFor, type GuideStep, type NeedGroup } from "@/lib/lens-chat/guide";
+import { applyChoices, explain, guideSteps, NEED_GROUPS, saidFor, type GuideChoice, type GuideStep, type NeedGroup } from "@/lib/lens-chat/guide";
 import {
     EMPTY_UNDERSTANDING,
     ruledOut,
@@ -69,9 +69,12 @@ const lifeNeeds = (u: Understanding) => u.needs.filter((need) => need.status ===
 
 const LEVEL: Record<NeedImportance, number> = { essential: 3, important: 2, niceToHave: 1 };
 
-/** The needs sharing the highest importance any of them has. */
+/**
+ * The needs sharing the highest importance any of them has. How many ride
+ * along is a fact about the reader, not something to rank against the rest.
+ */
 const topNeeds = (u: Understanding) => {
-    const needs = lifeNeeds(u);
+    const needs = lifeNeeds(u).filter((need) => !need.id.startsWith("life-passengers-"));
     const top = Math.max(0, ...needs.map((need) => LEVEL[need.importance]));
 
     return needs.filter((need) => LEVEL[need.importance] === top);
@@ -118,11 +121,17 @@ const labelsOf = (ids: EvidenceId[]) => ids.map((id) => EVIDENCE[id]?.label).fil
  * matters, and each has its own way of saying "none of these".
  */
 const GROUP_ASK: Record<NeedGroup, { ask: string; why: string; none: string; placeholder: string }> = {
-    people: {
-        ask: "First, who's usually in the car with you?",
-        why: "Each answer adds equipment I check on every car here — ISOFIX anchors and rear doors for children, for example. Tap the “i” on an answer to see its list.",
+    passengers: {
+        ask: "First, how many people usually ride with you?",
+        why: "It decides how many seats and doors the car needs.",
         none: "Just me",
         placeholder: "e.g. “my mum, who uses a walker”",
+    },
+    people: {
+        ask: "Who are they, usually?",
+        why: "Children, adults and pets each need different things from a car. Tap all that apply — the “i” on an answer shows what I'd check.",
+        none: "Rather not say",
+        placeholder: "e.g. “two teenagers and a big dog”",
     },
     driving: {
         ask: "Where do you do most of your driving?",
@@ -177,6 +186,32 @@ const fromGuide = (step: GuideStep): ChatStep => ({
     none: step.none,
     guide: step,
 });
+
+/**
+ * Who rides along, asked in the light of how many do: with nobody, only
+ * whether a pet does; with one, an adult asks nothing of the car, since they
+ * sit beside the driver.
+ */
+function whoRides(choices: GuideChoice[], passengers: number | null): { choices: GuideChoice[]; ask: string; none?: string; multiple: boolean } {
+    if (passengers === 0) {
+        return { choices: choices.filter((choice) => choice.id === "dog"), ask: "Any pets riding along?", none: "No pets", multiple: false };
+    }
+
+    if (passengers === 1) {
+        return {
+            choices: choices.map((choice) =>
+                choice.id === "adults"
+                    ? { ...choice, need: undefined, description: "One adult can sit beside you, so there's nothing extra to check for them." }
+                    : choice,
+            ),
+            ask: "Who is it, usually? And any pets?",
+            none: GROUP_ASK.people.none,
+            multiple: true,
+        };
+    }
+
+    return { choices, ask: GROUP_ASK.people.ask, none: GROUP_ASK.people.none, multiple: true };
+}
 
 /** Lens's question for `id`, narrowed to what's worth asking about these cars. Null when it isn't. */
 export function stepFor(id: StepId, cars: FinnCar[], u: Understanding = EMPTY_UNDERSTANDING): ChatStep | null {
@@ -275,7 +310,7 @@ export function stepFor(id: StepId, cars: FinnCar[], u: Understanding = EMPTY_UN
         return {
             id,
             ask: `Worth a look: ${lower(def.label)}. Should I count it?`,
-            why: `You said ${lower(need.label)}. ${def.label}: ${explain(evidence, why)}. ${counts.listed} of the ${counts.total} cars here list it and ${without} don't, so counting it would favour the ${counts.listed}.`,
+            why: `You mentioned ${lower(need.label)}. ${def.label}: ${explain(evidence, why)}. ${counts.listed} of the ${counts.total} cars here list it and ${without} don't, so counting it would favour the ${counts.listed}.`,
             multiple: false,
             choices: [
                 { id: "yes", label: "Yes, count it", said: `Yes, count ${lower(def.label)}.` },
@@ -288,18 +323,22 @@ export function stepFor(id: StepId, cars: FinnCar[], u: Understanding = EMPTY_UN
     if (id.startsWith("life-")) {
         const group = id.slice("life-".length) as NeedGroup;
         const life = guideSteps(cars).find((item) => item.id === "life");
-        const choices = life?.choices.filter((choice) => choice.group === group) ?? [];
         const words = GROUP_ASK[group];
+        const own = life?.choices.filter((choice) => choice.group === group) ?? [];
+        const { choices, ...ask } =
+            group === "people"
+                ? whoRides(own, u.passengers ?? null)
+                : { choices: own, ask: words?.ask ?? "", none: words?.none, multiple: group !== "passengers" };
 
         if (!life || !choices.length || !words) return null;
 
         /* The guide's own step, narrowed to this group, so answering it replaces this group's answers only. */
         return {
-            ...fromGuide({ ...life, choices }),
+            ...fromGuide({ ...life, choices, multiple: ask.multiple }),
             id,
-            ask: words.ask,
+            ask: ask.ask,
             why: words.why,
-            none: words.none,
+            none: ask.none,
             custom: { kind: "text", label: "Something else…", placeholder: words.placeholder },
         };
     }
@@ -323,8 +362,12 @@ export function selectedFor(step: ChatStep, u: Understanding, picks: Record<stri
 
     if (step.guide && (step.guide.id === "life" || step.guide.id === "rules")) {
         const owned = new Set(u.needs.filter((need) => need.status === "active").map((need) => need.id));
+        /* Answers that add nothing to check leave no need behind: the count, and an adult beside the driver. */
+        const tapped = new Set(picks[step.id] ?? []);
 
-        return step.choices.filter((choice) => owned.has(`${step.guide!.id}-${choice.id}`)).map((choice) => choice.id);
+        return step.choices
+            .filter((choice) => owned.has(`${step.guide!.id}-${choice.id}`) || choice.id === `passengers-${u.passengers}` || (!choice.looksFor?.length && tapped.has(choice.id)))
+            .map((choice) => choice.id);
     }
 
     if (step.id === "focus") return valid(u.needs.filter((need) => need.status === "active" && need.importance === "essential").map((need) => need.id)).slice(0, 1);
@@ -365,12 +408,37 @@ export function answered(id: StepId, u: Understanding): boolean {
 
 /** What Lens says to a group none of whose needs apply. */
 const NOTHING_HERE: Record<NeedGroup, string> = {
-    people: "Just you — I won't add anything for passengers.",
+    passengers: "Just you — I won't add anything for passengers.",
+    people: "Fine — I'll go by the number of seats alone.",
     driving: "None of these — I won't add anything for how you drive.",
     weather: "Nothing unusual — I won't add anything for the weather.",
     loads: "Nothing much — I won't add anything for loads.",
     you: "Nothing else — I won't add anything more.",
 };
+
+/** What Lens says to one group of needs: what it heard — its own picks, and anything typed alongside them. */
+function acknowledgeGroup(step: ChatStep, u: Understanding, chosen: string[], before: Set<string>): string {
+    const own = new Set(step.choices.map((choice) => `life-${choice.id}`));
+    const needs = lifeNeeds(u).filter((need) => own.has(need.id) || (!need.id.startsWith("life-") && !before.has(need.id)));
+    /* An answer that adds nothing to check says so in its own words: "One passenger can sit beside you…". */
+    const nothingToCheck = step.choices
+        .filter((choice) => chosen.includes(choice.id) && !choice.looksFor?.length && choice.description)
+        .map((choice) => choice.description!);
+
+    if (!needs.length) {
+        if (nothingToCheck.length) return nothingToCheck.join(" ");
+        if (step.none === "No pets") return "No pets — nothing to add for them.";
+
+        return NOTHING_HERE[step.id.slice("life-".length) as NeedGroup] ?? "Noted.";
+    }
+
+    const looks = [...new Set(needs.flatMap((need) => labelsOf(need.evidence.map((entry) => entry.id))))].slice(0, 4);
+    const heard = looks.length
+        ? `Got it — ${joined(needs.map((need) => lower(need.label)))}. For ${needs.length === 1 ? "that" : "those"} I'll check things like ${joined(looks.map(lower))}.`
+        : `Got it — ${joined(needs.map((need) => lower(need.label)))}.`;
+
+    return [heard, ...nothingToCheck].join(" ");
+}
 
 /** What Lens says after an answer: that it heard, and what it will do with it. */
 export function acknowledge(step: ChatStep, u: Understanding, chosen: string[] = [], before: Set<string> = new Set()): string {
@@ -388,19 +456,7 @@ export function acknowledge(step: ChatStep, u: Understanding, chosen: string[] =
             : "Fine, I'll leave it out and won't offer it again.";
     }
 
-    if (step.id.startsWith("life-")) {
-        /* What this group heard — its own picks, and anything typed alongside them. */
-        const own = new Set(step.choices.map((choice) => `life-${choice.id}`));
-        const needs = lifeNeeds(u).filter((need) => own.has(need.id) || (!need.id.startsWith("life-") && !before.has(need.id)));
-
-        if (!needs.length) return NOTHING_HERE[step.id.slice("life-".length) as NeedGroup] ?? "Noted.";
-
-        const looks = [...new Set(needs.flatMap((need) => labelsOf(need.evidence.map((entry) => entry.id))))].slice(0, 4);
-
-        return looks.length
-            ? `Got it — ${joined(needs.map((need) => lower(need.label)))}. For ${needs.length === 1 ? "that" : "those"} I'll check things like ${joined(looks.map(lower))}.`
-            : `Got it — ${joined(needs.map((need) => lower(need.label)))}.`;
-    }
+    if (step.id.startsWith("life-")) return acknowledgeGroup(step, u, chosen, before);
 
     switch (step.id) {
         case "focus": {

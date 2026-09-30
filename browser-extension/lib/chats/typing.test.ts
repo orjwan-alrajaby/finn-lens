@@ -14,13 +14,14 @@ const cars = () => [GARAGE.safeCompact(), GARAGE.familySuv(), GARAGE.cityHatch()
 describe("typing", () => {
     it("adds what was typed to what was tapped, without doubling anything", async () => {
         const start = startChat(null, cars());
-        const tapped = answer(start, start.messages.at(-1)!.id, ["kids"], cars()).chat;
+        const counted = answer(start, start.messages.at(-1)!.id, ["passengers-2"], cars()).chat;
+        const tapped = answer(counted, counted.messages.at(-1)!.id, ["kids"], cars()).chat;
 
         const read = await readTyped(tapped, "actually I can go up to 650 a month", cars(), null);
         const labels = read.understanding.needs.filter((need) => need.status === "active").map((need) => need.label);
 
         expect(read.understanding.budget?.monthly).toBe(650);
-        expect(labels.filter((label) => label === "Kids in the back")).toHaveLength(1);
+        expect(labels.filter((label) => label === "Travelling with children")).toHaveLength(1);
         expect(read.changes.map((change) => change.label)).toEqual(["Budget"]);
     });
 

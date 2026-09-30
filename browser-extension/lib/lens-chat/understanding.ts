@@ -80,6 +80,12 @@ export interface Understanding {
      * this it looks exactly like silence, and the question comes back forever.
      */
     waived: ("budget" | "rental")[];
+    /**
+     * How many people usually ride with the driver: 0 for "just me", null
+     * until asked. It decides who is asked about next. Chats saved before
+     * Lens asked come back without it.
+     */
+    passengers?: number | null;
 }
 
 export const EMPTY_UNDERSTANDING: Understanding = {
@@ -94,6 +100,7 @@ export const EMPTY_UNDERSTANDING: Understanding = {
     tension: "",
     notModelled: [],
     waived: [],
+    passengers: null,
 };
 
 export const isEmptyUnderstanding = (u: Understanding): boolean =>
@@ -367,6 +374,8 @@ export function readUnderstanding(
          * takes the waiver off it, and anything else leaves it as it was.
          */
         waived: (previous.waived ?? []).filter((part) => (part === "budget" ? !budget : !rental)),
+        /* Tapped, never read from words: a turn leaves it as it was. */
+        passengers: previous.passengers ?? null,
     };
 }
 
