@@ -531,6 +531,19 @@ describe("the ranking and the explanation agree", () => {
     }
   });
 
+  it("doesn't say a long car has everything raised for city parking", () => {
+    const long = makeCar({ id: 50, name: "Long One", length: 4_680, features: ["hasOneEightyDegreesReversingCamera"] });
+    const narrative = adviceFor(["cityParking"], [long], {
+      cityParking: [
+        { key: "compactLength", importance: "high", source: "user" },
+        { key: "hasOneEightyDegreesReversingCamera", importance: "high", source: "user" },
+      ],
+    });
+
+    expect(narrative.verdict.reasons[0]).not.toMatch(/everything/);
+    expect(narrative.verdict.reasons[0]).toMatch(/4\.68 m long/);
+  });
+
   it("measures the margin against the car that could have won, and says the price broke a tie", () => {
     const equipped = ["hasEmergencyBrakingAssist", "hasBlindSpotAssist"];
     /* Scores the same, but no one on this budget could take it. */

@@ -41,7 +41,7 @@ export function absentClause(key: SignalId, subject = "it"): string {
     case "hasAllWheelDrive":
       return `${subject} doesn't have all-wheel drive`;
     case "driverAssistLevel2":
-      return `FINN lists only level 1 driver assistance for ${subject}`;
+      return `FINN lists only Level 1 driver assistance for ${subject}`;
     default:
       return `FINN doesn't list ${featurePhrase(key)} for ${subject}`;
   }
@@ -66,7 +66,7 @@ export function absentPronounClause(key: SignalId): string {
     case "hasAllWheelDrive":
       return "this car doesn't have it";
     case "driverAssistLevel2":
-      return "FINN lists only level 1 for this car";
+      return "FINN lists only Level 1 for this car";
     default:
       return "FINN doesn't list it for this car";
   }

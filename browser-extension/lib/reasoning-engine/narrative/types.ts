@@ -85,6 +85,12 @@ export interface FeatureEvidence {
   selectedCount: number;
   /** The priority's standard equipment, checked for this car. */
   standard: StandardFact[];
+  /**
+   * Sizes the reader raised that this car only partly meets, as the figure:
+   * "4.68 m long". Without them, "has everything you raised" was said of a
+   * car the length had marked down.
+   */
+  measuredShort?: string[];
 }
 
 /* -------------------------------------------------------------------------- */

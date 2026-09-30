@@ -61,7 +61,7 @@ export function summarisePriority(
       ? `You put ${phraseLabel(reasoning.label)} first`
       : `${toSentenceStart(phraseLabel(reasoning.label))} is your #${reasoning.rank}`;
 
-  const { basis, picked, coverage: cover } = reasoning.features;
+  const { basis, picked, coverage: cover, measuredShort = [] } = reasoning.features;
   const { present, missing } = picked;
 
   /* What was raised leads, saying whose raise it was. */
@@ -71,6 +71,15 @@ export function summarisePriority(
 
     if (!missing.length) {
       const named = joinCapped(present.map((fact) => fact.phrase), 5);
+
+      /* A size it only partly meets is said with the rest, not left out of "everything". */
+      if (measuredShort.length) {
+        return sentence(
+          `${opener}, and this car has`,
+          total === 1 ? `${named}, the one piece of equipment ${who} there,` : `all the equipment ${who} there — ${named} —`,
+          `but at ${joinList(measuredShort)} its size counts only partly`,
+        );
+      }
 
       return total === 1
         ? sentence(`${opener}, and this car has ${named}, the one thing ${who} there`)

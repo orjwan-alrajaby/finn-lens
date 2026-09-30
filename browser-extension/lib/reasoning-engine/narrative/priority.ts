@@ -1,4 +1,5 @@
 import type { PinnedFinnCar } from "@/lib/types";
+import { isBinarySignal, lengthMm, signalUtility, widthMm } from "../evidence";
 import type { PriorityBreakdown } from "../types";
 import type {
   FeatureEvidence,
@@ -520,12 +521,24 @@ function describeMissingData(
 /* Assembly                                                                   */
 /* -------------------------------------------------------------------------- */
 
+/** A raised size the car only partly meets, as FINN's figure. */
+function measuredShortOf(breakdown: PriorityBreakdown, vehicle: PinnedFinnCar): string[] {
+  return [...breakdown.pickedMatched, ...breakdown.pickedMissing]
+    .filter((preference) => !isBinarySignal(preference.key) && (signalUtility(preference.key, vehicle) ?? 1) < 1)
+    .map((preference) => {
+      const mm = preference.key === "compactLength" ? lengthMm(vehicle) : preference.key === "compactWidth" ? widthMm(vehicle) : null;
+
+      return mm ? `${(mm / 1000).toFixed(2)} m ${preference.key === "compactLength" ? "long" : "wide"}` : null;
+    })
+    .filter((text): text is string => text != null);
+}
+
 export function reasonAboutPriority(
   breakdown: PriorityBreakdown,
   vehicle: PinnedFinnCar,
   rivalVehicle: PinnedFinnCar | null,
 ): PriorityReasoning {
-  const features = featureEvidence(breakdown);
+  const features = { ...featureEvidence(breakdown), measuredShort: measuredShortOf(breakdown, vehicle) };
   const measurements = measurementFacts(breakdown, vehicle, rivalVehicle);
   const traits = traitFacts(breakdown, vehicle, rivalVehicle);
   const rival = rivalDifference(breakdown);
