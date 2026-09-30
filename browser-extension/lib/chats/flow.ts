@@ -753,16 +753,23 @@ export function answer(
             ? withSuggestion(understanding, step.offer.id, explain(step.offer.id, offerReason(step.offer.needId, step.offer.id)), step.offer.needId)
             : withoutSuggestion(understanding, step.offer.id);
     } else if (step.id === "focus" && chosen.length) {
-        /* The one they chose goes to the top; the others it tied with step down one. */
+        /*
+         * The one they chose ends up one step above the others it tied with —
+         * one step, as the question says. Raising the choice and lowering
+         * the rest as well put "safety above all" two steps over a nervous
+         * driver's needs, which fell to nice-to-have.
+         */
         const tied = new Set(step.choices.map((choice) => choice.id));
+        const up: Record<NeedImportance, NeedImportance> = { niceToHave: "important", important: "essential", essential: "essential" };
 
         understanding = {
             ...understanding,
             needs: understanding.needs.map((need) => {
-                if (chosen.includes(need.id)) return { ...need, importance: "essential" as const };
                 if (!tied.has(need.id)) return need;
+                if (chosen.includes(need.id)) return { ...need, importance: up[need.importance] };
 
-                return { ...need, importance: need.importance === "essential" ? ("important" as const) : ("niceToHave" as const) };
+                /* Already at the top, the choice can't rise: the others step down instead. */
+                return need.importance === "essential" ? { ...need, importance: "important" as const } : need;
             }),
         };
     } else if (step.guide) {

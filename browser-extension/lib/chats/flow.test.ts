@@ -259,7 +259,8 @@ describe("a conversation, not a form", () => {
 
         expect(asked(chat)).toContain("focus");
         expect(chat.understanding.needs.find((need) => need.id === "life-winter")?.importance).toBe("essential");
-        expect(chat.understanding.needs.find((need) => need.id === "life-kids")?.importance).toBe("niceToHave");
+        /* One step apart, as the question promises — the other isn't pushed down as well. */
+        expect(chat.understanding.needs.find((need) => need.id === "life-kids")?.importance).toBe("important");
     });
 
     it("doesn't ask what matters most when the answers already say", () => {
