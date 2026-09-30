@@ -15,7 +15,7 @@ import {
     type Heard,
 } from "@/lib/chats/flow";
 import { judgementFrom, judgeWith, resultMessage } from "@/lib/chats/judge";
-import { judgedCars, loadedCars } from "@/lib/chats/scope";
+import { addedToJudgement, judgedCars, loadedCars } from "@/lib/chats/scope";
 import { loadChat, loadSettings, messageId, saveChat, saveSettings, setActiveChat } from "@/lib/chats/store";
 import type { Chat } from "@/lib/chats/types";
 import { readBack, readTyped } from "@/lib/chats/typing";
@@ -117,8 +117,10 @@ export function useConversation(page: PageCars) {
     /* -- Judging ------------------------------------------------------------ */
 
     const judge = useCallback(
-        async (from: Chat) => {
-            const { cars, headline, url, urls } = pageRef.current;
+        /* The page's cars, unless a set is given: the page's added to what was judged before. */
+        async (from: Chat, set: Pick<PageCars, "cars" | "headline" | "urls"> = pageRef.current) => {
+            const { cars, headline, urls } = set;
+            const { url } = pageRef.current;
 
             if (!cars.length) {
                 await commit(
@@ -326,5 +328,20 @@ export function useConversation(page: PageCars) {
         if (current) await judge(withExchange(current, "Judge the cars on this page.", null));
     }, [judge]);
 
-    return { chat, busy, startNew, open, clear, tap, type, whyWinner, change, changeOne, importance, judgeHere };
+    /** This page's cars added to the judgement, keeping every car judged before. */
+    const addHere = useCallback(async () => {
+        const current = latest.current;
+        if (!current) return;
+
+        const judged = current.judgement ? judgedCars(current.judgement.carIds, await loadedCars()).cars : [];
+        const { cars, headline } = addedToJudgement(judged, pageRef.current.cars, pageRef.current.headline);
+
+        await judge(withExchange(current, "Add the cars on this page to the judgement.", null), {
+            cars,
+            headline,
+            urls: { ...current.judgement?.urls, ...pageRef.current.urls },
+        });
+    }, [judge]);
+
+    return { chat, busy, startNew, open, clear, tap, type, whyWinner, change, changeOne, importance, judgeHere, addHere };
 }

@@ -58,6 +58,23 @@ export function pageCars(page: PageContext | null, loaded: Record<number, FinnCa
     };
 }
 
+/**
+ * A judgement with this page's cars added: this page's first, then the
+ * ones judged before that aren't here. Judging the page alone dropped every
+ * car judged on another page, and their chips with them.
+ */
+export function addedToJudgement(judged: PinnedFinnCar[], here: PinnedFinnCar[], hereHeadline: string): { cars: PinnedFinnCar[]; headline: string } {
+    const onPage = new Set(here.map((car) => car.id));
+    const before = judged.filter((car) => !onPage.has(car.id));
+
+    if (!before.length) return { cars: here, headline: hereHeadline };
+
+    return {
+        cars: [...here, ...before],
+        headline: `${plural(here.length + before.length, "car")}: ${here.length} from this page and ${before.length} judged before`,
+    };
+}
+
 /** The cars a past judgement was about, as Lens holds them now. */
 export function judgedCars(ids: number[], loaded: Record<number, FinnCar>): { cars: PinnedFinnCar[]; missing: number } {
     const cars = ids.map((id) => loaded[id]).filter((car): car is FinnCar => car != null).map((car) => asJudgeable(car, null));

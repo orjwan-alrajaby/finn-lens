@@ -204,10 +204,10 @@ export function App() {
                             </p>
                             <button
                                 type="button"
-                                onClick={() => void conversation.judgeHere()}
+                                onClick={() => void conversation.addHere()}
                                 className="shrink-0 rounded-full bg-finn-pale-blue px-3 py-1.5 text-[12px] font-black text-finn-accent-blue transition-colors hover:bg-finn-accent-blue hover:text-white"
                             >
-                                Judge them too
+                                Add them to the judgement
                             </button>
                         </div>
                     ) : null}
