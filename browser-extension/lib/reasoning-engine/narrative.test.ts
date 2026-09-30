@@ -527,8 +527,29 @@ describe("the ranking and the explanation agree", () => {
 
     if (narrative.verdict.margin!.magnitude === "negligible" ||
         narrative.verdict.margin!.magnitude === "tie") {
-      expect(narrative.verdict.marginNote).toMatch(/close|level|behind/i);
+      expect(narrative.verdict.marginNote).toMatch(/close|level|behind|the same/i);
     }
+  });
+
+  it("measures the margin against the car that could have won, and says the price broke a tie", () => {
+    const equipped = ["hasEmergencyBrakingAssist", "hasBlindSpotAssist"];
+    /* Scores the same, but no one on this budget could take it. */
+    const dear = makeCar({ id: 40, name: "Dear Twin", customerMonthly: 2_000, features: equipped });
+    const cheap = makeCar({ id: 41, name: "Twin", customerMonthly: 300, features: equipped });
+    const pricier = makeCar({ id: 42, name: "Twin", customerMonthly: 350, features: equipped });
+
+    const result = buildRecommendation(
+      [dear, cheap, pricier],
+      ["safetyAssistance"],
+      prefs({ monthlyBudget: 1_000, monthlyKm: 0 }),
+    )!;
+    const { verdict } = buildAdviceNarrative(result.evaluation, result.context, result.alternatives);
+
+    expect(result.winner.id).toBe(41);
+    expect(verdict.marginNote).not.toContain("Dear Twin");
+    expect(verdict.marginNote).toBe(
+      "Another Twin scores the same on everything you asked about — this one is about €50/month cheaper.",
+    );
   });
 });
 

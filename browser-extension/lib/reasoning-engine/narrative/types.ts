@@ -327,6 +327,12 @@ export interface Verdict {
     name: string;
     difference: number;
     magnitude: Magnitude;
+    /** The priority where this car pulls furthest ahead of it, weighted, if any. */
+    aheadOn?: string | null;
+    /** The priority where it pulls furthest ahead of this car, if any. */
+    behindOn?: string | null;
+    /** What it costs a month more than this car; null when either total is unfinished. */
+    dearerBy?: number | null;
   } | null;
   /** Said only when the top two are close enough that the ranking misleads. */
   marginNote: string | null;

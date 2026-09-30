@@ -1,4 +1,5 @@
 import type {
+  CategoryId,
   PriorityBreakdown,
   ReasoningContext,
   VehicleEvaluation,
@@ -8,7 +9,8 @@ import type { PriorityReasoning, Verdict } from "./types";
 import { formatEUR } from "../format";
 import { totalFor } from "../scoring";
 import { classifyTotalGap, isEffectivelyLevel } from "./magnitude";
-import { dependsOnFor } from "../decision";
+import { dependsOnFor, runnerUpFor } from "../decision";
+import { CATEGORIES } from "../constants";
 import { describeRentalProblem, periodLabel, rentalTier } from "../contract";
 import { absentList, emphasisClause, gapPhrase } from "./evidence-phrases";
 import {
@@ -248,21 +250,53 @@ function marginToNext(
   evaluation: VehicleEvaluation,
   context: ReasoningContext,
 ): Verdict["margin"] {
-  const index = context.ranked.findIndex(
-    (item) => item.id === evaluation.vehicle.id,
-  );
+  const subject = evaluation.vehicle;
 
-  const next = context.ranked[index + 1];
+  /*
+   * For the recommendation, the car that would have won in its place — not
+   * the next car by points. That one could be over budget or unrentable,
+   * and "Nissan Qashqai finishes level with it" named a car the reader had
+   * already been told was out of reach.
+   */
+  const index = context.ranked.findIndex((item) => item.id === subject.id);
+  const next = evaluation.isRecommendation
+    ? runnerUpFor(context, subject.id)
+    : context.ranked[index + 1];
   if (!next) return null;
 
-  const difference =
-    totalFor(context.scores, evaluation.vehicle.id) -
-    totalFor(context.scores, next.id);
+  const difference = totalFor(context.scores, subject.id) - totalFor(context.scores, next.id);
+
+  const detail = (id: number, priority: CategoryId) =>
+    context.scores.find((score) => score.vehicleId === id)?.details[priority];
+  const gaps = context.weights
+    .map(({ priority, weight }) => {
+      const mine = detail(subject.id, priority);
+      const theirs = detail(next.id, priority);
+
+      return {
+        label: phraseLabel(CATEGORIES[priority].label),
+        gap: mine?.assessed && theirs?.assessed ? (mine.exactScore - theirs.exactScore) * weight : 0,
+      };
+    })
+    .filter((item) => Math.abs(item.gap) >= 0.5);
+  const ahead = [...gaps].sort((a, b) => b.gap - a.gap)[0];
+  const behind = [...gaps].sort((a, b) => a.gap - b.gap)[0];
+
+  const mine = context.costs[subject.id];
+  const theirs = context.costs[next.id];
+
+  /* Two listings of one model: "Ford Puma finishes level with it" beside a Ford Puma. */
+  const sameModel = next.name === subject.name;
 
   return {
-    name: next.name,
+    name: sameModel
+      ? `Another ${next.name}${next.trim && next.trim !== subject.trim ? ` (${next.trim})` : ""}`
+      : next.name,
     difference,
     magnitude: classifyTotalGap(difference),
+    aheadOn: ahead && ahead.gap > 0 ? ahead.label : null,
+    behindOn: behind && behind.gap < 0 ? behind.label : null,
+    dearerBy: mine?.complete && theirs?.complete ? Math.round(theirs.totalMonthly - mine.totalMonthly) : null,
   };
 }
 
@@ -271,29 +305,42 @@ function marginToNext(
  *
  * Two cars a point apart are a coin toss, and a reader who can see 82 beside
  * 81 deserves to be told that before they read a confident explanation of the
- * gap.
+ * gap — and what actually tipped it: a priority where this one is ahead, or,
+ * when they score the same on everything, the price, which is how the
+ * ranking breaks the tie.
  */
-function describeMargin(
-  margin: Verdict["margin"],
-  priorities: PriorityReasoning[],
-): string | null {
+function describeMargin(margin: Verdict["margin"]): string | null {
   if (!margin || !isEffectivelyLevel(margin.magnitude)) return null;
 
-  const decider = priorities.find(
-    (item) =>
-      item.standing !== "unsupported" &&
-      (item.standing === "leads" || item.standing === "levelWithLeader"),
-  );
+  const cheaper =
+    margin.dearerBy != null && margin.dearerBy > 0
+      ? `this one is about ${formatEUR(margin.dearerBy)}/month cheaper`
+      : null;
+
+  if (margin.difference === 0) {
+    if (margin.aheadOn && margin.behindOn) {
+      return sentence(
+        `${margin.name} finishes level with it on points — this one is stronger on ${margin.aheadOn},`,
+        `that one on ${margin.behindOn}${cheaper ? `, and ${cheaper}` : ""}`,
+      );
+    }
+
+    return sentence(
+      `${margin.name} scores the same on everything you asked about`,
+      cheaper
+        ? `— ${cheaper}`
+        : margin.dearerBy === 0
+          ? "and costs the same, so either is as good a choice"
+          : "— close enough that either would be a defensible choice",
+    );
+  }
+
+  const behind = `${Math.abs(margin.difference)} point${Math.abs(margin.difference) === 1 ? "" : "s"} behind`;
 
   return sentence(
-    `${margin.name} finishes`,
-    margin.difference === 0
-      ? "level with it on points"
-      : `${Math.abs(margin.difference)} point${
-          Math.abs(margin.difference) === 1 ? "" : "s"
-        } behind`,
-    decider
-      ? `, and ${phraseLabel(decider.label)} is what separates them`
+    `${margin.name} finishes ${behind}`,
+    margin.aheadOn
+      ? `, and ${margin.aheadOn} is what separates them`
       : `— close enough that either would be a defensible choice`,
   );
 }
@@ -398,7 +445,7 @@ export function reasonAboutVerdict(
     reasons: describeReasons(priorities),
     budgetNote: describeBudgetOverride(evaluation, context),
     margin,
-    marginNote: describeMargin(margin, priorities),
+    marginNote: describeMargin(margin),
     dependsNote: describeDependsOn(evaluation, context),
   };
 }
