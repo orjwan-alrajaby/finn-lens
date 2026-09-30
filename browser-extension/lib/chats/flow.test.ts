@@ -632,3 +632,13 @@ describe("common sense in what can be picked", () => {
         expect(answer(one, who.id, ["kids", "adults", "dog"], cars(), TODAY).chat.understanding.needs.map((need) => need.id)).toEqual(["life-kids", "life-dog"]);
     });
 });
+
+describe("how often", () => {
+    it("asks motorway drives on a scale whose answers don't overlap", () => {
+        const start = walk(startChat(null, cars(), TODAY), { life: ["motorway"], "follow-motorway": ["daily"] });
+        const often = start.messages.find((message): message is Ask => message.kind === "ask" && message.step.id === "follow-motorway")!;
+
+        expect(often.step.choices.map((choice) => choice.label)).toEqual(["Every day", "Every week, or most weekends", "About once a month", "A few times a year"]);
+        expect(start.understanding.needs.find((need) => need.id === "life-motorway")?.importance).toBe("essential");
+    });
+});

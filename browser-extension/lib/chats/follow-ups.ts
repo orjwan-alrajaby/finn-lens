@@ -80,7 +80,14 @@ export const FOLLOW_UPS: Record<string, FollowUp> = {
         ask: "How often do you do long motorway drives?",
         why: "It sets how much they count against your other needs.",
         choices: [
-            { id: "weekly", label: "Every week", said: "Every week.", importance: "essential", reply: "Every week: I'll treat long motorway drives as a must-have." },
+            /*
+             * Four answers that don't overlap: "only at weekends" is every
+             * week, and "now and then" is a few times a year. Every day and
+             * every week weigh the same — both make these drives a must-have
+             * — but a daily driver shouldn't have to call it weekly.
+             */
+            { id: "daily", label: "Every day", said: "Every day.", importance: "essential", reply: "Every day: I'll treat long motorway drives as a must-have." },
+            { id: "weekly", label: "Every week, or most weekends", said: "Every week, or most weekends.", importance: "essential", reply: "Every week: I'll treat long motorway drives as a must-have." },
             { id: "monthly", label: "About once a month", said: "About once a month.", importance: "important", reply: "Once a month: I'll count long motorway drives as important." },
             { id: "rarely", label: "A few times a year", said: "Only a few times a year.", importance: "niceToHave", reply: "A few times a year: I'll count long motorway drives as nice to have, so they won't decide the ranking on their own." },
         ],
