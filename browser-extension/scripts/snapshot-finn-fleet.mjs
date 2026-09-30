@@ -73,8 +73,9 @@ const cars = raw.map((car) => {
     /* The no-down-payment price per term, and the terms and delivery windows on offer. */
     available_terms: car.available_terms,
     default_term: car.default_term,
+    /* With FINN's mileage packages (extra_1000 …) and the per-km price beyond the largest. */
     price: Object.fromEntries(
-      Object.entries(car.price ?? {}).filter(([key]) => /^b2[bc]_\d+$/.test(key)),
+      Object.entries(car.price ?? {}).filter(([key]) => /^(b2[bc]_\d+|extra_\d+|extra_km_price)$/.test(key)),
     ),
     availability_by_term: car.availability_by_term,
     downpayment_prices: {
