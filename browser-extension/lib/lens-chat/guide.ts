@@ -280,17 +280,18 @@ const LIFE: GuideChoice[] = [
             ["rearDoors", "so a pet can get in and out of the back seat directly"],
         ],
         "Travelling with a pet"),
-    need("city", "driving", "City driving and parking", "It's mostly city driving, and parking is the hard part.",
-        "A short, narrow car (the “i” gives the exact limits), a reversing camera, parking sensors, and mirrors that fold in at the press of a button.",
+    need("city", "driving", "City driving", "I drive in the city.",
+        "A short, narrow car (the “i” gives the exact limits), a reversing camera and parking sensors.",
         ["cityParking"],
         [
             ["compactLength", "so it fits shorter street spaces"],
             ["compactWidth", "so it fits narrow streets and car-park bays"],
             ["hasOneEightyDegreesReversingCamera", "so you can see how close you are when reversing into a space"],
             ["hasParkingSensors", "so you know when you're about to touch another car"],
-            ["hasElectricallyFoldingMirrors", "so the mirrors aren't clipped when you're parked on a narrow street"],
-        ]),
-    need("commute", "driving", "A daily commute", "I commute by car every day.",
+        ],
+        /* Where they park adds the rest: a 360° camera for the street, folding mirrors for car parks. */
+        "City driving and parking"),
+    need("commute", "driving", "Commuting", "I commute by car.",
         "Adaptive cruise control that keeps a set distance in traffic, an automatic gearbox, keyless entry and start, and Apple CarPlay or Android Auto.",
         ["longDistance", "comfort"],
         [
@@ -308,7 +309,7 @@ const LIFE: GuideChoice[] = [
             ["hasLumbarSupport", "for several hours in the seat"],
             ["hasHeadUpDisplay", "so you don't look down from the road at motorway speed"],
         ]),
-    need("roadtrips", "driving", "Road trips and holidays", "We take the car on road trips and holidays.",
+    need("roadtrips", "driving", "Road trips and holidays", "I take the car on road trips and holidays.",
         "Roof rails for a roof box, rear seats that fold for longer luggage, Level 2 driver assistance for the motorway, and adjustable lower-back support.",
         ["practicality", "longDistance"],
         [
@@ -317,7 +318,7 @@ const LIFE: GuideChoice[] = [
             ["driverAssistLevel2", "for the long motorway stretches of a trip"],
             ["hasLumbarSupport", "for hours in the driver's seat"],
         ]),
-    need("night", "driving", "Driving at night", "I drive a lot at night.",
+    need("night", "driving", "Driving at night", "I often drive at night.",
         "Matrix LED headlights that keep full beam on without dazzling other drivers, cornering lights, headlights that switch on when it gets dark, and fog lights.",
         ["safetyAssistance", "climateSuitability"],
         [
@@ -326,7 +327,7 @@ const LIFE: GuideChoice[] = [
             ["hasRainSlashLightSensors", "so you can't forget the headlights at dusk"],
             ["hasFogLights", "which matters most at night, when fog hides the road edge completely"],
         ]),
-    need("winter", "weather", "Cold winters, bad weather", "The winters here are cold and the weather is often bad.",
+    need("winter", "weather", "Cold winters", "Our winters get cold.",
         "Seat heating and a heated steering wheel, wipers and headlights that switch on by themselves in rain and darkness (rain and light sensors), and fog lights.",
         ["climateSuitability"],
         [
@@ -335,7 +336,7 @@ const LIFE: GuideChoice[] = [
             ["hasRainSlashLightSensors", "so you aren't reaching for switches in snow and early winter darkness"],
             ["hasFogLights", "and in heavy snowfall too"],
         ],
-        "Cold mornings and bad weather"),
+        "Cold winters"),
     need("summer", "weather", "Hot summers", "Our summers get hot.",
         "Ventilated seats that blow air through the seat, and 3-zone climate control with separate temperatures for the driver, the front passenger and the back.",
         ["climateSuitability", "comfort"],
@@ -369,7 +370,7 @@ const LIFE: GuideChoice[] = [
             ["towingCapacity1500", "so you can check it against the weight of what you tow"],
         ],
         "Towing"),
-    need("nervous", "you", "I'm a nervous driver", "I'm a nervous driver.",
+    need("nervous", "you", "Driving makes me nervous", "Driving makes me nervous.",
         "Blind spot warning, rear cross-traffic alert when reversing out, a 360° camera and parking sensors for parking, and lane keeping assist.",
         ["safetyAssistance", "cityParking"],
         [
@@ -381,7 +382,8 @@ const LIFE: GuideChoice[] = [
         ],
         /* Said back as "It helps with driving nerves" — "help for a nervous driver" came out "It helps with help for…". */
         "Driving nerves"),
-    need("safety", "you", "Safety above all", "Safety matters more than anything else to me.",
+    /* Not "safety above all": which need wins is what the tie-break asks, not this. */
+    need("safety", "you", "Safety features", "Safety features matter to me.",
         "Automatic emergency braking, blind spot warning, lane keeping assist, rear cross-traffic alert, and traffic sign recognition.",
         ["safetyAssistance"],
         [
@@ -393,7 +395,7 @@ const LIFE: GuideChoice[] = [
         ],
         /* "It partly covers safety", not "It partly covers safety above all". */
         "Safety"),
-    need("tech", "you", "Phone and tech", "I want my phone to connect to the car.",
+    need("tech", "you", "Phone connection", "I want my phone to connect to the car.",
         "Apple CarPlay or Android Auto (wired or wireless), and a wireless charging pad for your phone.",
         ["comfort"],
         [
@@ -414,7 +416,7 @@ const LIFE: GuideChoice[] = [
     {
         id: "emissions",
         group: "you",
-        label: "Low emissions matter",
+        label: "Low emissions",
         said: "Emissions matter to me.",
         description: "Judged on each car's CO₂ emissions per kilometre, placed on the A–G CO₂ label German law uses for new cars (Pkw-EnVKV). No equipment is involved.",
         /*
@@ -441,7 +443,7 @@ const RULES: GuideChoice[] = [
     { id: "not-electric", label: "Not electric", said: "I don't want an electric car.", rule: { id: "electricCar", mode: "without", label: "Not electric" } },
     { id: "automatic", label: "Automatic only", said: "It has to be an automatic.", rule: { id: "hasAutomaticTransmission", mode: "must", label: "Automatic gearbox" } },
     { id: "no-suv", label: "No SUV", said: "I don't want an SUV.", rule: { id: "suvBody", mode: "without", label: "Not an SUV" } },
-    { id: "must-tow", label: "It must tow", said: "It has to be able to tow.", rule: { id: "hasTowbar", mode: "must", label: "Towbar" } },
+    { id: "must-tow", label: "Must tow", said: "It has to be able to tow.", rule: { id: "hasTowbar", mode: "must", label: "Towbar" } },
     { id: "six-seats", label: "Six seats or more", said: "I need six seats or more.", rule: { id: "seatsSixPlus", mode: "must", label: "Six or more seats" } },
     { id: "awd", label: "All-wheel drive", said: "It has to have all-wheel drive.", rule: { id: "hasAllWheelDrive", mode: "must", label: "All-wheel drive" } },
 ];
@@ -455,10 +457,11 @@ const RULES: GuideChoice[] = [
  * answered against the wrong figures.
  */
 const DISTANCE: GuideChoice[] = [
-    { id: "km-500", label: "About 500 km", said: "I drive about 500 km a month.", monthlyKm: 500 },
-    { id: "km-1000", label: "About 1,000 km", said: "I drive about 1,000 km a month.", monthlyKm: 1000 },
-    { id: "km-1500", label: "About 1,500 km", said: "I drive about 1,500 km a month.", monthlyKm: 1500 },
-    { id: "km-2500", label: "2,500 km or more", said: "I drive 2,500 km a month or more.", monthlyKm: 2500 },
+    /* A year's figure beside each: people know their annual mileage better than a month's. */
+    { id: "km-500", label: "About 500 km (6,000 a year)", said: "I drive about 500 km a month.", monthlyKm: 500 },
+    { id: "km-1000", label: "About 1,000 km (12,000 a year)", said: "I drive about 1,000 km a month.", monthlyKm: 1000 },
+    { id: "km-1500", label: "About 1,500 km (18,000 a year)", said: "I drive about 1,500 km a month.", monthlyKm: 1500 },
+    { id: "km-2500", label: "2,500 km or more (30,000+ a year)", said: "I drive 2,500 km a month or more.", monthlyKm: 2500 },
 ];
 
 /* -------------------------------------------------------------------------- */
@@ -545,7 +548,7 @@ export function guideSteps(
             ? [
                   {
                       id: "rules" as const,
-                      ask: "Anything that rules a car in or out?",
+                      ask: "Anything a car must have, or must not be?",
                       hint: "These set cars aside before Lens scores anything, so only pick what you'd refuse.",
                       multiple: true,
                       choices: rules,
@@ -559,7 +562,7 @@ export function guideSteps(
             hint: "Every FINN price includes a mileage allowance and charges for what you drive beyond it, so this changes what each car costs.",
             multiple: false,
             choices: DISTANCE,
-            none: "I'd rather not say",
+            none: "Not sure",
         },
     ];
 

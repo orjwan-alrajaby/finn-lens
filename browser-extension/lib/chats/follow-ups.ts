@@ -45,27 +45,28 @@ export interface FollowUp {
 export const FOLLOW_UPS: Record<string, FollowUp> = {
     kids: {
         need: "kids",
-        ask: "Do your kids still ride in child seats?",
-        why: "Your answer decides whether I count ISOFIX anchors, which child seats fix to, or instead rear USB ports and a rear climate setting for children who no longer use one.",
+        /* The youngest decides: a 3- and a 6-year-old still need a seat anchored somewhere. */
+        ask: "Does the youngest ride in a child seat?",
+        why: "It decides whether I count ISOFIX anchors, which child seats fix to.",
         choices: [
             {
                 id: "seats",
-                label: "Yes, baby or toddler seats",
-                said: "Yes, they're in baby or toddler seats.",
+                label: "A baby or toddler seat",
+                said: "The youngest is in a baby or toddler seat.",
                 importance: "essential",
                 add: [{ id: "hasElectricTailgate", why: "so you can open the boot while holding a child or a pram" }],
-                reply: "Then kids in the back is a must-have. I'll also count an electric tailgate, which opens the boot at the press of a button while you're holding a child or a pram.",
+                reply: "Then travelling with children is a must-have. I'll also count an electric tailgate, which opens the boot at the press of a button while you're holding a child or a pram.",
             },
             {
                 id: "boosters",
-                label: "Booster seats",
-                said: "They're on booster seats.",
-                reply: "Booster seats: I'll keep counting ISOFIX anchors and rear doors.",
+                label: "A booster seat",
+                said: "The youngest is on a booster seat.",
+                reply: "A booster seat: I'll keep counting ISOFIX anchors and rear doors.",
             },
             {
                 id: "older",
-                label: "They're older now",
-                said: "They're older now, no child seats.",
+                label: "No, they're older",
+                said: "No, they're past child seats.",
                 remove: ["hasIsofix"],
                 add: [{ id: "hasThreeZoneAutomaticClimateControls", why: "so children in the back can set their own temperature" }],
                 reply: "Then I won't count ISOFIX anchors. I'll count rear USB ports and 3-zone climate control, which gives the back seats their own temperature setting.",
@@ -74,8 +75,8 @@ export const FOLLOW_UPS: Record<string, FollowUp> = {
     },
     motorway: {
         need: "motorway",
-        ask: "How often are you on the motorway?",
-        why: "Your answer sets how much long motorway drives count — and with them adaptive cruise control, Level 2 driver assistance, lower-back support and a head-up display — against your other needs.",
+        ask: "How often do you do long motorway drives?",
+        why: "It sets how much they count against your other needs.",
         choices: [
             { id: "weekly", label: "Every week", said: "Every week.", importance: "essential", reply: "Every week: I'll treat long motorway drives as a must-have." },
             { id: "monthly", label: "About once a month", said: "About once a month.", importance: "important", reply: "Once a month: I'll count long motorway drives as important." },
@@ -85,7 +86,7 @@ export const FOLLOW_UPS: Record<string, FollowUp> = {
     commute: {
         need: "commute",
         ask: "How long is your commute, one way?",
-        why: "Your answer sets how much your commute counts — and with it adaptive cruise control, an automatic gearbox, keyless entry and CarPlay — against your other needs.",
+        why: "It sets how much your commute counts against your other needs.",
         choices: [
             { id: "short", label: "Under 20 minutes", said: "Under 20 minutes.", importance: "niceToHave", reply: "Under 20 minutes: I'll count your commute as nice to have." },
             { id: "medium", label: "20–45 minutes", said: "Between 20 and 45 minutes.", importance: "important", reply: "20–45 minutes: I'll count your commute as important." },
@@ -95,7 +96,7 @@ export const FOLLOW_UPS: Record<string, FollowUp> = {
     city: {
         need: "city",
         ask: "Where do you usually park?",
-        why: "Your answer decides whether I also count a 360° camera, for tight street spaces, or mirrors that fold in, for narrow garage and car-park bays.",
+        why: "Street spaces and car-park bays each call for their own help.",
         choices: [
             {
                 id: "street",
@@ -122,8 +123,8 @@ export const FOLLOW_UPS: Record<string, FollowUp> = {
     },
     winter: {
         need: "winter",
-        ask: "What are your winters like?",
-        why: "Snow and ice adds all-wheel drive and an auxiliary heater to what I check, and makes winter a must-have; a cold but dry winter keeps the list as it is.",
+        ask: "How hard are your winters?",
+        why: "It decides how much winter counts, and whether snow equipment joins the list.",
         choices: [
             {
                 id: "snow",
@@ -134,10 +135,11 @@ export const FOLLOW_UPS: Record<string, FollowUp> = {
                     { id: "hasAllWheelDrive", why: "for grip pulling away and climbing on snow and ice — it doesn't shorten braking" },
                     { id: "hasAuxiliaryHeater", why: "so the car is warm and the windows clear before you set off" },
                 ],
-                reply: "Snow and ice: winter is a must-have, and I'll also count all-wheel drive and an auxiliary heater.",
+                reply: "Snow and ice: cold winters are a must-have, and I'll also count all-wheel drive and an auxiliary heater.",
             },
             { id: "cold", label: "Cold but mostly dry", said: "Cold but mostly dry.", reply: "Cold but dry: I'll count heated seats and a heated steering wheel, without adding all-wheel drive." },
-            { id: "mild", label: "Fairly mild", said: "Fairly mild, really.", importance: "niceToHave", reply: "Mild winters: I'll count winter equipment as nice to have." },
+            /* Not "fairly mild": they've just said their winters get cold. */
+            { id: "mild", label: "Only a few cold weeks", said: "Only a few cold weeks a year.", importance: "niceToHave", reply: "A few cold weeks: I'll count winter equipment as nice to have." },
         ],
     },
     nervous: {

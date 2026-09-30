@@ -134,14 +134,14 @@ const GROUP_ASK: Record<NeedGroup, { ask: string; why: string; none: string; pla
         placeholder: "e.g. “two teenagers and a big dog”",
     },
     driving: {
-        ask: "Where do you do most of your driving?",
-        why: "Each kind of driving adds different equipment: parking sensors and cameras for the city, adaptive cruise control for commuting and motorways, matrix LED and cornering lights for night driving.",
+        ask: "What kind of driving do you do?",
+        why: "Different driving needs different equipment. Tap all that apply — the “i” on an answer shows what I'd check.",
         none: "None of these",
         placeholder: "e.g. “mountain roads at weekends”",
     },
     weather: {
         ask: "What's the weather like where you live?",
-        why: "Cold winters add seat heating, a heated steering wheel and rain and light sensors to what I check; hot summers add seat cooling and 3-zone climate control.",
+        why: "Cold winters and hot summers each need their own equipment. The “i” on an answer shows what I'd check.",
         none: "Nothing unusual",
         placeholder: "e.g. “lots of rain”",
     },
@@ -152,8 +152,8 @@ const GROUP_ASK: Record<NeedGroup, { ask: string; why: string; none: string; pla
         placeholder: "e.g. “a double buggy”",
     },
     you: {
-        ask: "Last one about you: anything else that matters in a car?",
-        why: "These add driver assistance, phone connection, comfort features, or each car's CO₂ emissions to what I check.",
+        ask: "Anything else that matters to you in a car?",
+        why: "Each of these adds equipment to what I check — or, for emissions, each car's CO₂. The “i” on an answer shows what.",
         none: "Nothing else",
         placeholder: "In your own words, e.g. “I drive home after night shifts”",
     },
