@@ -288,15 +288,20 @@ function OwnAnswer({
     custom,
     onSubmit,
     onText,
+    onAdd,
+    initial = "",
     inline,
 }: {
     custom: CustomAnswer;
     onSubmit: (extra: AnswerExtra) => void;
     /** On a question with several answers, the words go in with the taps on "Continue". */
     onText?: (text: string) => void;
+    /** On a question with several answers: the ✓ adds the words beside the taps, as a chip of their own. */
+    onAdd?: (text: string) => void;
+    initial?: string;
     inline: boolean;
 }) {
-    const [value, setValue] = useState("");
+    const [value, setValue] = useState(initial);
     const number = Number(value.replace(/[^\d.]/g, ""));
     const unit = custom.kind === "amount" ? "€ a month" : custom.kind === "months" ? "months" : custom.kind === "km" ? "km a month" : null;
     const valid = custom.kind === "text" ? value.trim().length > 1 : Number.isFinite(number) && number >= (custom.min ?? 1) && number <= (custom.max ?? Infinity);
@@ -304,6 +309,10 @@ function OwnAnswer({
     const submit = () => {
         if (!valid) return;
         onSubmit(custom.kind === "text" ? { text: value.trim() } : { amount: number });
+    };
+
+    const add = () => {
+        if (valid) onAdd?.(value.trim());
     };
 
     return (
@@ -318,14 +327,26 @@ function OwnAnswer({
                     onText?.(event.target.value);
                 }}
                 onKeyDown={(event) => {
-                    if (event.key === "Enter" && !inline) submit();
+                    if (event.key === "Enter") (inline ? add : submit)();
                 }}
                 placeholder={custom.placeholder}
                 aria-label={custom.label}
                 className="min-w-0 flex-1 bg-transparent text-[13px] text-finn-black outline-none placeholder:text-finn-iron/70"
             />
             {unit ? <span className="shrink-0 text-[12px] text-finn-iron">{unit}</span> : null}
-            {inline ? null : (
+            {inline ? (
+                valid && onAdd ? (
+                    <button
+                        type="button"
+                        onClick={add}
+                        aria-label="Add this"
+                        title="Add this"
+                        className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-finn-accent-blue text-white hover:bg-finn-highlight-navy focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-finn-accent-blue"
+                    >
+                        <Check aria-hidden="true" className="h-4 w-4" strokeWidth={3} />
+                    </button>
+                ) : null
+            ) : (
                 <button
                     type="button"
                     onClick={submit}
@@ -336,6 +357,31 @@ function OwnAnswer({
                 </button>
             )}
         </div>
+    );
+}
+
+/** The reader's own words, added beside the taps: tap them to edit, × to take them back. */
+function AddedWords({ text, onEdit, onRemove }: { text: string; onEdit: () => void; onRemove: () => void }) {
+    return (
+        <span className="inline-flex max-w-full items-center rounded-full bg-finn-accent-blue text-white shadow-sm">
+            <button
+                type="button"
+                onClick={onEdit}
+                title="Edit"
+                className="inline-flex min-w-0 items-center gap-1.5 py-2 pr-1 pl-3.5 text-[12.5px] font-bold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-finn-accent-blue"
+            >
+                <Check aria-hidden="true" className="h-3.5 w-3.5 shrink-0" strokeWidth={3} />
+                <span className="truncate">“{text}”</span>
+            </button>
+            <button
+                type="button"
+                onClick={onRemove}
+                aria-label={`Remove “${text}”`}
+                className="mr-1.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full hover:bg-white/20 focus-visible:outline-2 focus-visible:outline-white"
+            >
+                <X aria-hidden="true" className="h-3 w-3" strokeWidth={3} />
+            </button>
+        </span>
     );
 }
 
@@ -352,11 +398,16 @@ function Ask({
     const [picked, setPicked] = useState<string[]>(step.selected ?? []);
     const [own, setOwn] = useState(false);
     const [ownText, setOwnText] = useState("");
+    /* Words the reader added with the ✓, shown as a chip of their own until "Continue". */
+    const [added, setAdded] = useState<string | null>(null);
     const [explained, setExplained] = useState<string | null>(null);
 
     const toggle = (id: string) => setPicked((current) => (current.includes(id) ? current.filter((item) => item !== id) : [...current, id]));
     const chosen = step.choices.filter((choice) => picked.includes(choice.id));
-    const ready = picked.length > 0 || (own && ownText.trim().length > 1);
+    const typing = own && ownText.trim().length > 1;
+    const ready = picked.length > 0 || added != null || typing;
+    /* Words still in the box go in too: Continue never drops what was typed. */
+    const words = typing ? ownText.trim() : added;
 
     const chip = (choice: Choice) => (
         <Chip
@@ -404,7 +455,17 @@ function Ask({
                     )}
 
                     <div className="flex flex-wrap gap-1.5">
-                        {step.custom && !own ? <Chip label={step.custom.label} muted icon={<PencilLine aria-hidden="true" className="h-3.5 w-3.5" />} onClick={() => setOwn(true)} /> : null}
+                        {added != null && !own ? (
+                            <AddedWords
+                                text={added}
+                                onEdit={() => {
+                                    setOwnText(added);
+                                    setOwn(true);
+                                }}
+                                onRemove={() => setAdded(null)}
+                            />
+                        ) : null}
+                        {step.custom && !own && added == null ? <Chip label={step.custom.label} muted icon={<PencilLine aria-hidden="true" className="h-3.5 w-3.5" />} onClick={() => setOwn(true)} /> : null}
                         {step.none && !(step.multiple && ready) && !own ? <Chip label={step.none} muted onClick={() => onAnswer([])} /> : null}
                     </div>
 
@@ -412,7 +473,13 @@ function Ask({
                         <OwnAnswer
                             custom={step.custom}
                             inline={step.multiple}
+                            initial={added ?? ""}
                             onText={setOwnText}
+                            onAdd={(text) => {
+                                setAdded(text);
+                                setOwnText("");
+                                setOwn(false);
+                            }}
                             onSubmit={(extra) => onAnswer(picked, extra)}
                         />
                     ) : null}
@@ -422,7 +489,7 @@ function Ask({
                     {step.multiple && ready ? (
                         <button
                             type="button"
-                            onClick={() => onAnswer(picked, own && ownText.trim() ? { text: ownText.trim() } : undefined)}
+                            onClick={() => onAnswer(picked, words ? { text: words } : undefined)}
                             className="inline-flex items-center gap-1 rounded-full bg-finn-highlight-navy px-4 py-2 text-[12.5px] font-black text-white shadow-sm transition-colors hover:bg-finn-accent-blue focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-finn-accent-blue"
                         >
                             Continue
