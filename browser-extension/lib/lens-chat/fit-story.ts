@@ -3,6 +3,7 @@ import { describeRentalProblem, formatEUR, monthLabel } from "@/lib/reasoning-en
 import { bandForScore } from "@/lib/reasoning-engine/bands";
 import { FIT_BANDS, type FitLevel } from "@/lib/reasoning-engine/fit";
 import { totalFor } from "@/lib/reasoning-engine/scoring";
+import { CATEGORIES } from "@/lib/reasoning-engine/constants";
 import { assessEfficiency, assessEnvironment, efficiencyScore } from "@/lib/reasoning-engine/environmental";
 import { isStatedFact } from "@/lib/reasoning-engine/evidence";
 import type { SignalId } from "@/lib/reasoning-engine/types";
@@ -156,6 +157,25 @@ const BAND_MEANING: Record<FitLevel, string> = {
  * a reader who asked about emissions alone, of a figure, not a list.
  */
 function bandBasis(run: LensRun): string {
+    /*
+     * The Lens way: each priority judged on all its equipment, with what the
+     * reader asked for counting more, and the priorities weighed by their
+     * place in the order.
+     */
+    if (!run.answers.preferences.countOnlyAsked) {
+        const equipment = run.answers.priorities.some((id) => !CATEGORIES[id].numericOnly);
+        const figures = [
+            ...(run.answers.priorities.includes("environmental") ? ["CO₂"] : []),
+            ...(run.answers.priorities.includes("efficiency") ? ["consumption"] : []),
+        ];
+        const from = [
+            equipment ? "how much of the equipment in your priorities FINN lists on it, with what you said counts most weighing more" : "",
+            figures.length ? `its ${figures.join(" and ")} figure${figures.length > 1 ? "s" : ""}` : "",
+        ].filter(Boolean);
+
+        return `worked out from ${from.join(", and ")}${run.answers.priorities.length > 1 ? ", with your first priority counting most and each after it a little less" : ""}`;
+    }
+
     const equipment = Object.values(run.answers.features).some((items) => items.length > 0);
     /* The figures it was judged on: CO₂, consumption, or both. */
     const figures = [

@@ -8,8 +8,8 @@ import { EMPTY_UNDERSTANDING, withBudget } from "@/lib/lens-chat/understanding";
 
 import { fleet } from "@/lib/reasoning-engine/test-data/fleet";
 
-import { judgementFrom, judgeWith } from "./judge";
-import { answer, askNext, changeAnswers, changeOne, coveredBy, rentalMonths, rewind, rewindable, setImportance, startChat, startMonth, stepFor, summaryOf, topOf, withinLimits } from "./flow";
+import { chatAnswers, judgementFrom, judgeWith } from "./judge";
+import { answer, askNext, changeAnswers, changeOne, coveredBy, rentalMonths, rewind, rewindable, setImportance, startChat, startMonth, stepFor, summaryOf, withinLimits } from "./flow";
 import { readTyped } from "./typing";
 import type { Chat, ChatMessage, SavedSettings, StepId } from "./types";
 
@@ -41,7 +41,8 @@ function walk(chat: Chat, picks: Partial<Record<StepId | "offer", string[]>>): C
         const id = ask.step.id.startsWith("offer-") ? "offer" : ask.step.id.startsWith("life-") ? "life" : ask.step.id;
         const own = new Set(ask.step.choices.map((choice) => choice.id));
         /* The needs are asked a group at a time: each group gets the picks that are its own. */
-        const chosen = (picks[id as StepId | "offer"] ?? []).filter((pick) => id !== "life" || own.has(pick));
+        /* Nothing scripted is answered as the page would: with whatever it shows picked. */
+        const chosen = (picks[id as StepId | "offer"] ?? ask.step.selected ?? []).filter((pick) => id !== "life" || own.has(pick));
         current = answer(current, ask.id, chosen, cars(), TODAY).chat;
     }
 
@@ -344,11 +345,11 @@ describe("a conversation, not a form", () => {
     });
 
     it("writes \"&\" on chips and \"and\" in sentences", () => {
-        const chat = walk(startChat(null, cars(), TODAY, FULL), { life: ["city", "street", "night", "winter", "bulky"], focus: ["theme-town"] });
-        const focus = chat.messages.find((message): message is Ask => message.kind === "ask" && message.step.id === "focus")!;
+        const chat = walk(startChat(null, cars(), TODAY, FULL), { life: ["city", "street", "nervous"], "rank-1": ["cityParking"] });
+        const top = chat.messages.find((message): message is Ask => message.kind === "ask" && message.step.id === "rank-1")!;
 
-        expect(focus.step.choices.map((choice) => choice.label)).toContain("Easy in city traffic & to park");
-        expect(texts(chat)).toContain("That one now counts twice as much as the rest: easy in city traffic and to park.");
+        expect(top.step.choices.map((choice) => choice.label)).toContain("City & Parking");
+        expect(texts(chat).join(" ")).toMatch(/city and parking/);
     });
 
     it("counts only the help that matches what makes driving stressful", () => {
@@ -364,18 +365,12 @@ describe("a conversation, not a form", () => {
     });
 
     it("asks what's carried by name, so no second question is needed to find out", () => {
-        const chat = walk(startChat(null, cars(), TODAY, FULL), { life: ["bulky", "towing"], focus: [] });
+        const chat = walk(startChat(null, cars(), TODAY, FULL), { life: ["bulky", "towing"] });
         const loads = chat.messages.find((message): message is Ask => message.kind === "ask" && message.step.id === "life-loads")!;
 
         expect(loads.step.ask).toMatch(/carry or tow/);
         expect(asked(chat).filter((id) => id.startsWith("follow-"))).toEqual([]);
         expect(chat.understanding.needs.map((need) => need.id)).toEqual(expect.arrayContaining(["life-bulky", "life-towing"]));
-    });
-
-    it("doesn't ask whether a seat count matters more than a need", () => {
-        const chat = walk(startChat(null, cars(), TODAY, FULL), { life: ["passengers-2", "city"] });
-
-        expect(asked(chat)).not.toContain("focus");
     });
 
     it("asks the needs a group at a time, each keeping the others' answers", () => {
@@ -420,41 +415,6 @@ describe("a conversation, not a form", () => {
 
         const weekly = answer(driving, openAsk(driving)!.id, ["weekly"], cars(), TODAY).chat;
         expect(weekly.understanding.needs.find((need) => need.id === "life-motorway")?.importance).toBe("essential");
-    });
-
-    it("asks for a top three only when there are more than three needs", () => {
-        /* Three count as they are: ranking them would invent a preference. */
-        expect(asked(walk(startChat(null, cars(), TODAY, FULL), { life: ["passengers-2", "kids", "winter", "city"], "follow-kids": ["seats"], "follow-winter": ["snow"] }))).not.toContain("focus");
-
-        const chat = walk(startChat(null, cars(), TODAY, FULL), { life: ["passengers-2", "kids", "winter", "city", "bulky"], "follow-kids": ["boosters"], "follow-winter": ["cold"], focus: ["theme-weather"] });
-        const focus = chat.messages.find((message): message is Ask => message.kind === "ask" && message.step.id === "focus")!;
-
-        expect(focus.step.ask).toBe("You've told me about 4 things you'd like from the car. When no car has all of them, which two matter most to you?");
-        expect(focus.step.max).toBe(2);
-        expect(chat.understanding.needs.find((need) => need.id === "life-winter")?.importance).toBe("essential");
-        expect(chat.understanding.needs.find((need) => need.id === "life-kids")?.importance).toBe("important");
-    });
-
-    it("starts with what the answers said could decide it, and steps back what isn't picked", () => {
-        const chat = walk(startChat(null, cars(), TODAY, FULL), {
-            life: ["passengers-2", "kids", "winter", "city", "bulky"],
-            "follow-kids": ["seats"],
-            "follow-winter": ["snow"],
-            focus: ["theme-people", "theme-town"],
-        });
-        const focus = chat.messages.find((message): message is Ask => message.kind === "ask" && message.step.id === "focus")!;
-        const level = (id: string) => chat.understanding.needs.find((need) => need.id === id)?.importance;
-
-        expect(focus.step.selected).toEqual(["theme-people", "theme-weather"]);
-        expect(focus.step.why).toMatch(/started with the ones your answers said could decide it/);
-        expect([level("life-kids"), level("life-city"), level("life-winter"), level("life-bulky")]).toEqual(["essential", "essential", "important", "important"]);
-    });
-
-    it("counts them all the same when the reader says they matter equally", () => {
-        const chat = walk(startChat(null, cars(), TODAY, FULL), { life: ["passengers-2", "kids", "winter", "city", "bulky"], "follow-kids": ["seats"], "follow-winter": ["snow"] });
-
-        expect(rankableLevels(chat)).toEqual(["important"]);
-        expect(texts(chat)).toContain("Equal it is — they all count the same.");
     });
 
     it("offers equipment the cars here differ on, says why, and counts it on a yes", () => {
@@ -579,39 +539,7 @@ describe("what Lens says back", () => {
     });
 });
 
-/** The levels the needs a reader can rank ended up at, each once. */
-const rankableLevels = (chat: Chat) => [
-    ...new Set(chat.understanding.needs.filter((need) => !need.id.startsWith("life-passengers-")).map((need) => need.importance)),
-];
 
-describe("a long list of needs", () => {
-    const asked = (chat: Chat) => chat.messages.filter((message): message is Ask => message.kind === "ask").map((message) => message.step.id);
-
-    it("asks which groups matter most out of many, with what already decides it picked", () => {
-        const chat = walk(startChat(null, cars(), TODAY, FULL), {
-            life: ["passengers-2", "kids", "dog", "city", "commute", "night", "summer", "bulky", "safety", "tech", "comfort"],
-            "follow-kids": ["boosters"], "follow-commute": ["long"],
-            focus: ["theme-people", "theme-safe"],
-        });
-        const focus = chat.messages.find((message): message is Ask => message.kind === "ask" && message.step.id === "focus")!;
-        const level = (id: string) => chat.understanding.needs.find((need) => need.id === id)?.importance;
-
-        const named = Number(/^You've told me about (\d+) things you'd like from the car\. When no car has all of them, which \w+ matter most to you\?$/.exec(focus.step.ask)?.[1]);
-        /* Children and a pet are one group: fewer groups than needs named. */
-        expect(focus.step.choices.length).toBeLessThan(named);
-        expect(focus.step.choices.find((choice) => choice.id === "theme-people")).toMatchObject({ label: "Suits everyone who rides with you", description: "Covers travelling with children and travelling with a pet." });
-        /* A commute over 45 minutes starts picked; seat counts aren't ranked. */
-        expect(focus.step.selected).toEqual(["theme-commute"]);
-
-        /* A group lifts everything in it, and nothing outside it. */
-        expect([level("life-kids"), level("life-dog"), level("life-safety")]).toEqual(["essential", "essential", "essential"]);
-        expect([level("life-commute"), level("life-city")]).toEqual(["important", "important"]);
-        expect(chat.messages.filter((message) => message.from === "reader").map((message) => (message as { text: string }).text)).toContain(
-            "My top two: suits everyone who rides with you and helps avoid a collision.",
-        );
-        expect(texts(chat)).toContain("Those two now count twice as much as the rest: suits everyone who rides with you and helps avoid a collision.");
-    });
-});
 
 describe("the summary", () => {
     it("lists each piece of equipment once, and says how many a need shares with those above", () => {
@@ -855,11 +783,6 @@ describe("taking an answer back", () => {
     });
 });
 
-describe("how many to pick", () => {
-    it("asks for about a third of what was named, between two and five", () => {
-        expect([4, 7, 8, 10, 11, 13, 14, 19].map(topOf)).toEqual([2, 2, 3, 3, 4, 4, 5, 5]);
-    });
-});
 
 describe("how much Lens asks", () => {
     const run = (ask: "quick" | "balanced" | "thorough") => {
@@ -881,7 +804,8 @@ describe("how much Lens asks", () => {
     it("asks only what it really needs when quick", () => {
         const quick = asked(run("quick"));
 
-        expect(quick).toEqual(["askDepth", "explainDepth", "life-passengers", "life-people", "life-driving", "life-you", "budget", "confirm"]);
+        /* The priorities are settled at every depth: proposed and confirmed when quick. */
+        expect(quick).toEqual(["askDepth", "explainDepth", "life-passengers", "life-people", "life-driving", "life-you", "prioritiesConfirm", "budget", "confirm"]);
     });
 
     it("asks every question but the offers when balanced, and everything when thorough", () => {
@@ -907,5 +831,78 @@ describe("how much Lens asks", () => {
         const summary = run("quick").messages.find((message) => message.kind === "summary");
 
         expect(summary?.kind === "summary" && summary.lines.filter((line) => line.step === "askDepth" || line.step === "explainDepth").map((line) => line.value)).toEqual(["Quick", "Balanced"]);
+    });
+});
+
+describe("your priorities, in the chat", () => {
+    const begin = (ask: "quick" | "balanced" | "thorough") => {
+        const first = startChat(null, cars(), TODAY);
+        const asks = answer(first, openAsk(first)!.id, [ask], cars(), TODAY).chat;
+        return answer(asks, openAsk(asks)!.id, ["balanced"], cars(), TODAY).chat;
+    };
+    const until = (chat: Chat, id: string, picks: Record<string, string[]>) => {
+        let current = chat;
+        for (let guard = 0; guard < 25 && openAsk(current) && openAsk(current)!.step.id !== id; guard += 1) {
+            const ask = openAsk(current)!;
+            const key = ask.step.id.startsWith("life-") ? "life" : ask.step.id;
+            const own = new Set(ask.step.choices.map((choice) => choice.id));
+            current = answer(current, ask.id, (picks[key] ?? ask.step.selected ?? []).filter((pick) => key !== "life" || own.has(pick)), cars(), TODAY).chat;
+        }
+        return current;
+    };
+    const life = { life: ["passengers-2", "kids", "city", "street", "nervous"] };
+
+    it("proposes the order and asks to confirm it when quick", () => {
+        const chat = until(begin("quick"), "prioritiesConfirm", life);
+        const ask = openAsk(chat)!;
+
+        expect(ask.step.ask).toMatch(/^From what you've told me, I'll weigh .+ first, then .+\. Does that feel right\?$/);
+
+        const ok = answer(chat, ask.id, ["ok"], cars(), TODAY).chat;
+        expect(ok.understanding.lens?.order).toEqual(chatAnswers(chat.understanding).answers.priorities);
+        expect(openAsk(answer(chat, ask.id, ["order"], cars(), TODAY).chat)?.step.id).toBe("rank-1");
+    });
+
+    it("asks only which matters most when balanced, and keeps the rest as proposed", () => {
+        const chat = until(begin("balanced"), "top", life);
+        const top = openAsk(chat)!;
+        const last = top.step.choices.at(-1)!.id;
+        const picked = answer(chat, top.id, [last], cars(), TODAY).chat;
+
+        expect(picked.understanding.lens?.order?.[0]).toBe(last);
+        expect(openAsk(picked)?.step.id).not.toMatch(/^rank-/);
+        expect(texts(picked).at(-1)).toMatch(/first, then the rest as I had them\.$/);
+    });
+
+    it("lets a thorough reader add and take out priorities, then put each in its place", () => {
+        const chat = until(begin("thorough"), "prioritiesPick", life);
+        const pick = openAsk(chat)!;
+        const proposed = pick.step.selected!;
+
+        /* Every priority can be added: the ones proposed, picked, and the rest. */
+        expect(pick.step.choices.length).toBe(8);
+        expect(pick.step.choices.find((choice) => choice.id === proposed[0])?.means).toMatch(/^From what you said: /);
+
+        /* Take the first out, add efficiency. */
+        const kept = [...proposed.slice(1), "efficiency"];
+        const ranking = answer(chat, pick.id, kept, cars(), TODAY).chat;
+        expect(ranking.understanding.lens?.removed).toEqual([proposed[0]]);
+        expect(openAsk(ranking)?.step.id).toBe("rank-1");
+
+        const first = answer(ranking, openAsk(ranking)!.id, ["efficiency"], cars(), TODAY).chat;
+        expect(openAsk(first)?.step.ask).toBe("And after efficiency?");
+
+        /* The rest as they are: the order stands, and the ranking stops. */
+        const rest = answer(first, openAsk(first)!.id, [], cars(), TODAY).chat;
+        expect(rest.understanding.lens?.order?.[0]).toBe("efficiency");
+        expect(chatAnswers(rest.understanding).answers.priorities).not.toContain(proposed[0]);
+        expect(openAsk(rest)?.step.id).not.toMatch(/^rank-/);
+    });
+
+    it("lists the priorities first in the summary, with a way to change them", () => {
+        const chat = until(begin("quick"), "confirm", { ...life, prioritiesConfirm: ["ok"] });
+        const summary = chat.messages.find((message) => message.kind === "summary");
+
+        expect(summary?.kind === "summary" && summary.lines[0]).toMatchObject({ label: "Priorities", step: "priorities" });
     });
 });

@@ -6,6 +6,7 @@ import { EVIDENCE } from "@/lib/lens-chat/evidence";
 import { tellFitStory } from "@/lib/lens-chat/fit-story";
 import { applyChoices, guideSteps } from "@/lib/lens-chat/guide";
 import { EMPTY_UNDERSTANDING, withBudget, withRental, withSuggestion, type Understanding } from "@/lib/lens-chat/understanding";
+import type { CategoryId } from "@/lib/reasoning-engine/types";
 import type { PinnedFinnCar } from "@/lib/types";
 
 import { applyFollowUp, FOLLOW_UPS, WORTH_A_LOOK } from "./follow-ups";
@@ -95,9 +96,12 @@ describe("judging", () => {
     });
 });
 
-describe("counting only what the reader asked for", () => {
+/* A chat from before Lens preferences: it ranks on what was asked alone, as it did when judged. */
+const BEFORE: Understanding = { ...EMPTY_UNDERSTANDING, lens: undefined };
+
+describe("counting only what the reader asked for, in a chat from before Lens preferences", () => {
     const life = () => guideSteps([]).find((step) => step.id === "life")!;
-    const picked = (...ids: string[]) => applyChoices(EMPTY_UNDERSTANDING, life(), ids);
+    const picked = (...ids: string[]) => applyChoices(BEFORE, life(), ids);
 
     /** Every piece of a need's equipment, other than a rule's, is raised in a ranked priority. */
     const everythingCounts = (u: Understanding) => {
@@ -231,9 +235,10 @@ describe("the rental period, in the story", () => {
     });
 });
 
+/* BEFORE is declared above: every chat before Lens preferences, used here as there. */
 describe("what the band was worked out from", () => {
     it("names the CO₂ figure, not a list, for a reader who asked about emissions alone", () => {
-        const u = applyChoices(EMPTY_UNDERSTANDING, guideSteps([]).find((step) => step.id === "life")!, ["co2-matters"]);
+        const u = applyChoices(BEFORE, guideSteps([]).find((step) => step.id === "life")!, ["co2-matters"]);
         const { run, translation } = judgeWith(u, cars(), "5 cars")!;
         const { bandMeaning } = tellFitStory(run, u, translation.lessRelevant, null);
 
@@ -242,9 +247,9 @@ describe("what the band was worked out from", () => {
     });
 });
 
-describe("how much each need counts", () => {
+describe("how much each need counts, in a chat from before Lens preferences", () => {
     const life = () => guideSteps([]).find((step) => step.id === "life")!;
-    const picked = (...ids: string[]) => applyChoices(EMPTY_UNDERSTANDING, life(), ids);
+    const picked = (...ids: string[]) => applyChoices(BEFORE, life(), ids);
     const shares = (u: Understanding) => chatAnswers(u).answers.preferences.priorityShares!;
 
     it("weighs one need's equipment the same wherever it is scored, not by the order of its priorities", () => {
@@ -305,5 +310,46 @@ describe("earlier results", () => {
         /* A result from before results were tagged, or one whose judgement is gone, opens on the latest. */
         expect(judgementAt(chat, null)).toEqual({ judgement: two, latest: true });
         expect(judgementAt(chat, "gone")).toEqual({ judgement: two, latest: true });
+    });
+});
+
+describe("the Lens way: priorities in order, each judged on all its equipment", () => {
+    const life = () => guideSteps([]).find((step) => step.id === "life")!;
+    const picked = (...ids: string[]) => applyChoices(EMPTY_UNDERSTANDING, life(), ids);
+
+    it("weighs the priorities by their place, and counts a priority's other equipment at the standard weight", () => {
+        const u = { ...picked("passengers-2", "kids", "city"), lens: { order: ["cityParking", "practicality"] as CategoryId[] } };
+        const { answers, profile } = chatAnswers(u);
+
+        expect(answers.priorities.slice(0, 2)).toEqual(["cityParking", "practicality"]);
+        expect(answers.preferences.countOnlyAsked).toBeFalsy();
+        expect(answers.preferences.priorityShares).toBeUndefined();
+        /* First counts more than second: by place, 3 : 2 : 1 for three. */
+        expect(profile.priorities[0]!.sharePercent).toBeGreaterThan(profile.priorities[1]!.sharePercent);
+    });
+
+    it("never weighs a priority nothing the reader said points to, and never cuts one they reached", () => {
+        const u = picked("passengers-4", "kids", "adults", "dog", "city", "street", "winter", "summer", "bulky", "nervous", "tech", "co2-matters", "efficiency-matters");
+        const { answers } = chatAnswers(u);
+
+        expect(answers.priorities.length).toBeGreaterThan(5);
+        for (const id of answers.priorities) expect(chatAnswers(u).order.find((item) => item.id === id)?.from.length, id).toBeGreaterThan(0);
+    });
+
+    it("keeps the reader's own order, adds what their answers reach that they haven't placed, and leaves out what they took out", () => {
+        const u = { ...picked("kids", "city", "nervous"), lens: { order: ["safetyAssistance"] as CategoryId[], removed: ["comfort"] as CategoryId[] } };
+        const { answers } = chatAnswers(u);
+
+        expect(answers.priorities[0]).toBe("safetyAssistance");
+        expect(answers.priorities).toContain("practicality");
+        expect(answers.priorities).not.toContain("comfort");
+    });
+
+    it("sets a feature where the reader set it, and takes a raise away at standard", () => {
+        const u = { ...picked("kids"), lens: { levels: { hasIsofix: "high" as const, rearDoors: "standard" as const, hasElectricTailgate: "low" as const } } };
+        const practicality = chatAnswers(u).answers.features.practicality;
+
+        expect(practicality.find((item) => item.key === "rearDoors")).toBeUndefined();
+        expect(practicality.find((item) => item.key === "hasElectricTailgate")?.importance).toBe("low");
     });
 });

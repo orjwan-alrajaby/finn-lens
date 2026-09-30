@@ -1,6 +1,7 @@
 import { lowerFirst } from "@/lib/reasoning-engine/format";
 import { formatEUR } from "@/lib/reasoning-engine";
-import { FINN_INCLUDED_MONTHLY_KM } from "@/lib/reasoning-engine/constants";
+import { CATEGORIES, CATEGORY_IDS, FINN_INCLUDED_MONTHLY_KM } from "@/lib/reasoning-engine/constants";
+import type { CategoryId } from "@/lib/reasoning-engine/types";
 import { addMonths, monthLabel, type MonthString } from "@/lib/reasoning-engine/contract";
 import type { NeedImportance } from "@/lib/lens-ai/contract";
 import { asPhrase, barePhrase, coverage, EVIDENCE, isKind, type EvidenceId } from "@/lib/lens-chat/evidence";
@@ -50,9 +51,42 @@ import type { Chat, ChatMessage, ChatStep, Rewind, SavedSettings, StepId } from 
  * straight away, change something, or start from scratch.
  */
 
+/* -------------------------------------------------------------------------- */
+/* The priorities, in the chat                                                */
+/* -------------------------------------------------------------------------- */
+
+/** The reader's priorities in the order Lens weighs them: their own order where they gave one, else their answers'. */
+const orderOf = (u: Understanding): CategoryId[] => chatAnswers(u).answers.priorities;
+
+const ORDINALS = ["first", "second", "third", "fourth", "fifth", "sixth", "seventh", "eighth"];
+
+/** A priority's name in a sentence: "city and parking", "safety and driver assistance". */
+const priorityName = (id: CategoryId) => CATEGORIES[id].label.toLowerCase().replace(/ & /g, " and ");
+
+const capital = (text: string) => text.replace(/^./, (c) => c.toUpperCase());
+
+/** "Practicality first, then city and parking, then safety and driver assistance." */
+const inOrder = (order: CategoryId[]) => [order[0] ? `${priorityName(order[0])} first` : "", ...order.slice(1).map(priorityName)].filter(Boolean).join(", then ");
+
+/** A priority as a choice: its name, what the reader said that led to it, and what it's judged on. */
+function priorityChoice(u: Understanding, said: (label: string) => string) {
+    const from = new Map(chatAnswers(u).order.map((item) => [item.id, item.from]));
+
+    return (id: CategoryId) => ({
+        id,
+        label: CATEGORIES[id].label,
+        said: said(CATEGORIES[id].label),
+        means: from.get(id)?.length ? `From what you said: ${joined([...new Set(from.get(id))].map((label) => lower(label)))}.` : "Nothing you said points here yet.",
+        description: CATEGORIES[id].description,
+    });
+}
+
+/** The understanding with the reader's own order of their priorities. */
+const withOrder = (u: Understanding, order: CategoryId[]): Understanding => ({ ...u, lens: { ...u.lens, order } });
+
 /** The questions, in the order Lens asks them. Follow-ups are slotted in behind "life". */
 /* The limit before the rules: "nothing over €700" can only be offered once there's a €700. */
-export const STEP_ORDER: StepId[] = ["askDepth", "explainDepth", "life", "focus", "budget", "rules", "period", "distance", "offers"];
+export const STEP_ORDER: StepId[] = ["askDepth", "explainDepth", "life", "priorities", "budget", "rules", "period", "distance", "offers"];
 
 /** Equipment offered at most, so the questions end. */
 const MAX_OFFERS = 2;
@@ -122,11 +156,12 @@ const inWords = (n: number) => NUMBER_WORDS[n] ?? String(n);
 /* -------------------------------------------------------------------------- */
 
 /** The questions a reader can pick to answer again, in the order they're asked. */
-const CHANGEABLE: StepId[] = ["askDepth", "explainDepth", "life-passengers", "life-people", "life-driving", "life-parking", "life-weather", "life-loads", "life-you", "life-co2", "life-efficiency", "budget", "rules", "period", "distance"];
+const CHANGEABLE: StepId[] = ["askDepth", "explainDepth", "priorities", "life-passengers", "life-people", "life-driving", "life-parking", "life-weather", "life-loads", "life-you", "life-co2", "life-efficiency", "budget", "rules", "period", "distance"];
 
 const CHANGE_LABEL: Partial<Record<StepId, string>> = {
     askDepth: "How much I ask",
     explainDepth: "How much I explain",
+    priorities: "Your priorities",
     "life-passengers": "How many ride with you",
     "life-people": "Who rides with you",
     "life-driving": "Your driving",
@@ -149,6 +184,8 @@ function nowSaid(step: StepId, u: Understanding, cars: FinnCar[], depth: Depth =
             return lowerFirst(ASK_LABEL[depth.ask]);
         case "explainDepth":
             return lowerFirst(EXPLAIN_LABEL[depth.explain]);
+        case "priorities":
+            return inOrder(orderOf(u)) || "none yet";
         case "life-passengers":
             return u.passengers == null ? "not answered" : u.passengers === 0 ? "just you" : `${u.passengers >= 5 ? "5 or more" : u.passengers}`;
         case "rules":
@@ -181,102 +218,6 @@ function nowSaid(step: StepId, u: Understanding, cars: FinnCar[], depth: Depth =
  */
 const ONE_ANSWER = new Set<NeedGroup>(["passengers", "co2", "efficiency"]);
 
-/** With this many needs or fewer, they count as they are: ranking them would invent a preference. */
-const RANK_FROM = 3;
-
-/**
- * How many to pick as what matters most: about a third of what the reader
- * named, never fewer than two or more than five. A must-have counts twice
- * an important need, so a third of them picked holds about half the
- * ranking however long the list — three of ten, five of fifteen — and the
- * pick means the same thing either way. Past five, picking stops being a
- * choice.
- */
-export const topOf = (needs: number): number => Math.min(5, Math.max(2, Math.round(needs / 3)));
-
-const COUNT = ["none", "one", "two", "three", "four", "five"];
-
-/**
- * The needs a reader can rank: everything they said matters, but not how
- * many ride along — a fact about them, not a preference — and not a rule,
- * which a ranking mustn't step down.
- */
-const rankable = (u: Understanding) =>
-    lifeNeeds(u).filter((need) => !need.id.startsWith("life-passengers-") && !need.evidence.some((entry) => entry.mustHave || entry.unwanted));
-
-/**
- * What matters most is asked of groups, not of every need: children, adults
- * and a pet are all who rides along, winters and summers are the weather,
- * nerves and safety are feeling safe. Ranking one against the other of a
- * pair like that splits hairs, and a long list of near-twins made "your
- * top five" a chore. Each group is named for what the car should do, in the
- * reader's own terms — from what they actually said, so children alone is
- * "suits travelling with children" — and picking it lifts all it covers.
- *
- * CO₂ and fuel use stay apart: the reader was asked about each on its own.
- */
-const THEMES: { id: string; members: string[]; label: (said: Set<string>) => string }[] = [
-    {
-        id: "people",
-        members: ["kids", "adults", "dog"],
-        label: (said) =>
-            said.size > 1 ? "Suits everyone who rides with you" : said.has("kids") ? "Suits travelling with children" : said.has("adults") ? "Room for adult passengers" : "Suits travelling with a pet",
-    },
-    {
-        id: "town",
-        members: ["city", "street", "garage", "multi-storey", "open-car-park"],
-        label: (said) => (said.has("city") ? (said.size > 1 ? "Easy in city traffic & to park" : "Easy in city traffic") : "Easy to park where you park"),
-    },
-    { id: "long", members: ["motorway", "roadtrips"], label: () => "Comfortable on long drives" },
-    { id: "commute", members: ["commute"], label: () => "Makes the commute easier" },
-    { id: "night", members: ["night"], label: () => "Good for driving at night" },
-    {
-        id: "weather",
-        members: ["winter", "summer"],
-        label: (said) => (said.size > 1 ? "Handles cold winters & hot summers" : said.has("winter") ? "Handles cold winters" : "Stays cool in hot summers"),
-    },
-    {
-        id: "loads",
-        members: ["bulky", "bikes", "towing"],
-        label: (said) =>
-            said.size > 1 ? "Carries & tows what you need" : said.has("towing") ? "Tows your trailer or caravan" : said.has("bikes") ? "Takes bikes, skis or a roof box" : "Takes bulky loads",
-    },
-    {
-        id: "safe",
-        members: ["nervous", "safety"],
-        label: (said) => (said.size > 1 ? "Helps you feel safe on the road" : said.has("nervous") ? "Eases driving nerves" : "Helps avoid a collision"),
-    },
-    {
-        id: "cabin",
-        members: ["tech", "comfort"],
-        label: (said) => (said.size > 1 ? "Comfortable & connected" : said.has("tech") ? "Connects your phone" : "Everyday comforts"),
-    },
-    { id: "co2", members: ["co2-decides", "co2-matters", "co2-bonus"], label: () => "Low CO₂" },
-    { id: "efficiency", members: ["efficiency-decides", "efficiency-matters", "efficiency-bonus"], label: () => "Uses little fuel or electricity" },
-];
-
-interface Theme {
-    id: string;
-    label: string;
-    covers: Understanding["needs"];
-}
-
-/** The reader's needs in their groups; a need from their own words that fits none is a group of its own. */
-function themesOf(u: Understanding): Theme[] {
-    const needs = rankable(u);
-    const choice = (need: Understanding["needs"][number]) => need.id.replace(/^life-/, "");
-    const themes: Theme[] = THEMES.flatMap((def) => {
-        const covers = needs.filter((need) => def.members.includes(choice(need)));
-
-        return covers.length ? [{ id: `theme-${def.id}`, label: def.label(new Set(covers.map(choice))), covers }] : [];
-    });
-    const grouped = new Set(themes.flatMap((theme) => theme.covers.map((need) => need.id)));
-
-    return [...themes, ...needs.filter((need) => !grouped.has(need.id)).map((need) => ({ id: `theme-${need.id}`, label: need.label, covers: [need] }))];
-}
-
-/** A group's name in a sentence: "easy in city traffic and to park", keeping "CO₂". */
-const inSentence = (label: string) => lowerFirst(label).replace(/ & /g, " and ");
 
 /* -------------------------------------------------------------------------- */
 /* The questions                                                              */
@@ -534,40 +475,34 @@ export function stepFor(id: StepId, cars: FinnCar[], u: Understanding = EMPTY_UN
                 custom: { kind: "months", label: "Another length", placeholder: "months, e.g. 9", min: 1, max: 48 },
             };
 
-        case "focus": {
-            /*
-             * With three groups or fewer, they count as they are: ranking
-             * them would invent a preference. With more, the reader says
-             * which matter most — about a third of them — and what their
-             * answers already marked as deciding it starts picked.
-             */
-            const themes = themesOf(u);
 
-            if (themes.length <= RANK_FROM) return null;
-
-            const top = COUNT[topOf(themes.length)];
-            const started = themes.some((theme) => theme.covers.some((need) => need.importance === "essential"));
+        case "prioritiesConfirm": {
+            const order = orderOf(u);
+            if (order.length < 2) return null;
 
             return {
                 id,
-                ask: `You've told me about ${rankable(u).length} things you'd like from the car. When no car has all of them, which ${top} matter most to you?`,
-                why: [
-                    `I've grouped the ones that go together. The ${top} you pick count twice as much as the rest in the ranking.`,
-                    started ? "I've started with the ones your answers said could decide it — change them if they're not the ones." : "",
-                    "You can change this later in the summary.",
-                ]
-                    .filter(Boolean)
-                    .join(" "),
+                ask: `From what you've told me, I'll weigh ${inOrder(order)}. Does that feel right?`,
+                why: "Each priority counts a little less than the one before it. They come from your answers, and each is judged on all of its equipment.",
+                multiple: false,
+                choices: [
+                    { id: "ok", label: "Looks right", said: "That looks right." },
+                    { id: "order", label: "Let me put them in order", said: "I'd like to put them in order." },
+                ],
+            };
+        }
+
+        case "prioritiesPick": {
+            const order = orderOf(u);
+            /* Nothing proposed is nothing to settle: with no needs, the chat asks for one instead. */
+            if (!order.length) return null;
+
+            return {
+                id,
+                ask: "Your answers point to these priorities. Add or take out any, and then I'll ask you to put them in order.",
+                why: "Each priority is judged on all of its equipment — the “i” says what that is. One you take out won't count at all.",
                 multiple: true,
-                max: topOf(themes.length),
-                choices: themes.map((theme) => ({
-                    id: theme.id,
-                    label: theme.label,
-                    said: theme.label,
-                    /* What a group covers, behind its "i", where it covers more than one thing. */
-                    description: theme.covers.length > 1 ? `Covers ${joined(theme.covers.map((need) => lower(need.label)))}.` : undefined,
-                })),
-                none: "They matter equally",
+                choices: [...order, ...CATEGORY_IDS.filter((id) => !order.includes(id))].map(priorityChoice(u, (label) => label)),
             };
         }
 
@@ -642,6 +577,24 @@ export function stepFor(id: StepId, cars: FinnCar[], u: Understanding = EMPTY_UN
         case "confirm":
         case "offers":
             return null;
+    }
+
+    /* Which matters most (balanced), or each place in turn. */
+    if (id === "top" || id.startsWith("rank-")) {
+        const n = id === "top" ? 1 : Number(id.slice("rank-".length));
+        const order = orderOf(u);
+        const remaining = order.slice(n - 1);
+
+        if (!Number.isFinite(n) || remaining.length < 2) return null;
+
+        return {
+            id,
+            ask: n === 1 ? "Which of these matters most to you?" : `And after ${priorityName(order[n - 2]!)}?`,
+            why: n === 1 ? "Your first priority counts most, and each after it a little less." : "Each place counts a little less than the one before it.",
+            multiple: false,
+            choices: remaining.map(priorityChoice(u, (label) => (id === "top" ? `${label} matters most.` : `${label} ${ORDINALS[n - 1]}.`))),
+            none: n === 1 ? "Keep the order you suggested" : "The rest as they are",
+        };
     }
 
     if (id.startsWith("follow-")) {
@@ -774,6 +727,8 @@ export function stepFor(id: StepId, cars: FinnCar[], u: Understanding = EMPTY_UN
 
 /** What the reader said last time, so changing an answer starts from it. */
 export function selectedFor(step: ChatStep, u: Understanding, picks: Record<string, string[]> = {}, depth: Depth = FULL): string[] {
+    /* The priorities the answers point to start picked: taking one out is the reader's choice. */
+    if (step.id === "prioritiesPick") return orderOf(u);
     if (step.id === "askDepth") return [depth.ask];
     if (step.id === "explainDepth") return [depth.explain];
 
@@ -795,8 +750,6 @@ export function selectedFor(step: ChatStep, u: Understanding, picks: Record<stri
             .map((choice) => choice.id);
     }
 
-    /* A group starts picked when an answer already made something in it decide the choice. */
-    if (step.id === "focus") return valid(themesOf(u).filter((theme) => theme.covers.some((need) => need.importance === "essential")).map((theme) => theme.id)).slice(0, step.max ?? 1);
 
     if (picks[step.id]) return valid(picks[step.id]!);
 
@@ -905,14 +858,22 @@ export function acknowledge(step: ChatStep, u: Understanding, chosen: string[] =
 
     if (step.id.startsWith("life-") || step.id.startsWith("check-passengers-")) return acknowledgeGroup(step, u, chosen, before);
 
+    if (step.id === "top" || step.id.startsWith("rank-")) {
+        const n = step.id === "top" ? 1 : Number(step.id.slice("rank-".length));
+        const order = orderOf(u);
+        const pick = chosen[0] as CategoryId | undefined;
+
+        if (!pick) return `Then that's the order: ${inOrder(order)}.`;
+        if (step.id === "top") return `${capital(priorityName(pick))} first, then the rest as I had them.`;
+
+        return order.length - n < 2 ? `So that's your order: ${inOrder(order)}.` : `${capital(priorityName(pick))} ${ORDINALS[n - 1]}.`;
+    }
+
     switch (step.id) {
-        case "focus": {
-            const top = step.choices.filter((choice) => chosen.includes(choice.id)).map((choice) => inSentence(choice.label));
-
-            if (!top.length) return "Equal it is — they all count the same.";
-
-            return `${top.length === 1 ? "That one now counts" : `Those ${COUNT[top.length] ?? top.length} now count`} twice as much as the rest: ${joined(top)}.`;
-        }
+        case "prioritiesConfirm":
+            return chosen.includes("order") ? "Sure — let's put them in order." : `Good — ${inOrder(orderOf(u))}.`;
+        case "prioritiesPick":
+            return orderOf(u).length > 1 ? "Got it. Now the order." : `Got it — I'll weigh ${priorityName(orderOf(u)[0]!)}.`;
         case "rules": {
             const rules = ruledOut(u);
 
@@ -986,6 +947,9 @@ export function summaryOf(u: Understanding, id: string = messageId(), depth: Dep
             : `About ${BASE_ANSWERS.preferences.monthlyKm.toLocaleString("en-GB")} km a month (assumed — you didn't say)`,
         step: "distance",
     });
+
+    const order = orderOf(u);
+    if (order.length) lines.unshift({ label: "Priorities", value: order.map((id, index) => `${index + 1}. ${CATEGORIES[id].label}`).join(" · "), step: "priorities" });
 
     if (depth) {
         lines.push({ label: "Questions", value: ASK_LABEL[depth.ask], step: "askDepth" });
@@ -1108,6 +1072,19 @@ export function askNext(chat: Chat, cars: FinnCar[]): Chat {
             continue;
         }
 
+        /*
+         * The priorities, reached: confirmed as proposed when quick, the one
+         * that matters most when balanced, added to, taken from and put in
+         * order when thorough — or when the reader chose to change them.
+         */
+        if (id === "priorities") {
+            const ask = depthOf(chat).ask;
+            const full = ask === "thorough" || (chat.explicit ?? []).includes("priorities");
+
+            queue = [full ? "prioritiesPick" : ask === "balanced" ? "top" : "prioritiesConfirm", ...queue];
+            continue;
+        }
+
         /* Equipment worth a look, reached: one question each, from what the cars here differ on. */
         if (id === "offers") {
             const offers = worthALook(u, cars, (id) => coverage(cars, id), MAX_OFFERS).map((offer) => `offer-${offer.id}|${offer.needId}` as StepId);
@@ -1130,7 +1107,7 @@ export function askNext(chat: Chat, cars: FinnCar[]): Chat {
             from: "lens",
             kind: "ask",
             /* A need already given — typed earlier, or kept from last time — shows as picked, so answering doesn't undo it. */
-            step: preselect || id.startsWith("life-") || id === "focus" ? { ...step, selected: selectedFor(step, u, chat.picks, depthOf(chat)) } : step,
+            step: preselect || id.startsWith("life-") || id === "prioritiesPick" ? { ...step, selected: selectedFor(step, u, chat.picks, depthOf(chat)) } : step,
             answered: false,
         };
 
@@ -1405,7 +1382,7 @@ function answerStep(
 
         /* The picked questions in the order they're asked, and which-matters-most again when a need changed. */
         const picks = CHANGEABLE.filter((id) => chosen.includes(id));
-        const queue = picks.some((id) => id.startsWith("life-")) ? [...picks.filter((id) => id.startsWith("life-")), "focus" as StepId, ...picks.filter((id) => !id.startsWith("life-"))] : picks;
+        const queue = picks.some((id) => id.startsWith("life-")) ? [...picks.filter((id) => id.startsWith("life-")), "priorities" as StepId, ...picks.filter((id) => !id.startsWith("life-"))] : picks;
         const next = touch(base, [reader(said), lens(picks.length === 1 ? "Sure — here it is again." : "Sure — just those, with what you said last time already picked.")], {
             queue,
             kept: null,
@@ -1460,30 +1437,34 @@ function answerStep(
         understanding = chosen.includes("yes")
             ? withSuggestion(understanding, step.offer.id, explain(step.offer.id, offerReason(step.offer.needId, step.offer.id)), step.offer.needId)
             : withoutSuggestion(understanding, step.offer.id);
-    } else if (step.id === "focus") {
-        /*
-         * What the picked groups cover are must-haves, and nothing else is: a
-         * need an answer had marked as deciding it, in a group they didn't
-         * pick, steps back to important. "They matter equally" does the same
-         * for all of them. What they said happens only now and then stays
-         * nice to have.
-         */
-        const themes = themesOf(understanding);
-        const ranked = new Set(themes.flatMap((theme) => theme.covers.map((need) => need.id)));
-        const lifted = new Set(themes.filter((theme) => chosen.includes(theme.id)).flatMap((theme) => theme.covers.map((need) => need.id)));
-        const labels = step.choices.filter((choice) => chosen.includes(choice.id)).map((choice) => inSentence(choice.label));
+    } else if (step.id === "prioritiesConfirm") {
+        /* As proposed, now the reader's own; or each place in turn. */
+        if (chosen.includes("order")) queue = ["rank-1", ...queue];
+        else understanding = withOrder(understanding, orderOf(understanding));
+    } else if (step.id === "prioritiesPick") {
+        const proposed = orderOf(understanding);
+        /* Nothing picked is nothing changed: the page can't send it, and no priorities would judge nothing. */
+        const kept = (chosen.length ? chosen : proposed) as CategoryId[];
+        const order = [...proposed.filter((id) => kept.includes(id)), ...kept.filter((id) => !proposed.includes(id))];
+        const removed = [...new Set([...(understanding.lens?.removed ?? []).filter((id) => !kept.includes(id)), ...proposed.filter((id) => !kept.includes(id))])];
 
-        said = labels.length ? `My top ${COUNT[labels.length] ?? labels.length}: ${joined(labels)}.` : step.none ?? "";
+        said = `These: ${joined(order.map(priorityName))}.`;
+        understanding = { ...understanding, lens: { ...understanding.lens, order, removed } };
+        if (order.length >= 2) queue = ["rank-1", ...queue];
+    } else if (step.id === "top" || step.id.startsWith("rank-")) {
+        const n = step.id === "top" ? 1 : Number(step.id.slice("rank-".length));
+        const order = orderOf(understanding);
+        const pick = chosen[0] as CategoryId | undefined;
 
-        understanding = {
-            ...understanding,
-            needs: understanding.needs.map((need) => {
-                if (!ranked.has(need.id)) return need;
-                if (lifted.has(need.id)) return { ...need, importance: "essential" as const };
+        if (pick) {
+            const next = [...order.slice(0, n - 1), pick, ...order.slice(n - 1).filter((id) => id !== pick)];
 
-                return need.importance === "essential" ? { ...need, importance: "important" as const } : need;
-            }),
-        };
+            understanding = withOrder(understanding, next);
+            if (step.id !== "top" && next.length - n >= 2) queue = [`rank-${n + 1}` as StepId, ...queue];
+        } else {
+            /* The rest as they are: the order as it stands is the reader's now. */
+            understanding = withOrder(understanding, order);
+        }
     } else if (step.guide) {
         /* Words typed here that mean one of this question's own answers — "a big dog" for Pets — count as tapping it. */
         const owns = (choice: { id: string }, u: Understanding) => u.needs.some((need) => need.id === `${step.guide!.id}-${choice.id}`);
@@ -1554,7 +1535,7 @@ const CHANGE_WHAT: Partial<Record<StepId, string>> = {
 export function changeOne(chat: Chat, step: StepId, cars: FinnCar[]): Chat {
     const next = touch({ ...chat, messages: closeAsks(chat.messages) }, [
         reader(`I'd like to change ${CHANGE_WHAT[step] ?? "that"}.`),
-    ], { queue: [step, ...(step === "life" ? (["focus"] as StepId[]) : [])], kept: null, revising: true });
+    ], { queue: [step, ...(step === "life" ? (["priorities"] as StepId[]) : [])], kept: null, revising: true });
 
     return askNext(next, cars);
 }

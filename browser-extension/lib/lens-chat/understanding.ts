@@ -93,6 +93,26 @@ export interface Understanding {
      * Lens asked come back without it.
      */
     passengers?: number | null;
+    /**
+     * The reader's own say over the Lens preferences their answers propose:
+     * the order of their priorities, any added or taken out, and how much
+     * single features count within them. Present — even empty — on every
+     * chat that ranks the Lens way, by priority and all of its equipment;
+     * absent on chats from before, which rank on what was asked alone.
+     */
+    lens?: ReaderPreferences;
+}
+
+/** How much a feature counts within its priority: the engine's three raises, or left at standard. */
+export type FeatureLevel = FeatureImportance | "standard";
+
+export interface ReaderPreferences {
+    /** The priorities in the reader's order. Ones their answers point to that aren't here come after. */
+    order?: CategoryId[];
+    /** Priorities the reader took out, though their answers point to them. */
+    removed?: CategoryId[];
+    /** Features the reader set, overriding what their answers proposed. */
+    levels?: Partial<Record<SignalId, FeatureLevel>>;
 }
 
 export const EMPTY_UNDERSTANDING: Understanding = {
@@ -108,6 +128,7 @@ export const EMPTY_UNDERSTANDING: Understanding = {
     notModelled: [],
     waived: [],
     passengers: null,
+    lens: {},
 };
 
 export const isEmptyUnderstanding = (u: Understanding): boolean =>
@@ -390,6 +411,7 @@ export function readUnderstanding(
         waived: (previous.waived ?? []).filter((part) => (part === "budget" ? !budget : !rental)),
         /* Tapped, never read from words: a turn leaves it as it was. */
         passengers: previous.passengers ?? null,
+        lens: previous.lens,
     };
 }
 
@@ -759,8 +781,16 @@ export function toAnswers(
      * chat doesn't: a priority nothing the reader said points to is Lens
      * judging cars on something they never asked about.
      */
-    { fill = true, onlyAsked = false }: {
+    { fill = true, onlyAsked = false, native = false }: {
         fill?: boolean;
+        /**
+         * The Lens way, which a chat that set `lens` ranks by: the order the
+         * reader's needs give their priorities — or the reader's own — every
+         * piece of equipment in them at the standard weight, what the needs
+         * point to raised, and the reader's own settings over it. No cap on
+         * how many priorities, since each holds something they said.
+         */
+        native?: boolean;
         /**
          * Rank on what the reader asked for and nothing else — the chat's
          * mode. A need's priorities are where its equipment is scored, a
@@ -798,6 +828,8 @@ export function toAnswers(
      * emissions — keeps the priority it names.
      */
     const prioritiesOf = (need: Need): CategoryId[] => {
+        /* The Lens way: the priorities the need names, and wherever its raisable equipment is scored — an offer accepted brings its own. */
+        if (native) return [...new Set([...need.priorities, ...need.evidence.filter(counts).map((entry) => EVIDENCE[entry.id].scoredIn!)])];
         if (!onlyAsked) return need.priorities;
 
         const homes = need.evidence.filter(counts).map((entry) => EVIDENCE[entry.id].scoredIn!);
@@ -864,10 +896,21 @@ export function toAnswers(
          * parking needs counted nowhere while the story still reported on
          * them. The last in the order weighs little, but it counts.
          */
-        .slice(0, onlyAsked ? undefined : MAX_PRIORITIES)
+        .slice(0, onlyAsked || native ? undefined : MAX_PRIORITIES)
         .map(([id, entry]) => ({ id, from: entry.from, filler: false }));
 
-    const order = [...ranked];
+    /*
+     * The reader's own order, where they gave one: theirs first, then any
+     * priority their answers point to that they haven't placed, and never
+     * one they took out.
+     */
+    const own = native ? u.lens ?? {} : {};
+    const removed = new Set(own.removed ?? []);
+    const placed = (own.order ?? []).filter((id) => enabled.includes(id) && !dropped.has(id) && !removed.has(id));
+    const order = [
+        ...placed.map((id) => ranked.find((item) => item.id === id) ?? { id, from: [], filler: false }),
+        ...ranked.filter((item) => !placed.includes(item.id) && !removed.has(item.id)),
+    ];
 
     for (const id of fill ? [...base.priorities, ...CATEGORY_IDS] : []) {
         if (order.length >= MIN_PRIORITIES) break;
@@ -932,9 +975,18 @@ export function toAnswers(
                  * cutting at five dropped the heat pump and auxiliary heater a
                  * reader had just said yes to.
                  */
-                .slice(0, onlyAsked ? undefined : MAX_FEATURES_PER_CATEGORY)
+                .slice(0, onlyAsked || native ? undefined : MAX_FEATURES_PER_CATEGORY)
                 .map(([key, importance]) => ({ key, importance, source: "user" as const }));
         }
+    }
+
+    /* The reader's own say over single features: theirs over what the needs proposed, standard taking a raise away. */
+    for (const [key, level] of Object.entries(own.levels ?? {}) as [SignalId, FeatureLevel][]) {
+        const home = EVIDENCE[key as EvidenceId]?.scoredIn;
+        if (!home) continue;
+
+        const rest = (features[home] ?? []).filter((item) => item.key !== key);
+        features[home] = level === "standard" ? rest : [...rest, { key, importance: level, source: "user" as const }];
     }
 
     for (const id of CATEGORY_IDS) {

@@ -113,10 +113,18 @@ function problemsWith(chat: Chat, cars: PinnedFinnCar[]): string[] {
         if (/isn't already over|also fits your/.test(verdict.headline)) problems.push(`the headline says the budget holds: ${verdict.headline}`);
     }
 
-    /* No car within the limits in a better band than the winner. */
+    /*
+     * No car within the limits in a better band than the winner. Within
+     * means confirmed: a car whose cost or dates Lens can't work out can't
+     * be picked over one it can, whatever its band.
+     */
     const order = ["strong", "good", "partial", "limited", "unknown"];
+    const confirmed = (id: number) => {
+        const car = context.costs[id];
+        return Boolean(car) && (!u.budget || car!.budgetStatus === "within") && ["fits", "notSet"].includes(car!.contract.status);
+    };
     const better = Object.entries(verdicts).filter(
-        ([id, item]) => Number(id) !== winner.id && item.rank != null && !item.over && order.indexOf(item.band) < order.indexOf(verdicts[winner.id]!.band),
+        ([id, item]) => Number(id) !== winner.id && item.rank != null && !item.over && confirmed(Number(id)) && order.indexOf(item.band) < order.indexOf(verdicts[winner.id]!.band),
     );
     if (better.length) problems.push(`${better.length} cars within the limits sit in a better band than the winner`);
 
@@ -154,7 +162,8 @@ function problemsWith(chat: Chat, cars: PinnedFinnCar[]): string[] {
             if (entry.unwanted || rules.some((rule) => rule.id === entry.id) || !home) continue;
 
             if (!translation.answers.priorities.includes(home)) problems.push(`${entry.id} (${need.label}) counts nowhere`);
-            else if (!translation.answers.features[home].some((item) => item.key === entry.id)) problems.push(`${entry.id} (${need.label}) isn't raised`);
+            /* The Lens way raises what can be raised; equipment nearly every car has counts as expected, and costs a car that lacks it. */
+            else if ((!u.lens || EVIDENCE[entry.id].raisable) && !translation.answers.features[home].some((item) => item.key === entry.id)) problems.push(`${entry.id} (${need.label}) isn't raised`);
         }
     }
 
@@ -167,7 +176,8 @@ function problemsWith(chat: Chat, cars: PinnedFinnCar[]): string[] {
         }
         if (/^It is an? (towbar|all-wheel)|with help for/.test(section.title)) problems.push(`the story reads badly: ${section.title}`);
     }
-    if (/You put|your #\d/.test(verdict.reasons.join(" "))) problems.push(`the reasons claim a ranking: ${verdict.reasons[0]}`);
+    /* "You put X first" is true only of an order the reader confirmed. */
+    if (!u.lens?.order && /You put|your #\d/.test(verdict.reasons.join(" "))) problems.push(`the reasons claim a ranking: ${verdict.reasons[0]}`);
 
     return problems;
 }

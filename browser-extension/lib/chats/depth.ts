@@ -30,8 +30,12 @@ export const depthOf = (chat: { depth?: Depth | null }): Depth => chat.depth ?? 
  */
 const QUICK = new Set<StepId>(["askDepth", "explainDepth", "life", "life-passengers", "life-people", "life-driving", "life-you", "budget"]);
 
-/** Steps that aren't questions about the reader: how a chat starts, ends, or changes course. */
-const ALWAYS = new Set<StepId>(["start", "keep", "confirm", "noNeeds", "changeHow", "changeWhich"]);
+/**
+ * Steps asked at every depth: how a chat starts, ends and changes course,
+ * and the reader's priorities — which every depth settles, in more or less
+ * detail.
+ */
+const ALWAYS = new Set<StepId>(["start", "keep", "confirm", "noNeeds", "changeHow", "changeWhich", "priorities", "prioritiesConfirm", "prioritiesPick", "top"]);
 
 /**
  * Whether Lens asks `id` at this depth. Balanced asks every question about
@@ -39,7 +43,7 @@ const ALWAYS = new Set<StepId>(["start", "keep", "confirm", "noNeeds", "changeHo
  * look"; thorough asks everything.
  */
 export function asksAt(ask: AskDepth, id: StepId): boolean {
-    if (ALWAYS.has(id) || id.startsWith("check-passengers-")) return true;
+    if (ALWAYS.has(id) || id.startsWith("check-passengers-") || id.startsWith("rank-")) return true;
     if (ask === "thorough") return true;
     if (ask === "balanced") return id !== "offers" && !id.startsWith("offer-");
 

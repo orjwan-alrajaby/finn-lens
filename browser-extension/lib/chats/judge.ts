@@ -39,11 +39,17 @@ export const BASE_ANSWERS: Answers = {
 };
 
 /**
- * How a chat's answers become the engine's: only what the reader's needs
- * point to, and within a priority only the equipment they asked for — so a
- * band says how much of what they asked for a car has, and nothing else.
+ * How a chat's answers become the engine's: the priorities the reader's
+ * needs point to, in their order or the reader's own, each judged on all of
+ * its equipment with what they asked for counting more.
  */
-export const chatAnswers = (u: Understanding): Translation => toAnswers(BASE_ANSWERS, u, undefined, { fill: false, onlyAsked: true });
+export const chatAnswers = (u: Understanding): Translation =>
+    /*
+     * The Lens way — priorities in order, each judged on all its equipment —
+     * for every chat that has Lens preferences; chats from before rank on
+     * what was asked alone, as they did when they were judged.
+     */
+    u.lens ? toAnswers(BASE_ANSWERS, u, undefined, { fill: false, native: true }) : toAnswers(BASE_ANSWERS, u, undefined, { fill: false, onlyAsked: true });
 
 export interface Judged {
     run: LensRun;

@@ -38,7 +38,13 @@ export type StepId =
     | "explainDepth"
     /** The summary looked over: the reader says it's right before anything is saved or judged. */
     | "confirm"
-    | "focus"
+    /** The reader's priorities, in the chat: proposed and confirmed (quick), or added to and taken from (thorough). */
+    | "priorities"
+    | "prioritiesConfirm"
+    | "prioritiesPick"
+    /** Which priority matters most (balanced), or each place in turn (`rank-2` is second). */
+    | "top"
+    | `rank-${number}`
     | "offers"
     | "noNeeds"
     /** Change all the answers, or pick which. */
