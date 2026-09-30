@@ -784,7 +784,6 @@ export function MessageList({
     typing,
     onAnswer,
     onOpenCar,
-    onWhy,
     onImportance,
     onChange,
     busy,
@@ -794,8 +793,8 @@ export function MessageList({
     messages: ChatMessage[];
     typing: boolean;
     onAnswer: (askId: string, chosen: string[], extra?: AnswerExtra) => void;
-    onOpenCar: (id: number) => void;
-    onWhy: () => void;
+    /** A car's drawer, read out of the judgement its result came from. */
+    onOpenCar: (id: number, judgement?: string) => void;
     onImportance: (needId: string, importance: NeedImportance) => void;
     onChange: (step: StepId) => void;
     busy: boolean;
@@ -858,7 +857,14 @@ export function MessageList({
                 body = <Summary message={message} live={message.id === liveSummary && settled} onImportance={onImportance} onChange={onChange} />;
                 break;
             case "result":
-                body = <Result message={message} onOpenCar={onOpenCar} onWhy={onWhy} />;
+                /* Each result opens on its own judgement: an earlier one on what it said then, not on a later winner. */
+                body = (
+                    <Result
+                        message={message}
+                        onOpenCar={(id) => onOpenCar(id, message.judgement)}
+                        onWhy={() => message.winner && onOpenCar(message.winner.id, message.judgement)}
+                    />
+                );
                 break;
         }
 

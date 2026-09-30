@@ -9,7 +9,7 @@ import { EMPTY_UNDERSTANDING, withBudget, withRental, withSuggestion, type Under
 import type { PinnedFinnCar } from "@/lib/types";
 
 import { applyFollowUp, FOLLOW_UPS, WORTH_A_LOOK } from "./follow-ups";
-import { BASE_ANSWERS, chatAnswers, judgementFrom, judgeWith, resultMessage } from "./judge";
+import { BASE_ANSWERS, chatAnswers, judgementAt, judgementFrom, judgeWith, resultMessage, withJudgement } from "./judge";
 
 /*
  * A chat's judgement, and the chips it puts on FINN's cards. One run feeds
@@ -277,5 +277,33 @@ describe("how much a need counts", () => {
 
         expect(NEED_WEIGHT.essential / NEED_WEIGHT.important).toBe(2);
         expect(NEED_WEIGHT.important / NEED_WEIGHT.niceToHave).toBe(2);
+    });
+});
+
+describe("earlier results", () => {
+    const judged = (budget: number) => {
+        const u = withBudget(applyChoices(EMPTY_UNDERSTANDING, guideSteps([]).find((step) => step.id === "life")!, ["kids"]), budget, "");
+        return judgeWith(u, cars(), "5 cars")!;
+    };
+    const blank = { id: "c", title: "", createdAt: "", updatedAt: "", messages: [], understanding: EMPTY_UNDERSTANDING, queue: [], phase: "judged" as const, kept: null, revising: false, judgement: null };
+
+    it("tags each result with the judgement it came from", () => {
+        const first = judged(900);
+
+        expect(resultMessage(first, cars(), "5 cars", {}, "m1", "2026-09-30T10:00:00Z").judgement).toBe("2026-09-30T10:00:00Z");
+    });
+
+    it("keeps the judgement a new one replaces, and finds either again", () => {
+        const one = judgementFrom(judged(900), cars(), EMPTY_UNDERSTANDING, "5 cars", "", {}, "first");
+        const two = judgementFrom(judged(400), cars(), EMPTY_UNDERSTANDING, "5 cars", "", {}, "second");
+        const chat = withJudgement(withJudgement(blank, one), two);
+
+        expect(chat.judgement?.at).toBe("second");
+        expect(chat.earlier?.map((item) => item.at)).toEqual(["first"]);
+        expect(judgementAt(chat, "first")).toEqual({ judgement: one, latest: false });
+        expect(judgementAt(chat, "second")).toEqual({ judgement: two, latest: true });
+        /* A result from before results were tagged, or one whose judgement is gone, opens on the latest. */
+        expect(judgementAt(chat, null)).toEqual({ judgement: two, latest: true });
+        expect(judgementAt(chat, "gone")).toEqual({ judgement: two, latest: true });
     });
 });

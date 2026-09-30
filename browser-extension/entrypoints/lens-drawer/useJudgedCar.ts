@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 
 import { buildCostAnalysis } from "@/lib/reasoning-engine";
 import type { CostAnalysis } from "@/lib/reasoning-engine/types";
-import { judgeWith, type Judged } from "@/lib/chats/judge";
+import { judgementAt, judgeWith, type Judged } from "@/lib/chats/judge";
 import { judgedCars, loadedCars } from "@/lib/chats/scope";
 import { loadChat } from "@/lib/chats/store";
 import type { Chat, Judgement, Verdict } from "@/lib/chats/types";
@@ -22,6 +22,8 @@ import type { PinnedFinnCar } from "@/lib/types";
 export interface JudgedCar {
     chat: Chat;
     judgement: Judgement;
+    /** False for an earlier judgement than the chat's latest, opened from an earlier result. */
+    latest: boolean;
     judged: Judged;
     car: PinnedFinnCar;
     verdict: Verdict;
@@ -36,9 +38,12 @@ export interface JudgedCar {
     url: string | null;
 }
 
+/** Where this drawer links to another car: the same judgement, named only when it isn't the latest. */
+export const sameJudgement = (value: JudgedCar): string | undefined => (value.latest ? undefined : value.judgement.at);
+
 export type Loaded = { state: "loading" } | { state: "gone"; reason: string } | { state: "ready"; value: JudgedCar };
 
-export function useJudgedCar(chatId: string | null, carId: number | null): Loaded {
+export function useJudgedCar(chatId: string | null, carId: number | null, at: string | null = null): Loaded {
     const [loaded, setLoaded] = useState<Loaded>({ state: "loading" });
 
     useEffect(() => {
@@ -46,7 +51,8 @@ export function useJudgedCar(chatId: string | null, carId: number | null): Loade
 
         void (async () => {
             const chat = chatId ? await loadChat(chatId) : null;
-            const judgement = chat?.judgement;
+            /* The judgement the reader opened: an earlier result's own, or the latest. */
+            const { judgement, latest } = chat ? judgementAt(chat, at) : { judgement: null, latest: true };
 
             if (!chat || !judgement || carId == null) {
                 if (alive) setLoaded({ state: "gone", reason: "This chat has no judgement any more." });
@@ -74,6 +80,7 @@ export function useJudgedCar(chatId: string | null, carId: number | null): Loade
                     value: {
                         chat,
                         judgement,
+                        latest,
                         judged,
                         car,
                         verdict,
@@ -94,7 +101,7 @@ export function useJudgedCar(chatId: string | null, carId: number | null): Loade
         return () => {
             alive = false;
         };
-    }, [chatId, carId]);
+    }, [chatId, carId, at]);
 
     return loaded;
 }

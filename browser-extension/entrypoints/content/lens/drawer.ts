@@ -54,7 +54,7 @@ async function mount(): Promise<HTMLElement> {
     return sheet;
 }
 
-export async function openDrawer(chatId: string, carId: number): Promise<void> {
+export async function openDrawer(chatId: string, carId: number, judgement?: string): Promise<void> {
     const target = await mount();
 
     if (!open) {
@@ -68,7 +68,8 @@ export async function openDrawer(chatId: string, carId: number): Promise<void> {
 
     /* A fresh frame per car: the page reads its car from the address, once. */
     frame?.remove();
-    frame = lensFrame("/lens-drawer.html", "How this car fits you", `?chat=${encodeURIComponent(chatId)}&car=${carId}`);
+    const which = judgement ? `&judgement=${encodeURIComponent(judgement)}` : "";
+    frame = lensFrame("/lens-drawer.html", "How this car fits you", `?chat=${encodeURIComponent(chatId)}&car=${carId}${which}`);
     target.append(frame);
     frame.focus();
 

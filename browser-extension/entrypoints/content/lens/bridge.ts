@@ -111,7 +111,7 @@ async function handle(message: ChatToPage): Promise<unknown> {
             return { closed: true };
 
         case "LENS_OPEN_DRAWER":
-            await openDrawer(message.chatId, message.carId);
+            await openDrawer(message.chatId, message.carId, message.judgement);
             return { opened: true };
 
         case "LENS_CLOSE_DRAWER":

@@ -67,8 +67,9 @@ export const requestShowCar = (carId: number) => send<{ shown: boolean }>({ type
 
 export const requestCloseChat = () => send<{ closed: boolean }>({ type: "LENS_CHAT_CLOSE" });
 
-export const requestOpenDrawer = (chatId: string, carId: number) =>
-    send<{ opened: boolean }>({ type: "LENS_OPEN_DRAWER", chatId, carId });
+/** The drawer for one car: of the latest judgement, or of an earlier one named by when it was made. */
+export const requestOpenDrawer = (chatId: string, carId: number, judgement?: string) =>
+    send<{ opened: boolean }>({ type: "LENS_OPEN_DRAWER", chatId, carId, judgement });
 
 export const requestCloseDrawer = () => send<{ closed: boolean }>({ type: "LENS_CLOSE_DRAWER" });
 

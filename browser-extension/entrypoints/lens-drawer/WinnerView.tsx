@@ -5,6 +5,8 @@ import { BandChip, CarPhoto, euros } from "@/components/lens-parts";
 import { configurationName } from "@/lib/car-labels";
 import { IMPORTANCE_LABEL, summaryOf } from "@/lib/chats/flow";
 import { requestOpenDrawer } from "@/lib/chats/bridge";
+
+import { sameJudgement } from "./useJudgedCar";
 import { alternativesWithinLimits } from "@/lib/lens-chat/run";
 import { whyNot } from "@/lib/lens-chat/why-not";
 import type { PriorityStanding } from "@/lib/reasoning-engine/narrative/types";
@@ -180,7 +182,7 @@ export function WinnerView({ value, print = false }: { value: JudgedCar; print?:
                                 {!print ? (
                                     <button
                                         type="button"
-                                        onClick={() => void requestOpenDrawer(chat.id, line.id)}
+                                        onClick={() => void requestOpenDrawer(chat.id, line.id, sameJudgement(value))}
                                         className="mt-2 inline-flex items-center gap-1 text-[12px] font-black text-finn-accent-blue hover:underline"
                                     >
                                         How the {line.name} fits you

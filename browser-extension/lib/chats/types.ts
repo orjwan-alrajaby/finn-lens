@@ -203,6 +203,12 @@ export type ChatMessage =
           note: string | null;
           runnersUp: CarSnapshot[];
           setAside: number;
+          /**
+           * The judgement this result came from, by when it was made, so its
+           * drawer opens on it rather than on a later one. Absent on results
+           * from before this was kept: they open on the latest.
+           */
+          judgement?: string;
       };
 
 export type ChatPhase =
@@ -239,6 +245,12 @@ export interface Chat {
     /** What was tapped for each question, so asking it again starts from it. */
     picks?: Record<string, string[]>;
     judgement: Judgement | null;
+    /**
+     * Judgements made before the latest, oldest first, so an earlier result
+     * in the chat still opens on what it said. The chips on the page follow
+     * the latest only.
+     */
+    earlier?: Judgement[];
     /**
      * How the chat stood before each answer, newest last, so the last one can
      * be taken back and the question asked again. Emptied once the answers

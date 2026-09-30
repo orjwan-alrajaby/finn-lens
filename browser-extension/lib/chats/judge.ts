@@ -9,7 +9,7 @@ import { allowedByRules, alternativesWithinLimits, compareRows, runLens, summari
 import { ruledOut, toAnswers, type Translation, type Understanding } from "@/lib/lens-chat/understanding";
 import type { PinnedFinnCar } from "@/lib/types";
 
-import type { CarSnapshot, ChatMessage, Judgement, Verdict } from "./types";
+import type { CarSnapshot, Chat, ChatMessage, Judgement, Verdict } from "./types";
 
 /**
  * A chat's judgement: the reader's answers, run through the real engine over
@@ -55,6 +55,28 @@ export function judgeWith(u: Understanding, cars: PinnedFinnCar[], headline: str
     const run = runLens(cars, translation.answers, "page", headline, ruledOut(u), u.budget?.firm === true);
 
     return run ? { run, translation } : null;
+}
+
+/** How many earlier judgements a chat keeps for its earlier results to open on. */
+const EARLIER = 20;
+
+/**
+ * A chat with a new judgement: the latest replaced, and the one it replaces
+ * kept, so the result that came from it still opens on what it said.
+ */
+export function withJudgement(chat: Chat, judgement: Judgement): Chat {
+    return {
+        ...chat,
+        judgement,
+        earlier: chat.judgement ? [...(chat.earlier ?? []), chat.judgement].slice(-EARLIER) : chat.earlier,
+    };
+}
+
+/** A judgement of this chat by when it was made; the latest where none is named or it's gone. */
+export function judgementAt(chat: Chat, at: string | null): { judgement: Judgement | null; latest: boolean } {
+    const found = at ? [chat.judgement, ...(chat.earlier ?? [])].find((item) => item?.at === at) : null;
+
+    return found && found !== chat.judgement ? { judgement: found, latest: false } : { judgement: chat.judgement, latest: true };
 }
 
 /* -------------------------------------------------------------------------- */
@@ -204,6 +226,8 @@ export function resultMessage(
          */
         runnersUp: alternativesWithinLimits(run, 3).map((line) => snapshot(line, urls)),
         setAside: (run.ruledOut && !run.ruledOut.nothingLeft ? run.ruledOut.setAside : 0) + (run.overLimit?.ids.length ?? 0),
+        /* The judgement made with it carries the same moment: that's how the result finds it again. */
+        judgement: at,
     };
 }
 

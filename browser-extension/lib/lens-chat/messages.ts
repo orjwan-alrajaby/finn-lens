@@ -54,7 +54,8 @@ export type ChatToPage = { token: string } & (
     | { type: "LENS_CHAT_CONTEXT" }
     | { type: "LENS_CHAT_SHOW_CAR"; carId: number }
     | { type: "LENS_CHAT_CLOSE" }
-    | { type: "LENS_OPEN_DRAWER"; chatId: string; carId: number }
+    /* `judgement`: an earlier judgement to read the car out of, by when it was made; the latest when absent. */
+    | { type: "LENS_OPEN_DRAWER"; chatId: string; carId: number; judgement?: string }
     | { type: "LENS_CLOSE_DRAWER" }
 );
 

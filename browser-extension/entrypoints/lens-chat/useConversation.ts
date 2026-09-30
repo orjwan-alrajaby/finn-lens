@@ -15,7 +15,7 @@ import {
     setImportance as setNeedImportance,
     type Heard,
 } from "@/lib/chats/flow";
-import { judgementFrom, judgeWith, resultMessage } from "@/lib/chats/judge";
+import { judgementFrom, judgeWith, resultMessage, withJudgement } from "@/lib/chats/judge";
 import { addedToJudgement, judgedCars, loadedCars } from "@/lib/chats/scope";
 import { loadChat, loadSettings, messageId, saveChat, saveSettings, setActiveChat } from "@/lib/chats/store";
 import type { Chat } from "@/lib/chats/types";
@@ -150,7 +150,7 @@ export function useConversation(page: PageCars) {
                 const result = resultMessage(judged, cars, headline, urls, messageId(), at);
                 const judgement = judgementFrom(judged, cars, from.understanding, headline, url, urls, at);
 
-                const next = withLensSaying({ ...from, phase: "judged", judgement }, `I've judged the ${headline}. Here's what I found:`);
+                const next = withLensSaying({ ...withJudgement(from, judgement), phase: "judged" }, `I've judged the ${headline}. Here's what I found:`);
 
                 await commit({
                     ...next,

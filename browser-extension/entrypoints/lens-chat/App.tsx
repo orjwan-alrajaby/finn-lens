@@ -194,8 +194,7 @@ export function App() {
                                 onChange={(step) => void conversation.changeOne(step)}
                                 editable={rewindable(chat)}
                                 onEdit={() => void conversation.takeBack()}
-                                onOpenCar={(id) => chat && void requestOpenDrawer(chat.id, id)}
-                                onWhy={() => chat?.judgement?.winnerId != null && void requestOpenDrawer(chat.id, chat.judgement.winnerId)}
+                                onOpenCar={(id, judgement) => chat && void requestOpenDrawer(chat.id, id, judgement)}
                             />
                         ) : null}
                     </div>
