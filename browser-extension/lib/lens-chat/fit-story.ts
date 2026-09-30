@@ -69,6 +69,12 @@ export interface StorySection {
     /** One line for the compact "Lens found" summary. */
     summary: string;
     tone: Tone;
+    /**
+     * A need judged on a figure rather than on equipment — CO₂, or how much
+     * it uses — so the drawer can draw the figure against its benchmark in
+     * place of the lines, under the need the reader named.
+     */
+    figure?: { kind: "co2" | "efficiency"; need: string };
 }
 
 export interface FitStory {
@@ -736,6 +742,7 @@ export function tellFitStory(
         sections.push({
             key: need.id,
             said: need.said,
+            figure: byFigure ? { kind: need.priorities.includes("environmental") ? "co2" : "efficiency", need: need.label } : undefined,
             title: byFigure
                 ? byFigure.label
                 : tone === "good"

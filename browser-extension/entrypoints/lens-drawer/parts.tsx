@@ -1,8 +1,13 @@
 import type { ReactNode } from "react";
 import { Check, CircleHelp, Info, Minus, X } from "lucide-react";
 
+import { EnvironmentalResult, UsageResult } from "@/components/EnvironmentalResult";
 import { BandChip, CarPhoto, euros, WinnerChip } from "@/components/lens-parts";
 import { configurationName } from "@/lib/car-labels";
+import { bandForScore } from "@/lib/reasoning-engine/bands";
+import { assessEnvironment } from "@/lib/reasoning-engine/environmental";
+import { FIT_BANDS, type FitBand, type FitLevel } from "@/lib/reasoning-engine/fit";
+import type { CategoryId } from "@/lib/reasoning-engine/types";
 import type { CostAnalysis } from "@/lib/reasoning-engine/types";
 import type { FitStory, StorySection, Tone } from "@/lib/lens-chat/fit-story";
 
@@ -43,8 +48,38 @@ export function ToneDot({ tone, size = "sm" }: { tone: Tone; size?: "sm" | "md" 
     );
 }
 
+/** The band this car earned on one priority, as the engine scored it. */
+function bandOn(value: JudgedCar, priority: CategoryId): FitBand {
+    const detail = value.judged.run.recommendation.scores.find((score) => score.vehicleId === value.car.id)?.details[priority];
+    const level: FitLevel = detail?.assessed ? bandForScore(detail.exactScore) : "unknown";
+
+    return { level, label: FIT_BANDS[level].label };
+}
+
+/**
+ * A need judged on a figure: under the need the reader named, the figure
+ * against its benchmark, as the playground's environmental section drew it —
+ * the verdict in its colour, the bar, and why.
+ */
+function FigureRow({ section, value }: { section: StorySection; value: JudgedCar }) {
+    const figure = section.figure!;
+
+    return (
+        <li className="rounded-xl bg-finn-snow p-3 ring-1 ring-black/[0.03]">
+            <p className="mb-2.5 text-[11px] text-finn-iron">You said: {figure.need}</p>
+            {figure.kind === "co2" ? (
+                <EnvironmentalResult assessment={assessEnvironment(value.car)} band={bandOn(value, "environmental")} />
+            ) : (
+                <UsageResult car={value.car} />
+            )}
+        </li>
+    );
+}
+
 /** One thing the reader asked for, and what this car does about it. */
-export function StoryRow({ section }: { section: StorySection }) {
+export function StoryRow({ section, value }: { section: StorySection; value?: JudgedCar }) {
+    if (section.figure && value) return <FigureRow section={section} value={value} />;
+
     return (
         <li className="rounded-xl bg-finn-snow p-3 ring-1 ring-black/[0.03]">
             <div className="flex items-start gap-2.5">
@@ -68,13 +103,28 @@ export function StoryRow({ section }: { section: StorySection }) {
     );
 }
 
-export function StoryList({ story }: { story: FitStory }) {
+export function StoryList({ story, value }: { story: FitStory; value?: JudgedCar }) {
     return (
         <ul className="space-y-2">
             {story.sections.map((section) => (
-                <StoryRow key={section.key} section={section} />
+                <StoryRow key={section.key} section={section} value={value} />
             ))}
         </ul>
+    );
+}
+
+/**
+ * How much it uses, for a reader who didn't ask: it's on their bill every
+ * month either way, as the playground had it. A reader who did ask has it in
+ * their own need's row already.
+ */
+export function UsageSection({ value }: { value: JudgedCar }) {
+    if (value.story?.sections.some((section) => section.figure?.kind === "efficiency")) return null;
+
+    return (
+        <Section title="How much it uses">
+            <UsageResult car={value.car} />
+        </Section>
     );
 }
 

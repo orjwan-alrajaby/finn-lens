@@ -9,7 +9,7 @@ import { alternativesWithinLimits } from "@/lib/lens-chat/run";
 import { whyNot } from "@/lib/lens-chat/why-not";
 import type { PriorityStanding } from "@/lib/reasoning-engine/narrative/types";
 
-import { Catch, CostTable, Section, StoryList } from "./parts";
+import { Catch, CostTable, Section, StoryList, UsageSection } from "./parts";
 import type { JudgedCar } from "./useJudgedCar";
 
 /**
@@ -109,7 +109,7 @@ export function WinnerView({ value, print = false }: { value: JudgedCar; print?:
 
             {story?.sections.length ? (
                 <Section title="How it fits what you told me">
-                    <StoryList story={story} />
+                    <StoryList story={story} value={value} />
                     {story.catch ? (
                         <div className="mt-2">
                             <Catch story={story} />
@@ -198,6 +198,8 @@ export function WinnerView({ value, print = false }: { value: JudgedCar; print?:
                     <CostTable cost={cost} />
                 </Section>
             ) : null}
+
+            <UsageSection value={value} />
 
             <Section title="What you told me">
                 {told.needs?.length ? (

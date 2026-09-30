@@ -7,7 +7,7 @@ import { BrandMark, IconButton } from "@/components/lens-parts";
 import { LoadingScreen } from "@/components/Spinner";
 import { requestCloseDrawer, requestOpenDrawer, requestShowCar } from "@/lib/chats/bridge";
 
-import { Catch, CarHeader, CostTable, Section, StoryList } from "./parts";
+import { Catch, CarHeader, CostTable, Section, StoryList, UsageSection } from "./parts";
 import { ExportButton, usePdfExport } from "./usePdfExport";
 import { useJudgedCar, type JudgedCar } from "./useJudgedCar";
 import { WinnerView } from "./WinnerView";
@@ -100,7 +100,7 @@ function CarView({ value }: { value: JudgedCar }) {
 
             {story?.sections.length ? (
                 <Section title="What you told me, and what it has">
-                    <StoryList story={story} />
+                    <StoryList story={story} value={value} />
                 </Section>
             ) : null}
 
@@ -132,6 +132,8 @@ function CarView({ value }: { value: JudgedCar }) {
                     <CostTable cost={cost} />
                 </Section>
             ) : null}
+
+            <UsageSection value={value} />
 
             {value.missing ? (
                 <p className="px-5 pb-4 text-[11.5px] text-finn-iron">
