@@ -240,7 +240,14 @@ const checked = (need: Understanding["needs"][number], u: Understanding): Eviden
  * answer in a glance, rather than seventeen chips at once. Each says why it
  * matters, and each has its own way of saying "none of these".
  */
-const GROUP_ASK: Record<NeedGroup, { ask: string; why: string; none: string; placeholder: string }> = {
+/*
+ * How many answers make sense. A question about what someone does most is
+ * answered by one or two things: "all of them" says nothing about which
+ * matters, and a reader who taps every kind of driving has told Lens less
+ * than one who taps two. Where every answer can be true at once — cold
+ * winters and hot summers — there's no limit.
+ */
+const GROUP_ASK: Record<NeedGroup, { ask: string; why: string; none: string; placeholder: string; max?: number }> = {
     passengers: {
         ask: "First, how many people usually ride with you?",
         why: "It decides how many seats and doors the car needs.",
@@ -255,13 +262,15 @@ const GROUP_ASK: Record<NeedGroup, { ask: string; why: string; none: string; pla
     },
     parking: {
         ask: "Where do you park most often?",
-        why: "Each kind of space calls for its own help. The “i” on an answer shows what I'd check.",
+        why: "Pick the one or two you use most, like home and work. Each kind of space calls for its own help.",
+        max: 2,
         none: "Parking's no trouble",
         placeholder: "e.g. “parking stresses me out”",
     },
     driving: {
-        ask: "What kind of driving do you do?",
-        why: "Different driving needs different equipment. Tap all that apply — the “i” on an answer shows what I'd check.",
+        ask: "What kind of driving do you do most?",
+        why: "Pick the one or two that make up most of it. Different driving needs different equipment — the “i” on an answer shows what I'd check.",
+        max: 2,
         none: "None of these",
         /* Every example is one Lens can read: its own example coming back "couldn't find anything" is the worst advert. */
         placeholder: "e.g. “home late after night shifts”",
@@ -273,14 +282,16 @@ const GROUP_ASK: Record<NeedGroup, { ask: string; why: string; none: string; pla
         placeholder: "e.g. “snowy winters”",
     },
     loads: {
-        ask: "What do you carry or tow?",
-        why: "Different loads need different equipment. Tap all that apply — the “i” on an answer shows what I'd check.",
+        ask: "What do you carry or tow most?",
+        why: "Pick up to two. Different loads need different equipment — the “i” on an answer shows what I'd check.",
+        max: 2,
         none: "Nothing much",
         placeholder: "e.g. “a double buggy”",
     },
     you: {
-        ask: "Anything else that matters to you in a car?",
-        why: "Each of these adds equipment to what I check — or, for emissions, each car's CO₂. The “i” on an answer shows what.",
+        ask: "Anything else that matters most to you in a car?",
+        why: "Pick up to two. Each adds equipment to what I check — or, for emissions, each car's CO₂. The “i” on an answer shows what.",
+        max: 2,
         none: "Nothing else",
         placeholder: "e.g. “something safe and efficient”",
     },
@@ -319,7 +330,7 @@ const fromGuide = (step: GuideStep): ChatStep => ({
  * whether a pet does; with one, an adult asks nothing of the car, since they
  * sit beside the driver.
  */
-function whoRides(choices: GuideChoice[], passengers: number | null): { choices: GuideChoice[]; ask: string; none?: string; multiple: boolean } {
+function whoRides(choices: GuideChoice[], passengers: number | null): { choices: GuideChoice[]; ask: string; none?: string; multiple: boolean; exclusive?: string[][] } {
     if (passengers === 0) {
         return { choices: choices.filter((choice) => choice.id === "dog"), ask: "Any pets riding along?", none: "No pets", multiple: false };
     }
@@ -334,10 +345,24 @@ function whoRides(choices: GuideChoice[], passengers: number | null): { choices:
             ask: "Who is it, usually? And any pets?",
             none: GROUP_ASK.people.none,
             multiple: true,
+            /* One person is a child or an adult, not both; a pet can come too. */
+            exclusive: [["kids", "adults"]],
         };
     }
 
     return { choices, ask: GROUP_ASK.people.ask, none: GROUP_ASK.people.none, multiple: true };
+}
+
+/** Taps held to what the question allows: the first of answers that exclude each other, and no more than its limit. */
+export function withinLimits(step: Pick<ChatStep, "max" | "exclusive">, chosen: string[]): string[] {
+    let kept = [...new Set(chosen)];
+
+    for (const set of step.exclusive ?? []) {
+        const first = kept.find((id) => set.includes(id));
+        kept = kept.filter((id) => !set.includes(id) || id === first);
+    }
+
+    return step.max ? kept.slice(0, step.max) : kept;
 }
 
 /** Lens's question for `id`, narrowed to what's worth asking about these cars. Null when it isn't. */
@@ -450,6 +475,7 @@ export function stepFor(id: StepId, cars: FinnCar[], u: Understanding = EMPTY_UN
             ask: followUp.ask,
             why: followUp.why,
             multiple: followUp.multiple ?? false,
+            max: followUp.max,
             choices: followUp.choices.map(({ id: choice, label, said }) => ({ id: choice, label, said })),
             none: followUp.multiple ? "None of these" : undefined,
             followUp,
@@ -517,7 +543,7 @@ export function stepFor(id: StepId, cars: FinnCar[], u: Understanding = EMPTY_UN
         const { choices, ...ask } =
             group === "people"
                 ? whoRides(own, u.passengers ?? null)
-                : { choices: own, ask: words?.ask ?? "", none: words?.none, multiple: group !== "passengers" };
+                : { choices: own, ask: words?.ask ?? "", none: words?.none, multiple: group !== "passengers", exclusive: undefined };
 
         if (!life || !choices.length || !words) return null;
 
@@ -528,6 +554,8 @@ export function stepFor(id: StepId, cars: FinnCar[], u: Understanding = EMPTY_UN
             ask: ask.ask,
             why: words.why,
             none: ask.none,
+            max: words.max,
+            exclusive: ask.exclusive,
             /* The count needs no words: the numbers cover it, and who they are comes next. */
             custom: group === "passengers" ? undefined : { kind: "text", label: "Something else…", placeholder: words.placeholder },
         };
@@ -540,7 +568,12 @@ export function stepFor(id: StepId, cars: FinnCar[], u: Understanding = EMPTY_UN
     const chat = fromGuide(step);
 
     if (step.id === "rules") {
-        return { ...chat, custom: { kind: "text", label: "Something else…", placeholder: "e.g. “no seven-seaters”" } };
+        return {
+            ...chat,
+            /* Electric only and not electric together would rule out every car. */
+            exclusive: [["electric-only", "not-electric"]],
+            custom: { kind: "text", label: "Something else…", placeholder: "e.g. “no seven-seaters”" },
+        };
     }
 
     return { ...chat, why: WHY.distance, custom: { kind: "km", label: "Another distance", placeholder: "km a month, e.g. 1,200", min: 50, max: 10000 } };
@@ -956,6 +989,9 @@ export function answer(
     if (!ask || ask.kind !== "ask" || ask.answered) return { chat, after: "wait" };
 
     const step = ask.step;
+
+    /* The limits hold whatever sends the answer: the page, a test, a chat saved before them. */
+    chosen = withinLimits(step, chosen);
     const picked = step.choices.filter((choice) => chosen.includes(choice.id));
     const tapped = picked.length ? picked.map((choice) => choice.said).join(" ") : "";
     const messages = closeAsks(chat.messages);

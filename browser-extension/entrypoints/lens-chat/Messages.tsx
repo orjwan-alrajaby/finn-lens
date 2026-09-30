@@ -153,7 +153,7 @@ function Chip({
                     disabled={disabled}
                     aria-pressed={selected}
                     className={[
-                        "inline-flex items-center gap-1.5 rounded-l-full py-2 pr-1.5 pl-3.5 text-[12.5px] font-bold",
+                        "inline-flex items-center gap-1.5 rounded-l-full py-2 pr-1.5 pl-3.5 text-[12.5px] font-bold disabled:cursor-default disabled:opacity-40",
                         "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-finn-accent-blue",
                         selected ? "" : "hover:text-finn-highlight-navy",
                     ].join(" ")}
@@ -194,7 +194,7 @@ function Chip({
             title={title}
             className={[
                 "inline-flex items-center gap-1.5 rounded-full px-3.5 py-2 text-[12.5px] font-bold transition-colors",
-                "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-finn-accent-blue disabled:cursor-default",
+                "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-finn-accent-blue disabled:cursor-default disabled:opacity-40",
                 selected
                     ? "bg-finn-accent-blue text-white shadow-sm"
                     : muted
@@ -403,11 +403,21 @@ function Ask({
     const [added, setAdded] = useState<string | null>(null);
     const [explained, setExplained] = useState<string | null>(null);
 
-    /* Up to the question's own limit: a new pick past it is ignored, and untapping one frees a place. */
+    /*
+     * Up to the question's own limit: past it the other chips rest, and
+     * untapping one frees a place. An answer that can't be true beside
+     * another takes its place instead.
+     */
     const toggle = (id: string) =>
-        setPicked((current) =>
-            current.includes(id) ? current.filter((item) => item !== id) : step.max && current.length >= step.max ? current : [...current, id],
-        );
+        setPicked((current) => {
+            if (current.includes(id)) return current.filter((item) => item !== id);
+
+            const rivals = new Set((step.exclusive ?? []).filter((set) => set.includes(id)).flat());
+            const kept = current.filter((item) => item === id || !rivals.has(item));
+
+            return step.max && kept.length >= step.max ? kept : [...kept, id];
+        });
+    const full = Boolean(step.max && picked.length >= step.max);
     const chosen = step.choices.filter((choice) => picked.includes(choice.id));
     const typing = own && ownText.trim().length > 1;
     const ready = picked.length > 0 || added != null || typing;
@@ -419,6 +429,7 @@ function Ask({
             key={choice.id}
             label={choice.label}
             selected={step.multiple && picked.includes(choice.id)}
+            disabled={step.multiple && full && !picked.includes(choice.id) && !(step.exclusive ?? []).some((set) => set.includes(choice.id) && set.some((id) => picked.includes(id)))}
             onClick={() => (step.multiple ? toggle(choice.id) : onAnswer([choice.id]))}
             onInfo={choice.description ? () => setExplained((open) => (open === choice.id ? null : choice.id)) : undefined}
             infoOpen={explained === choice.id}

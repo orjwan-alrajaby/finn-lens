@@ -85,6 +85,8 @@ export interface ChatStep {
     multiple: boolean;
     /** With several answers: how many at most, when picking all of them would say nothing. */
     max?: number;
+    /** Answers that can't both be true — "Electric only" and "Not electric": picking one takes back the other. */
+    exclusive?: string[][];
     choices: Choice[];
     /** The answer for someone none of the choices fit. */
     none?: string;

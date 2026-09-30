@@ -6,7 +6,7 @@ import { withBudget } from "@/lib/lens-chat/understanding";
 
 import { fleet } from "@/lib/reasoning-engine/test-data/fleet";
 
-import { answer, askNext, changeAnswers, changeOne, rentalMonths, setImportance, startChat, startMonth, summaryOf } from "./flow";
+import { answer, askNext, changeAnswers, changeOne, rentalMonths, setImportance, startChat, startMonth, summaryOf, withinLimits } from "./flow";
 import { readTyped } from "./typing";
 import type { Chat, ChatMessage, SavedSettings, StepId } from "./types";
 
@@ -568,7 +568,7 @@ describe("a long list of needs", () => {
 
 describe("the summary", () => {
     it("lists each piece of equipment once, and says how many a need shares with those above", () => {
-        const chat = walk(startChat(null, cars(), TODAY), { life: ["nervous", "safety", "emissions"], "follow-nervous": ["traffic"] });
+        const chat = walk(startChat(null, cars(), TODAY), { life: ["nervous", "safety"], "follow-nervous": ["traffic"] });
         const needs = summaryOf(chat.understanding).needs!;
         const nerves = needs.find((need) => need.id === "life-nervous")!;
         const safety = needs.find((need) => need.id === "life-safety")!;
@@ -577,7 +577,9 @@ describe("the summary", () => {
         expect(safety.looksFor).not.toContain("Blind spot warning");
         expect(safety.also).toBeGreaterThan(0);
         expect(needs.flatMap((need) => need.looksFor)).toEqual([...new Set(needs.flatMap((need) => need.looksFor))]);
-        expect(needs.find((need) => need.id === "life-emissions")?.looksFor).toEqual(["Each car's CO₂ per km"]);
+
+        const emissions = walk(startChat(null, cars(), TODAY), { life: ["emissions"] });
+        expect(summaryOf(emissions.understanding).needs!.find((need) => need.id === "life-emissions")?.looksFor).toEqual(["Each car's CO₂ per km"]);
     });
 
     it("names the needs behind each priority's weight", () => {
@@ -607,5 +609,26 @@ describe("city driving and parking", () => {
 
         expect(chat.understanding.needs.map((need) => need.id)).toEqual(["life-city"]);
         expect(texts(chat).join(" ")).toMatch(/A driveway leaves plenty of room/);
+    });
+});
+
+describe("common sense in what can be picked", () => {
+    it("takes the one or two a reader does most, not everything", () => {
+        const chat = walk(startChat(null, cars(), TODAY), { life: ["city", "commute", "motorway", "night"], "follow-commute": ["short"], "follow-motorway": ["monthly"] });
+        const driving = chat.messages.find((message): message is Ask => message.kind === "ask" && message.step.id === "life-driving")!;
+
+        expect(driving.step.max).toBe(2);
+        expect(chat.understanding.needs.map((need) => need.id).filter((id) => ["life-city", "life-commute", "life-motorway", "life-night"].includes(id))).toEqual(["life-city", "life-commute"]);
+    });
+
+    it("never keeps two answers that can't both be true", () => {
+        expect(withinLimits({ exclusive: [["electric-only", "not-electric"]] }, ["electric-only", "automatic", "not-electric"])).toEqual(["electric-only", "automatic"]);
+
+        const start = startChat(null, cars(), TODAY);
+        const one = answer(start, openAsk(start)!.id, ["passengers-1"], cars(), TODAY).chat;
+        const who = openAsk(one)!;
+
+        expect(who.step.exclusive).toEqual([["kids", "adults"]]);
+        expect(answer(one, who.id, ["kids", "adults", "dog"], cars(), TODAY).chat.understanding.needs.map((need) => need.id)).toEqual(["life-kids", "life-dog"]);
     });
 });

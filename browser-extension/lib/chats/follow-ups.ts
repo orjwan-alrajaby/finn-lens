@@ -39,6 +39,8 @@ export interface FollowUp {
      * Answering none of them leaves the need as it was.
      */
     replace?: boolean;
+    /** With several answers, how many at most. */
+    max?: number;
     choices: FollowUpChoice[];
 }
 
@@ -129,8 +131,9 @@ export const FOLLOW_UPS: Record<string, FollowUp> = {
     },
     nervous: {
         need: "nervous",
-        ask: "What makes driving stressful for you?",
-        why: "Each worry has its own equipment, and I'll count only what matches yours.",
+        ask: "What makes driving most stressful for you?",
+        why: "Pick up to two. Each worry has its own help, and I'll count only what matches yours.",
+        max: 2,
         multiple: true,
         replace: true,
         choices: [
