@@ -822,7 +822,14 @@ export function toAnswers(
 
     const ranked = [...scores.entries()]
         .sort((a, b) => b[1].score - a[1].score || b[1].breadth - a[1].breadth || a[1].first - b[1].first)
-        .slice(0, MAX_PRIORITIES)
+        /*
+         * Five is a settings screen's limit on a reader's own order. In a
+         * chat every priority here holds something they asked for, and a
+         * reader who picked every need had City & Parking cut — their
+         * parking needs counted nowhere while the story still reported on
+         * them. The last in the order weighs little, but it counts.
+         */
+        .slice(0, onlyAsked ? undefined : MAX_PRIORITIES)
         .map(([id, entry]) => ({ id, from: entry.from, filler: false }));
 
     const order = [...ranked];

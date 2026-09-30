@@ -153,6 +153,13 @@ describe("counting only what the reader asked for", () => {
         }
     });
 
+    it("keeps every priority a reader's needs reach, past the five a settings screen allows", () => {
+        const u = picked(...life().choices.map((choice) => choice.id));
+
+        everythingCounts(u);
+        expect(chatAnswers(u).answers.priorities.length).toBeGreaterThan(5);
+    });
+
     it("keeps every accepted item, past the five a settings screen allows", () => {
         const winter = FOLLOW_UPS.winter!;
         let u = applyFollowUp(picked("winter"), winter, ["snow"]);
