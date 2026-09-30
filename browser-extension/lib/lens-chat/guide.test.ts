@@ -5,7 +5,7 @@ import { CATEGORY_IDS, DEFAULT_CATEGORY_FEATURES, DEFAULT_PREFERENCES, DEFAULT_P
 import { fleet } from "@/lib/reasoning-engine/test-data/fleet";
 import type { PinnedFinnCar } from "@/lib/types";
 
-import { coverage } from "./evidence";
+import { coverage, EVIDENCE } from "./evidence";
 import { needChips } from "./plain";
 import { applyChoices, guideSteps, offersFor, saidFor, whatIfs } from "./guide";
 import { runLens } from "./run";
@@ -93,6 +93,22 @@ describe("what the taps mean", () => {
         expect(need!.evidence.map((entry) => entry.id)).toContain("hasIsofix");
         /* Every piece of evidence says what it is for, in Lens's own words. */
         expect(need!.evidence.every((entry) => entry.use.length > 0)).toBe(true);
+    });
+
+    it("names exactly the priorities that score a need's equipment", () => {
+        for (const choice of guideSteps([]).find((step) => step.id === "life")!.choices) {
+            const need = choice.need!;
+            const homes = new Set(need.evidence.map((id) => EVIDENCE[id].scoredIn).filter(Boolean));
+
+            /* Every priority it names holds some of its equipment — emissions, a figure, holds none by design. */
+            for (const priority of need.priorities) {
+                if (priority !== "environmental") expect(homes, `${choice.id} names ${priority}`).toContain(priority);
+            }
+            /* And everything a reader can raise sits under a priority it names. */
+            for (const id of need.evidence.filter((item) => EVIDENCE[item].raisable)) {
+                expect(need.priorities, `${choice.id}: ${id}`).toContain(EVIDENCE[id].scoredIn);
+            }
+        }
     });
 
     it("keeps what the reader said, so the conversation can show it back", () => {

@@ -29,7 +29,7 @@ import type { CarSnapshot, ChatMessage, Judgement, Verdict } from "./types";
  * never gave must not set cars aside. No raised equipment either: the
  * engine's defaults raise five features per priority from published buyer
  * surveys, and in a chat that would be Lens deciding what this reader wants.
- * Only what the reader said is raised; everything else counts the same.
+ * Only what the reader said counts at all — see `chatAnswers`.
  */
 export const BASE_ANSWERS: Answers = {
     priorities: [...DEFAULT_PRIORITIES],
@@ -38,8 +38,12 @@ export const BASE_ANSWERS: Answers = {
     basedOn: null,
 };
 
-/** How a chat's answers become the engine's: only what the reader's needs point to. */
-export const chatAnswers = (u: Understanding): Translation => toAnswers(BASE_ANSWERS, u, undefined, { fill: false });
+/**
+ * How a chat's answers become the engine's: only what the reader's needs
+ * point to, and within a priority only the equipment they asked for — so a
+ * band says how much of what they asked for a car has, and nothing else.
+ */
+export const chatAnswers = (u: Understanding): Translation => toAnswers(BASE_ANSWERS, u, undefined, { fill: false, onlyAsked: true });
 
 export interface Judged {
     run: LensRun;

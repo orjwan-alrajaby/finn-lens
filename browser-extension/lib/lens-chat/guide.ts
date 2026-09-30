@@ -210,7 +210,8 @@ const need = (
 const LIFE: GuideChoice[] = [
     need("kids", "people", "Kids in the back", "I have kids in the back.",
         "ISOFIX anchors for child seats, rear doors for getting children in and out, at least five seats, rear seats that fold, and USB ports in the back.",
-        ["practicality", "safetyAssistance"],
+        /* Where its equipment is scored: ISOFIX under Practicality, rear USB ports under Comfort. */
+        ["practicality", "comfort"],
         [
             ["hasIsofix", "so the seat is held by the car's frame, not only by a seat belt"],
             ["rearDoors", "so children get in and out, and seats get fitted, without climbing past the front seats"],

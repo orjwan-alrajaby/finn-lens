@@ -724,11 +724,49 @@ export function toAnswers(
      * chat doesn't: a priority nothing the reader said points to is Lens
      * judging cars on something they never asked about.
      */
-    { fill = true }: { fill?: boolean } = {},
+    { fill = true, onlyAsked = false }: {
+        fill?: boolean;
+        /**
+         * Rank on what the reader asked for and nothing else — the chat's
+         * mode. A need's priorities are where its equipment is scored, a
+         * standard item it names counts like a raised one, and a priority's
+         * other items weigh nothing. See `LensPreferences.countOnlyAsked`.
+         */
+        onlyAsked?: boolean;
+    } = {},
 ): Translation {
     const active = u.needs.filter((need) => need.status === "active");
     const dropped = new Set(u.droppedPriorities);
     const lessRelevant = [...new Set([...u.capabilities.flatMap((item) => item.lessRelevant), ...u.declined])];
+    const rules = ruledOut(u);
+
+    /*
+     * Evidence that can move a score. A rule's own evidence can't: every car
+     * left after the rule has it, so raising it only adds the same to each —
+     * and "a towbar" came back as a reason the winner won.
+     */
+    const counts = (entry: Need["evidence"][number]) =>
+        !entry.unwanted &&
+        !lessRelevant.includes(entry.id) &&
+        !(entry.mustHave && rules.some((rule) => rule.id === entry.id)) &&
+        (onlyAsked ? EVIDENCE[entry.id].scoredIn != null : EVIDENCE[entry.id].raisable);
+
+    /*
+     * Where a need counts. Asked-only, that is wherever its equipment is
+     * scored, and nowhere else: "kids in the back" named Safety and held
+     * nothing Safety scores, so every parent was judged on blind spot
+     * warning; its rear USB ports are scored under Comfort, which it never
+     * named, so they counted nowhere. A need with no equipment at all —
+     * emissions — keeps the priority it names.
+     */
+    const prioritiesOf = (need: Need): CategoryId[] => {
+        if (!onlyAsked) return need.priorities;
+
+        const homes = need.evidence.filter(counts).map((entry) => EVIDENCE[entry.id].scoredIn!);
+        const figures = need.priorities.filter((id) => CATEGORIES[id].numericOnly);
+
+        return [...new Set([...homes, ...figures, ...(homes.length ? [] : need.priorities)])];
+    };
 
     const scores = new Map<CategoryId, { score: number; breadth: number; first: number; from: string[] }>();
 
@@ -748,14 +786,17 @@ export function toAnswers(
     active.forEach((need, index) => {
         const holds = new Map<CategoryId, number>();
 
-        for (const id of need.priorities) holds.set(id, 1);
+        /* Asked-only, a priority holds a need by its equipment alone: being named is no share of it. */
+        for (const id of prioritiesOf(need)) holds.set(id, onlyAsked ? 0 : 1);
         for (const entry of need.evidence) {
-            const home = scoredHome(entry.id);
+            const home = onlyAsked ? (counts(entry) ? EVIDENCE[entry.id].scoredIn : null) : scoredHome(entry.id);
 
             if (home && holds.has(home) && !entry.unwanted && !lessRelevant.includes(entry.id)) {
                 holds.set(home, holds.get(home)! + 1);
             }
         }
+        /* A figure-only priority (emissions) is the whole of its need. */
+        for (const [id, share] of holds) if (share === 0) holds.set(id, 1);
 
         /*
          * Relative to the priority that holds most of the need, not to the
@@ -828,7 +869,7 @@ export function toAnswers(
                  * the car that honoured them came back with "fewer than six
                  * seats" as its catch.
                  */
-                if (def.scoredIn !== id || !def.raisable || lessRelevant.includes(entry.id) || entry.unwanted) continue;
+                if (def.scoredIn !== id || !counts(entry)) continue;
 
                 const level = RAISE[need.importance];
                 const existing = raised.get(entry.id as SignalId);
@@ -840,7 +881,13 @@ export function toAnswers(
         if (raised.size) {
             features[id] = [...raised.entries()]
                 .sort((a, b) => RANK_FEATURE[b[1]] - RANK_FEATURE[a[1]])
-                .slice(0, MAX_FEATURES_PER_CATEGORY)
+                /*
+                 * The cap is for a settings screen, where it limits what one
+                 * person singles out. In a chat every item was asked for, and
+                 * cutting at five dropped the heat pump and auxiliary heater a
+                 * reader had just said yes to.
+                 */
+                .slice(0, onlyAsked ? undefined : MAX_FEATURES_PER_CATEGORY)
                 .map(([key, importance]) => ({ key, importance, source: "user" as const }));
         }
     }
@@ -857,21 +904,15 @@ export function toAnswers(
         preferences.rentalTo = u.rental.to;
     }
     if (u.monthlyKm) preferences.monthlyKm = u.monthlyKm.value;
+    if (onlyAsked) preferences.countOnlyAsked = true;
 
     const weights = priorityWeights(order.map((item) => item.id));
-    const rules = ruledOut(u);
     const raisedIn = (need: Need): { id: EvidenceId; label: string; importance: FeatureImportance }[] =>
         need.evidence
             .filter((entry) => {
                 const def = EVIDENCE[entry.id];
 
-                return (
-                    def.raisable &&
-                    def.scoredIn != null &&
-                    order.some((item) => item.id === def.scoredIn) &&
-                    !lessRelevant.includes(entry.id) &&
-                    !entry.unwanted
-                );
+                return counts(entry) && order.some((item) => item.id === def.scoredIn);
             })
             .map((entry) => ({ id: entry.id, label: EVIDENCE[entry.id].label, importance: RAISE[need.importance] }));
 
@@ -901,7 +942,7 @@ export function toAnswers(
                 need: need.label,
                 said: need.said,
                 importance: need.importance,
-                priorities: need.priorities
+                priorities: prioritiesOf(need)
                     .filter((id) => order.some((item) => item.id === id))
                     .map((id) => ({ id, label: CATEGORIES[id].label })),
                 raised: raisedIn(need),

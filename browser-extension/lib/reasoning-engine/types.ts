@@ -57,6 +57,16 @@ export interface LensPreferences {
    * only wins when no pinned car is an automatic.
    */
   automaticOnly: boolean;
+  /**
+   * Count only what the reader asked for. A priority's other items weigh
+   * nothing, and a standard item they named (ISOFIX, for kids in the back)
+   * counts like any raised one.
+   *
+   * Set by a chat, where the ranking may only rest on what the reader said:
+   * without it, "kids in the back" put Safety in the order and every car was
+   * then judged on blind spot warning and matrix headlights nobody asked for.
+   */
+  countOnlyAsked?: boolean;
 }
 
 /**

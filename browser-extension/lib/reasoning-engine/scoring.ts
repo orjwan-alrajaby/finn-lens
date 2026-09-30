@@ -181,7 +181,7 @@ export function categoryDetail(
   category: CategoryId,
   vehicle: PinnedFinnCar,
   _vehicles: PinnedFinnCar[] = [vehicle],
-  _preferences?: LensPreferences,
+  preferences?: LensPreferences,
   categoryFeatures: Record<CategoryId, FeatureSelection> = DEFAULT_CATEGORY_FEATURES,
 ): CategoryDetail {
   if (category === "environmental") return environmentalDetail(vehicle);
@@ -189,16 +189,22 @@ export function categoryDetail(
   const def = getCategory(category);
   const selection = categoryFeatures[category] ?? [];
   const known = equipmentKnown(vehicle);
+  const onlyAsked = preferences?.countOnlyAsked === true;
 
   const items: EvidenceItem[] = (def ? countedItems(category) : [])
     .filter(({ key }) => appliesTo(key, vehicle))
     .map(
-    ({ key, role, niche }) => {
-      const { weight, preference } = weighItem(
-        role,
-        niche,
-        selection.find((item) => item.key === key),
-      );
+    ({ key, role: listedRole, niche }) => {
+      const asked = selection.find((item) => item.key === key);
+      /*
+       * Counting only what was asked: a standard item the reader named is
+       * scored like any raised one — present earns, absent doesn't — and
+       * everything they didn't name weighs nothing.
+       */
+      const role = onlyAsked && asked && listedRole === "expected" ? "home" : listedRole;
+      const { weight, preference } = onlyAsked && !asked
+        ? { weight: 0, preference: null }
+        : weighItem(role, niche, asked);
 
       return {
         key,
@@ -275,7 +281,8 @@ export function categoryDetail(
     else pickedMissing.push(preference);
   }
 
-  const standard: StandardCheck[] = ((def?.expected ?? []) as FeatureId[]).map((key) => {
+  /* Counting only what was asked, no item is standard: the asked ones are scored above, the rest not at all. */
+  const standard: StandardCheck[] = (onlyAsked ? [] : ((def?.expected ?? []) as FeatureId[])).map((key) => {
     const utility = signalUtility(key, vehicle);
 
     return {

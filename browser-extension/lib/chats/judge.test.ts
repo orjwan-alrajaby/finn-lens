@@ -1,11 +1,14 @@
 import { describe, expect, it } from "vitest";
 
-import { GARAGE } from "@/lib/reasoning-engine/test-garage";
+import { totalFor } from "@/lib/reasoning-engine/scoring";
+import { BASELINE, GARAGE, garageCar } from "@/lib/reasoning-engine/test-garage";
+import { EVIDENCE } from "@/lib/lens-chat/evidence";
 import { applyChoices, guideSteps } from "@/lib/lens-chat/guide";
-import { EMPTY_UNDERSTANDING, withBudget, type Understanding } from "@/lib/lens-chat/understanding";
+import { EMPTY_UNDERSTANDING, withBudget, withSuggestion, type Understanding } from "@/lib/lens-chat/understanding";
 import type { PinnedFinnCar } from "@/lib/types";
 
-import { BASE_ANSWERS, judgementFrom, judgeWith, resultMessage } from "./judge";
+import { applyFollowUp, FOLLOW_UPS, WORTH_A_LOOK } from "./follow-ups";
+import { BASE_ANSWERS, chatAnswers, judgementFrom, judgeWith, resultMessage } from "./judge";
 
 /*
  * A chat's judgement, and the chips it puts on FINN's cards. One run feeds
@@ -88,5 +91,79 @@ describe("judging", () => {
         const again = judgementFrom(judged(EMPTY_UNDERSTANDING), cars(), EMPTY_UNDERSTANDING, "", "", {}, "");
 
         expect(again.verdicts).toEqual(first.verdicts);
+    });
+});
+
+describe("counting only what the reader asked for", () => {
+    const life = () => guideSteps([]).find((step) => step.id === "life")!;
+    const picked = (...ids: string[]) => applyChoices(EMPTY_UNDERSTANDING, life(), ids);
+
+    /** Every piece of a need's equipment, other than a rule's, is raised in a ranked priority. */
+    const everythingCounts = (u: Understanding) => {
+        const { answers } = chatAnswers(u);
+
+        for (const need of u.needs) {
+            for (const entry of need.evidence) {
+                const home = EVIDENCE[entry.id].scoredIn;
+                if (!home || entry.unwanted) continue;
+
+                expect(answers.priorities, `${need.label}: ${entry.id}`).toContain(home);
+                expect(answers.features[home].map((item) => item.key), `${need.label}: ${entry.id}`).toContain(entry.id);
+            }
+        }
+    };
+
+    it("ranks a need on the priorities its equipment is scored in, and no others", () => {
+        /* Kids in the back used to name Safety, which holds none of its equipment, and miss Comfort, which holds its rear USB ports. */
+        const { answers } = chatAnswers(picked("kids"));
+
+        expect(answers.priorities).toContain("practicality");
+        expect(answers.priorities).toContain("comfort");
+        expect(answers.priorities).not.toContain("safetyAssistance");
+    });
+
+    it("counts every piece of equipment of every need, follow-up and offer", () => {
+        for (const choice of life().choices) {
+            const u = picked(choice.id);
+            everythingCounts(u);
+
+            const followUp = FOLLOW_UPS[choice.id];
+            for (const option of followUp?.choices ?? []) everythingCounts(applyFollowUp(u, followUp!, [option.id]));
+
+            for (const offer of WORTH_A_LOOK[choice.id] ?? []) everythingCounts(withSuggestion(u, offer.id, offer.why, `life-${choice.id}`));
+        }
+    });
+
+    it("keeps every accepted item, past the five a settings screen allows", () => {
+        const winter = FOLLOW_UPS.winter!;
+        let u = applyFollowUp(picked("winter"), winter, ["snow"]);
+        u = withSuggestion(u, "hasHeatPump", "", "life-winter");
+        u = withSuggestion(u, "hasHeadlightCleaningSystem", "", "life-winter");
+
+        expect(chatAnswers(u).answers.features.climateSuitability.length).toBeGreaterThan(5);
+        everythingCounts(u);
+    });
+
+    it("never moves a score for equipment nobody asked about", () => {
+        const plain = garageCar({ id: 901, name: "Plain" });
+        const loaded = garageCar({ id: 902, name: "Loaded", extra: ["hasBlindSpotAssist", "hasMatrixLedHeadlights", "hasPremiumSoundSystem", "hasSunroof"] });
+        const { run } = judgeWith(picked("kids"), [plain, loaded], "2 cars")!;
+
+        expect(totalFor(run.recommendation.scores, 901)).toBe(totalFor(run.recommendation.scores, 902));
+    });
+
+    it("counts a standard item the reader named, like ISOFIX for kids", () => {
+        const withIsofix = garageCar({ id: 903, name: "With ISOFIX" });
+        const without = garageCar({ id: 904, name: "Without ISOFIX", features: BASELINE.filter((key) => key !== "hasIsofix") });
+        const { run } = judgeWith(picked("kids"), [withIsofix, without], "2 cars")!;
+
+        expect(totalFor(run.recommendation.scores, 903)).toBeGreaterThan(totalFor(run.recommendation.scores, 904));
+    });
+
+    it("doesn't raise a rule's own equipment: every car left already has it", () => {
+        const u = ruled("must-tow");
+        const { answers } = chatAnswers(u);
+
+        expect(Object.values(answers.features).flat().map((item) => item.key)).not.toContain("hasTowbar");
     });
 });
