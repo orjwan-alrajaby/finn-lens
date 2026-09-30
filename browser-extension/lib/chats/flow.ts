@@ -20,7 +20,7 @@ import type { FinnCar } from "@/lib/types";
 import { applyFollowUp, followUpFor, offerReason, worthALook } from "./follow-ups";
 import { BASE_ANSWERS, chatAnswers } from "./judge";
 import { messageId, newChatId } from "./store";
-import type { Chat, ChatMessage, ChatStep, SavedSettings, StepId } from "./types";
+import type { Chat, ChatMessage, ChatStep, Rewind, SavedSettings, StepId } from "./types";
 
 /**
  * How a conversation with Lens goes, as pure functions over a `Chat`.
@@ -1104,6 +1104,84 @@ export function answer(
     cars: FinnCar[],
     today = new Date(),
     extra: { amount?: number; heard?: Heard } = {},
+): { chat: Chat; after: "wait" | "judge" } {
+    const result = answerStep(chat, askId, chosen, cars, today, extra);
+    const ask = chat.messages.find((message) => message.id === askId);
+
+    if (result.chat === chat || ask?.kind !== "ask") return result;
+
+    /* Keeping the answers ends the questions: from a judgement, "Change my answers" is the way back. */
+    if (ask.step.id === "keep" || ask.step.id === "start") return { ...result, chat: { ...result.chat, history: [] } };
+
+    const said = result.chat.messages[chat.messages.length];
+    const before: Rewind = {
+        askId,
+        readerId: said?.from === "reader" ? said.id : null,
+        chosen,
+        messageCount: chat.messages.length,
+        understanding: chat.understanding,
+        queue: chat.queue,
+        phase: chat.phase,
+        picks: chat.picks ?? {},
+        revising: chat.revising,
+        kept: chat.kept,
+    };
+
+    return { ...result, chat: { ...result.chat, history: [...(chat.history ?? []), before].slice(-MAX_REWINDS) } };
+}
+
+/** How far back answers can be taken, one at a time. */
+const MAX_REWINDS = 30;
+
+/**
+ * The last answer taken back: the chat as it stood just before it, with the
+ * question asked again and what was picked still picked. Everything the
+ * answer changed goes with it — the needs, the follow-ups it queued, Lens's
+ * reply and whatever came after.
+ */
+export function rewind(chat: Chat): Chat {
+    const history = chat.history ?? [];
+    const last = history.at(-1);
+    const ask = last ? chat.messages.find((message) => message.id === last.askId) : null;
+
+    if (!last || ask?.kind !== "ask") return chat;
+
+    /* A new id, so the question is drawn afresh with the old answer picked rather than as the answered one. */
+    const reopened: ChatMessage = { ...ask, id: messageId(), answered: false, step: { ...ask.step, selected: last.chosen } };
+    const messages = chat.messages.slice(0, last.messageCount).map((message) => (message === ask ? reopened : message));
+
+    return {
+        ...chat,
+        messages,
+        understanding: last.understanding,
+        queue: last.queue,
+        phase: last.phase,
+        picks: last.picks,
+        revising: last.revising,
+        kept: last.kept,
+        history: history.slice(0, -1),
+        title: titleFor(last.understanding),
+        updatedAt: now(),
+    };
+}
+
+/** The reader message that "Edit" sits on: their last words, when those answered the last question. Null when there's none. */
+export function rewindable(chat: Chat): string | null {
+    const last = chat.history?.at(-1);
+    const lastSaid = [...chat.messages].reverse().find((message) => message.from === "reader");
+
+    if (!last?.readerId || chat.phase === "judged" || lastSaid?.id !== last.readerId) return null;
+
+    return last.readerId;
+}
+
+function answerStep(
+    chat: Chat,
+    askId: string,
+    chosen: string[],
+    cars: FinnCar[],
+    today: Date,
+    extra: { amount?: number; heard?: Heard },
 ): { chat: Chat; after: "wait" | "judge" } {
     const ask = chat.messages.find((message) => message.id === askId);
 

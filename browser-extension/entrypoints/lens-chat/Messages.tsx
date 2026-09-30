@@ -41,6 +41,11 @@ export function useReveal(messages: ChatMessage[], chatKey: string | null, fresh
         setCount(fresh ? 0 : messages.length);
     }, [chatKey, fresh, messages.length]);
 
+    /* Taken back: the chat is shorter than what was shown, and what comes next is revealed afresh. */
+    useEffect(() => {
+        if (count > messages.length) setCount(messages.length);
+    }, [count, messages.length]);
+
     useEffect(() => {
         if (count >= messages.length) return;
 
@@ -82,12 +87,23 @@ function LensBubble({ children }: { children: React.ReactNode }) {
     );
 }
 
-function ReaderBubble({ text }: { text: string }) {
+function ReaderBubble({ text, onEdit }: { text: string; onEdit?: () => void }) {
     return (
-        <div className="flex justify-end">
+        <div className="flex flex-col items-end gap-1">
             <div className="max-w-[82%] rounded-2xl rounded-br-md bg-finn-accent-blue px-3.5 py-2.5 text-[13.5px] leading-relaxed text-white shadow-[0_1px_2px_rgba(0,0,0,0.08)]">
                 {text}
             </div>
+            {/* The last answer can be taken back: the question comes again, with it still picked. */}
+            {onEdit ? (
+                <button
+                    type="button"
+                    onClick={onEdit}
+                    className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11.5px] font-bold text-finn-accent-blue transition-colors hover:bg-finn-pale-blue focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-finn-accent-blue"
+                >
+                    <PencilLine aria-hidden="true" className="h-3 w-3" />
+                    Edit this answer
+                </button>
+            ) : null}
         </div>
     );
 }
@@ -772,6 +788,8 @@ export function MessageList({
     onImportance,
     onChange,
     busy,
+    editable = null,
+    onEdit,
 }: {
     messages: ChatMessage[];
     typing: boolean;
@@ -781,6 +799,9 @@ export function MessageList({
     onImportance: (needId: string, importance: NeedImportance) => void;
     onChange: (step: StepId) => void;
     busy: boolean;
+    /** The reader message whose answer can be taken back, if any. */
+    editable?: string | null;
+    onEdit?: () => void;
 }) {
     /* Only the newest open question takes answers; older ones read as what was asked. */
     const liveAsk = useMemo(() => {
@@ -807,7 +828,13 @@ export function MessageList({
         const avatar = message.from === "lens" && (next ? next.from !== "lens" : !typing);
 
         if (message.from === "reader") {
-            rows.push(<ReaderBubble key={message.id} text={message.kind === "text" ? message.text : ""} />);
+            rows.push(
+                <ReaderBubble
+                    key={message.id}
+                    text={message.kind === "text" ? message.text : ""}
+                    onEdit={message.id === editable && settled && onEdit ? onEdit : undefined}
+                />,
+            );
             return;
         }
 

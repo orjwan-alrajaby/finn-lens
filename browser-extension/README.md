@@ -12,7 +12,7 @@ A browser extension that helps you choose between FINN car subscriptions by chat
    - the monthly limit, how long the car is needed, and how far the reader drives;
    - equipment "worth a look" that the cars on the page differ on.
 
-   Every question says why it's asked, and takes the reader's own answer, in words or as a number. Anything already said isn't asked again.
+   Every question says why it's asked, and takes the reader's own answer, in words or as a number. Anything already said isn't asked again. "Edit this answer" under the last answer takes it back — everything it changed with it — and asks that question again, one answer at a time, until the answers are kept.
 3. **Calibration.** Lens says back what it will judge by: the reader's needs, each set to must have, important or nice to have with a tap, plus the limits, each with "Change". The engine's weights sit folded away underneath. Then Lens asks whether to keep that as the reader's settings, so new chats start from it, or use it for this chat only.
 4. **Judgement.** Lens judges the cars on the page. On a filtered listing, that's every car matching the filters. The chat names its pick and the next closest cars.
 5. **Chips.** Every car Lens judged gets a chip on its FINN card: its verdict, its place, and whether it's over budget. The pick gets a gold "Best for you" chip with a trophy. There are no chips before a judgement.

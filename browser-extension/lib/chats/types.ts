@@ -237,6 +237,31 @@ export interface Chat {
     /** What was tapped for each question, so asking it again starts from it. */
     picks?: Record<string, string[]>;
     judgement: Judgement | null;
+    /**
+     * How the chat stood before each answer, newest last, so the last one can
+     * be taken back and the question asked again. Emptied once the answers
+     * are kept and judged — "Change my answers" is the way back from there.
+     * Chats saved before this come back without it.
+     */
+    history?: Rewind[];
+}
+
+/** One answer, and everything it changed, as it was just before it was given. */
+export interface Rewind {
+    /** The question it answered. */
+    askId: string;
+    /** The reader's words for it: where "Edit" sits. */
+    readerId: string | null;
+    /** What they picked, so the question comes back with it picked. */
+    chosen: string[];
+    /** How many messages there were before it. */
+    messageCount: number;
+    understanding: Understanding;
+    queue: StepId[];
+    phase: ChatPhase;
+    picks: Record<string, string[]>;
+    revising: boolean;
+    kept: "settings" | "chat" | null;
 }
 
 /**

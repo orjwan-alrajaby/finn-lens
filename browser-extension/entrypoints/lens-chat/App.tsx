@@ -3,6 +3,7 @@ import { ArrowLeft, ArrowUp, MessagesSquare, SquarePen, X } from "lucide-react";
 
 import { BrandMark, IconButton } from "@/components/lens-parts";
 import { onPageChanged, requestCloseChat, requestOpenDrawer, requestPageContext } from "@/lib/chats/bridge";
+import { rewindable } from "@/lib/chats/flow";
 import { loadedCars, pageCars } from "@/lib/chats/scope";
 import { ACTIVE_CHAT_KEY, activeChatId } from "@/lib/chats/store";
 
@@ -191,6 +192,8 @@ export function App() {
                                 onAnswer={(askId, chosen, extra) => void conversation.tap(askId, chosen, extra)}
                                 onImportance={(needId, level) => void conversation.importance(needId, level)}
                                 onChange={(step) => void conversation.changeOne(step)}
+                                editable={rewindable(chat)}
+                                onEdit={() => void conversation.takeBack()}
                                 onOpenCar={(id) => chat && void requestOpenDrawer(chat.id, id)}
                                 onWhy={() => chat?.judgement?.winnerId != null && void requestOpenDrawer(chat.id, chat.judgement.winnerId)}
                             />

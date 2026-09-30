@@ -6,6 +6,7 @@ import {
     askNext,
     changeAnswers,
     rentalMonths,
+    rewind,
     startChat,
     STEP_ORDER,
     withExchange,
@@ -98,6 +99,12 @@ export function useConversation(page: PageCars) {
         },
         [commit],
     );
+
+    /** The last answer taken back, and its question asked again. */
+    const takeBack = useCallback(async () => {
+        const current = latest.current;
+        if (current && !busy) await commit(rewind(current));
+    }, [busy, commit]);
 
     /** One answer, changed from the summary. */
     const changeOne = useCallback(
@@ -343,5 +350,5 @@ export function useConversation(page: PageCars) {
         });
     }, [judge]);
 
-    return { chat, busy, startNew, open, clear, tap, type, whyWinner, change, changeOne, importance, judgeHere, addHere };
+    return { chat, busy, startNew, open, clear, tap, type, whyWinner, change, changeOne, importance, judgeHere, addHere, takeBack };
 }

@@ -7,7 +7,7 @@ import { EMPTY_UNDERSTANDING, withBudget } from "@/lib/lens-chat/understanding";
 import { fleet } from "@/lib/reasoning-engine/test-data/fleet";
 
 import { judgementFrom, judgeWith } from "./judge";
-import { answer, askNext, changeAnswers, changeOne, coveredBy, rentalMonths, setImportance, startChat, startMonth, stepFor, summaryOf, withinLimits } from "./flow";
+import { answer, askNext, changeAnswers, changeOne, coveredBy, rentalMonths, rewind, rewindable, setImportance, startChat, startMonth, stepFor, summaryOf, withinLimits } from "./flow";
 import { readTyped } from "./typing";
 import type { Chat, ChatMessage, SavedSettings, StepId } from "./types";
 
@@ -770,5 +770,52 @@ describe("rules about money, CO₂ and consumption", () => {
         const ids = openAsk(toRules(["budget-500"]))!.step.choices.map((choice) => choice.id);
 
         expect(ids).toEqual(expect.arrayContaining(["low-co2", "frugal"]));
+    });
+});
+
+describe("taking an answer back", () => {
+    const start = () => {
+        const first = startChat(null, cars(), TODAY);
+        const count = answer(first, openAsk(first)!.id, ["passengers-2"], cars(), TODAY).chat;
+        return answer(count, openAsk(count)!.id, ["kids"], cars(), TODAY).chat;
+    };
+
+    it("undoes everything the last answer did, and asks the question again with it picked", () => {
+        const before = start();
+        const seats = answer(before, openAsk(before)!.id, ["seats"], cars(), TODAY).chat;
+
+        expect(seats.understanding.needs.find((need) => need.id === "life-kids")?.importance).toBe("essential");
+        expect(rewindable(seats)).toBe(seats.messages.filter((message) => message.from === "reader").at(-1)!.id);
+
+        const back = rewind(seats);
+        const ask = openAsk(back)!;
+
+        expect(ask.step.id).toBe("follow-kids");
+        expect(ask.step.selected).toEqual(["seats"]);
+        expect(back.messages).toHaveLength(before.messages.length);
+        expect(back.understanding).toEqual(before.understanding);
+        expect(back.queue).toEqual(before.queue);
+
+        const older = answer(back, ask.id, ["older"], cars(), TODAY).chat;
+        expect(older.understanding.needs.find((need) => need.id === "life-kids")?.evidence.map((entry) => entry.id)).not.toContain("hasIsofix");
+    });
+
+    it("steps back one answer at a time", () => {
+        const back = rewind(start());
+
+        expect(openAsk(back)?.step.id).toBe("life-people");
+        expect(back.understanding.needs.map((need) => need.id)).toEqual(["life-passengers-2"]);
+        expect(openAsk(rewind(back))?.step.id).toBe("life-passengers");
+    });
+
+    it("offers no way back once the answers are kept and judged, or after words typed on their own", () => {
+        const kept = walk(startChat(null, cars(), TODAY), { life: ["passengers-2", "kids"] });
+        const judged = answer(kept, openAsk(kept)!.id, ["keep-chat"], cars(), TODAY).chat;
+
+        expect(judged.history).toEqual([]);
+        expect(rewindable(judged)).toBeNull();
+
+        const typed = { ...start(), messages: [...start().messages, { id: "typed", at: "", from: "reader" as const, kind: "text" as const, text: "hello" }] };
+        expect(rewindable(typed)).toBeNull();
     });
 });
