@@ -120,8 +120,12 @@ const labelsOf = (ids: EvidenceId[]) => ids.map((id) => EVIDENCE[id]?.label).fil
  * is read and quoted, never scored — "I'll check boot space" would be a
  * promise the ranking doesn't keep.
  */
-const checked = (need: Understanding["needs"][number]): EvidenceId[] =>
-    need.evidence.filter((entry) => !entry.unwanted && EVIDENCE[entry.id]?.scoredIn != null).map((entry) => entry.id);
+const checked = (need: Understanding["needs"][number], u: Understanding): EvidenceId[] => {
+    /* Nor what a rule already settles: once "automatic only" sets the rest aside, every car left has the gearbox. */
+    const settled = new Set(ruledOut(u).map((rule) => rule.id));
+
+    return need.evidence.filter((entry) => !entry.unwanted && EVIDENCE[entry.id]?.scoredIn != null && !settled.has(entry.id)).map((entry) => entry.id);
+};
 
 /**
  * The needs, asked a group at a time: a short question the reader can
@@ -145,13 +149,14 @@ const GROUP_ASK: Record<NeedGroup, { ask: string; why: string; none: string; pla
         ask: "What kind of driving do you do?",
         why: "Different driving needs different equipment. Tap all that apply — the “i” on an answer shows what I'd check.",
         none: "None of these",
-        placeholder: "e.g. “mountain roads at weekends”",
+        /* Every example is one Lens can read: its own example coming back "couldn't find anything" is the worst advert. */
+        placeholder: "e.g. “home late after night shifts”",
     },
     weather: {
         ask: "What's the weather like where you live?",
         why: "Cold winters and hot summers each need their own equipment. The “i” on an answer shows what I'd check.",
         none: "Nothing unusual",
-        placeholder: "e.g. “lots of rain”",
+        placeholder: "e.g. “snowy winters”",
     },
     loads: {
         ask: "What do you carry or tow?",
@@ -163,7 +168,7 @@ const GROUP_ASK: Record<NeedGroup, { ask: string; why: string; none: string; pla
         ask: "Anything else that matters to you in a car?",
         why: "Each of these adds equipment to what I check — or, for emissions, each car's CO₂. The “i” on an answer shows what.",
         none: "Nothing else",
-        placeholder: "In your own words, e.g. “I drive home after night shifts”",
+        placeholder: "e.g. “something safe and efficient”",
     },
 };
 
@@ -376,7 +381,7 @@ export function selectedFor(step: ChatStep, u: Understanding, picks: Record<stri
         const tapped = new Set(picks[step.id] ?? []);
 
         return step.choices
-            .filter((choice) => owned.has(`${step.guide!.id}-${choice.id}`) || choice.id === `passengers-${u.passengers}` || (!choice.looksFor?.length && tapped.has(choice.id)))
+            .filter((choice) => owned.has(`${step.guide!.id}-${choice.id}`) || choice.id === `passengers-${u.passengers}` || (choice.looksFor === undefined && tapped.has(choice.id)))
             .map((choice) => choice.id);
     }
 
@@ -436,7 +441,8 @@ function acknowledgeGroup(step: ChatStep, u: Understanding, chosen: string[], be
     ];
     /* An answer that adds nothing to check says so in its own words: "One passenger can sit beside you…". */
     const nothingToCheck = step.choices
-        .filter((choice) => chosen.includes(choice.id) && !choice.looksFor?.length && choice.description)
+        /* No need at all — not a need judged on a figure, like emissions, whose list is simply empty. */
+        .filter((choice) => chosen.includes(choice.id) && choice.looksFor === undefined && choice.description)
         .map((choice) => choice.description!);
 
     if (!needs.length) {
@@ -446,7 +452,9 @@ function acknowledgeGroup(step: ChatStep, u: Understanding, chosen: string[], be
         return NOTHING_HERE[step.id.slice("life-".length) as NeedGroup] ?? "Noted.";
     }
 
-    const looks = [...new Set(needs.flatMap((need) => labelsOf(checked(need))))].slice(0, 4);
+    /* A few from each need in turn, so "things like" isn't four things for the first need alone. */
+    const lists = needs.map((need) => labelsOf(checked(need, u)));
+    const looks = [...new Set(Array.from({ length: Math.max(0, ...lists.map((list) => list.length)) }, (_, index) => lists.map((list) => list[index])).flat().filter((label): label is string => Boolean(label)))].slice(0, 4);
     const heard = looks.length
         ? `Got it — ${joined(needs.map((need) => lower(need.label)))}. For ${needs.length === 1 ? "that" : "those"} I'll check things like ${joined(looks.map(lower))}.`
         : `Got it — ${joined(needs.map((need) => lower(need.label)))}.`;
@@ -457,13 +465,15 @@ function acknowledgeGroup(step: ChatStep, u: Understanding, chosen: string[], be
 /** What Lens says after an answer: that it heard, and what it will do with it. */
 export function acknowledge(step: ChatStep, u: Understanding, chosen: string[] = [], before: Set<string> = new Set()): string {
     if (step.followUp) {
-        const replies = step.followUp.choices.filter((choice) => chosen.includes(choice.id)).map((choice) => choice.reply);
+        const picked = step.followUp.choices.filter((choice) => chosen.includes(choice.id));
 
-        if (!replies.length) return "Fine — I'll keep it as it was.";
+        if (!picked.length) return "Fine — I'll keep it as it was.";
+        if (!step.followUp.multiple) return picked.map((choice) => choice.reply).join(" ");
 
-        if (step.followUp.replace) return `Got it — I'll count ${joined(replies)}.`;
+        /* The equipment itself, listed once: three replies joined with "and" read "…sensors, blind spot warning and lane keeping assist and a reversing camera…". */
+        const counted = [...new Set(picked.flatMap((choice) => (choice.add ?? []).map((add) => lower(EVIDENCE[add.id].label))))];
 
-        return step.followUp.multiple ? `Got it. I'll also count ${joined(replies)}.` : replies.join(" ");
+        return `Got it — I'll ${step.followUp.replace ? "" : "also "}count ${joined(counted)}.`;
     }
 
     if (step.offer) {
@@ -489,9 +499,10 @@ export function acknowledge(step: ChatStep, u: Understanding, chosen: string[] =
 
             if (!rules.length) return "Good — nothing's off the table.";
 
-            return `Noted. I'll set aside ${joined(
-                rules.map((rule) => (rule.mode === "without" ? asPhrase(rule.id) : `anything that isn't ${asPhrase(rule.id)}`)),
-            )} before judging.`;
+            /* "Any SUV, and any car that isn't an automatic" — not "anything that isn't an automatic and an SUV". */
+            const parts = rules.map((rule) => (rule.mode === "without" ? asPhrase(rule.id).replace(/^an? /, "any ") : `any car that isn't ${asPhrase(rule.id)}`));
+
+            return `Noted. Before judging, I'll set aside ${parts.length > 1 ? `${parts.slice(0, -1).join(", ")}, and ${parts.at(-1)}` : parts[0]}.`;
         }
         case "budget":
             return u.budget
@@ -523,7 +534,9 @@ export function summaryOf(u: Understanding, id: string = messageId()): Extract<C
 
     lines.push({
         label: "Rules",
-        value: rules.length ? joined(rules.map((rule) => (rule.mode === "without" ? `no ${asPhrase(rule.id).replace(/^an? /, "")}` : `${asPhrase(rule.id)} only`))) : "None",
+        value: rules.length
+            ? joined(rules.map((rule) => `${rule.mode === "without" ? "no " : ""}${asPhrase(rule.id).replace(/^an? /, "")}${rule.mode === "must" ? " only" : ""}`)).replace(/^./, (c) => c.toUpperCase())
+            : "None",
         step: "rules",
     });
     lines.push({ label: "Monthly limit", value: u.budget ? `${formatEUR(u.budget.monthly)} all in` : "No fixed limit", step: "budget" });
@@ -545,7 +558,7 @@ export function summaryOf(u: Understanding, id: string = messageId()): Extract<C
         kind: "summary",
         needs: [...needs]
             .sort((a, b) => rank[a.importance] - rank[b.importance])
-            .map((need) => ({ id: need.id, label: need.label, importance: need.importance, looksFor: labelsOf(checked(need)) })),
+            .map((need) => ({ id: need.id, label: need.label, importance: need.importance, looksFor: labelsOf(checked(need, u)) })),
         lines,
         priorities: translation.profile.priorities.map((item) => ({ label: item.label, share: item.sharePercent })),
     };

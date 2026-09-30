@@ -396,7 +396,7 @@ function readSituation(message: string, previous: WireUnderstanding) {
 
     const lotsToCarry = /luggage|\bbags\b|a lot of stuff|lots of stuff|shopping|buggy|stroller|pram|\bbikes?\b|suitcases?|boot is always full/i.test(text);
     const bootDoesntMatter = notModelled.some((item) => item.said === "lots of boot space");
-    if (lotsToCarry && !bootDoesntMatter && !/\bdogs?\b/i.test(text)) {
+    if (lotsToCarry && !bootDoesntMatter && !/\b(dogs?|pets?|cats?)\b/i.test(text)) {
         add({
             id: "room-to-carry",
             label: /buggy|stroller|pram/i.test(text) ? "The buggy and the shopping" : /bikes?/i.test(text) ? "Bags, and the bikes sometimes" : "Room for everything you carry",
@@ -411,7 +411,7 @@ function readSituation(message: string, previous: WireUnderstanding) {
         });
     }
 
-    if (/\bdogs?\b/i.test(text)) {
+    if (/\b(dogs?|pets?|cats?)\b/i.test(text)) {
         add({
             id: "the-dogs",
             label: "Room for the dogs",
@@ -495,7 +495,7 @@ function readSituation(message: string, previous: WireUnderstanding) {
         });
     }
 
-    if (/efficien|economical|cheap to run/i.test(text)) {
+    if (/efficien|economical|cheap to run|fuel (consumption|economy)|thirsty|guzzl/i.test(text)) {
         /* Judged on CO₂ per km, and named for it: running cost is already in every car's monthly figure. */
         add({ id: "efficient", label: "Low CO₂ per km", importance: "important", said: "you want something efficient", priorities: ["environmental"], evidence: [] });
     }

@@ -84,3 +84,17 @@ describe("words beside the taps", () => {
         }
     });
 });
+
+describe("a long list of needs", () => {
+    it("still hears a need typed after sixteen tapped ones", async () => {
+        const many = Array.from({ length: 16 }, (_, index) => ({
+            id: `life-need-${index}`, label: `Need ${index}`, importance: "important" as const, said: "", priorities: ["comfort" as const],
+            evidence: [], notInData: null, status: "active" as const,
+        }));
+        const start = startChat(null, cars());
+        const read = await readTyped({ ...start, understanding: { ...start.understanding, needs: many } }, "something with low fuel consumption", cars(), null);
+
+        expect(read.heardAs).toContain("low emissions");
+        expect(read.understanding.needs).toHaveLength(17);
+    });
+});

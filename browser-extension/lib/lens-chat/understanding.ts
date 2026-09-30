@@ -297,7 +297,12 @@ export function readUnderstanding(
             status: item.status === "dropped" ? "dropped" : "active",
         });
 
-        if (needs.length >= 8) break;
+        /*
+         * At most eight new needs a turn. Needs carried over from earlier
+         * don't count: a reader who tapped sixteen needs lost anything they
+         * typed after, because the carried ones filled the eight first.
+         */
+        if (needs.filter((need) => !previous.needs.some((earlier) => earlier.id === need.id)).length >= 8) break;
     }
 
     for (const earlier of previous.needs) {

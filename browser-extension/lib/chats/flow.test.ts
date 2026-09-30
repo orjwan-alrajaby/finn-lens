@@ -4,7 +4,10 @@ import { GARAGE } from "@/lib/reasoning-engine/test-garage";
 import { EVIDENCE } from "@/lib/lens-chat/evidence";
 import { withBudget } from "@/lib/lens-chat/understanding";
 
-import { answer, askNext, changeAnswers, changeOne, rentalMonths, setImportance, startChat, startMonth } from "./flow";
+import { fleet } from "@/lib/reasoning-engine/test-data/fleet";
+
+import { answer, askNext, changeAnswers, changeOne, rentalMonths, setImportance, startChat, startMonth, summaryOf } from "./flow";
+import { readTyped } from "./typing";
 import type { Chat, ChatMessage, SavedSettings, StepId } from "./types";
 
 /*
@@ -424,5 +427,56 @@ describe("a conversation, not a form", () => {
 describe("dates", () => {
     it("starts a rental next month, since FINN delivers in weeks", () => {
         expect(startMonth(new Date("2026-12-15T00:00:00Z"))).toBe("2027-01");
+    });
+});
+
+describe("what Lens says back", () => {
+    const page = () => fleet().sort((a, b) => a.id - b.id).slice(0, 24);
+    const askOf = (chat: Chat) => openAsk(chat)!;
+
+    it("can read every example it gives for an answer in your own words", async () => {
+        let chat = startChat(null, page(), TODAY);
+        const examples: string[] = [];
+
+        for (let guard = 0; guard < 20 && openAsk(chat) && askOf(chat).step.id !== "keep"; guard += 1) {
+            const { step } = askOf(chat);
+            const example = step.custom?.kind === "text" ? /“(.+)”/.exec(step.custom.placeholder)?.[1] : null;
+            if (example) examples.push(example);
+            chat = answer(chat, askOf(chat).id, step.id === "life-driving" ? ["city"] : [], page(), TODAY).chat;
+        }
+
+        expect(examples.length).toBeGreaterThanOrEqual(5);
+        for (const example of examples) {
+            const read = await readTyped(startChat(null, page(), TODAY), example, page(), null);
+            expect(read.heardAs, example).not.toEqual([]);
+        }
+    });
+
+    it("lists the help it counts once, not reply after reply joined with \"and\"", () => {
+        const chat = walk(startChat(null, cars(), TODAY), { life: ["nervous"], "follow-nervous": ["parking", "traffic", "reversing"] });
+        const reply = texts(chat).find((text) => text.startsWith("Got it — I'll count"))!;
+
+        expect(reply.match(/ and /g)).toHaveLength(1);
+    });
+
+    it("doesn't call emissions \"nothing to check\" — it's judged on a figure", () => {
+        const chat = walk(startChat(null, cars(), TODAY), { life: ["emissions", "tech"] });
+
+        expect(texts(chat).join(" ")).not.toMatch(/No equipment is involved/);
+        expect(texts(chat).join(" ")).toMatch(/phone connection and co₂ emissions/i);
+    });
+
+    it("says rules so they can't be misread, and stops looking for what a rule settles", () => {
+        let chat = startChat(null, page(), TODAY);
+        for (let guard = 0; guard < 20 && askOf(chat).step.id !== "rules"; guard += 1) {
+            chat = answer(chat, askOf(chat).id, askOf(chat).step.id === "life-driving" ? ["commute"] : [], page(), TODAY).chat;
+        }
+        chat = answer(chat, askOf(chat).id, ["automatic", "no-suv"], page(), TODAY).chat;
+
+        expect(texts(chat).at(-1)).toBe("Noted. Before judging, I'll set aside any car that isn't an automatic, and any SUV.");
+
+        const summary = summaryOf(chat.understanding);
+        expect(summary.lines.find((line) => line.label === "Rules")?.value).toBe("Automatic only and no SUV");
+        expect(summary.needs?.find((need) => need.id === "life-commute")?.looksFor).not.toContain("Automatic gearbox");
     });
 });

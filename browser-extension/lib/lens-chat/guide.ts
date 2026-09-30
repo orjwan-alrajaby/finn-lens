@@ -426,7 +426,7 @@ const LIFE: GuideChoice[] = [
          * Lens can honestly do here. The reader's wish, not a verdict: "Low
          * emissions" in a summary read as a claim about the car.
          */
-        need: { label: "Emissions matter", importance: "important", priorities: ["environmental"], evidence: [] },
+        need: { label: "CO₂ emissions", importance: "important", priorities: ["environmental"], evidence: [] },
     },
 ];
 

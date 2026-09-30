@@ -25,11 +25,12 @@ const joined = (parts: string[]): string =>
  * vanishing — or that it found nothing in them at all.
  */
 export function readBack(text: string, read: Read, tapped: boolean): string {
-    if (!read.changes.length) {
+    if (!read.heardAs.length) {
         return `I couldn't find anything in “${text}” that I can check on a car, so ${tapped ? "I've gone with what you tapped" : "nothing changes here"}.`;
     }
 
-    return read.heardAs.length ? `I read “${text}” as ${joined(read.heardAs)}.` : "";
+    /* Read, but already said — "no high fuel consumption" beside a tapped "Low emissions" — is still read. */
+    return `I read “${text}” as ${joined(read.heardAs)}.`;
 }
 
 /**
