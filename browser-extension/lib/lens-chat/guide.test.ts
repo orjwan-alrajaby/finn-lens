@@ -228,8 +228,8 @@ describe("what if", () => {
 
 describe("what Lens never offers", () => {
     it("leaves niche equipment to the reader to raise", () => {
-        /* A towbar is under Practicality, and "kids in the back" is not a plan to tow. */
-        const u = answer(EMPTY_UNDERSTANDING, "life", ["kids", "carrying"]);
+        /* A towbar is under Practicality, and children and bulky shopping are not a plan to tow. */
+        const u = answer(EMPTY_UNDERSTANDING, "life", ["kids", "bulky"]);
 
         expect(offersFor(u, cars, 8).map((offer) => offer.id)).not.toContain("hasTowbar");
     });

@@ -134,29 +134,6 @@ export const FOLLOW_UPS: Record<string, FollowUp> = {
             { id: "mild", label: "Fairly mild", said: "Fairly mild, really.", importance: "niceToHave", reply: "Mild winters: I'll count winter equipment as nice to have." },
         ],
     },
-    carrying: {
-        need: "carrying",
-        ask: "What do you carry most?",
-        why: "Each kind of load needs different equipment: folding rear seats and an electric tailgate for bulky things, roof rails and a towbar for a bike rack. Pick all that apply.",
-        multiple: true,
-        choices: [
-            {
-                id: "bulky",
-                label: "Big shopping or furniture",
-                said: "Big shopping and the odd bit of furniture.",
-                add: [
-                    { id: "hasSplitFoldingRearSeats", why: "so bulky things fit" },
-                    { id: "hasElectricTailgate", why: "so you can open the boot with your hands full" },
-                ],
-                reply: "folding rear seats and an electric tailgate",
-            },
-            { id: "bikes", label: "Bikes or sports gear", said: "Bikes and sports gear.", add: [
-                    { id: "hasRoofRails", why: "for a bike rack on the roof" },
-                    { id: "hasTowbar", why: "for a bike rack on the towbar" },
-                ], reply: "roof rails and a towbar for a bike rack" },
-            { id: "work", label: "Tools for work", said: "Tools and equipment for work.", add: [{ id: "hasSplitFoldingRearSeats", why: "so long tools and equipment fit" }], remove: ["seatsFivePlus"], reply: "folding rear seats, without counting the number of seats" },
-        ],
-    },
     nervous: {
         need: "nervous",
         ask: "What makes driving stressful for you?",
@@ -257,10 +234,7 @@ export const WORTH_A_LOOK: Record<string, { id: EvidenceId; why: string }[]> = {
         { id: "hasAllWheelDrive", why: "for grip pulling away and climbing on snow and ice — it doesn't shorten braking" },
         { id: "hasHeadlightCleaningSystem", why: "because winter roads coat them in salt" },
     ],
-    carrying: [
-        { id: "hasTowbar", why: "so a trailer can take what doesn't fit in the car" },
-        { id: "towingCapacity1500", why: "so that trailer can carry a heavier load" },
-    ],
+    bulky: [{ id: "hasTowbar", why: "so a trailer can take what doesn't fit in the car" }],
     towing: [
         { id: "hasAllWheelDrive", why: "for pulling a trailer away on wet or steep ground" },
         { id: "hasThreeSixtyDegreesCamera", why: "so you can see the towbar while reversing up to a trailer" },

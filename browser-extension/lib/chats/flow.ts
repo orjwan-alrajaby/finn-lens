@@ -146,8 +146,8 @@ const GROUP_ASK: Record<NeedGroup, { ask: string; why: string; none: string; pla
         placeholder: "e.g. “lots of rain”",
     },
     loads: {
-        ask: "What do you carry?",
-        why: "What you carry adds equipment: folding rear seats and an electric tailgate for bulky loads, roof rails and a towbar for bikes, trailers and roof boxes.",
+        ask: "What do you carry or tow?",
+        why: "Different loads need different equipment. Tap all that apply — the “i” on an answer shows what I'd check.",
         none: "Nothing much",
         placeholder: "e.g. “a double buggy”",
     },

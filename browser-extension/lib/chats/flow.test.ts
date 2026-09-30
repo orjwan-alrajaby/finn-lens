@@ -257,6 +257,15 @@ describe("a conversation, not a form", () => {
         expect(texts(adult).at(-1)).toMatch(/nothing extra to check/);
     });
 
+    it("asks what's carried by name, so no second question is needed to find out", () => {
+        const chat = walk(startChat(null, cars(), TODAY), { life: ["bulky", "towing"], focus: [] });
+        const loads = chat.messages.find((message): message is Ask => message.kind === "ask" && message.step.id === "life-loads")!;
+
+        expect(loads.step.ask).toMatch(/carry or tow/);
+        expect(asked(chat).filter((id) => id.startsWith("follow-"))).toEqual([]);
+        expect(chat.understanding.needs.map((need) => need.id)).toEqual(expect.arrayContaining(["life-bulky", "life-towing"]));
+    });
+
     it("doesn't ask whether a seat count matters more than a need", () => {
         const chat = walk(startChat(null, cars(), TODAY), { life: ["passengers-2", "city"], "follow-city": ["street"] });
 
