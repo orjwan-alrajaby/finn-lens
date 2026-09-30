@@ -494,7 +494,7 @@ function Ask({
                                 <p key={choice.id} className="mt-1.5 flex gap-1.5 px-1 text-[11.5px] leading-snug text-finn-iron">
                                     <Info aria-hidden="true" className="mt-px h-3.5 w-3.5 shrink-0 text-finn-accent-blue" />
                                     <span>
-                                        “{choice.label}” is mostly covered by “{by.label}”: both check {joinedLabels(shared)}.
+                                        “{choice.label}” overlaps with “{by.label}”: both check {joinedLabels(shared)}, so I've set it aside.
                                     </span>
                                 </p>
                             ))}

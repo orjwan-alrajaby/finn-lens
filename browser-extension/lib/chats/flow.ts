@@ -261,7 +261,7 @@ const checked = (need: Understanding["needs"][number], u: Understanding): Eviden
  * answer that's a regular part of someone's life counts, and a reader who
  * taps a lot is asked which matter most afterwards.
  */
-const GROUP_ASK: Record<NeedGroup, { ask: string; why: string; none: string; placeholder: string; max?: number }> = {
+const GROUP_ASK: Record<NeedGroup, { ask: string; why: string; none: string; placeholder: string; max?: number; overlap?: number }> = {
     passengers: {
         ask: "First, how many people usually ride with you?",
         why: "It decides how many seats and doors the car needs.",
@@ -283,7 +283,15 @@ const GROUP_ASK: Record<NeedGroup, { ask: string; why: string; none: string; pla
     },
     driving: {
         ask: "What kind of driving do you do most?",
-        why: "Tap each that's a regular part of your driving. The “i” on an answer says what it means and what I'd check.",
+        why: "Pick up to three that are a regular part of your driving. The “i” on an answer says what it means and what I'd check.",
+        max: 3,
+        /*
+         * Stricter here than elsewhere: long motorway drives and road trips
+         * share half of what Lens checks, and are the same kind of driving.
+         * Elsewhere half is too little — children and pets share rear doors
+         * and are still two different passengers.
+         */
+        overlap: 0.5,
         none: "None of these",
         /* Every example is one Lens can read: its own example coming back "couldn't find anything" is the worst advert. */
         placeholder: "e.g. “home late after night shifts”",
@@ -336,7 +344,7 @@ const MOSTLY = 0.75;
  * would check for the other is already on its own list. Worked out from the
  * equipment on these cars, so it holds for this page and says why.
  */
-function coverageOf(choices: ChatStep["choices"]): ChatStep["covers"] {
+function coverageOf(choices: ChatStep["choices"], threshold = MOSTLY): ChatStep["covers"] {
     const covers: NonNullable<ChatStep["covers"]> = {};
 
     for (const picked of choices) {
@@ -345,14 +353,15 @@ function coverageOf(choices: ChatStep["choices"]): ChatStep["covers"] {
 
             const shared = other.looksFor.filter((label) => picked.looksFor!.includes(label));
 
-            if (shared.length / other.looksFor.length >= MOSTLY) (covers[picked.id] ??= []).push({ id: other.id, shared });
+            if (shared.length / other.looksFor.length >= threshold) (covers[picked.id] ??= []).push({ id: other.id, shared });
         }
     }
 
     return Object.keys(covers).length ? covers : undefined;
 }
 
-const fromGuide = (step: GuideStep): ChatStep => {
+/** The guide's step as the chat asks it; `overlap` is how much two answers may share before one is set aside. */
+const fromGuide = (step: GuideStep, overlap = MOSTLY): ChatStep => {
     const choices = step.choices.map(({ id, label, said, description, means, group, need }) => ({
         id,
         label,
@@ -372,7 +381,7 @@ const fromGuide = (step: GuideStep): ChatStep => {
         why: WHY[step.id],
         multiple: step.multiple,
         choices,
-        covers: step.multiple ? coverageOf(choices) : undefined,
+        covers: step.multiple ? coverageOf(choices, overlap) : undefined,
         none: step.none,
         guide: step,
     };
@@ -610,7 +619,7 @@ export function stepFor(id: StepId, cars: FinnCar[], u: Understanding = EMPTY_UN
 
         /* The guide's own step, narrowed to this group, so answering it replaces this group's answers only. */
         return {
-            ...fromGuide({ ...life, choices, multiple: ask.multiple }),
+            ...fromGuide({ ...life, choices, multiple: ask.multiple }, words.overlap),
             id,
             ask: ask.ask,
             why: words.why,

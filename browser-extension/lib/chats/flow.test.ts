@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { GARAGE } from "@/lib/reasoning-engine/test-garage";
 import { EVIDENCE } from "@/lib/lens-chat/evidence";
-import { withBudget } from "@/lib/lens-chat/understanding";
+import { EMPTY_UNDERSTANDING, withBudget } from "@/lib/lens-chat/understanding";
 
 import { fleet } from "@/lib/reasoning-engine/test-data/fleet";
 
@@ -698,5 +698,24 @@ describe("answers that mostly overlap", () => {
         chat = answer(chat, openAsk(chat)!.id, ["garage", "multi-storey"], page(), TODAY).chat;
 
         expect(chat.understanding.needs.map((need) => need.id)).toEqual(["life-garage"]);
+    });
+});
+
+describe("the kinds of driving", () => {
+    const page = () => fleet().sort((a, b) => a.id - b.id).slice(0, 24);
+
+    it("takes up to three, and not two that are the same kind of driving", () => {
+        const driving = stepFor("life-driving", page())!;
+
+        expect(driving.max).toBe(3);
+        expect(withinLimits(driving, ["city", "night", "roadtrips"])).toEqual(["city", "night", "roadtrips"]);
+        expect(withinLimits(driving, ["motorway", "roadtrips", "city"])).toEqual(["motorway", "city"]);
+        expect(withinLimits(driving, ["city", "commute", "night", "motorway"])).toEqual(["city", "commute", "night"]);
+    });
+
+    it("keeps the stricter overlap to driving: children don't set pets aside", () => {
+        const people = stepFor("life-people", page(), { ...EMPTY_UNDERSTANDING, passengers: 3 })!;
+
+        expect(withinLimits(people, ["kids", "dog", "adults"])).toEqual(["kids", "dog", "adults"]);
     });
 });
