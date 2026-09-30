@@ -1037,3 +1037,26 @@ describe("how much Lens explains, after a result", () => {
         expect(explainAs(more, "quick").depth?.explain).toBe("quick");
     });
 });
+
+describe("fine-tuning from the summary", () => {
+    const quick = () => walk(startChat(null, cars(), TODAY, { ask: "quick", explain: "quick" }), { life: ["passengers-2", "kids", "city", "nervous"], prioritiesConfirm: ["ok"], budget: ["budget-500"] });
+
+    it("offers to fine-tune when Lens asked less than everything", () => {
+        expect(openAsk(quick())!.step.choices.map((choice) => choice.label)).toEqual(["Looks good to me — let's go", "Let me fine-tune"]);
+        expect(openAsk(walk(startChat(null, cars(), TODAY, FULL), { life: ["passengers-2", "kids"] }))!.step.choices.map((choice) => choice.id)).toEqual(["go"]);
+    });
+
+    it("asks the priorities and every priority's features, then says back what it will judge by", () => {
+        const chat = quick();
+        const tuned = answer(chat, openAsk(chat)!.id, ["tune"], cars(), TODAY).chat;
+
+        expect(openAsk(tuned)?.step.id).toBe("prioritiesPick");
+
+        const done = walk(tuned, {});
+        const asked = done.messages.slice(chat.messages.length).filter((message): message is Ask => message.kind === "ask").map((message) => message.step.id);
+
+        expect(asked.filter((id) => id.startsWith("features-")).length).toBe(chatAnswers(done.understanding).answers.priorities.filter((id) => !CATEGORIES[id].numericOnly).length);
+        expect(asked.at(-1)).toBe("confirm");
+        expect(done.depth).toEqual({ ask: "quick", explain: "quick" });
+    });
+});

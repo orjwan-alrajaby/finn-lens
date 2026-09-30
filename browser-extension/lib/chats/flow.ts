@@ -1203,6 +1203,29 @@ const CONFIRM: ChatStep = {
     choices: [{ id: "go", label: "Looks good to me — let's go", said: "Looks good — let's go." }],
 };
 
+/**
+ * The summary's last question. A reader who asked for fewer questions can
+ * still go through what Lens proposed for them — every priority in its
+ * place, and every feature's level — without asking for more of everything
+ * else.
+ */
+function confirmFor(chat: Chat): ChatStep {
+    if (!chat.understanding.lens || depthOf(chat).ask === "thorough" || !orderOf(chat.understanding).length) return CONFIRM;
+
+    return {
+        ...CONFIRM,
+        choices: [
+            ...CONFIRM.choices,
+            {
+                id: "tune",
+                label: "Let me fine-tune",
+                said: "Let me fine-tune it.",
+                description: "Put your priorities in order, and set how much each feature counts. The rest of my questions stay as few as you asked.",
+            },
+        ],
+    };
+}
+
 const KEEP: ChatStep = {
     id: "keep",
     ask: "Shall I keep these as your settings, so every new chat starts from them? Or use them just for this chat?",
@@ -1333,7 +1356,7 @@ export function askNext(chat: Chat, cars: FinnCar[]): Chat {
         [
             lens("Here's what I'll judge the cars by. Change anything that isn't right — tap an importance to set it, or “Change” beside a line."),
             summaryOf(u, messageId(), chat.depth ?? null),
-            { id: messageId(), at: now(), from: "lens", kind: "ask", step: CONFIRM, answered: false },
+            { id: messageId(), at: now(), from: "lens", kind: "ask", step: confirmFor(chat), answered: false },
         ],
         { queue: [], phase: "keep", revising: false, explicit: [] },
     );
@@ -1593,6 +1616,17 @@ function answerStep(
     /* -- The summary looked over: then whether to keep it ----------------- */
     if (step.id === "confirm") {
         if (!picked[0]) return { chat, after: "wait" };
+
+        /* Fine-tuning: the priorities and every feature, as a thorough chat asks them, then the summary again. */
+        if (picked[0].id === "tune") {
+            const next = touch(base, [reader(tapped), lens("Sure — your priorities first, then how much each feature counts.")], {
+                queue: ["priorities", "features"],
+                explicit: ["priorities", "features"],
+                phase: "asking",
+            });
+
+            return { chat: askNext(next, cars), after: "wait" };
+        }
 
         return { chat: touch(base, [reader(tapped), { id: messageId(), at: now(), from: "lens", kind: "ask", step: KEEP, answered: false }]), after: "wait" };
     }
