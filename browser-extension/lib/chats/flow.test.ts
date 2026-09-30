@@ -337,11 +337,11 @@ describe("a conversation, not a form", () => {
     });
 
     it("writes \"&\" on chips and \"and\" in sentences", () => {
-        const chat = walk(startChat(null, cars(), TODAY), { life: ["city", "roadtrips"], focus: ["life-city"] });
+        const chat = walk(startChat(null, cars(), TODAY), { life: ["city", "roadtrips", "night", "tech"], focus: ["life-roadtrips"] });
         const focus = chat.messages.find((message): message is Ask => message.kind === "ask" && message.step.id === "focus")!;
 
         expect(focus.step.choices.map((choice) => choice.label)).toContain("Road trips & holidays");
-        expect(texts(chat).find((text) => /one step less/.test(text))).toMatch(/Road trips and holidays counts one step less/);
+        expect(texts(chat)).toContain("Road trips and holidays now counts twice as much as the rest.");
     });
 
     it("counts only the help that matches what makes driving stressful", () => {
@@ -415,28 +415,39 @@ describe("a conversation, not a form", () => {
         expect(weekly.understanding.needs.find((need) => need.id === "life-motorway")?.importance).toBe("essential");
     });
 
-    it("asks which need matters most only when there's more than one", () => {
-        expect(asked(walk(startChat(null, cars(), TODAY), { life: ["passengers-2", "kids"] }))).not.toContain("focus");
+    it("asks for a top three only when there are more than three needs", () => {
+        /* Three count as they are: ranking them would invent a preference. */
+        expect(asked(walk(startChat(null, cars(), TODAY), { life: ["passengers-2", "kids", "winter", "city"], "follow-kids": ["seats"], "follow-winter": ["snow"] }))).not.toContain("focus");
 
-        const chat = walk(startChat(null, cars(), TODAY), { life: ["passengers-2", "kids", "winter"], "follow-kids": ["boosters"], "follow-winter": ["cold"], focus: ["life-winter"] });
+        const chat = walk(startChat(null, cars(), TODAY), { life: ["passengers-2", "kids", "winter", "city", "bulky"], "follow-kids": ["boosters"], "follow-winter": ["cold"], focus: ["life-winter"] });
+        const focus = chat.messages.find((message): message is Ask => message.kind === "ask" && message.step.id === "focus")!;
 
-        expect(asked(chat)).toContain("focus");
+        expect(focus.step.ask).toBe("You've told me about 4 things that matter to you. When no car has all of them, it helps me to know your top three — which are they?");
+        expect(focus.step.max).toBe(3);
         expect(chat.understanding.needs.find((need) => need.id === "life-winter")?.importance).toBe("essential");
-        /* One step apart, as the question promises — the other isn't pushed down as well. */
         expect(chat.understanding.needs.find((need) => need.id === "life-kids")?.importance).toBe("important");
     });
 
-    it("doesn't ask what matters most when the answers already say", () => {
-        const chat = walk(startChat(null, cars(), TODAY), { life: ["passengers-2", "kids", "winter"], "follow-kids": ["seats"], "follow-winter": ["cold"] });
+    it("starts with what the answers said could decide it, and steps back what isn't picked", () => {
+        const chat = walk(startChat(null, cars(), TODAY), {
+            life: ["passengers-2", "kids", "winter", "city", "bulky"],
+            "follow-kids": ["seats"],
+            "follow-winter": ["snow"],
+            focus: ["life-kids", "life-city"],
+        });
+        const focus = chat.messages.find((message): message is Ask => message.kind === "ask" && message.step.id === "focus")!;
+        const level = (id: string) => chat.understanding.needs.find((need) => need.id === id)?.importance;
 
-        expect(asked(chat)).not.toContain("focus");
+        expect(focus.step.selected).toEqual(expect.arrayContaining(["life-kids", "life-winter"]));
+        expect(focus.step.why).toMatch(/started with the ones your answers said could decide it/);
+        expect([level("life-kids"), level("life-city"), level("life-winter"), level("life-bulky")]).toEqual(["essential", "essential", "important", "important"]);
     });
 
-    it("breaks a tie between must-haves, stepping the others down one", () => {
-        const chat = walk(startChat(null, cars(), TODAY), { life: ["passengers-2", "kids", "winter"], "follow-kids": ["seats"], "follow-winter": ["snow"], focus: ["life-kids"] });
+    it("counts them all the same when the reader says they matter equally", () => {
+        const chat = walk(startChat(null, cars(), TODAY), { life: ["passengers-2", "kids", "winter", "city", "bulky"], "follow-kids": ["seats"], "follow-winter": ["snow"] });
 
-        expect(chat.understanding.needs.find((need) => need.id === "life-kids")?.importance).toBe("essential");
-        expect(chat.understanding.needs.find((need) => need.id === "life-winter")?.importance).toBe("important");
+        expect(rankableLevels(chat)).toEqual(["important"]);
+        expect(texts(chat)).toContain("Equal it is — they all count the same.");
     });
 
     it("offers equipment the cars here differ on, says why, and counts it on a yes", () => {
@@ -561,37 +572,35 @@ describe("what Lens says back", () => {
     });
 });
 
+/** The levels the needs a reader can rank ended up at, each once. */
+const rankableLevels = (chat: Chat) => [
+    ...new Set(chat.understanding.needs.filter((need) => !need.id.startsWith("life-passengers-")).map((need) => need.importance)),
+];
+
 describe("a long list of needs", () => {
     const asked = (chat: Chat) => chat.messages.filter((message): message is Ask => message.kind === "ask").map((message) => message.step.id);
 
-    it("asks which matter most when many share a level, and lifts up to three", () => {
+    it("asks for a top three out of many, with what already decides it picked", () => {
         const chat = walk(startChat(null, cars(), TODAY), {
             life: ["passengers-2", "kids", "dog", "city", "commute", "night", "summer", "bulky", "safety", "tech", "comfort"],
             "follow-kids": ["boosters"], "follow-commute": ["long"],
             focus: ["life-kids", "life-safety", "life-city"],
         });
         const focus = chat.messages.find((message): message is Ask => message.kind === "ask" && message.step.id === "focus")!;
+        const level = (id: string) => chat.understanding.needs.find((need) => need.id === id)?.importance;
 
-        /* The commute leads on its own; the crowd below it is what's asked about. */
-        expect(focus.step.multiple).toBe(true);
-        expect(focus.step.max).toBe(3);
-        expect(focus.step.ask).toMatch(/things at “Important”/);
-        expect(focus.step.choices.map((choice) => choice.id)).not.toContain("life-commute");
+        expect(focus.step.ask).toMatch(/^You've told me about \d+ things that matter to you/);
+        /* A commute over 45 minutes starts picked; seat counts aren't ranked. */
+        expect(focus.step.selected).toEqual(["life-commute"]);
         expect(focus.step.choices.map((choice) => choice.id)).not.toContain("life-passengers-2");
 
-        const level = (id: string) => chat.understanding.needs.find((need) => need.id === id)?.importance;
         expect([level("life-kids"), level("life-safety"), level("life-city")]).toEqual(["essential", "essential", "essential"]);
+        expect(level("life-commute")).toBe("important");
         expect(level("life-dog")).toBe("important");
         expect(chat.messages.filter((message) => message.from === "reader").map((message) => (message as { text: string }).text)).toContain(
-            "These matter most: travelling with children, city driving and safety.",
+            "My top three: travelling with children, city driving and safety.",
         );
-        expect(texts(chat).find((text) => /a step above the other/.test(text))).toMatch(/^Travelling with children, city driving and safety now count a step above the other \d+\.$/);
-    });
-
-    it("still asks nothing when one need leads and the rest are few", () => {
-        const chat = walk(startChat(null, cars(), TODAY), { life: ["commute", "city"], "follow-commute": ["long"] });
-
-        expect(asked(chat)).not.toContain("focus");
+        expect(texts(chat)).toContain("Travelling with children, city driving and safety now count twice as much as the rest.");
     });
 });
 

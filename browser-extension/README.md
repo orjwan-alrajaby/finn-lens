@@ -7,9 +7,9 @@ A browser extension that helps you choose between FINN car subscriptions by chat
 1. **Install.** Lens opens finn.com, and a bubble in the corner opens by itself. Lens says hello, explains what's about to happen, and asks its first question.
 2. **Questions.** Lens asks what the car has to do a few needs at a time: how many people ride with you, then who they are (the count decides seats and doors; with nobody along, it only asks about pets), the driving you do, where you park, the weather, what you carry, what makes it yours, and how much CO₂ and fuel or electricity use matter, each as its own short question. Each need says what it means, and which equipment Lens will check, as it's picked. After that:
    - a follow-up where one answer changes what Lens looks for (child seats or older kids? snow, or rain and fog?);
-   - which need wins, when several tie;
-   - anything that rules a car out;
-   - the monthly limit, how long the car is needed, and how far the reader drives;
+   - the top three, when there are more than three needs — what the answers said could decide it starts picked, and the three picked count twice as much as the rest;
+   - the monthly limit, then anything that rules a car out (the limit itself can be one);
+   - how long the car is needed, and how far the reader drives;
    - equipment "worth a look" that the cars on the page differ on.
 
    Every question says why it's asked, and takes the reader's own answer, in words or as a number. Anything already said isn't asked again. "Edit this answer" under the last answer takes it back — everything it changed with it — and asks that question again, one answer at a time, until the answers are kept.

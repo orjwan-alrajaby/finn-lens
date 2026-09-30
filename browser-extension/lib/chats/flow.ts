@@ -174,35 +174,16 @@ function nowSaid(step: StepId, u: Understanding, cars: FinnCar[]): string {
  */
 const ONE_ANSWER = new Set<NeedGroup>(["passengers", "co2", "efficiency"]);
 
-/** A level this crowded says little: with this many needs on it, each counts for too little to decide anything. */
-const CROWDED = 5;
-
-/** At most this many can be picked out of a crowded level, or picking them says nothing either. */
-const PICK_UP_TO = 3;
+/** How many a reader is asked to pick as what matters most. */
+const TOP = 3;
 
 /**
- * The needs worth ranking against each other: a tie at the top, or — when
- * one need already leads — the most crowded level below it. A reader who
- * named fifteen things at "important" had each counting for about 6%, and
- * nothing asked which of them mattered.
- *
- * How many ride along is a fact about the reader, and a rule isn't a
- * preference: neither is put up against the rest, and a rule stepped down
- * here would stop being one.
+ * The needs a reader can rank: everything they said matters, but not how
+ * many ride along — a fact about them, not a preference — and not a rule,
+ * which a ranking mustn't step down.
  */
-const contested = (u: Understanding) => {
-    const needs = lifeNeeds(u).filter(
-        (need) => !need.id.startsWith("life-passengers-") && !need.evidence.some((entry) => entry.mustHave || entry.unwanted),
-    );
-    const top = Math.max(0, ...needs.map((need) => LEVEL[need.importance]));
-    const atTop = needs.filter((need) => LEVEL[need.importance] === top);
-
-    if (atTop.length >= 2) return atTop;
-
-    const levels = [...new Set(needs.map((need) => LEVEL[need.importance]))].map((level) => needs.filter((need) => LEVEL[need.importance] === level));
-
-    return levels.sort((a, b) => b.length - a.length).find((level) => level.length >= CROWDED) ?? [];
-};
+const rankable = (u: Understanding) =>
+    lifeNeeds(u).filter((need) => !need.id.startsWith("life-passengers-") && !need.evidence.some((entry) => entry.mustHave || entry.unwanted));
 
 /* -------------------------------------------------------------------------- */
 /* The questions                                                              */
@@ -334,7 +315,7 @@ const WHY: Record<string, string> = {
     budget: "A car over your limit can't be my pick. I compare each car's FINN price plus estimated fuel or charging and the mileage package your distance needs.",
     period: "FINN prices each car by how long you subscribe, and not every car is offered for every length — so this changes both the price and which cars fit.",
     distance: `FINN's price includes ${FINN_INCLUDED_MONTHLY_KM.toLocaleString("en-GB")} km a month; more needs one of FINN's mileage packages, which adds to each car's price. Your distance also sets what fuel or charging costs you.`,
-    focus: "When no car has everything, the need you pick counts most in the ranking, and the others count a step less.",
+    focus: "Your top three count twice as much as the rest in the ranking. You can change this later in the summary.",
 };
 
 /** An answer this much of whose checks another picked answer already makes is set aside. */
@@ -463,28 +444,25 @@ export function stepFor(id: StepId, cars: FinnCar[], u: Understanding = EMPTY_UN
 
         case "focus": {
             /*
-             * Only a tie needs breaking: a tie at the top, or a crowd below
-             * one need that already leads. Otherwise the reader has answered.
+             * With three things or fewer, they count as they are: ranking
+             * them would invent a preference. With more, the reader says
+             * which three matter most — what their answers already marked as
+             * deciding it starts picked, and they confirm or change it.
              */
-            const needs = contested(u);
+            const needs = rankable(u);
 
-            if (needs.length < 2) return null;
-
-            const allMust = needs.every((need) => need.importance === "essential");
-            const crowd = needs.length >= CROWDED;
+            if (needs.length <= TOP) return null;
 
             return {
                 id,
-                ask: crowd
-                    ? `That's ${needs.length} things at “${IMPORTANCE_LABEL[needs[0]!.importance]}”, so each counts for only a little. Which of them matter most?`
-                    : allMust
-                      ? "You've made these all must-haves. If the cars can't give you all of them, which wins?"
-                      : "If the cars can't give you everything, which of these matters most?",
-                why: crowd ? "Pick up to three. They'll count a step more than the rest, which stay as they are." : WHY.focus,
-                multiple: crowd,
-                max: crowd ? PICK_UP_TO : undefined,
+                ask: `You've told me about ${needs.length} things that matter to you. When no car has all of them, it helps me to know your top three — which are they?`,
+                why: needs.some((need) => need.importance === "essential")
+                    ? "Your top three count twice as much as the rest in the ranking. I've started with the ones your answers said could decide it — change them if they're not your top three. You can change this later in the summary too."
+                    : WHY.focus,
+                multiple: true,
+                max: TOP,
                 /* "&" on a chip, where space is short; the reader's words keep "and". */
-                choices: needs.map((need) => ({ id: need.id, label: need.label.replace(/ and /g, " & "), said: `${need.label} matters most.` })),
+                choices: needs.map((need) => ({ id: need.id, label: need.label.replace(/ and /g, " & "), said: need.label })),
                 none: "They matter equally",
             };
         }
@@ -795,19 +773,12 @@ export function acknowledge(step: ChatStep, u: Understanding, chosen: string[] =
 
     switch (step.id) {
         case "focus": {
-            const top = u.needs.find((need) => chosen.includes(need.id));
+            const top = u.needs.filter((need) => chosen.includes(need.id)).map((need) => need.label);
+
+            if (!top.length) return "Equal it is — they all count the same.";
+
             /* The needs' own names, not the chips': "&" is for chips, not sentences. */
-            const others = u.needs.filter((need) => step.choices.some((choice) => choice.id === need.id) && !chosen.includes(need.id)).map((need) => lower(need.label));
-
-            if (step.multiple && top) {
-                const picked = u.needs.filter((need) => chosen.includes(need.id)).map((need) => need.label);
-
-                return `${joined(picked.map((label, index) => (index ? lower(label) : label)))} now ${picked.length === 1 ? "counts" : "count"} a step above the other ${others.length}.`;
-            }
-
-            return top
-                ? `${top.label} now counts most in the ranking. ${joined(others).replace(/^./, (c) => c.toUpperCase())} ${others.length === 1 ? "counts" : "count"} one step less.`
-                : "Equal it is — none of them outranks the others.";
+            return `${joined(top.map((label, index) => (index ? lower(label) : label)))} now ${top.length === 1 ? "counts" : "count"} twice as much as the rest.`;
         }
         case "rules": {
             const rules = ruledOut(u);
@@ -1016,7 +987,7 @@ export function askNext(chat: Chat, cars: FinnCar[]): Chat {
             from: "lens",
             kind: "ask",
             /* A need already given — typed earlier, or kept from last time — shows as picked, so answering doesn't undo it. */
-            step: preselect || id.startsWith("life-") ? { ...step, selected: selectedFor(step, u, chat.picks) } : step,
+            step: preselect || id.startsWith("life-") || id === "focus" ? { ...step, selected: selectedFor(step, u, chat.picks) } : step,
             answered: false,
         };
 
@@ -1320,29 +1291,25 @@ function answerStep(
         understanding = chosen.includes("yes")
             ? withSuggestion(understanding, step.offer.id, explain(step.offer.id, offerReason(step.offer.needId, step.offer.id)), step.offer.needId)
             : withoutSuggestion(understanding, step.offer.id);
-    } else if (step.id === "focus" && chosen.length) {
+    } else if (step.id === "focus") {
         /*
-         * The one they chose ends up one step above the others it tied with —
-         * one step, as the question says. Raising the choice and lowering
-         * the rest as well put "safety above all" two steps over a nervous
-         * driver's needs, which fell to nice-to-have.
+         * The reader's top three are must-haves, and nothing else is: a
+         * need an answer had marked as deciding it, and which they didn't
+         * pick, steps back to important. "They matter equally" does the same
+         * for all of them. What they said happens only now and then stays
+         * nice to have.
          */
-        const tied = new Set(step.choices.map((choice) => choice.id));
-        const up: Record<NeedImportance, NeedImportance> = { niceToHave: "important", important: "essential", essential: "essential" };
+        const ranked = new Set(step.choices.map((choice) => choice.id));
+        const labels = understanding.needs.filter((need) => chosen.includes(need.id)).map((need) => lower(need.label));
 
-        /* Several picked: one sentence, not "…matters most." three times. */
-        if (step.multiple) {
-            const labels = understanding.needs.filter((need) => chosen.includes(need.id)).map((need) => lower(need.label));
-            said = `These matter most: ${joined(labels)}.`;
-        }
+        said = labels.length ? `My top ${labels.length === 1 ? "one" : labels.length === 2 ? "two" : "three"}: ${joined(labels)}.` : step.none ?? "";
 
         understanding = {
             ...understanding,
             needs: understanding.needs.map((need) => {
-                if (!tied.has(need.id)) return need;
-                if (chosen.includes(need.id)) return { ...need, importance: up[need.importance] };
+                if (!ranked.has(need.id)) return need;
+                if (chosen.includes(need.id)) return { ...need, importance: "essential" as const };
 
-                /* Already at the top, the choice can't rise: the others step down instead. */
                 return need.importance === "essential" ? { ...need, importance: "important" as const } : need;
             }),
         };
