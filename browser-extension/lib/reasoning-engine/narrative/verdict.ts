@@ -63,6 +63,8 @@ export function summarisePriority(
    * essential and parking merely important.
    */
   ranked = true,
+  /** The first two carry the same share, so neither is "the most". */
+  tiedAtTop = false,
 ): string | null {
   if (reasoning.standing === "unsupported") return null;
 
@@ -71,9 +73,15 @@ export function summarisePriority(
     ? position === "first"
       ? `You put ${label} first`
       : `${toSentenceStart(label)} is your #${reasoning.rank}`
-    : position === "first"
-      ? `${toSentenceStart(label)} holds the most of what you asked for`
-      : `${toSentenceStart(label)} holds the next most`;
+    : reasoning.weightPercent >= 100
+      ? `${toSentenceStart(label)} is all you asked Lens to weigh`
+      : position === "first"
+        ? tiedAtTop
+          ? `${toSentenceStart(label)} holds as much of what you asked for as anything`
+          : `${toSentenceStart(label)} holds the most of what you asked for`
+        : tiedAtTop
+          ? `So does ${label}`
+          : `${toSentenceStart(label)} holds the next most`;
 
   const { basis, picked, coverage: cover, measuredShort = [] } = reasoning.features;
   const { present, missing } = picked;
@@ -158,10 +166,11 @@ function describeReasons(priorities: PriorityReasoning[], ranked = true): string
   const usable = priorities.filter((item) => item.standing !== "unsupported");
 
   const [first, second] = usable;
+  const tied = Boolean(first && second && first.weightPercent === second.weightPercent);
 
   return paragraph(
-    first ? summarisePriority(first, "first", ranked) : null,
-    second ? summarisePriority(second, "next", ranked) : null,
+    first ? summarisePriority(first, "first", ranked, tied) : null,
+    second ? summarisePriority(second, "next", ranked, tied) : null,
   );
 }
 
