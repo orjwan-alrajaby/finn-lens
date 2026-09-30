@@ -222,6 +222,7 @@ function Explainer({ choice, onClose }: { choice: Choice; onClose: () => void })
             <Info aria-hidden="true" className="mt-0.5 h-4 w-4 shrink-0 text-finn-accent-blue" />
             <div className="min-w-0 flex-1">
                 <p className="font-black text-finn-black">{choice.label}</p>
+                {choice.means ? <p className="mt-0.5 text-finn-black/85">{choice.means}</p> : null}
                 {choice.features?.length ? (
                     <>
                         <p className="mt-0.5 text-finn-iron">I'll check each car for:</p>

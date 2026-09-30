@@ -53,6 +53,8 @@ export interface Choice {
     said: string;
     /** What choosing it means, shown before and after it's picked. */
     description?: string;
+    /** What the answer itself means, before what Lens checks for it. */
+    means?: string;
     group?: NeedGroup;
     /** The equipment Lens will check for it, by name. */
     looksFor?: string[];

@@ -613,12 +613,29 @@ describe("city driving and parking", () => {
 });
 
 describe("common sense in what can be picked", () => {
-    it("takes the one or two a reader does most, not everything", () => {
-        const chat = walk(startChat(null, cars(), TODAY), { life: ["city", "commute", "motorway", "night"], "follow-commute": ["short"], "follow-motorway": ["monthly"] });
-        const driving = chat.messages.find((message): message is Ask => message.kind === "ask" && message.step.id === "life-driving")!;
+    it("takes every regular kind of driving, and the one or two places parked most", () => {
+        const chat = walk(startChat(null, cars(), TODAY), { life: ["city", "night", "roadtrips", "street", "garage", "open-car-park"] });
+        const ids = chat.understanding.needs.map((need) => need.id);
+        const parking = chat.messages.find((message): message is Ask => message.kind === "ask" && message.step.id === "life-parking")!;
 
-        expect(driving.step.max).toBe(2);
-        expect(chat.understanding.needs.map((need) => need.id).filter((id) => ["life-city", "life-commute", "life-motorway", "life-night"].includes(id))).toEqual(["life-city", "life-commute"]);
+        expect(ids).toEqual(expect.arrayContaining(["life-city", "life-night", "life-roadtrips"]));
+        expect(parking.step.max).toBe(2);
+        expect(ids.filter((id) => ["life-street", "life-garage", "life-open-car-park"].includes(id))).toEqual(["life-street", "life-garage"]);
+    });
+
+    it("says what each answer means, and that a city commute is both", () => {
+        const start = startChat(null, cars(), TODAY);
+        let chat = start;
+        const meanings: Record<string, string | undefined> = {};
+
+        for (let guard = 0; guard < 12 && openAsk(chat)?.step.id.startsWith("life-"); guard += 1) {
+            for (const choice of openAsk(chat)!.step.choices) if (!choice.id.startsWith("passengers-") && choice.id !== "driveway") meanings[choice.id] = choice.means;
+            chat = answer(chat, openAsk(chat)!.id, openAsk(chat)!.step.id === "life-passengers" ? ["passengers-2"] : [], cars(), TODAY).chat;
+        }
+
+        expect(Object.keys(meanings).length).toBeGreaterThan(15);
+        for (const [id, means] of Object.entries(meanings)) expect(means, id).toMatch(/\w{3,}/);
+        expect(meanings.commute).toMatch(/pick City driving too/);
     });
 
     it("never keeps two answers that can't both be true", () => {

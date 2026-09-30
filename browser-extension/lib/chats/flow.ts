@@ -241,11 +241,10 @@ const checked = (need: Understanding["needs"][number], u: Understanding): Eviden
  * matters, and each has its own way of saying "none of these".
  */
 /*
- * How many answers make sense. A question about what someone does most is
- * answered by one or two things: "all of them" says nothing about which
- * matters, and a reader who taps every kind of driving has told Lens less
- * than one who taps two. Where every answer can be true at once — cold
- * winters and hot summers — there's no limit.
+ * How many answers make sense. Where you park most often is one or two
+ * places — home and work — so that question takes two. Elsewhere every
+ * answer that's a regular part of someone's life counts, and a reader who
+ * taps a lot is asked which matter most afterwards.
  */
 const GROUP_ASK: Record<NeedGroup, { ask: string; why: string; none: string; placeholder: string; max?: number }> = {
     passengers: {
@@ -269,8 +268,7 @@ const GROUP_ASK: Record<NeedGroup, { ask: string; why: string; none: string; pla
     },
     driving: {
         ask: "What kind of driving do you do most?",
-        why: "Pick the one or two that make up most of it. Different driving needs different equipment — the “i” on an answer shows what I'd check.",
-        max: 2,
+        why: "Tap each that's a regular part of your driving. The “i” on an answer says what it means and what I'd check.",
         none: "None of these",
         /* Every example is one Lens can read: its own example coming back "couldn't find anything" is the worst advert. */
         placeholder: "e.g. “home late after night shifts”",
@@ -282,16 +280,14 @@ const GROUP_ASK: Record<NeedGroup, { ask: string; why: string; none: string; pla
         placeholder: "e.g. “snowy winters”",
     },
     loads: {
-        ask: "What do you carry or tow most?",
-        why: "Pick up to two. Different loads need different equipment — the “i” on an answer shows what I'd check.",
-        max: 2,
+        ask: "What do you carry or tow?",
+        why: "Tap each you carry or tow regularly. Different loads need different equipment — the “i” on an answer shows what I'd check.",
         none: "Nothing much",
         placeholder: "e.g. “a double buggy”",
     },
     you: {
-        ask: "Anything else that matters most to you in a car?",
-        why: "Pick up to two. Each adds equipment to what I check — or, for emissions, each car's CO₂. The “i” on an answer shows what.",
-        max: 2,
+        ask: "Anything else that matters to you in a car?",
+        why: "Each adds equipment to what I check — or, for emissions, each car's CO₂. The “i” on an answer says what it means and what I'd check.",
         none: "Nothing else",
         placeholder: "e.g. “something safe and efficient”",
     },
@@ -310,11 +306,12 @@ const fromGuide = (step: GuideStep): ChatStep => ({
     ask: step.ask,
     why: WHY[step.id],
     multiple: step.multiple,
-    choices: step.choices.map(({ id, label, said, description, group, need }) => ({
+    choices: step.choices.map(({ id, label, said, description, means, group, need }) => ({
         id,
         label,
         said,
         description,
+        means,
         group,
         looksFor: need ? labelsOf(need.evidence) : undefined,
         features: need?.evidence

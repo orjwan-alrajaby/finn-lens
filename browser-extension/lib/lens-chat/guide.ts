@@ -149,6 +149,8 @@ export interface GuideChoice {
     said: string;
     /** What choosing it means, in a sentence, shown before and after it's picked. */
     description?: string;
+    /** What the answer itself means, in the reader's terms: "Commuting" beside "City driving". */
+    means?: string;
     /** Where it sits among the others, so a long list can be scanned. */
     group?: NeedGroup;
     /** A need this stands for: what the car has to do, and what Lens looks at. */
@@ -243,7 +245,7 @@ const PASSENGERS: GuideChoice[] = [
     passengersNeed(5, "5 or more", "Usually five or more other people.", "Room for everyone: rear doors, and six or more seats.", "Five or more passengers", [["seatsSixPlus", "so everyone has a seat"]]),
 ];
 
-const LIFE: GuideChoice[] = [
+const CHOICES: GuideChoice[] = [
     ...PASSENGERS,
     /* Seats and doors come from the count; these are what each kind of passenger needs besides. */
     need("kids", "people", "Children", "Children.",
@@ -485,6 +487,38 @@ const LIFE: GuideChoice[] = [
         need: { label: "CO₂ emissions", importance: "important", priorities: ["environmental"], evidence: [] },
     },
 ];
+
+/*
+ * What each answer means, for its "i" — so "Commuting" and "City driving"
+ * aren't left for the reader to tell apart. Where two answers are different
+ * axes rather than rivals, the meaning says to pick both.
+ */
+const MEANS: Record<string, string> = {
+    kids: "Children who ride with you, in child seats or not.",
+    adults: "Grown-ups riding with you: family, friends or colleagues.",
+    dog: "A dog, cat or other pet that travels in the car.",
+    city: "Driving in town: traffic lights, stop-and-go traffic, narrow streets, cyclists and people crossing. Where you park is asked next.",
+    commute: "The same trip to work or school most weekdays, whatever the roads. If it's through town, pick City driving too.",
+    motorway: "Hours at a steady speed on the motorway, for work or to see people. How often is asked next.",
+    roadtrips: "Longer trips with luggage: holidays and weekends away, often loaded up.",
+    night: "A lot of your driving happens after dark, on lit or unlit roads.",
+    street: "Parking at the kerb, often parallel, between other cars.",
+    garage: "Your own garage, where the door frame and the walls are close.",
+    "multi-storey": "Car parks with levels, ramps, pillars and narrow bays — at the mall, the station, the city centre.",
+    "open-car-park": "Open-air car parks at the supermarket, work or the gym, where you reverse out into passing traffic.",
+    winter: "Winters cold enough that you scrape the windscreen. What they're like is asked next.",
+    summer: "Summers hot enough that the car is an oven after standing in the sun.",
+    bulky: "Big shopping, flat-pack furniture, a pram or tools: things that need the seats folded.",
+    bikes: "Bikes, skis or a roof box: loads that go on the roof or a rack.",
+    towing: "A trailer, caravan or horse box behind the car.",
+    nervous: "Driving makes you anxious. What worries you most — parking, traffic, reversing out — is asked next.",
+    safety: "As much help avoiding a collision as the cars offer, whoever is driving.",
+    tech: "Your phone's maps, music and calls on the car's screen, and charging it without a cable.",
+    comfort: "Small comforts you'd use every day: electric seats, keyless entry, wireless charging, your own temperature.",
+    emissions: "How much CO₂ each car puts out per kilometre — not what it costs to run.",
+};
+
+const LIFE: GuideChoice[] = CHOICES.map((choice) => (MEANS[choice.id] ? { ...choice, means: MEANS[choice.id] } : choice));
 
 /**
  * Rules, not preferences: what Lens should keep or set aside outright.
