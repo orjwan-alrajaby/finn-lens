@@ -170,8 +170,13 @@ export const FOLLOW_UPS: Record<string, FollowUp> = {
             { id: "traffic", label: "Busy traffic, changing lanes", said: "Busy traffic and changing lanes.", add: [
                     { id: "hasBlindSpotAssist", why: "for the cars you can't see when changing lanes" },
                     { id: "hasLaneKeepingAssist", why: "for a moment's inattention" },
-                    { id: "hasAdaptiveCruiseControl", why: "so you don't have to judge the gap to the car ahead in traffic" },
-                ], reply: "blind spot warning, lane keeping assist and adaptive cruise control" },
+                    /*
+                     * Not adaptive cruise control: Lens scores it under Long
+                     * Distance Travel, which also marks an electric car down
+                     * for its range — a nervous driver in town would have
+                     * been judged on trips they never described.
+                     */
+                ], reply: "blind spot warning and lane keeping assist" },
             { id: "reversing", label: "Reversing out", said: "Reversing out of spaces.", add: [
                     { id: "hasRearCrosswalkWarning", why: "for reversing out between parked cars, where you can't see traffic coming" },
                     { id: "hasOneEightyDegreesReversingCamera", why: "so you aren't reversing on mirrors alone" },
@@ -243,7 +248,7 @@ export const WORTH_A_LOOK: Record<string, { id: EvidenceId; why: string }[]> = {
         { id: "hasElectricTailgate", why: "so you can open the boot with bags in your hands" },
     ],
     night: [
-        { id: "hasHeadUpDisplay", why: "so your eyes stay on the dark road instead of the dashboard" },
+        /* Not a head-up display: scored under Long Distance Travel, it brings an electric car's range into a need about the dark. */
         { id: "hasHeadlightCleaningSystem", why: "because dirt on the headlights dims them" },
     ],
     winter: [
@@ -262,7 +267,7 @@ export const WORTH_A_LOOK: Record<string, { id: EvidenceId; why: string }[]> = {
     ],
     safety: [
         { id: "hasMatrixLedHeadlights", why: "so you see further at night" },
-        { id: "driverAssistLevel2", why: "which adds steering help to the braking and warning systems" },
+        /* Not Level 2 assistance, for the same reason as adaptive cruise control for a nervous driver. */
         { id: "hasThreeSixtyDegreesCamera", why: "so you see obstacles on every side while manoeuvring" },
     ],
     comfort: [

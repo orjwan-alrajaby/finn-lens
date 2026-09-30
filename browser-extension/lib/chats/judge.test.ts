@@ -135,6 +135,24 @@ describe("counting only what the reader asked for", () => {
         }
     });
 
+    it("brings Long Distance Travel, and its range limit, only to needs about distance", () => {
+        const aboutDistance = new Set(["commute", "motorway", "roadtrips"]);
+
+        for (const choice of life().choices.filter((item) => !aboutDistance.has(item.id))) {
+            const u = picked(choice.id);
+            const followUp = FOLLOW_UPS[choice.id];
+            const variants = [
+                u,
+                ...(followUp?.choices ?? []).map((option) => applyFollowUp(u, followUp!, [option.id])),
+                ...(WORTH_A_LOOK[choice.id] ?? []).map((offer) => withSuggestion(u, offer.id, offer.why, `life-${choice.id}`)),
+            ];
+
+            for (const variant of variants) {
+                expect(chatAnswers(variant).answers.priorities, choice.id).not.toContain("longDistance");
+            }
+        }
+    });
+
     it("keeps every accepted item, past the five a settings screen allows", () => {
         const winter = FOLLOW_UPS.winter!;
         let u = applyFollowUp(picked("winter"), winter, ["snow"]);
@@ -166,6 +184,15 @@ describe("counting only what the reader asked for", () => {
         const { answers } = chatAnswers(u);
 
         expect(Object.values(answers.features).flat().map((item) => item.key)).not.toContain("hasTowbar");
+    });
+
+    it("doesn't score a rule's equipment when another need names it too", () => {
+        /* A commute counts an automatic gearbox; with "automatic only" as well, every car left has one. */
+        const u = applyChoices(picked("commute"), guideSteps([]).find((step) => step.id === "rules")!, ["automatic"]);
+        const { answers } = chatAnswers(u);
+
+        expect(Object.values(answers.features).flat().map((item) => item.key)).not.toContain("hasAutomaticTransmission");
+        expect(answers.priorities).not.toContain("cityParking");
     });
 });
 

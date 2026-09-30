@@ -743,12 +743,15 @@ export function toAnswers(
     /*
      * Evidence that can move a score. A rule's own evidence can't: every car
      * left after the rule has it, so raising it only adds the same to each —
-     * and "a towbar" came back as a reason the winner won.
+     * and "a towbar" came back as a reason the winner won. That holds
+     * whichever need names it: a commute's automatic gearbox, beside an
+     * "automatic only" rule, put all of City & Parking in the order to score
+     * a thing every car left has.
      */
     const counts = (entry: Need["evidence"][number]) =>
         !entry.unwanted &&
         !lessRelevant.includes(entry.id) &&
-        !(entry.mustHave && rules.some((rule) => rule.id === entry.id)) &&
+        !rules.some((rule) => rule.id === entry.id) &&
         (onlyAsked ? EVIDENCE[entry.id].scoredIn != null : EVIDENCE[entry.id].raisable);
 
     /*
