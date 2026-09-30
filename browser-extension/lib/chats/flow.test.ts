@@ -4,6 +4,7 @@ import { FULL } from "./depth";
 
 import { GARAGE } from "@/lib/reasoning-engine/test-garage";
 import { EVIDENCE } from "@/lib/lens-chat/evidence";
+import { CATEGORIES } from "@/lib/reasoning-engine/constants";
 import { EMPTY_UNDERSTANDING, withBudget } from "@/lib/lens-chat/understanding";
 
 import { fleet } from "@/lib/reasoning-engine/test-data/fleet";
@@ -34,7 +35,7 @@ const texts = (chat: Chat) => chat.messages.filter((message) => message.kind ===
 function walk(chat: Chat, picks: Partial<Record<StepId | "offer", string[]>>): Chat {
     let current = chat;
 
-    for (let guard = 0; guard < 20; guard += 1) {
+    for (let guard = 0; guard < 40; guard += 1) {
         const ask = openAsk(current);
         if (!ask || ask.step.id === "confirm" || ask.step.id === "keep" || ask.step.id === "start" || ask.step.id === "noNeeds") return current;
 
@@ -417,8 +418,11 @@ describe("a conversation, not a form", () => {
         expect(weekly.understanding.needs.find((need) => need.id === "life-motorway")?.importance).toBe("essential");
     });
 
-    it("offers equipment the cars here differ on, says why, and counts it on a yes", () => {
-        const chat = walk(startChat(null, cars(), TODAY, FULL), { life: ["passengers-2", "kids"], offer: ["yes"] });
+    it("offers equipment the cars here differ on, says why, and counts it on a yes, in a chat from before features were asked", () => {
+        /* Saved mid-chat, before the offers were reached: judged the old way, so they're still asked. */
+        const asked = walk(startChat(null, cars(), TODAY, FULL), { life: ["passengers-2", "kids"] });
+        const old = askNext({ ...asked, understanding: { ...asked.understanding, lens: undefined }, queue: ["offers"] }, cars());
+        const chat = walk(old, { offer: ["yes"] });
         const offers = chat.messages.filter((message): message is Ask => message.kind === "ask" && Boolean(message.step.offer));
 
         expect(offers.length).toBeGreaterThan(0);
@@ -808,13 +812,20 @@ describe("how much Lens asks", () => {
         expect(quick).toEqual(["askDepth", "explainDepth", "life-passengers", "life-people", "life-driving", "life-you", "prioritiesConfirm", "budget", "confirm"]);
     });
 
-    it("asks every question but the offers when balanced, and everything when thorough", () => {
-        const balanced = asked(run("balanced"));
-        const thorough = asked(run("thorough"));
+    it("asks the features that matter most when balanced, and every priority's when thorough", () => {
+        const balanced = run("balanced");
+        const thorough = run("thorough");
+        const cards = (chat: Chat) => asked(chat).filter((id) => id.startsWith("features-"));
 
-        expect(balanced).toEqual(expect.arrayContaining(["follow-kids", "life-weather", "rules", "period", "distance"]));
-        expect(balanced.some((id) => id.startsWith("offer-"))).toBe(false);
-        expect(thorough.some((id) => id.startsWith("offer-"))).toBe(true);
+        expect(asked(balanced)).toEqual(expect.arrayContaining(["follow-kids", "life-weather", "rules", "period", "distance"]));
+        expect(cards(balanced)).toEqual(["features-top"]);
+        expect(cards(thorough)).toEqual(
+            chatAnswers(thorough.understanding)
+                .answers.priorities.filter((id) => id !== "environmental" && id !== "efficiency")
+                .map((id) => `features-${id}`),
+        );
+        /* Equipment worth a look is among the features now, never a question of its own. */
+        for (const chat of [balanced, thorough]) expect(asked(chat).some((id) => id.startsWith("offer-"))).toBe(false);
     });
 
     it("asks a question the reader chose to change, whatever the depth", () => {
@@ -904,5 +915,110 @@ describe("your priorities, in the chat", () => {
         const summary = chat.messages.find((message) => message.kind === "summary");
 
         expect(summary?.kind === "summary" && summary.lines[0]).toMatchObject({ label: "Priorities", step: "priorities" });
+    });
+});
+
+describe("how much each feature counts", () => {
+    const begin = (ask: "quick" | "balanced" | "thorough") => {
+        const first = startChat(null, cars(), TODAY);
+        const asks = answer(first, openAsk(first)!.id, [ask], cars(), TODAY).chat;
+        return answer(asks, openAsk(asks)!.id, ["balanced"], cars(), TODAY).chat;
+    };
+    const until = (chat: Chat, id: (step: StepId) => boolean) => {
+        let current = chat;
+        for (let guard = 0; guard < 40 && openAsk(current) && !id(openAsk(current)!.step.id); guard += 1) {
+            const ask = openAsk(current)!;
+            const own = new Set(ask.step.choices.map((choice) => choice.id));
+            const picks = ask.step.id.startsWith("life-") ? ["passengers-2", "kids", "city", "nervous"].filter((pick) => own.has(pick)) : (ask.step.selected ?? []);
+            current = answer(current, ask.id, picks, cars(), TODAY).chat;
+        }
+        return current;
+    };
+    const rows = (ask: Ask) => ask.step.levels!.flatMap((group) => group.rows);
+    const raised = (chat: Chat) => new Map(Object.values(chatAnswers(chat.understanding).answers.features).flatMap((items) => (items ?? []).map((item) => [item.key, item.importance] as const)));
+
+    it("asks none when quick: the reader's needs set them", () => {
+        const chat = until(begin("quick"), (id) => id === "confirm");
+
+        expect(chat.messages.some((message) => message.kind === "ask" && message.step.id.startsWith("features-"))).toBe(false);
+        expect(raised(chat).size).toBeGreaterThan(0);
+    });
+
+    it("shows what the needs raised and what's worth a look when balanced, each saying why and how many cars here have it", () => {
+        const chat = until(begin("balanced"), (id) => id === "features-top");
+        const ask = openAsk(chat)!;
+        const now = raised(chat);
+
+        expect(ask.step.ask).toMatch(/^Here are the features your answers point to, in the priorit(ies|y) that counts? most for you\. How much should each one count\?$/);
+        expect(ask.step.levels!.length).toBeLessThanOrEqual(2);
+        for (const row of rows(ask)) {
+            expect(row.level).toBe(now.get(row.id) ?? "standard");
+            expect(row.because).toMatch(/^From what you said: |^Worth a look/);
+        }
+        expect(rows(ask).some((row) => row.listed && row.listed.of > 0)).toBe(true);
+        /* In the reader's order of priorities. */
+        const order = chatAnswers(chat.understanding).answers.priorities;
+        const groups = ask.step.levels!.map((group) => order.indexOf(group.category));
+        expect(groups).toEqual([...groups].sort((a, b) => a - b));
+    });
+
+    it("keeps only what differs from what the needs propose, and a feature set to standard stops counting more", () => {
+        const chat = until(begin("balanced"), (id) => id === "features-top");
+        const ask = openAsk(chat)!;
+        const up = rows(ask).find((row) => row.level === "standard")!;
+        const down = rows(ask).find((row) => row.level !== "standard")!;
+        const same = rows(ask).find((row) => row !== down && row.level !== "standard");
+
+        const next = answer(chat, ask.id, [`${up.id}=high`, `${down.id}=standard`, ...(same ? [`${same.id}=${same.level}`] : [])], cars(), TODAY).chat;
+        const levels = next.understanding.lens?.levels ?? {};
+
+        expect(levels).toMatchObject({ [up.id]: "high", [down.id]: "standard" });
+        if (same) expect(levels).not.toHaveProperty(same.id);
+        expect(raised(next).get(up.id)).toBe("high");
+        expect(raised(next).has(down.id)).toBe(false);
+        expect(next.messages.filter((message) => message.from === "reader").at(-1)).toMatchObject({ text: expect.stringMatching(/^Count .+ highly .*as standard\.$|^Count .+ as standard .*highly\.$/) });
+    });
+
+    it("keeps them all as they are on “Keep them as they are”", () => {
+        const chat = until(begin("balanced"), (id) => id === "features-top");
+        const next = answer(chat, openAsk(chat)!.id, [], cars(), TODAY).chat;
+
+        expect(raised(next)).toEqual(raised(chat));
+        expect(texts(next).at(-1)).toBe("Good — I'll keep them as they are.");
+    });
+
+    it("shows every feature of each priority when thorough, niche ones not counted until raised", () => {
+        const chat = until(begin("thorough"), (id) => id.startsWith("features-"));
+        const ask = openAsk(chat)!;
+        const [group] = ask.step.levels!;
+
+        expect(ask.step.levels).toHaveLength(1);
+        expect(ask.step.id).toBe(`features-${group!.category}`);
+        expect(rows(ask).map((row) => row.id)).toEqual(expect.arrayContaining([...(CATEGORIES[group!.category].features as readonly string[])].slice(0, 1)));
+
+        const practical = until(chat, (id) => id === "features-practicality");
+        const towbar = rows(openAsk(practical)!).find((row) => row.id === "hasTowbar");
+        expect(towbar).toMatchObject({ niche: true, level: "standard" });
+    });
+
+    it("says what counts more in the summary, and asks every priority's features when that's changed, whatever the depth", () => {
+        const chat = until(begin("quick"), (id) => id === "confirm");
+        const summary = chat.messages.find((message) => message.kind === "summary");
+        const line = summary?.kind === "summary" ? summary.lines.find((item) => item.step === "features") : undefined;
+
+        expect(line?.label).toBe("Counts more");
+        expect(line?.value).toMatch(/^(Highly|Moderately|Somewhat): /);
+
+        const change = changeOne(chat, "features", cars());
+        expect(openAsk(change)?.step.id).toBe(`features-${chatAnswers(chat.understanding).answers.priorities.find((id) => !CATEGORIES[id].numericOnly)}`);
+    });
+
+    it("lets the reader pick their priorities and features to change", () => {
+        const quick = until(begin("quick"), (id) => id === "confirm");
+        const judged = { ...quick, phase: "judged" as const, judgement: { carIds: [] } as unknown as Chat["judgement"] };
+        const how = changeAnswers(judged, cars());
+        const some = answer(how, openAsk(how)!.id, ["some"], cars(), TODAY).chat;
+
+        expect(openAsk(some)!.step.choices.map((choice) => choice.id)).toEqual(expect.arrayContaining(["priorities", "features"]));
     });
 });

@@ -3,8 +3,11 @@ import { Check, ChevronDown, ChevronRight, Info, PencilLine, X } from "lucide-re
 
 import { BandChip, BrandMark, CarPhoto, euros, WinnerChip } from "@/components/lens-parts";
 import { coveredBy, IMPORTANCE_LABEL } from "@/lib/chats/flow";
-import type { CarSnapshot, ChatMessage, Choice, CustomAnswer, StepId } from "@/lib/chats/types";
+import type { CarSnapshot, ChatMessage, Choice, CustomAnswer, LevelRow, StepId } from "@/lib/chats/types";
 import type { NeedImportance } from "@/lib/lens-ai/contract";
+import type { FeatureLevel } from "@/lib/lens-chat/understanding";
+import { FEATURE_IMPORTANCE, NICHE_INFLUENCE, STANDARD_INFLUENCE } from "@/lib/reasoning-engine/constants";
+import type { FeatureImportance } from "@/lib/reasoning-engine/types";
 import { lowerFirst } from "@/lib/reasoning-engine/format";
 
 /**
@@ -566,6 +569,152 @@ function Ask({
 }
 
 /* -------------------------------------------------------------------------- */
+/* How much each feature counts                                               */
+/* -------------------------------------------------------------------------- */
+
+/** The scale, gentlest first: it reads left to right as rising. */
+const FEATURE_LEVELS: FeatureLevel[] = ["standard", "low", "medium", "high"];
+
+const RAISED_CARD: Record<FeatureImportance, string> = {
+    high: "bg-finn-influence-red-pale ring-finn-influence-red/30",
+    medium: "bg-finn-influence-orange-pale ring-finn-influence-orange/30",
+    low: "bg-finn-influence-emerald-pale ring-finn-influence-emerald/30",
+};
+
+/** Where FINN lists it here, as counts: "On 3 of the 5 cars here · 1 doesn't say". */
+function listedText({ on, off, of }: NonNullable<LevelRow["listed"]>): string {
+    const unknown = of - on - off;
+    return `On ${on} of the ${of} ${of === 1 ? "car" : "cars"} here${unknown > 0 ? ` · ${unknown} ${unknown === 1 ? "doesn't" : "don't"} say` : ""}`;
+}
+
+/**
+ * One feature on the four-step scale. Every row rests somewhere — Standard,
+ * or Not counted for the niche ones — so "nothing picked" never reads as
+ * "doesn't count".
+ */
+function LevelOption({ row, level, onSet, explained, onExplain }: { row: LevelRow; level: FeatureLevel; onSet: (level: FeatureLevel) => void; explained: boolean; onExplain: () => void }) {
+    const resting = row.niche ? NICHE_INFLUENCE : STANDARD_INFLUENCE;
+    const raised = level === "standard" ? null : FEATURE_IMPORTANCE[level];
+
+    return (
+        <li className={["rounded-2xl p-2.5 ring-1 transition-colors", level === "standard" ? "bg-white ring-black/5" : RAISED_CARD[level]].join(" ")}>
+            <div className="flex items-start gap-2.5">
+                <span
+                    aria-hidden="true"
+                    className={[
+                        "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-[12px] font-black tabular-nums",
+                        raised ? `${raised.dotClass} text-white` : "bg-finn-snow text-finn-iron ring-1 ring-black/5",
+                    ].join(" ")}
+                >
+                    {raised?.weight ?? resting.weight}×
+                </span>
+                <div className="min-w-0 flex-1">
+                    <p className="flex items-center gap-1 text-[12.5px] font-black leading-snug text-finn-black">
+                        {row.label}
+                        <button
+                            type="button"
+                            onClick={onExplain}
+                            aria-expanded={explained}
+                            aria-label={`What “${row.label}” is`}
+                            className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-finn-accent-blue/70 hover:bg-finn-pale-blue hover:text-finn-accent-blue"
+                        >
+                            <Info aria-hidden="true" className="h-3.5 w-3.5" strokeWidth={2.4} />
+                        </button>
+                    </p>
+                    {explained ? <p className="text-[11.5px] leading-snug text-finn-black/80">{row.does}</p> : null}
+                    {row.because ? <p className="text-[11.5px] leading-snug text-finn-iron">{row.because}</p> : null}
+                    {row.listed ? <p className="text-[11px] leading-snug text-finn-iron">{listedText(row.listed)}</p> : null}
+                </div>
+            </div>
+
+            <div role="radiogroup" aria-label={`How much ${row.label} counts`} className="mt-2 grid grid-cols-4 gap-0.5 rounded-xl bg-finn-snow p-0.5 ring-1 ring-black/5">
+                {FEATURE_LEVELS.map((option) => {
+                    const meta = option === "standard" ? null : FEATURE_IMPORTANCE[option];
+                    const active = option === level;
+
+                    return (
+                        <button
+                            key={option}
+                            type="button"
+                            role="radio"
+                            aria-checked={active}
+                            title={meta?.hint ?? resting.hint}
+                            onClick={() => onSet(option)}
+                            className={[
+                                "rounded-lg px-1 py-1.5 text-[11px] font-black transition-colors focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-finn-accent-blue",
+                                active ? (meta ? `${meta.dotClass} text-white shadow-sm` : "bg-white text-finn-black shadow-sm ring-1 ring-black/10") : meta ? `${meta.accentTextClass} hover:bg-white` : "text-finn-iron hover:bg-white",
+                            ].join(" ")}
+                        >
+                            {meta?.label ?? resting.label}
+                        </button>
+                    );
+                })}
+            </div>
+        </li>
+    );
+}
+
+/** A card of features by priority, each set on the scale, sent together. */
+function Levels({ message, live, onAnswer }: { message: Extract<ChatMessage, { kind: "ask" }>; live: boolean; onAnswer: (chosen: string[]) => void }) {
+    const { step } = message;
+    const groups = step.levels ?? [];
+    const rows = groups.flatMap((group) => group.rows);
+    /* As they stand, or as the reader left them when taking the answer back. */
+    const [levels, setLevels] = useState<Record<string, FeatureLevel>>(() => ({
+        ...Object.fromEntries(rows.map((row) => [row.id, row.level])),
+        ...Object.fromEntries((step.selected ?? []).map((item) => item.split("=") as [string, FeatureLevel])),
+    }));
+    const [explained, setExplained] = useState<string | null>(null);
+    const changed = rows.some((row) => levels[row.id] !== row.level);
+
+    return (
+        <>
+            <LensBubble>
+                <p className="font-semibold">{step.ask}</p>
+                {live && step.why ? <Why text={step.why} /> : null}
+            </LensBubble>
+
+            {live ? (
+                <div className="space-y-2 pt-0.5">
+                    {groups.map((group) => (
+                        <div key={group.category}>
+                            {groups.length > 1 ? <p className="mb-1 px-1 text-[10.5px] font-black uppercase tracking-wide text-finn-iron">{group.title}</p> : null}
+                            <ul className="space-y-1.5">
+                                {group.rows.map((row) => (
+                                    <LevelOption
+                                        key={row.id}
+                                        row={row}
+                                        level={levels[row.id] ?? row.level}
+                                        onSet={(level) => setLevels((current) => ({ ...current, [row.id]: level }))}
+                                        explained={explained === row.id}
+                                        onExplain={() => setExplained((open) => (open === row.id ? null : row.id))}
+                                    />
+                                ))}
+                            </ul>
+                        </div>
+                    ))}
+
+                    <div className="flex flex-wrap gap-1.5">
+                        {changed ? (
+                            <button
+                                type="button"
+                                onClick={() => onAnswer(rows.map((row) => `${row.id}=${levels[row.id] ?? row.level}`))}
+                                className="inline-flex items-center gap-1 rounded-full bg-finn-highlight-navy px-4 py-2 text-[12.5px] font-black text-white shadow-sm transition-colors hover:bg-finn-accent-blue focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-finn-accent-blue"
+                            >
+                                Continue
+                                <ChevronRight aria-hidden="true" className="h-4 w-4" />
+                            </button>
+                        ) : (
+                            <Chip label={step.none ?? "Keep them as they are"} muted onClick={() => onAnswer([])} />
+                        )}
+                    </div>
+                </div>
+            ) : null}
+        </>
+    );
+}
+
+/* -------------------------------------------------------------------------- */
 /* What Lens will judge by                                                    */
 /* -------------------------------------------------------------------------- */
 
@@ -844,7 +993,9 @@ export function MessageList({
                 body = <LensBubble>{message.text}</LensBubble>;
                 break;
             case "ask":
-                body = (
+                body = message.step.levels ? (
+                    <Levels key={message.id} message={message} live={message.id === liveAsk && settled} onAnswer={(chosen) => onAnswer(message.id, chosen)} />
+                ) : (
                     <Ask
                         key={message.id}
                         message={message}

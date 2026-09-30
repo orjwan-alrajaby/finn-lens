@@ -1,7 +1,7 @@
 import { lowerFirst } from "@/lib/reasoning-engine/format";
 import { formatEUR } from "@/lib/reasoning-engine";
-import { CATEGORIES, CATEGORY_IDS, FINN_INCLUDED_MONTHLY_KM } from "@/lib/reasoning-engine/constants";
-import type { CategoryId } from "@/lib/reasoning-engine/types";
+import { CATEGORIES, CATEGORY_IDS, FEATURE_IMPORTANCE, FINN_INCLUDED_MONTHLY_KM, IMPORTANCE_LEVELS, SIGNALS } from "@/lib/reasoning-engine/constants";
+import type { CategoryId, FeatureImportance, SignalId } from "@/lib/reasoning-engine/types";
 import { addMonths, monthLabel, type MonthString } from "@/lib/reasoning-engine/contract";
 import type { NeedImportance } from "@/lib/lens-ai/contract";
 import { asPhrase, barePhrase, coverage, EVIDENCE, isKind, type EvidenceId } from "@/lib/lens-chat/evidence";
@@ -14,6 +14,7 @@ import {
     withoutSuggestion,
     withRental,
     withSuggestion,
+    type FeatureLevel,
     type Understanding,
 } from "@/lib/lens-chat/understanding";
 import type { FinnCar } from "@/lib/types";
@@ -22,7 +23,7 @@ import { ASK_LABEL, asksAt, depthOf, EXPLAIN_LABEL, FULL, type AskDepth, type De
 import { applyFollowUp, followUpFor, offerReason, worthALook } from "./follow-ups";
 import { BASE_ANSWERS, chatAnswers } from "./judge";
 import { messageId, newChatId } from "./store";
-import type { Chat, ChatMessage, ChatStep, Rewind, SavedSettings, StepId } from "./types";
+import type { Chat, ChatMessage, ChatStep, LevelGroup, LevelRow, Rewind, SavedSettings, StepId } from "./types";
 
 /**
  * How a conversation with Lens goes, as pure functions over a `Chat`.
@@ -84,12 +85,127 @@ function priorityChoice(u: Understanding, said: (label: string) => string) {
 /** The understanding with the reader's own order of their priorities. */
 const withOrder = (u: Understanding, order: CategoryId[]): Understanding => ({ ...u, lens: { ...u.lens, order } });
 
+/* -------------------------------------------------------------------------- */
+/* How much each feature counts                                               */
+/* -------------------------------------------------------------------------- */
+
+const FEATURE_LEVELS: FeatureLevel[] = ["standard", "low", "medium", "high"];
+
+/** How much each feature counts now: raised by the reader or their needs. Absent is standard. */
+function levelsNow(u: Understanding): Map<SignalId, FeatureImportance> {
+    return new Map(Object.values(chatAnswers(u).answers.features).flatMap((items) => (items ?? []).map((item) => [item.key, item.importance] as const)));
+}
+
+/** What counts more than standard, most first. */
+const raisedNow = (u: Understanding): [SignalId, FeatureImportance][] =>
+    [...levelsNow(u)].sort((a, b) => FEATURE_IMPORTANCE[b[1]].weight - FEATURE_IMPORTANCE[a[1]].weight);
+
+const nicheIn = (id: CategoryId): readonly SignalId[] => (CATEGORIES[id] as { niche?: readonly SignalId[] }).niche ?? [];
+
+/** The priorities whose equipment can be raised, in the reader's order: emissions and consumption are figures. */
+const withFeatures = (u: Understanding): CategoryId[] => orderOf(u).filter((id) => !CATEGORIES[id].numericOnly);
+
+/** A level in the reader's words: "heated seats highly", "a towbar not at all". */
+function levelSaid(row: LevelRow, level: FeatureLevel): string {
+    if (level === "standard") return `${lower(row.label)} ${row.niche ? "not at all" : "as standard"}`;
+
+    return `${lower(row.label)} ${FEATURE_IMPORTANCE[level].inSentence}`;
+}
+
+/**
+ * One feature as a row to set. Equipment a rule already demands isn't one:
+ * every car left has it, so raising it moves nothing.
+ */
+function levelRows(u: Understanding, cars: FinnCar[], category: CategoryId, ids: readonly SignalId[], hints: Map<SignalId, string> = new Map()): LevelRow[] {
+    const now = levelsNow(u);
+    const rules = new Set<string>(ruledOut(u).map((rule) => rule.id));
+    const irrelevant = new Set<string>(u.capabilities.flatMap((item) => item.lessRelevant));
+
+    return ids
+        .filter((id) => !rules.has(id) && !irrelevant.has(id))
+        .map((id) => {
+            const needs = lifeNeeds(u).filter((need) => need.evidence.some((entry) => entry.id === id && !entry.unwanted));
+            const counts = EVIDENCE[id as EvidenceId] && cars.length ? coverage(cars, id as EvidenceId) : null;
+
+            return {
+                id,
+                label: SIGNALS[id].label,
+                does: SIGNALS[id].explanation,
+                level: now.get(id) ?? "standard",
+                niche: nicheIn(category).includes(id),
+                because: needs.length ? `From what you said: ${joined(needs.map((need) => lower(need.label)))}.` : hints.get(id),
+                listed: counts ? { on: counts.listed, off: counts.notListed, of: counts.total } : undefined,
+            };
+        });
+}
+
+/** How many of the reader's priorities a balanced chat asks the features of: the ones that count most. */
+const TOP_PRIORITIES = 2;
+
+/**
+ * The features that matter most for this reader, in their top priorities:
+ * whatever their needs raised, and equipment their needs touch on that the
+ * cars here differ on — worth a look, at standard until they raise it. The
+ * rest keep what the needs gave them.
+ */
+function topLevels(u: Understanding, cars: FinnCar[]): LevelGroup[] {
+    const now = levelsNow(u);
+    const worth = worthALook(u, cars, (id) => coverage(cars, id), MAX_WORTH);
+    const hints = new Map(
+        worth.map((offer) => {
+            const need = u.needs.find((item) => item.id === offer.needId);
+            return [offer.id as SignalId, `Worth a look${need ? ` for ${lower(need.label)}` : ""}: ${explain(offer.id, offerReason(offer.needId, offer.id))}.`];
+        }),
+    );
+
+    return withFeatures(u)
+        .map((category) => {
+            const ids = (CATEGORIES[category].features as readonly SignalId[]).filter((id) => now.has(id) || hints.has(id));
+            return { category, title: CATEGORIES[category].label, rows: levelRows(u, cars, category, ids, hints) };
+        })
+        .filter((group) => group.rows.length > 0)
+        .slice(0, TOP_PRIORITIES);
+}
+
+/**
+ * The reader's levels for a card's rows: each kept only where it differs
+ * from what their needs propose, so a need changed later still moves the
+ * rest. A raise takes back an earlier "no" to the same equipment.
+ */
+function withLevels(u: Understanding, rows: LevelRow[], chosen: string[]): { understanding: Understanding; changed: [LevelRow, FeatureLevel][] } {
+    const given = new Map(
+        chosen
+            .map((item) => item.split("=") as [SignalId, FeatureLevel])
+            .filter(([id, level]) => rows.some((row) => row.id === id) && FEATURE_LEVELS.includes(level)),
+    );
+    const keys = new Set<string>(rows.map((row) => row.id));
+    const own = Object.fromEntries(Object.entries(u.lens?.levels ?? {}).filter(([key]) => !keys.has(key))) as Partial<Record<SignalId, FeatureLevel>>;
+    const proposed = levelsNow({ ...u, lens: { ...u.lens, levels: own } });
+    const changed: [LevelRow, FeatureLevel][] = [];
+    const raised = new Set<string>();
+
+    for (const row of rows) {
+        const level = given.get(row.id) ?? row.level;
+
+        if (level !== (proposed.get(row.id) ?? "standard")) own[row.id] = level;
+        if (level !== row.level) changed.push([row, level]);
+        if (level !== "standard") raised.add(row.id);
+    }
+
+    return {
+        understanding: { ...u, declined: u.declined.filter((id) => !raised.has(id)), lens: { ...u.lens, levels: own } },
+        changed,
+    };
+}
+
 /** The questions, in the order Lens asks them. Follow-ups are slotted in behind "life". */
 /* The limit before the rules: "nothing over €700" can only be offered once there's a €700. */
-export const STEP_ORDER: StepId[] = ["askDepth", "explainDepth", "life", "priorities", "budget", "rules", "period", "distance", "offers"];
+export const STEP_ORDER: StepId[] = ["askDepth", "explainDepth", "life", "priorities", "features", "budget", "rules", "period", "distance", "offers"];
 
 /** Equipment offered at most, so the questions end. */
 const MAX_OFFERS = 2;
+/** Equipment worth a look, among the features that matter most. */
+const MAX_WORTH = 3;
 
 const now = () => new Date().toISOString();
 
@@ -156,12 +272,13 @@ const inWords = (n: number) => NUMBER_WORDS[n] ?? String(n);
 /* -------------------------------------------------------------------------- */
 
 /** The questions a reader can pick to answer again, in the order they're asked. */
-const CHANGEABLE: StepId[] = ["askDepth", "explainDepth", "priorities", "life-passengers", "life-people", "life-driving", "life-parking", "life-weather", "life-loads", "life-you", "life-co2", "life-efficiency", "budget", "rules", "period", "distance"];
+const CHANGEABLE: StepId[] = ["askDepth", "explainDepth", "priorities", "features", "life-passengers", "life-people", "life-driving", "life-parking", "life-weather", "life-loads", "life-you", "life-co2", "life-efficiency", "budget", "rules", "period", "distance"];
 
 const CHANGE_LABEL: Partial<Record<StepId, string>> = {
     askDepth: "How much I ask",
     explainDepth: "How much I explain",
     priorities: "Your priorities",
+    features: "How much each feature counts",
     "life-passengers": "How many ride with you",
     "life-people": "Who rides with you",
     "life-driving": "Your driving",
@@ -177,6 +294,14 @@ const CHANGE_LABEL: Partial<Record<StepId, string>> = {
     distance: "How far you drive",
 };
 
+/** Whether the reader can answer `step` again here: the priorities and features once there are any, anything else when this page would ask it. */
+function changeable(step: StepId, cars: FinnCar[], u: Understanding): boolean {
+    if (step === "priorities") return orderOf(u).length > 0;
+    if (step === "features") return Boolean(u.lens) && withFeatures(u).length > 0;
+
+    return stepFor(step, cars, u) != null;
+}
+
 /** What a question's answer is now, in a few words: "€700 a month", "travelling with children and pets". */
 function nowSaid(step: StepId, u: Understanding, cars: FinnCar[], depth: Depth = FULL): string {
     switch (step) {
@@ -186,6 +311,10 @@ function nowSaid(step: StepId, u: Understanding, cars: FinnCar[], depth: Depth =
             return lowerFirst(EXPLAIN_LABEL[depth.explain]);
         case "priorities":
             return inOrder(orderOf(u)) || "none yet";
+        case "features": {
+            const raised = raisedNow(u).map(([id, level]) => `${lower(SIGNALS[id].label)} ${FEATURE_IMPORTANCE[level].inSentence}`);
+            return raised.length ? `${joined(raised.slice(0, 4))}${raised.length > 4 ? `, and ${raised.length - 4} more` : ""}` : "every feature as standard";
+        }
         case "life-passengers":
             return u.passengers == null ? "not answered" : u.passengers === 0 ? "just you" : `${u.passengers >= 5 ? "5 or more" : u.passengers}`;
         case "rules":
@@ -564,7 +693,7 @@ export function stepFor(id: StepId, cars: FinnCar[], u: Understanding = EMPTY_UN
                 why: "I'll ask only those again, with what you said last time already picked. Tap the “i” to see what each is now.",
                 multiple: true,
                 /* Only questions this page would ask: a rule nothing here splits on isn't one to change. */
-                choices: CHANGEABLE.filter((step) => stepFor(step, cars, u)).map((step) => ({
+                choices: CHANGEABLE.filter((step) => changeable(step, cars, u)).map((step) => ({
                     id: step,
                     label: CHANGE_LABEL[step]!,
                     said: CHANGE_LABEL[step]!,
@@ -577,6 +706,30 @@ export function stepFor(id: StepId, cars: FinnCar[], u: Understanding = EMPTY_UN
         case "confirm":
         case "offers":
             return null;
+    }
+
+    /* How much each feature counts: the ones that matter most for the reader (balanced), or a whole priority's (thorough). */
+    if (id.startsWith("features-")) {
+        const which = id.slice("features-".length);
+        const category = which as CategoryId;
+        const levels = which === "top" ? topLevels(u, cars) : withFeatures(u).includes(category) ? [{ category, title: CATEGORIES[category].label, rows: levelRows(u, cars, category, CATEGORIES[category].features) }] : [];
+
+        if (!levels.some((group) => group.rows.length)) return null;
+
+        const niche = levels.some((group) => group.rows.some((row) => row.niche));
+
+        return {
+            id,
+            ask:
+                which === "top"
+                    ? `Here are the features your answers point to, in the ${levels.length > 1 ? "priorities" : "priority"} that count${levels.length > 1 ? "" : "s"} most for you. How much should each one count?`
+                    : `${capital(priorityName(category))}: how much should each of these count?`,
+            why: `Standard counts once; Somewhat twice, Moderately three times and Highly four times as much, within its priority. None is a must-have: a car without one can still be the best fit.${niche ? " “Not counted” ones matter to few drivers, so they only count once you raise them." : ""}`,
+            multiple: true,
+            choices: [],
+            none: "Keep them as they are",
+            levels: levels.filter((group) => group.rows.length),
+        };
     }
 
     /* Which matters most (balanced), or each place in turn. */
@@ -858,6 +1011,16 @@ export function acknowledge(step: ChatStep, u: Understanding, chosen: string[] =
 
     if (step.id.startsWith("life-") || step.id.startsWith("check-passengers-")) return acknowledgeGroup(step, u, chosen, before);
 
+    if (step.levels) {
+        const rows = step.levels.flatMap((group) => group.rows);
+        const changed = chosen.some((item) => {
+            const [id, level] = item.split("=");
+            return rows.some((row) => row.id === id && row.level !== level);
+        });
+
+        return changed ? "Got it — that's how they'll count." : "Good — I'll keep them as they are.";
+    }
+
     if (step.id === "top" || step.id.startsWith("rank-")) {
         const n = step.id === "top" ? 1 : Number(step.id.slice("rank-".length));
         const order = orderOf(u);
@@ -950,6 +1113,21 @@ export function summaryOf(u: Understanding, id: string = messageId(), depth: Dep
 
     const order = orderOf(u);
     if (order.length) lines.unshift({ label: "Priorities", value: order.map((id, index) => `${index + 1}. ${CATEGORIES[id].label}`).join(" · "), step: "priorities" });
+
+    /* What counts more than standard, and how much: the reader's or their needs'. */
+    if (u.lens && withFeatures(u).length) {
+        /* "Highly: blind spot warning · Moderately: heated seats, fog lights and 3 more" — each level a few names long. */
+        const raised = raisedNow(u);
+        const value = IMPORTANCE_LEVELS.flatMap((level) => {
+            const names = raised.filter(([, at]) => at === level).map(([id]) => lower(SIGNALS[id].label));
+            if (!names.length) return [];
+
+            const shown = names.length > 4 ? [...names.slice(0, 3), `${names.length - 3} more`] : names;
+            return [`${FEATURE_IMPORTANCE[level].label}: ${joined(shown)}`];
+        });
+
+        lines.splice(order.length ? 1 : 0, 0, { label: "Counts more", value: value.length ? value.join(" · ") : "Nothing singled out", step: "features" });
+    }
 
     if (depth) {
         lines.push({ label: "Questions", value: ASK_LABEL[depth.ask], step: "askDepth" });
@@ -1085,8 +1263,26 @@ export function askNext(chat: Chat, cars: FinnCar[]): Chat {
             continue;
         }
 
-        /* Equipment worth a look, reached: one question each, from what the cars here differ on. */
+        /*
+         * How much each feature counts, reached: none asked when quick — the
+         * needs set them — the ones that matter most when balanced, and every
+         * priority's own when thorough, or when the reader chose to change them.
+         */
+        if (id === "features") {
+            const ask = depthOf(chat).ask;
+            const full = ask === "thorough" || (chat.explicit ?? []).includes("features");
+
+            /* A chat from before features were asked is judged the old way: its equipment was offered one at a time. */
+            if (!u.lens || (!full && ask === "quick")) continue;
+
+            queue = [...(full ? withFeatures(u).map((category) => `features-${category}` as StepId) : ["features-top" as StepId]), ...queue];
+            continue;
+        }
+
+        /* Equipment worth a look, reached: one question each, from what the cars here differ on. Now among the features, where those are asked. */
         if (id === "offers") {
+            if (u.lens) continue;
+
             const offers = worthALook(u, cars, (id) => coverage(cars, id), MAX_OFFERS).map((offer) => `offer-${offer.id}|${offer.needId}` as StepId);
             queue = [...offers, ...queue];
             continue;
@@ -1465,6 +1661,11 @@ function answerStep(
             /* The rest as they are: the order as it stands is the reader's now. */
             understanding = withOrder(understanding, order);
         }
+    } else if (step.levels) {
+        const result = withLevels(understanding, step.levels.flatMap((group) => group.rows), chosen);
+
+        understanding = result.understanding;
+        said = result.changed.length ? `Count ${joined(result.changed.map(([row, level]) => levelSaid(row, level)))}.` : (step.none ?? "");
     } else if (step.guide) {
         /* Words typed here that mean one of this question's own answers — "a big dog" for Pets — count as tapping it. */
         const owns = (choice: { id: string }, u: Understanding) => u.needs.some((need) => need.id === `${step.guide!.id}-${choice.id}`);
@@ -1524,6 +1725,8 @@ export function changeAnswers(chat: Chat, cars: FinnCar[]): Chat {
 }
 
 const CHANGE_WHAT: Partial<Record<StepId, string>> = {
+    priorities: "my priorities",
+    features: "how much each feature counts",
     life: "what the car has to do",
     rules: "my rules",
     budget: "my monthly limit",
@@ -1535,7 +1738,7 @@ const CHANGE_WHAT: Partial<Record<StepId, string>> = {
 export function changeOne(chat: Chat, step: StepId, cars: FinnCar[]): Chat {
     const next = touch({ ...chat, messages: closeAsks(chat.messages) }, [
         reader(`I'd like to change ${CHANGE_WHAT[step] ?? "that"}.`),
-    ], { queue: [step, ...(step === "life" ? (["priorities"] as StepId[]) : [])], kept: null, revising: true });
+    ], { queue: [step, ...(step === "life" ? (["priorities"] as StepId[]) : [])], kept: null, revising: true, explicit: [step] });
 
     return askNext(next, cars);
 }

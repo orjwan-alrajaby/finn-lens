@@ -5,7 +5,8 @@ import type { GuideStep, NeedGroup } from "@/lib/lens-chat/guide";
 
 import type { Depth } from "./depth";
 import type { FollowUp } from "./follow-ups";
-import type { Understanding } from "@/lib/lens-chat/understanding";
+import type { FeatureLevel, Understanding } from "@/lib/lens-chat/understanding";
+import type { CategoryId, SignalId } from "@/lib/reasoning-engine/types";
 
 /**
  * A conversation with Lens, kept.
@@ -23,9 +24,11 @@ import type { Understanding } from "@/lib/lens-chat/understanding";
 
 /**
  * Lens's questions. `life` stands for the needs, asked a group at a time as
- * `life-people`, `life-driving`…; `focus` asks which need matters most; `offers` stands for
- * the equipment worth a look, expanded into one `offer-…` question each when
- * it's reached; `follow-…` is the second question about one need.
+ * `life-people`, `life-driving`…; `priorities` and `features` stand for the
+ * reader's priorities and how much each feature counts, asked as fits the
+ * depth; `offers` stands for the equipment worth a look (chats from before
+ * features were asked), one `offer-…` question each; `follow-…` is the
+ * second question about one need.
  */
 export type StepId =
     | GuideStep["id"]
@@ -45,6 +48,13 @@ export type StepId =
     /** Which priority matters most (balanced), or each place in turn (`rank-2` is second). */
     | "top"
     | `rank-${number}`
+    /**
+     * How much each feature counts: `features-top` asks the ones that matter
+     * most for the reader (balanced), `features-safetyAssistance` a whole
+     * priority's (thorough).
+     */
+    | "features"
+    | `features-${string}`
     | "offers"
     | "noNeeds"
     /** Change all the answers, or pick which. */
@@ -72,6 +82,27 @@ export interface Choice {
     looksFor?: string[];
     /** The same equipment, each with what it does — for the "i" on the chip. */
     features?: { label: string; does: string }[];
+}
+
+/** One feature, with how much it counts now: Standard · Somewhat · Moderately · Highly. */
+export interface LevelRow {
+    id: SignalId;
+    label: string;
+    /** What it does, for the "i". */
+    does: string;
+    level: FeatureLevel;
+    /** Counted only once raised: "standard" reads "Not counted". */
+    niche: boolean;
+    /** Why it's here: the needs that raised it, or why it's worth a look. */
+    because?: string;
+    /** How many of the cars here FINN lists it on, confirms without it, and of how many. */
+    listed?: { on: number; off: number; of: number };
+}
+
+export interface LevelGroup {
+    category: CategoryId;
+    title: string;
+    rows: LevelRow[];
 }
 
 /** An answer of the reader's own, where the pre-made ones don't fit. */
@@ -120,6 +151,8 @@ export interface ChatStep {
     offer?: { id: EvidenceId; needId: string };
     /** Choices preselected: what the reader said last time, when they're changing an answer. */
     selected?: string[];
+    /** Features to set how much each counts, by priority. Answered as `feature=level` for each row. */
+    levels?: LevelGroup[];
     /** The guide's step, for `applyChoices`. Absent on Lens's own steps (budget, period, start). */
     guide?: GuideStep;
 }

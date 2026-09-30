@@ -43,7 +43,7 @@ const ALWAYS = new Set<StepId>(["start", "keep", "confirm", "noNeeds", "changeHo
  * look"; thorough asks everything.
  */
 export function asksAt(ask: AskDepth, id: StepId): boolean {
-    if (ALWAYS.has(id) || id.startsWith("check-passengers-") || id.startsWith("rank-")) return true;
+    if (ALWAYS.has(id) || id.startsWith("check-passengers-") || id.startsWith("rank-") || id.startsWith("features-")) return true;
     if (ask === "thorough") return true;
     if (ask === "balanced") return id !== "offers" && !id.startsWith("offer-");
 
