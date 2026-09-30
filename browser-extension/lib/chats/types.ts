@@ -3,6 +3,7 @@ import type { NeedImportance } from "@/lib/lens-ai/contract";
 import type { EvidenceId } from "@/lib/lens-chat/evidence";
 import type { GuideStep, NeedGroup } from "@/lib/lens-chat/guide";
 
+import type { Depth } from "./depth";
 import type { FollowUp } from "./follow-ups";
 import type { Understanding } from "@/lib/lens-chat/understanding";
 
@@ -32,6 +33,9 @@ export type StepId =
     | "period"
     | "start"
     | "keep"
+    /** How much Lens asks, and how much it explains: asked first. */
+    | "askDepth"
+    | "explainDepth"
     /** The summary looked over: the reader says it's right before anything is saved or judged. */
     | "confirm"
     | "focus"
@@ -251,6 +255,10 @@ export interface Chat {
      * the latest only.
      */
     earlier?: Judgement[];
+    /** How much Lens asks and explains; absent on chats from before it was asked, which had everything. */
+    depth?: Depth;
+    /** Questions the reader chose to answer again, asked whatever the depth. */
+    explicit?: StepId[];
     /**
      * How the chat stood before each answer, newest last, so the last one can
      * be taken back and the question asked again. Emptied once the answers
@@ -276,6 +284,7 @@ export interface Rewind {
     picks: Record<string, string[]>;
     revising: boolean;
     kept: "settings" | "chat" | null;
+    depth?: Depth;
 }
 
 /**
@@ -292,4 +301,6 @@ export interface SavedSettings {
     rentalMonths: number | null;
     /** What was tapped for each question, so changing them starts from it. */
     picks?: Record<string, string[]>;
+    /** How much the reader likes Lens to ask and explain: new chats start from it. */
+    depth?: Depth;
 }

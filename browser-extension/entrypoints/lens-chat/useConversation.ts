@@ -229,6 +229,7 @@ export function useConversation(page: PageCars) {
                     understanding: next.understanding,
                     rentalMonths: rentalMonths(next.understanding),
                     picks: next.picks,
+                    depth: next.depth,
                 });
             }
 

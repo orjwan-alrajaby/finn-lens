@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 
+import { FULL } from "./depth";
+
 import { GARAGE } from "@/lib/reasoning-engine/test-garage";
 
 import { answer, peopleIn, startChat } from "./flow";
@@ -13,7 +15,7 @@ const cars = () => [GARAGE.safeCompact(), GARAGE.familySuv(), GARAGE.cityHatch()
 
 describe("typing", () => {
     it("adds what was typed to what was tapped, without doubling anything", async () => {
-        const start = startChat(null, cars());
+        const start = startChat(null, cars(), undefined, FULL);
         const counted = answer(start, start.messages.at(-1)!.id, ["passengers-2"], cars()).chat;
         const tapped = answer(counted, counted.messages.at(-1)!.id, ["kids"], cars()).chat;
 
@@ -26,7 +28,7 @@ describe("typing", () => {
     });
 
     it("reads only what was said, never a stock set of needs", async () => {
-        const start = startChat(null, cars());
+        const start = startChat(null, cars(), undefined, FULL);
         const read = await readTyped(start, "we have two kids and I can't spend more than 600 a month", cars(), null);
         const labels = read.understanding.needs.filter((need) => need.status === "active").map((need) => need.label.toLowerCase());
 
@@ -40,7 +42,7 @@ describe("words beside the taps", () => {
     const ask = (chat: ReturnType<typeof startChat>) => [...chat.messages].reverse().find((message) => message.kind === "ask")!;
 
     it("puts typed words on the answers they mean, so one dog is one need", async () => {
-        const start = startChat(null, cars());
+        const start = startChat(null, cars(), undefined, FULL);
         const counted = answer(start, ask(start).id, ["passengers-4"], cars()).chat;
         const text = "2 teenagers & a big dog";
         const read = await readTyped(counted, text, cars(), null);
@@ -60,7 +62,7 @@ describe("words beside the taps", () => {
     });
 
     it("counts a typed answer to this question as tapped, so its follow-up is asked", async () => {
-        const start = startChat(null, cars());
+        const start = startChat(null, cars(), undefined, FULL);
         const counted = answer(start, ask(start).id, ["passengers-2"], cars()).chat;
         const read = await readTyped(counted, "two teenagers", cars(), null);
         const { chat } = answer(counted, ask(counted).id, [], cars(), new Date(), { heard: { text: "two teenagers", understanding: read.understanding, reply: "" } });
@@ -69,14 +71,14 @@ describe("words beside the taps", () => {
     });
 
     it("asks the count with numbers only, since who they are comes next", () => {
-        const start = startChat(null, cars());
+        const start = startChat(null, cars(), undefined, FULL);
         const count = ask(start);
 
         expect(count.kind === "ask" && count.step.custom).toBeUndefined();
     });
 
     it("hears safety or comfort waved away as not wanted", async () => {
-        const start = startChat(null, cars());
+        const start = startChat(null, cars(), undefined, FULL);
 
         for (const text of ["I don't care about safety because I drive carefully.", "I don't care much about long-distance comfort."]) {
             const read = await readTyped(start, text, cars(), null);
@@ -91,7 +93,7 @@ describe("a long list of needs", () => {
             id: `life-need-${index}`, label: `Need ${index}`, importance: "important" as const, said: "", priorities: ["comfort" as const],
             evidence: [], notInData: null, status: "active" as const,
         }));
-        const start = startChat(null, cars());
+        const start = startChat(null, cars(), undefined, FULL);
         const read = await readTyped({ ...start, understanding: { ...start.understanding, needs: many } }, "something with low fuel consumption", cars(), null);
 
         expect(read.heardAs).toContain("using little fuel or electricity");
@@ -102,7 +104,7 @@ describe("a long list of needs", () => {
 describe("counts that don't add up", () => {
     const ask = (chat: ReturnType<typeof startChat>) => [...chat.messages].reverse().find((message) => message.kind === "ask")!;
     const typedWho = async (count: string[], text: string) => {
-        const start = startChat(null, cars());
+        const start = startChat(null, cars(), undefined, FULL);
         const counted = answer(start, ask(start).id, count, cars()).chat;
         const read = await readTyped(counted, text, cars(), null);
 
@@ -144,7 +146,7 @@ describe("counts that don't add up", () => {
 
 describe("words about CO₂ and consumption", () => {
     it("reads them onto their own questions, not onto each other", async () => {
-        const start = startChat(null, cars());
+        const start = startChat(null, cars(), undefined, FULL);
         const green = await readTyped(start, "I'd like something eco-friendly", cars(), null);
         const frugal = await readTyped(start, "it shouldn't guzzle fuel, low fuel consumption", cars(), null);
 

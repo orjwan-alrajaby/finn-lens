@@ -17,6 +17,7 @@ import {
 } from "@/lib/lens-chat/understanding";
 import type { FinnCar } from "@/lib/types";
 
+import { ASK_LABEL, asksAt, depthOf, EXPLAIN_LABEL, FULL, type AskDepth, type Depth, type ExplainDepth } from "./depth";
 import { applyFollowUp, followUpFor, offerReason, worthALook } from "./follow-ups";
 import { BASE_ANSWERS, chatAnswers } from "./judge";
 import { messageId, newChatId } from "./store";
@@ -51,7 +52,7 @@ import type { Chat, ChatMessage, ChatStep, Rewind, SavedSettings, StepId } from 
 
 /** The questions, in the order Lens asks them. Follow-ups are slotted in behind "life". */
 /* The limit before the rules: "nothing over €700" can only be offered once there's a €700. */
-export const STEP_ORDER: StepId[] = ["life", "focus", "budget", "rules", "period", "distance", "offers"];
+export const STEP_ORDER: StepId[] = ["askDepth", "explainDepth", "life", "focus", "budget", "rules", "period", "distance", "offers"];
 
 /** Equipment offered at most, so the questions end. */
 const MAX_OFFERS = 2;
@@ -121,9 +122,11 @@ const inWords = (n: number) => NUMBER_WORDS[n] ?? String(n);
 /* -------------------------------------------------------------------------- */
 
 /** The questions a reader can pick to answer again, in the order they're asked. */
-const CHANGEABLE: StepId[] = ["life-passengers", "life-people", "life-driving", "life-parking", "life-weather", "life-loads", "life-you", "life-co2", "life-efficiency", "budget", "rules", "period", "distance"];
+const CHANGEABLE: StepId[] = ["askDepth", "explainDepth", "life-passengers", "life-people", "life-driving", "life-parking", "life-weather", "life-loads", "life-you", "life-co2", "life-efficiency", "budget", "rules", "period", "distance"];
 
 const CHANGE_LABEL: Partial<Record<StepId, string>> = {
+    askDepth: "How much I ask",
+    explainDepth: "How much I explain",
     "life-passengers": "How many ride with you",
     "life-people": "Who rides with you",
     "life-driving": "Your driving",
@@ -140,8 +143,12 @@ const CHANGE_LABEL: Partial<Record<StepId, string>> = {
 };
 
 /** What a question's answer is now, in a few words: "€700 a month", "travelling with children and pets". */
-function nowSaid(step: StepId, u: Understanding, cars: FinnCar[]): string {
+function nowSaid(step: StepId, u: Understanding, cars: FinnCar[], depth: Depth = FULL): string {
     switch (step) {
+        case "askDepth":
+            return lowerFirst(ASK_LABEL[depth.ask]);
+        case "explainDepth":
+            return lowerFirst(EXPLAIN_LABEL[depth.explain]);
         case "life-passengers":
             return u.passengers == null ? "not answered" : u.passengers === 0 ? "just you" : `${u.passengers >= 5 ? "5 or more" : u.passengers}`;
         case "rules":
@@ -503,7 +510,7 @@ export function coveredBy(step: Pick<ChatStep, "covers">, picked: string, other:
 }
 
 /** Lens's question for `id`, narrowed to what's worth asking about these cars. Null when it isn't. */
-export function stepFor(id: StepId, cars: FinnCar[], u: Understanding = EMPTY_UNDERSTANDING): ChatStep | null {
+export function stepFor(id: StepId, cars: FinnCar[], u: Understanding = EMPTY_UNDERSTANDING, depth: Depth = FULL): ChatStep | null {
     switch (id) {
         case "budget":
             return {
@@ -564,6 +571,32 @@ export function stepFor(id: StepId, cars: FinnCar[], u: Understanding = EMPTY_UN
             };
         }
 
+        case "askDepth":
+            return {
+                id,
+                ask: "First, how much should I ask you?",
+                why: "It changes how many questions I ask, not how I judge the cars: every choice uses the same scoring. You can change it later.",
+                multiple: false,
+                choices: [
+                    { id: "quick", label: "Quick", said: "Keep it quick.", description: "A handful of questions. I'll suggest what matters to you, and you confirm it." },
+                    { id: "balanced", label: "Balanced", said: "Balanced, please.", description: "Enough questions to understand you properly, without an interrogation." },
+                    { id: "thorough", label: "Thorough", said: "Be thorough.", description: "Every question, and you set how much each priority and each feature counts." },
+                ],
+            };
+
+        case "explainDepth":
+            return {
+                id,
+                ask: "And how much should I explain when I show you the cars?",
+                why: "It changes how much I say about the result, not the result itself. You can always ask for more.",
+                multiple: false,
+                choices: [
+                    { id: "quick", label: "Quick", said: "Just the essentials.", description: "My pick, and the few reasons that decided it." },
+                    { id: "balanced", label: "Balanced", said: "A balance.", description: "My pick, why, and what you'd give up for it." },
+                    { id: "detailed", label: "Detailed", said: "All the details.", description: "The full breakdown: your priorities, the features that counted, the evidence and the alternatives." },
+                ],
+            };
+
         case "start":
             return {
                 id,
@@ -600,7 +633,7 @@ export function stepFor(id: StepId, cars: FinnCar[], u: Understanding = EMPTY_UN
                     id: step,
                     label: CHANGE_LABEL[step]!,
                     said: CHANGE_LABEL[step]!,
-                    description: `Now: ${nowSaid(step, u, cars)}.`,
+                    description: `Now: ${nowSaid(step, u, cars, depth)}.`,
                 })),
                 none: "Never mind",
             };
@@ -740,7 +773,10 @@ export function stepFor(id: StepId, cars: FinnCar[], u: Understanding = EMPTY_UN
 }
 
 /** What the reader said last time, so changing an answer starts from it. */
-export function selectedFor(step: ChatStep, u: Understanding, picks: Record<string, string[]> = {}): string[] {
+export function selectedFor(step: ChatStep, u: Understanding, picks: Record<string, string[]> = {}, depth: Depth = FULL): string[] {
+    if (step.id === "askDepth") return [depth.ask];
+    if (step.id === "explainDepth") return [depth.explain];
+
     const valid = (ids: string[]) => ids.filter((id) => step.choices.some((choice) => choice.id === id));
 
     if (step.guide && (step.guide.id === "life" || step.guide.id === "rules")) {
@@ -932,7 +968,7 @@ function rulesText(u: Understanding): string {
 }
 
 /** What Lens will judge by, as the calibration card shows it. */
-export function summaryOf(u: Understanding, id: string = messageId()): Extract<ChatMessage, { kind: "summary" }> {
+export function summaryOf(u: Understanding, id: string = messageId(), depth: Depth | null = null): Extract<ChatMessage, { kind: "summary" }> {
     const needs = lifeNeeds(u);
     const rules = ruledOut(u);
     const lines: { label: string; value: string; step?: StepId }[] = [];
@@ -950,6 +986,11 @@ export function summaryOf(u: Understanding, id: string = messageId()): Extract<C
             : `About ${BASE_ANSWERS.preferences.monthlyKm.toLocaleString("en-GB")} km a month (assumed — you didn't say)`,
         step: "distance",
     });
+
+    if (depth) {
+        lines.push({ label: "Questions", value: ASK_LABEL[depth.ask], step: "askDepth" });
+        lines.push({ label: "Explanations", value: EXPLAIN_LABEL[depth.explain], step: "explainDepth" });
+    }
 
     const translation = chatAnswers(u);
     /* Each item once, under the first need to name it: blind spot warning under "Driving nerves" and again under "Safety" read as two things. */
@@ -1060,6 +1101,8 @@ export function askNext(chat: Chat, cars: FinnCar[]): Chat {
          */
         if (id === "life") {
             if (!preselect && answered("life", u)) continue;
+            /* Only the groups this depth asks about. */
+            if (!asksAt(depthOf(chat).ask, id)) continue;
 
             queue = [...(Object.keys(NEED_GROUPS) as NeedGroup[]).map((group) => `life-${group}` as StepId), ...queue];
             continue;
@@ -1075,7 +1118,10 @@ export function askNext(chat: Chat, cars: FinnCar[]): Chat {
         /* Already said in their own words: asking would be asking them to repeat themselves. */
         if (!preselect && answered(id, u)) continue;
 
-        const step = stepFor(id, cars, u);
+        /* Not at this depth, unless the reader chose to answer it again. */
+        if (!asksAt(depthOf(chat).ask, id) && !(chat.explicit ?? []).includes(id)) continue;
+
+        const step = stepFor(id, cars, u, depthOf(chat));
         if (!step) continue;
 
         const ask: ChatMessage = {
@@ -1084,7 +1130,7 @@ export function askNext(chat: Chat, cars: FinnCar[]): Chat {
             from: "lens",
             kind: "ask",
             /* A need already given — typed earlier, or kept from last time — shows as picked, so answering doesn't undo it. */
-            step: preselect || id.startsWith("life-") || id === "focus" ? { ...step, selected: selectedFor(step, u, chat.picks) } : step,
+            step: preselect || id.startsWith("life-") || id === "focus" ? { ...step, selected: selectedFor(step, u, chat.picks, depthOf(chat)) } : step,
             answered: false,
         };
 
@@ -1113,15 +1159,18 @@ export function askNext(chat: Chat, cars: FinnCar[]): Chat {
         { ...chat, messages: closeAsks(chat.messages) },
         [
             lens("Here's what I'll judge the cars by. Change anything that isn't right — tap an importance to set it, or “Change” beside a line."),
-            summaryOf(u),
+            summaryOf(u, messageId(), chat.depth ?? null),
             { id: messageId(), at: now(), from: "lens", kind: "ask", step: CONFIRM, answered: false },
         ],
-        { queue: [], phase: "keep", revising: false },
+        { queue: [], phase: "keep", revising: false, explicit: [] },
     );
 }
 
-/** A brand-new chat, from nothing or from the reader's saved settings. */
-export function startChat(settings: SavedSettings | null, cars: FinnCar[], today = new Date()): Chat {
+/**
+ * A brand-new chat, from nothing or from the reader's saved settings. With
+ * `depth` already known, Lens doesn't ask how much to ask and explain.
+ */
+export function startChat(settings: SavedSettings | null, cars: FinnCar[], today = new Date(), depth: Depth | null = null): Chat {
     const at = today.toISOString();
     const base: Chat = {
         id: newChatId(),
@@ -1130,7 +1179,8 @@ export function startChat(settings: SavedSettings | null, cars: FinnCar[], today
         updatedAt: at,
         messages: [],
         understanding: EMPTY_UNDERSTANDING,
-        queue: [...STEP_ORDER],
+        queue: depth ? STEP_ORDER.filter((id) => id !== "askDepth" && id !== "explainDepth") : [...STEP_ORDER],
+        ...(depth ? { depth } : {}),
         phase: "asking",
         kept: null,
         revising: false,
@@ -1157,9 +1207,9 @@ export function startChat(settings: SavedSettings | null, cars: FinnCar[], today
 
     const start = stepFor("start", cars)!;
 
-    return touch({ ...base, understanding, queue: [], phase: "ready", kept: "settings", picks: settings.picks ?? {} }, [
+    return touch({ ...base, understanding, queue: [], phase: "ready", kept: "settings", picks: settings.picks ?? {}, depth: settings.depth }, [
         lens("Welcome back! I'll start from your saved settings:"),
-        summaryOf(understanding),
+        summaryOf(understanding, messageId(), settings.depth ?? null),
         { id: messageId(), at: now(), from: "lens", kind: "ask", step: start, answered: false },
     ]);
 }
@@ -1207,6 +1257,7 @@ export function answer(
         picks: chat.picks ?? {},
         revising: chat.revising,
         kept: chat.kept,
+        depth: chat.depth,
     };
 
     return { ...result, chat: { ...result.chat, history: [...(chat.history ?? []), before].slice(-MAX_REWINDS) } };
@@ -1241,6 +1292,7 @@ export function rewind(chat: Chat): Chat {
         picks: last.picks,
         revising: last.revising,
         kept: last.kept,
+        depth: last.depth,
         history: history.slice(0, -1),
         title: titleFor(last.understanding),
         updatedAt: now(),
@@ -1290,7 +1342,8 @@ function answerStep(
         if (picked[0]?.id === "scratch") {
             const next = touch(base, [reader(said), lens("Starting fresh — your saved settings stay as they are.")], {
                 understanding: EMPTY_UNDERSTANDING,
-                queue: [...STEP_ORDER],
+                /* The answers start over; how much the reader likes Lens to ask and explain doesn't. */
+                queue: chat.depth ? STEP_ORDER.filter((id) => id !== "askDepth" && id !== "explainDepth") : [...STEP_ORDER],
                 kept: null,
                 picks: {},
             });
@@ -1309,6 +1362,23 @@ function answerStep(
         }
 
         const next = touch(base, [reader(tapped || "Let me pick something."), lens("Here they are again.")], { queue: ["life"], revising: true });
+        return { chat: askNext(next, cars), after: "wait" };
+    }
+
+    /* -- How much Lens asks and explains ----------------------------------- */
+    if (step.id === "askDepth" || step.id === "explainDepth") {
+        const level = picked[0]?.id;
+        if (!level) return { chat, after: "wait" };
+
+        const depth = { ...depthOf(chat), ...(step.id === "askDepth" ? { ask: level as AskDepth } : { explain: level as ExplainDepth }) };
+        const reply = {
+            quick: step.id === "askDepth" ? "Quick it is — I'll keep to what I really need, and suggest the rest for you to check." : "Quick it is — my pick and what decided it, with more whenever you ask.",
+            balanced: step.id === "askDepth" ? "Balanced it is." : "Balanced it is — my pick, why, and what you'd give up.",
+            thorough: "Thorough it is — I'll ask about everything, and you'll set how much each thing counts.",
+            detailed: "Detailed it is — you'll see all of my reasoning.",
+        }[level] ?? "Got it.";
+        const next = touch(base, [reader(tapped), lens(reply)], { depth });
+
         return { chat: askNext(next, cars), after: "wait" };
     }
 
@@ -1340,6 +1410,8 @@ function answerStep(
             queue,
             kept: null,
             revising: true,
+            /* Chosen to be answered again: asked whatever the depth. */
+            explicit: picks,
         });
 
         return { chat: askNext(next, cars), after: "wait" };
@@ -1503,7 +1575,7 @@ export function setImportance(chat: Chat, needId: string, importance: NeedImport
         ...chat,
         understanding,
         updatedAt: now(),
-        messages: chat.messages.map((message) => (message === lastSummary ? summaryOf(understanding, message.id) : message)),
+        messages: chat.messages.map((message) => (message === lastSummary ? summaryOf(understanding, message.id, chat.depth ?? null) : message)),
     };
 }
 

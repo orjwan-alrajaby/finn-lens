@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 
+import { FULL } from "./depth";
+
 import { fleet } from "@/lib/reasoning-engine/test-data/fleet";
 import { totalFor } from "@/lib/reasoning-engine/scoring";
 import { CATEGORIES } from "@/lib/reasoning-engine/constants";
@@ -36,7 +38,7 @@ const openAsk = (chat: Chat): Ask | null => {
 
 /** Answers every question as the persona would, until Lens asks to keep the answers. */
 async function converse(cars: PinnedFinnCar[], picks: Picks): Promise<Chat> {
-    let chat = startChat(null, cars, TODAY);
+    let chat = startChat(null, cars, TODAY, FULL);
 
     for (let guard = 0; guard < 40; guard += 1) {
         const ask = openAsk(chat);
