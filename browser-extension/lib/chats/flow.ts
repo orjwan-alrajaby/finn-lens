@@ -447,6 +447,8 @@ export function acknowledge(step: ChatStep, u: Understanding, chosen: string[] =
 
         if (!replies.length) return "Fine — I'll keep it as it was.";
 
+        if (step.followUp.replace) return `Got it — I'll count ${joined(replies)}.`;
+
         return step.followUp.multiple ? `Got it. I'll also count ${joined(replies)}.` : replies.join(" ");
     }
 

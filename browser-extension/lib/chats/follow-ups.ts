@@ -33,6 +33,12 @@ export interface FollowUp {
     ask: string;
     why: string;
     multiple?: boolean;
+    /**
+     * The answers say which of the need's equipment applies, rather than
+     * adding to it: "parking" is the worry, so blind spot warning is not.
+     * Answering none of them leaves the need as it was.
+     */
+    replace?: boolean;
     choices: FollowUpChoice[];
 }
 
@@ -137,8 +143,9 @@ export const FOLLOW_UPS: Record<string, FollowUp> = {
     nervous: {
         need: "nervous",
         ask: "What makes driving stressful for you?",
-        why: "Each worry has its own equipment: parking sensors and a 360° camera for parking, blind spot warning and lane keeping for traffic, a reversing camera and rear cross-traffic alert for backing out. I'll count the ones that match.",
+        why: "Each worry has its own equipment, and I'll count only what matches yours.",
         multiple: true,
+        replace: true,
         choices: [
             { id: "parking", label: "Parking", said: "Parking.", add: [
                     { id: "hasThreeSixtyDegreesCamera", why: "so you can check every side before you move" },
@@ -180,7 +187,8 @@ export function applyFollowUp(u: Understanding, followUp: FollowUp, chosen: stri
 
             const importance = picked.map((choice) => choice.importance).find(Boolean) ?? need.importance;
             const removed = new Set(picked.flatMap((choice) => choice.remove ?? []));
-            const kept = need.evidence.filter((entry) => !removed.has(entry.id));
+            const replacing = followUp.replace === true && picked.length > 0;
+            const kept = replacing ? [] : need.evidence.filter((entry) => !removed.has(entry.id));
             const have = new Set(kept.map((entry) => entry.id));
             const added = picked
                 .flatMap((choice) => choice.add ?? [])

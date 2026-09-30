@@ -257,6 +257,18 @@ describe("a conversation, not a form", () => {
         expect(texts(adult).at(-1)).toMatch(/nothing extra to check/);
     });
 
+    it("counts only the help that matches what makes driving stressful", () => {
+        const evidenceFor = (worries: string[]) =>
+            walk(startChat(null, cars(), TODAY), { life: ["nervous"], "follow-nervous": worries })
+                .understanding.needs.find((need) => need.id === "life-nervous")!
+                .evidence.map((entry) => entry.id);
+
+        expect(evidenceFor(["parking"])).toEqual(["hasThreeSixtyDegreesCamera", "hasParkingSensors"]);
+        expect(evidenceFor(["traffic"])).toEqual(["hasBlindSpotAssist", "hasLaneKeepingAssist"]);
+        /* None of them: the need keeps everything it started with. */
+        expect(evidenceFor([])).toEqual(expect.arrayContaining(["hasBlindSpotAssist", "hasThreeSixtyDegreesCamera", "hasRearCrosswalkWarning"]));
+    });
+
     it("asks what's carried by name, so no second question is needed to find out", () => {
         const chat = walk(startChat(null, cars(), TODAY), { life: ["bulky", "towing"], focus: [] });
         const loads = chat.messages.find((message): message is Ask => message.kind === "ask" && message.step.id === "life-loads")!;
