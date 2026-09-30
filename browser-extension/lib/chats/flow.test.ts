@@ -257,6 +257,26 @@ describe("a conversation, not a form", () => {
         expect(texts(adult).at(-1)).toMatch(/nothing extra to check/);
     });
 
+    it("asks what kind of winter, and counts what that winter needs", () => {
+        const winterFor = (kind: string) =>
+            walk(startChat(null, cars(), TODAY), { life: ["winter"], "follow-winter": [kind] })
+                .understanding.needs.find((need) => need.id === "life-winter")!
+                .evidence.map((entry) => entry.id);
+
+        expect(winterFor("wet")).toEqual(expect.arrayContaining(["hasRainSlashLightSensors", "hasFogLights"]));
+        expect(winterFor("wet")).not.toContain("hasAllWheelDrive");
+        expect(winterFor("cold")).not.toContain("hasFogLights");
+        expect(winterFor("snow")).toEqual(expect.arrayContaining(["hasAllWheelDrive", "hasRainSlashLightSensors", "hasFogLights"]));
+    });
+
+    it("writes \"&\" on chips and \"and\" in sentences", () => {
+        const chat = walk(startChat(null, cars(), TODAY), { life: ["city", "roadtrips"], "follow-city": ["street"], focus: ["life-roadtrips"] });
+        const focus = chat.messages.find((message): message is Ask => message.kind === "ask" && message.step.id === "focus")!;
+
+        expect(focus.step.choices.map((choice) => choice.label)).toContain("City driving & parking");
+        expect(texts(chat).find((text) => /one step less/.test(text))).toMatch(/City driving and parking counts one step less/);
+    });
+
     it("counts only the help that matches what makes driving stressful", () => {
         const evidenceFor = (worries: string[]) =>
             walk(startChat(null, cars(), TODAY), { life: ["nervous"], "follow-nervous": worries })

@@ -123,21 +123,34 @@ export const FOLLOW_UPS: Record<string, FollowUp> = {
     },
     winter: {
         need: "winter",
-        ask: "How hard are your winters?",
-        why: "It decides how much winter counts, and whether snow equipment joins the list.",
+        ask: "What are your winters mostly like?",
+        why: "Each kind of winter needs its own equipment, and it decides how much winter counts.",
         choices: [
             {
                 id: "snow",
-                label: "Snow and ice",
+                label: "Snow & ice",
                 said: "Snow and ice.",
                 importance: "essential",
                 add: [
                     { id: "hasAllWheelDrive", why: "for grip pulling away and climbing on snow and ice — it doesn't shorten braking" },
                     { id: "hasAuxiliaryHeater", why: "so the car is warm and the windows clear before you set off" },
+                    { id: "hasRainSlashLightSensors", why: "so you aren't reaching for switches in snow and early winter darkness" },
+                    { id: "hasFogLights", why: "for heavy snowfall, when the road edge disappears" },
                 ],
-                reply: "Snow and ice: cold winters are a must-have, and I'll also count all-wheel drive and an auxiliary heater.",
+                reply: "Snow and ice: cold winters are a must-have. I'll also count all-wheel drive, an auxiliary heater, rain and light sensors, and fog lights.",
             },
-            { id: "cold", label: "Cold but mostly dry", said: "Cold but mostly dry.", reply: "Cold but dry: I'll count heated seats and a heated steering wheel, without adding all-wheel drive." },
+            /* Cold without snow is often grey and wet instead: what it needs is to see and be seen. */
+            {
+                id: "wet",
+                label: "Rain & fog",
+                said: "Mostly rain and fog.",
+                add: [
+                    { id: "hasRainSlashLightSensors", why: "so the wipers and headlights come on by themselves in rain and gloom" },
+                    { id: "hasFogLights", why: "so the road edge stays lit when fog closes in" },
+                ],
+                reply: "Rain and fog: I'll also count rain and light sensors, and fog lights.",
+            },
+            { id: "cold", label: "Cold but mostly dry", said: "Cold but mostly dry.", reply: "Cold but dry: I'll count heated seats and a heated steering wheel, and nothing for snow or rain." },
             /* Not "fairly mild": they've just said their winters get cold. */
             { id: "mild", label: "Only a few cold weeks", said: "Only a few cold weeks a year.", importance: "niceToHave", reply: "A few cold weeks: I'll count winter equipment as nice to have." },
         ],

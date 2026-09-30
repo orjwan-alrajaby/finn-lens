@@ -256,7 +256,8 @@ export function stepFor(id: StepId, cars: FinnCar[], u: Understanding = EMPTY_UN
                     : "If the cars can't give you everything, which of these matters most?",
                 why: WHY.focus,
                 multiple: false,
-                choices: needs.map((need) => ({ id: need.id, label: need.label, said: `${need.label} matters most.` })),
+                /* "&" on a chip, where space is short; the reader's words keep "and". */
+                choices: needs.map((need) => ({ id: need.id, label: need.label.replace(/ and /g, " & "), said: `${need.label} matters most.` })),
                 none: "They matter equally",
             };
         }
@@ -463,7 +464,8 @@ export function acknowledge(step: ChatStep, u: Understanding, chosen: string[] =
     switch (step.id) {
         case "focus": {
             const top = u.needs.find((need) => chosen.includes(need.id));
-            const others = step.choices.filter((choice) => !chosen.includes(choice.id)).map((choice) => lower(choice.label));
+            /* The needs' own names, not the chips': "&" is for chips, not sentences. */
+            const others = u.needs.filter((need) => step.choices.some((choice) => choice.id === need.id) && !chosen.includes(need.id)).map((need) => lower(need.label));
 
             return top
                 ? `${top.label} now counts most in the ranking. ${joined(others).replace(/^./, (c) => c.toUpperCase())} ${others.length === 1 ? "counts" : "count"} one step less.`
