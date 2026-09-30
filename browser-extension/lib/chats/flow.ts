@@ -197,6 +197,80 @@ const COUNT = ["none", "one", "two", "three", "four", "five"];
 const rankable = (u: Understanding) =>
     lifeNeeds(u).filter((need) => !need.id.startsWith("life-passengers-") && !need.evidence.some((entry) => entry.mustHave || entry.unwanted));
 
+/**
+ * What matters most is asked of groups, not of every need: children, adults
+ * and a pet are all who rides along, winters and summers are the weather,
+ * nerves and safety are feeling safe. Ranking one against the other of a
+ * pair like that splits hairs, and a long list of near-twins made "your
+ * top five" a chore. Each group is named for what the car should do, in the
+ * reader's own terms — from what they actually said, so children alone is
+ * "suits travelling with children" — and picking it lifts all it covers.
+ *
+ * CO₂ and fuel use stay apart: the reader was asked about each on its own.
+ */
+const THEMES: { id: string; members: string[]; label: (said: Set<string>) => string }[] = [
+    {
+        id: "people",
+        members: ["kids", "adults", "dog"],
+        label: (said) =>
+            said.size > 1 ? "Suits everyone who rides with you" : said.has("kids") ? "Suits travelling with children" : said.has("adults") ? "Room for adult passengers" : "Suits travelling with a pet",
+    },
+    {
+        id: "town",
+        members: ["city", "street", "garage", "multi-storey", "open-car-park"],
+        label: (said) => (said.has("city") ? (said.size > 1 ? "Easy in city traffic & to park" : "Easy in city traffic") : "Easy to park where you park"),
+    },
+    { id: "long", members: ["motorway", "roadtrips"], label: () => "Comfortable on long drives" },
+    { id: "commute", members: ["commute"], label: () => "Makes the commute easier" },
+    { id: "night", members: ["night"], label: () => "Good for driving at night" },
+    {
+        id: "weather",
+        members: ["winter", "summer"],
+        label: (said) => (said.size > 1 ? "Handles cold winters & hot summers" : said.has("winter") ? "Handles cold winters" : "Stays cool in hot summers"),
+    },
+    {
+        id: "loads",
+        members: ["bulky", "bikes", "towing"],
+        label: (said) =>
+            said.size > 1 ? "Carries & tows what you need" : said.has("towing") ? "Tows your trailer or caravan" : said.has("bikes") ? "Takes bikes, skis or a roof box" : "Takes bulky loads",
+    },
+    {
+        id: "safe",
+        members: ["nervous", "safety"],
+        label: (said) => (said.size > 1 ? "Helps you feel safe on the road" : said.has("nervous") ? "Eases driving nerves" : "Helps avoid a collision"),
+    },
+    {
+        id: "cabin",
+        members: ["tech", "comfort"],
+        label: (said) => (said.size > 1 ? "Comfortable & connected" : said.has("tech") ? "Connects your phone" : "Everyday comforts"),
+    },
+    { id: "co2", members: ["co2-decides", "co2-matters", "co2-bonus"], label: () => "Low CO₂" },
+    { id: "efficiency", members: ["efficiency-decides", "efficiency-matters", "efficiency-bonus"], label: () => "Uses little fuel or electricity" },
+];
+
+interface Theme {
+    id: string;
+    label: string;
+    covers: Understanding["needs"];
+}
+
+/** The reader's needs in their groups; a need from their own words that fits none is a group of its own. */
+function themesOf(u: Understanding): Theme[] {
+    const needs = rankable(u);
+    const choice = (need: Understanding["needs"][number]) => need.id.replace(/^life-/, "");
+    const themes: Theme[] = THEMES.flatMap((def) => {
+        const covers = needs.filter((need) => def.members.includes(choice(need)));
+
+        return covers.length ? [{ id: `theme-${def.id}`, label: def.label(new Set(covers.map(choice))), covers }] : [];
+    });
+    const grouped = new Set(themes.flatMap((theme) => theme.covers.map((need) => need.id)));
+
+    return [...themes, ...needs.filter((need) => !grouped.has(need.id)).map((need) => ({ id: `theme-${need.id}`, label: need.label, covers: [need] }))];
+}
+
+/** A group's name in a sentence: "easy in city traffic and to park", keeping "CO₂". */
+const inSentence = (label: string) => lowerFirst(label).replace(/ & /g, " and ");
+
 /* -------------------------------------------------------------------------- */
 /* The questions                                                              */
 /* -------------------------------------------------------------------------- */
@@ -455,27 +529,37 @@ export function stepFor(id: StepId, cars: FinnCar[], u: Understanding = EMPTY_UN
 
         case "focus": {
             /*
-             * With three things or fewer, they count as they are: ranking
+             * With three groups or fewer, they count as they are: ranking
              * them would invent a preference. With more, the reader says
              * which matter most — about a third of them — and what their
              * answers already marked as deciding it starts picked.
              */
-            const needs = rankable(u);
+            const themes = themesOf(u);
 
-            if (needs.length <= RANK_FROM) return null;
+            if (themes.length <= RANK_FROM) return null;
 
-            const top = COUNT[topOf(needs.length)];
+            const top = COUNT[topOf(themes.length)];
+            const started = themes.some((theme) => theme.covers.some((need) => need.importance === "essential"));
 
             return {
                 id,
-                ask: `You've told me about ${needs.length} things that matter to you. When no car has all of them, it helps me to know your top ${top} — which are they?`,
-                why: needs.some((need) => need.importance === "essential")
-                    ? `Your top ${top} count twice as much as the rest in the ranking. I've started with the ones your answers said could decide it — change them if they're not your top ${top}. You can change this later in the summary too.`
-                    : `Your top ${top} count twice as much as the rest in the ranking. You can change this later in the summary.`,
+                ask: `You've told me about ${rankable(u).length} things you'd like from the car. When no car has all of them, which ${top} matter most to you?`,
+                why: [
+                    `I've grouped the ones that go together. The ${top} you pick count twice as much as the rest in the ranking.`,
+                    started ? "I've started with the ones your answers said could decide it — change them if they're not the ones." : "",
+                    "You can change this later in the summary.",
+                ]
+                    .filter(Boolean)
+                    .join(" "),
                 multiple: true,
-                max: topOf(needs.length),
-                /* "&" on a chip, where space is short; the reader's words keep "and". */
-                choices: needs.map((need) => ({ id: need.id, label: need.label.replace(/ and /g, " & "), said: need.label })),
+                max: topOf(themes.length),
+                choices: themes.map((theme) => ({
+                    id: theme.id,
+                    label: theme.label,
+                    said: theme.label,
+                    /* What a group covers, behind its "i", where it covers more than one thing. */
+                    description: theme.covers.length > 1 ? `Covers ${joined(theme.covers.map((need) => lower(need.label)))}.` : undefined,
+                })),
                 none: "They matter equally",
             };
         }
@@ -675,7 +759,8 @@ export function selectedFor(step: ChatStep, u: Understanding, picks: Record<stri
             .map((choice) => choice.id);
     }
 
-    if (step.id === "focus") return valid(u.needs.filter((need) => need.status === "active" && need.importance === "essential").map((need) => need.id)).slice(0, step.max ?? 1);
+    /* A group starts picked when an answer already made something in it decide the choice. */
+    if (step.id === "focus") return valid(themesOf(u).filter((theme) => theme.covers.some((need) => need.importance === "essential")).map((theme) => theme.id)).slice(0, step.max ?? 1);
 
     if (picks[step.id]) return valid(picks[step.id]!);
 
@@ -786,12 +871,11 @@ export function acknowledge(step: ChatStep, u: Understanding, chosen: string[] =
 
     switch (step.id) {
         case "focus": {
-            const top = u.needs.filter((need) => chosen.includes(need.id)).map((need) => need.label);
+            const top = step.choices.filter((choice) => chosen.includes(choice.id)).map((choice) => inSentence(choice.label));
 
             if (!top.length) return "Equal it is — they all count the same.";
 
-            /* The needs' own names, not the chips': "&" is for chips, not sentences. */
-            return `${joined(top.map((label, index) => (index ? lower(label) : label)))} now ${top.length === 1 ? "counts" : "count"} twice as much as the rest.`;
+            return `${top.length === 1 ? "That one now counts" : `Those ${COUNT[top.length] ?? top.length} now count`} twice as much as the rest: ${joined(top)}.`;
         }
         case "rules": {
             const rules = ruledOut(u);
@@ -1306,14 +1390,16 @@ function answerStep(
             : withoutSuggestion(understanding, step.offer.id);
     } else if (step.id === "focus") {
         /*
-         * The reader's top three are must-haves, and nothing else is: a
-         * need an answer had marked as deciding it, and which they didn't
+         * What the picked groups cover are must-haves, and nothing else is: a
+         * need an answer had marked as deciding it, in a group they didn't
          * pick, steps back to important. "They matter equally" does the same
          * for all of them. What they said happens only now and then stays
          * nice to have.
          */
-        const ranked = new Set(step.choices.map((choice) => choice.id));
-        const labels = understanding.needs.filter((need) => chosen.includes(need.id)).map((need) => lower(need.label));
+        const themes = themesOf(understanding);
+        const ranked = new Set(themes.flatMap((theme) => theme.covers.map((need) => need.id)));
+        const lifted = new Set(themes.filter((theme) => chosen.includes(theme.id)).flatMap((theme) => theme.covers.map((need) => need.id)));
+        const labels = step.choices.filter((choice) => chosen.includes(choice.id)).map((choice) => inSentence(choice.label));
 
         said = labels.length ? `My top ${COUNT[labels.length] ?? labels.length}: ${joined(labels)}.` : step.none ?? "";
 
@@ -1321,7 +1407,7 @@ function answerStep(
             ...understanding,
             needs: understanding.needs.map((need) => {
                 if (!ranked.has(need.id)) return need;
-                if (chosen.includes(need.id)) return { ...need, importance: "essential" as const };
+                if (lifted.has(need.id)) return { ...need, importance: "essential" as const };
 
                 return need.importance === "essential" ? { ...need, importance: "important" as const } : need;
             }),
