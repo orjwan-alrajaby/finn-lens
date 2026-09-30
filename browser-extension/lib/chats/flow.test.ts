@@ -10,7 +10,7 @@ import { EMPTY_UNDERSTANDING, withBudget } from "@/lib/lens-chat/understanding";
 import { fleet } from "@/lib/reasoning-engine/test-data/fleet";
 
 import { chatAnswers, judgementFrom, judgeWith } from "./judge";
-import { answer, askNext, changeAnswers, changeOne, coveredBy, rentalMonths, rewind, rewindable, setImportance, startChat, startMonth, stepFor, summaryOf, withinLimits } from "./flow";
+import { answer, askNext, changeAnswers, changeOne, coveredBy, explainAs, rentalMonths, rewind, rewindable, setImportance, startChat, startMonth, stepFor, summaryOf, withinLimits } from "./flow";
 import { readTyped } from "./typing";
 import type { Chat, ChatMessage, SavedSettings, StepId } from "./types";
 
@@ -1020,5 +1020,20 @@ describe("how much each feature counts", () => {
         const some = answer(how, openAsk(how)!.id, ["some"], cars(), TODAY).chat;
 
         expect(openAsk(some)!.step.choices.map((choice) => choice.id)).toEqual(expect.arrayContaining(["priorities", "features"]));
+    });
+});
+
+describe("how much Lens explains, after a result", () => {
+    it("tells more, or keeps it quick, from then on — without changing what was judged", () => {
+        const chat = walk(startChat(null, cars(), TODAY, { ask: "quick", explain: "balanced" }), { life: ["passengers-2", "kids"] });
+        const more = explainAs(chat, "detailed");
+
+        expect(more.depth).toEqual({ ask: "quick", explain: "detailed" });
+        expect(more.understanding).toBe(chat.understanding);
+        expect(more.messages.slice(-2).map((message) => message.kind === "text" && message.text)).toEqual([
+            "Tell me more.",
+            expect.stringMatching(/^Sure — here's all of my reasoning/),
+        ]);
+        expect(explainAs(more, "quick").depth?.explain).toBe("quick");
     });
 });

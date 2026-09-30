@@ -1,9 +1,12 @@
-import { useMemo } from "react";
-import { ChevronRight, Scale, Trophy } from "lucide-react";
+import { useMemo, useState } from "react";
+import { ChevronDown, ChevronRight, Scale, Trophy } from "lucide-react";
 
 import { BandChip, CarPhoto, euros } from "@/components/lens-parts";
 import { configurationName } from "@/lib/car-labels";
+import { depthOf, type ExplainDepth } from "@/lib/chats/depth";
 import { IMPORTANCE_LABEL, summaryOf } from "@/lib/chats/flow";
+import { becauseOf } from "@/lib/chats/judge";
+import { FEATURE_IMPORTANCE } from "@/lib/reasoning-engine/constants";
 import { requestOpenDrawer } from "@/lib/chats/bridge";
 
 import { sameJudgement } from "./useJudgedCar";
@@ -35,11 +38,22 @@ const STANDING: Record<PriorityStanding, { label: string; tone: string }> = {
     unsupported: { label: "Not enough data", tone: "bg-finn-cotton text-finn-iron" },
 };
 
+/** What each depth shows beyond the pick, why it won and what it costs. */
+const SHOWS: Record<ExplainDepth, { fit: boolean; full: boolean }> = {
+    quick: { fit: false, full: false },
+    balanced: { fit: true, full: false },
+    detailed: { fit: true, full: true },
+};
+
 export function WinnerView({ value, print = false }: { value: JudgedCar; print?: boolean }) {
     const { car, judged, judgement, story, cost, chat } = value;
     const { run } = judged;
     const { narrative } = run;
     const { verdict } = narrative;
+    /* As much as the reader asked Lens to explain; the PDF, and "Show me more", have it all. */
+    const [more, setMore] = useState(false);
+    const shows = SHOWS[print || more ? "detailed" : depthOf(chat).explain];
+    const because = useMemo(() => becauseOf(judged.translation), [judged.translation]);
 
     const runnersUp = useMemo(
         () => alternativesWithinLimits(run, 3).map((line) => ({ line, versus: whyNot(run, line.id) })),
@@ -109,7 +123,7 @@ export function WinnerView({ value, print = false }: { value: JudgedCar; print?:
                 ))}
             </Section>
 
-            {story?.sections.length ? (
+            {shows.fit && story?.sections.length ? (
                 <Section title="How it fits what you told me">
                     <StoryList story={story} value={value} />
                     {story.catch ? (
@@ -121,7 +135,7 @@ export function WinnerView({ value, print = false }: { value: JudgedCar; print?:
             ) : null}
 
             {/* -- Priority by priority ----------------------------------------- */}
-            {narrative.priorities.length ? (
+            {shows.full && narrative.priorities.length ? (
                 <Section title="Priority by priority">
                     <ul className="space-y-2.5">
                         {narrative.priorities.map((priority) => (
@@ -145,7 +159,7 @@ export function WinnerView({ value, print = false }: { value: JudgedCar; print?:
             ) : null}
 
             {/* -- What it costs you -------------------------------------------- */}
-            {narrative.tradeoffs.length ? (
+            {shows.fit && narrative.tradeoffs.length ? (
                 <Section title="What you'd be giving up">
                     <ul className="space-y-2">
                         {narrative.tradeoffs.map((tradeoff) => (
@@ -162,7 +176,7 @@ export function WinnerView({ value, print = false }: { value: JudgedCar; print?:
                 </Section>
             ) : null}
 
-            {runnersUp.length ? (
+            {shows.fit && runnersUp.length ? (
                 <Section title="Why not the others">
                     <ul className="space-y-2">
                         {runnersUp.map(({ line, versus }) => (
@@ -201,34 +215,72 @@ export function WinnerView({ value, print = false }: { value: JudgedCar; print?:
                 </Section>
             ) : null}
 
-            <UsageSection value={value} />
+            {shows.full ? <UsageSection value={value} /> : null}
 
-            <Section title="What you told me">
-                {told.needs?.length ? (
-                    <ul className="mb-3 space-y-1.5">
-                        {told.needs.map((need) => (
-                            <li key={need.id} className="text-[12.5px]">
-                                <span className="font-black text-finn-black">{need.label}</span>
-                                <span className="text-finn-iron"> — {IMPORTANCE_LABEL[need.importance].toLowerCase()}</span>
-                                {need.looksFor.length ? <span className="block text-[11.5px] text-finn-iron">Looked for: {need.looksFor.join(" · ")}</span> : null}
-                            </li>
+            {!shows.full ? (
+                <div className="px-5 py-4">
+                    <button
+                        type="button"
+                        onClick={() => setMore(true)}
+                        className="inline-flex w-full items-center justify-center gap-1.5 rounded-full bg-finn-pale-blue px-4 py-2.5 text-[12.5px] font-black text-finn-accent-blue transition-colors hover:bg-finn-accent-blue hover:text-white"
+                    >
+                        Show me more
+                        <ChevronDown aria-hidden="true" className="h-4 w-4" />
+                    </button>
+                </div>
+            ) : null}
+
+            {shows.full ? (
+                <Section title="What you told me">
+                    {told.needs?.length ? (
+                        <ul className="mb-3 space-y-1.5">
+                            {told.needs.map((need) => (
+                                <li key={need.id} className="text-[12.5px]">
+                                    <span className="font-black text-finn-black">{need.label}</span>
+                                    <span className="text-finn-iron"> — {IMPORTANCE_LABEL[need.importance].toLowerCase()}</span>
+                                    {need.looksFor.length ? <span className="block text-[11.5px] text-finn-iron">Looked for: {need.looksFor.join(" · ")}</span> : null}
+                                </li>
+                            ))}
+                        </ul>
+                    ) : null}
+                    <dl className="space-y-1.5">
+                        {told.lines.map((line) => (
+                            <div key={line.label} className="grid grid-cols-[112px_1fr] gap-3 text-[12.5px]">
+                                <dt className="font-bold text-finn-iron">{line.label}</dt>
+                                <dd className="text-finn-black">{line.value}</dd>
+                            </div>
                         ))}
-                    </ul>
-                ) : null}
-                <dl className="space-y-1.5">
-                    {told.lines.map((line) => (
-                        <div key={line.label} className="grid grid-cols-[112px_1fr] gap-3 text-[12.5px]">
-                            <dt className="font-bold text-finn-iron">{line.label}</dt>
-                            <dd className="text-finn-black">{line.value}</dd>
+                    </dl>
+                    {because.length ? (
+                        <div className="mt-3">
+                            <p className="text-[11px] font-black uppercase tracking-wide text-finn-iron">Because of what you told me</p>
+                            <ul className="mt-1.5 space-y-2">
+                                {because.map((item, index) => (
+                                    <li key={item.label} className="text-[12.5px]">
+                                        <p className="text-finn-black">
+                                            <span className="font-black">
+                                                {index + 1}. {item.label}
+                                            </span>
+                                            <span className="text-finn-iron"> — {item.share}% of the score</span>
+                                        </p>
+                                        {item.raised.length ? (
+                                            <p className="mt-0.5 text-[11.5px] leading-snug text-finn-iron">
+                                                More influence:{" "}
+                                                {item.raised.map((feature, at) => (
+                                                    <span key={feature.label}>
+                                                        {at ? " · " : ""}
+                                                        {feature.label} <span className={`font-black ${FEATURE_IMPORTANCE[feature.level].accentTextClass}`}>{FEATURE_IMPORTANCE[feature.level].label}</span>
+                                                    </span>
+                                                ))}
+                                            </p>
+                                        ) : null}
+                                    </li>
+                                ))}
+                            </ul>
                         </div>
-                    ))}
-                </dl>
-                {told.priorities.length ? (
-                    <p className="mt-2.5 text-[12px] leading-snug text-finn-iron">
-                        Weighed as {told.priorities.map((item) => `${item.label.toLowerCase()} ${item.share}%`).join(", ")}.
-                    </p>
-                ) : null}
-            </Section>
+                    ) : null}
+                </Section>
+            ) : null}
 
             {print ? (
                 <p className="border-t border-finn-cotton px-5 py-3 text-[10.5px] leading-snug text-finn-iron">

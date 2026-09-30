@@ -10,7 +10,7 @@ import type { CategoryId } from "@/lib/reasoning-engine/types";
 import type { PinnedFinnCar } from "@/lib/types";
 
 import { applyFollowUp, FOLLOW_UPS, WORTH_A_LOOK } from "./follow-ups";
-import { BASE_ANSWERS, chatAnswers, judgementAt, judgementFrom, judgeWith, resultMessage, withJudgement } from "./judge";
+import { BASE_ANSWERS, becauseOf, chatAnswers, judgementAt, judgementFrom, judgeWith, resultMessage, withJudgement } from "./judge";
 
 /*
  * A chat's judgement, and the chips it puts on FINN's cards. One run feeds
@@ -351,5 +351,34 @@ describe("the Lens way: priorities in order, each judged on all its equipment", 
 
         expect(practicality.find((item) => item.key === "rearDoors")).toBeUndefined();
         expect(practicality.find((item) => item.key === "hasElectricTailgate")?.importance).toBe("low");
+    });
+});
+
+describe("because of what you told me", () => {
+    const life = () => guideSteps([]).find((step) => step.id === "life")!;
+    const u = { ...applyChoices(EMPTY_UNDERSTANDING, life(), ["passengers-2", "kids", "city", "nervous"]), lens: { order: ["safetyAssistance"] as CategoryId[], levels: { hasElectricTailgate: "high" as const } } };
+
+    it("names each priority in the order it was weighed, with its share of the score", () => {
+        const because = becauseOf(chatAnswers(u));
+
+        expect(because.map((item) => item.label)).toEqual(chatAnswers(u).profile.priorities.map((item) => item.label));
+        expect(because[0]!.label).toBe("Safety & Driver Assistance");
+        expect(because.reduce((sum, item) => sum + item.share, 0)).toBeGreaterThanOrEqual(99);
+    });
+
+    it("says what counts more in each, strongest first, including what the reader set", () => {
+        const practicality = becauseOf(chatAnswers(u)).find((item) => item.label === "Practicality")!;
+
+        expect(practicality.raised[0]).toEqual({ label: "Electric tailgate", level: "high" });
+    });
+
+    it("goes into the result, with every reason and what the reader gives up", () => {
+        const result = judged(u);
+        const message = resultMessage(result, cars(), "5 cars", {}, "m1", "at");
+
+        expect(message.reasons?.[0]).toBe(message.reason);
+        expect(message.reasons).toEqual(result.run.narrative.verdict.reasons);
+        expect(message.tradeoffs?.length).toBe(result.run.narrative.tradeoffs.length);
+        expect(message.because).toEqual(becauseOf(result.translation));
     });
 });

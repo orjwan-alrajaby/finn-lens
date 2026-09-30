@@ -1,7 +1,7 @@
 import { buildRecommendation } from "@/lib/reasoning-engine";
 import type { Answers } from "@/lib/reasoning-engine/answers";
 import { bandForScore } from "@/lib/reasoning-engine/bands";
-import { DEFAULT_CATEGORY_FEATURES, DEFAULT_PREFERENCES, DEFAULT_PRIORITIES } from "@/lib/reasoning-engine/constants";
+import { DEFAULT_CATEGORY_FEATURES, DEFAULT_PREFERENCES, DEFAULT_PRIORITIES, FEATURE_IMPORTANCE, SIGNALS } from "@/lib/reasoning-engine/constants";
 import { FIT_BANDS, type FitLevel } from "@/lib/reasoning-engine/fit";
 import { totalFor } from "@/lib/reasoning-engine/scoring";
 import { asPhrase } from "@/lib/lens-chat/evidence";
@@ -9,7 +9,7 @@ import { allowedByRules, alternativesWithinLimits, compareRows, runLens, summari
 import { ruledOut, toAnswers, type Translation, type Understanding } from "@/lib/lens-chat/understanding";
 import type { PinnedFinnCar } from "@/lib/types";
 
-import type { CarSnapshot, Chat, ChatMessage, Judgement, Verdict } from "./types";
+import type { Because, CarSnapshot, Chat, ChatMessage, Judgement, Verdict } from "./types";
 
 /**
  * A chat's judgement: the reader's answers, run through the real engine over
@@ -197,6 +197,22 @@ const snapshot = (line: CarLine, urls: Record<number, string>): CarSnapshot => (
     overLimit: line.budget === "over" || line.rental === "doesNotFit",
 });
 
+/**
+ * Because of what the reader told Lens: each priority in their order with
+ * how much of the score it carries, and the features in it that count more
+ * than standard, strongest first. Read off the same translation the engine
+ * judged with, so it can't say anything the judgement didn't do.
+ */
+export function becauseOf({ answers, profile }: Translation): Because[] {
+    return profile.priorities.map((item) => ({
+        label: item.label,
+        share: item.sharePercent,
+        raised: [...(answers.features[item.id] ?? [])]
+            .sort((a, b) => FEATURE_IMPORTANCE[b.importance].weight - FEATURE_IMPORTANCE[a.importance].weight)
+            .map((feature) => ({ label: SIGNALS[feature.key].label, level: feature.importance })),
+    }));
+}
+
 export function resultMessage(
     judged: Judged,
     cars: PinnedFinnCar[],
@@ -224,6 +240,9 @@ export function resultMessage(
         count: cars.length,
         winner: winner ? snapshot(winner, urls) : null,
         reason: summary.reason,
+        reasons: run.narrative.verdict.reasons,
+        tradeoffs: run.narrative.tradeoffs.map((tradeoff) => ({ headline: tradeoff.headline, text: tradeoff.sentences[0] ?? tradeoff.evidence })),
+        because: becauseOf(judged.translation),
         note,
         /*
          * The ones that respect the reader's limits first: "closest by score"

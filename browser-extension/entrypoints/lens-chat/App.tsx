@@ -3,6 +3,7 @@ import { ArrowLeft, ArrowUp, MessagesSquare, SquarePen, X } from "lucide-react";
 
 import { BrandMark, IconButton } from "@/components/lens-parts";
 import { onPageChanged, requestCloseChat, requestOpenDrawer, requestPageContext } from "@/lib/chats/bridge";
+import { depthOf } from "@/lib/chats/depth";
 import { rewindable } from "@/lib/chats/flow";
 import { loadedCars, pageCars } from "@/lib/chats/scope";
 import { ACTIVE_CHAT_KEY, activeChatId } from "@/lib/chats/store";
@@ -133,6 +134,9 @@ export function App() {
 
     if (settled && chat.phase === "judged") {
         replies.push({ label: "Why this car?", run: () => void conversation.whyWinner() });
+        /* How much Lens explains, from here on: the other way from where it is. */
+        if (depthOf(chat).explain !== "detailed") replies.push({ label: "Tell me more", run: () => void conversation.explain("detailed") });
+        if (depthOf(chat).explain !== "quick") replies.push({ label: "Keep it quick", run: () => void conversation.explain("quick") });
         replies.push({ label: "Change my answers", run: () => void conversation.change() });
         replies.push({ label: "New chat", run: () => void startNew() });
     }
@@ -195,6 +199,7 @@ export function App() {
                                 editable={rewindable(chat)}
                                 onEdit={() => void conversation.takeBack()}
                                 onOpenCar={(id, judgement) => chat && void requestOpenDrawer(chat.id, id, judgement)}
+                                explain={depthOf(chat).explain}
                             />
                         ) : null}
                     </div>

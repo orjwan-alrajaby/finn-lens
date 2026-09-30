@@ -6,7 +6,7 @@ import type { GuideStep, NeedGroup } from "@/lib/lens-chat/guide";
 import type { Depth } from "./depth";
 import type { FollowUp } from "./follow-ups";
 import type { FeatureLevel, Understanding } from "@/lib/lens-chat/understanding";
-import type { CategoryId, SignalId } from "@/lib/reasoning-engine/types";
+import type { CategoryId, FeatureImportance, SignalId } from "@/lib/reasoning-engine/types";
 
 /**
  * A conversation with Lens, kept.
@@ -157,6 +157,13 @@ export interface ChatStep {
     guide?: GuideStep;
 }
 
+/** One priority as it weighed in a judgement: its share of the score, and what in it counted more. */
+export interface Because {
+    label: string;
+    share: number;
+    raised: { label: string; level: FeatureImportance }[];
+}
+
 /** What a chip on a card says about one car. */
 export interface Verdict {
     band: FitLevel;
@@ -243,6 +250,12 @@ export type ChatMessage =
           count: number;
           winner: CarSnapshot | null;
           reason: string | null;
+          /** Every reason the engine gave, the first being `reason`. Absent on results from before explanations had depth. */
+          reasons?: string[];
+          /** What the reader gives up by choosing it. */
+          tradeoffs?: { headline: string; text: string }[];
+          /** What the reader told Lens that decided it. */
+          because?: Because[];
           note: string | null;
           runnersUp: CarSnapshot[];
           setAside: number;

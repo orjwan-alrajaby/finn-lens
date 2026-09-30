@@ -1716,6 +1716,28 @@ function answerStep(
     return { chat: askNext(next, cars), after: "wait" };
 }
 
+/**
+ * "Tell me more" or "Keep it quick", after a result: how much Lens explains
+ * from now on. It changes what the results say, never what they found, so
+ * the result on screen is redrawn at the new depth.
+ */
+export function explainAs(chat: Chat, explain: ExplainDepth): Chat {
+    const depth = { ...depthOf(chat), explain };
+
+    return touch(
+        chat,
+        [
+            reader(explain === "quick" ? "Keep it quick." : "Tell me more."),
+            lens(
+                explain === "quick"
+                    ? "Sure — just my pick and what decided it. “Show me more” on a result still has the rest."
+                    : "Sure — here's all of my reasoning: what you told me that decided it, what you'd give up, and the next closest.",
+            ),
+        ],
+        { depth },
+    );
+}
+
 /** The reader wants to change what they said, after a judgement. */
 /** The reader wants to change what they said: all of it, or which parts is asked next. */
 export function changeAnswers(chat: Chat, cars: FinnCar[]): Chat {

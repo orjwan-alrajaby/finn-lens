@@ -3,7 +3,8 @@ import { Check, ChevronDown, ChevronRight, Info, PencilLine, X } from "lucide-re
 
 import { BandChip, BrandMark, CarPhoto, euros, WinnerChip } from "@/components/lens-parts";
 import { coveredBy, IMPORTANCE_LABEL } from "@/lib/chats/flow";
-import type { CarSnapshot, ChatMessage, Choice, CustomAnswer, LevelRow, StepId } from "@/lib/chats/types";
+import type { ExplainDepth } from "@/lib/chats/depth";
+import type { Because, CarSnapshot, ChatMessage, Choice, CustomAnswer, LevelRow, StepId } from "@/lib/chats/types";
 import type { NeedImportance } from "@/lib/lens-ai/contract";
 import type { FeatureLevel } from "@/lib/lens-chat/understanding";
 import { FEATURE_IMPORTANCE, NICHE_INFLUENCE, STANDARD_INFLUENCE } from "@/lib/reasoning-engine/constants";
@@ -859,16 +860,66 @@ function RunnerUp({ car, onOpen }: { car: CarSnapshot; onOpen: () => void }) {
     );
 }
 
+/** How many of the engine's reasons each depth says on the card. */
+const REASONS: Record<ExplainDepth, number> = { quick: 2, balanced: 4, detailed: Infinity };
+const TRADEOFFS: Record<ExplainDepth, number> = { quick: 0, balanced: 2, detailed: Infinity };
+
+/**
+ * Because of what you told me: the reader's priorities with their share of
+ * the score, and what in each counted more than standard.
+ */
+function BecauseOf({ because }: { because: Because[] }) {
+    const raised = because.filter((item) => item.raised.length);
+
+    return (
+        <div className="mt-3 rounded-xl bg-finn-pale-blue/60 p-3 ring-1 ring-finn-accent-blue/15">
+            <p className="text-[10.5px] font-black uppercase tracking-wide text-finn-accent-blue">Because of what you told me</p>
+            <p className="mt-1 text-[12px] leading-snug text-finn-black">
+                <span className="font-bold">{because[0]!.label}</span> counted most, at {because[0]!.share}% of the score
+                {because.length > 1 ? <>, then {because.slice(1).map((item) => `${item.label} ${item.share}%`).join(", ")}</> : null}.
+            </p>
+            {raised.length ? (
+                <>
+                    <p className="mt-2 text-[12px] text-finn-iron">I give more influence to:</p>
+                    <ul className="mt-1 space-y-0.5">
+                        {raised.flatMap((item) =>
+                            item.raised.map((feature) => (
+                                <li key={`${item.label}-${feature.label}`} className="flex items-center gap-1.5 text-[12px] text-finn-black">
+                                    <span aria-hidden="true" className={`h-1.5 w-1.5 shrink-0 rounded-full ${FEATURE_IMPORTANCE[feature.level].dotClass}`} />
+                                    <span className="min-w-0 flex-1">{feature.label}</span>
+                                    <span className={`shrink-0 text-[11px] font-black ${FEATURE_IMPORTANCE[feature.level].accentTextClass}`}>{FEATURE_IMPORTANCE[feature.level].label}</span>
+                                </li>
+                            )),
+                        )}
+                    </ul>
+                </>
+            ) : null}
+        </div>
+    );
+}
+
 function Result({
     message,
+    explain,
     onOpenCar,
     onWhy,
 }: {
     message: Extract<ChatMessage, { kind: "result" }>;
+    /** How much the reader asked Lens to explain. "Show me more" goes all the way. */
+    explain: ExplainDepth;
     onOpenCar: (id: number) => void;
     onWhy: () => void;
 }) {
     const { winner } = message;
+    const [more, setMore] = useState(false);
+    const depth: ExplainDepth = more ? "detailed" : explain;
+    const reasons = message.reasons ?? (message.reason ? [message.reason] : []);
+    const tradeoffs = message.tradeoffs ?? [];
+    const because = message.because?.length ? message.because : null;
+    const runnersUp = depth === "quick" ? [] : message.runnersUp;
+    /* Anything this depth leaves out: only then is there more to show. */
+    const hidden =
+        reasons.length > REASONS[depth] || tradeoffs.length > TRADEOFFS[depth] || runnersUp.length < message.runnersUp.length || (because != null && depth !== "detailed");
 
     return (
         <div className="overflow-hidden rounded-2xl bg-white ring-1 ring-black/5 shadow-[0_2px_8px_rgba(0,0,0,0.06)]">
@@ -889,10 +940,35 @@ function Result({
                     <p className="mt-2.5 text-[15px] font-black leading-tight text-finn-black">{winner.name}</p>
                     <p className="text-[12px] text-finn-iron">{winner.configuration}</p>
 
-                    {message.reason ? <p className="mt-2 text-[13px] leading-relaxed text-finn-black">{message.reason}</p> : null}
+                    {reasons.length === 1 ? <p className="mt-2 text-[13px] leading-relaxed text-finn-black">{reasons[0]}</p> : null}
+                    {reasons.length > 1 ? (
+                        <ul className="mt-2 space-y-1">
+                            {reasons.slice(0, REASONS[depth]).map((reason) => (
+                                <li key={reason} className="flex gap-2 text-[13px] leading-snug text-finn-black">
+                                    <Check aria-hidden="true" className="mt-0.5 h-3.5 w-3.5 shrink-0 text-finn-fit-good" strokeWidth={3} />
+                                    <span>{reason}</span>
+                                </li>
+                            ))}
+                        </ul>
+                    ) : null}
                     {message.note ? (
                         <p className="mt-2 rounded-lg bg-finn-warning-lift/60 px-2.5 py-2 text-[12px] leading-snug text-finn-warning-ink">{message.note}</p>
                     ) : null}
+
+                    {TRADEOFFS[depth] && tradeoffs.length ? (
+                        <div className="mt-3">
+                            <p className="text-[10.5px] font-black uppercase tracking-wide text-finn-iron">What you'd give up</p>
+                            <ul className="mt-1 space-y-1.5">
+                                {tradeoffs.slice(0, TRADEOFFS[depth]).map((tradeoff) => (
+                                    <li key={tradeoff.headline} className="text-[12px] leading-snug text-finn-black">
+                                        <span className="font-bold">{tradeoff.headline}.</span> {tradeoff.text}
+                                    </li>
+                                ))}
+                            </ul>
+                        </div>
+                    ) : null}
+
+                    {depth === "detailed" && because ? <BecauseOf because={because} /> : null}
 
                     <button
                         type="button"
@@ -905,11 +981,22 @@ function Result({
                 </div>
             ) : null}
 
-            {message.runnersUp.length ? (
+            {hidden ? (
+                <button
+                    type="button"
+                    onClick={() => setMore(true)}
+                    className="flex w-full items-center justify-center gap-1 border-t border-finn-cotton px-3.5 py-2 text-[12px] font-black text-finn-accent-blue transition-colors hover:bg-finn-pale-blue/50"
+                >
+                    Show me more
+                    <ChevronRight aria-hidden="true" className="h-3.5 w-3.5" />
+                </button>
+            ) : null}
+
+            {runnersUp.length ? (
                 <div className="border-t border-finn-cotton">
                     <p className="px-3.5 pt-3 text-[11px] font-black uppercase tracking-wide text-finn-iron">Next closest</p>
                     <ul className="py-1">
-                        {message.runnersUp.map((car) => (
+                        {runnersUp.map((car) => (
                             <RunnerUp key={car.id} car={car} onOpen={() => onOpenCar(car.id)} />
                         ))}
                     </ul>
@@ -938,6 +1025,7 @@ export function MessageList({
     busy,
     editable = null,
     onEdit,
+    explain = "detailed",
 }: {
     messages: ChatMessage[];
     typing: boolean;
@@ -950,6 +1038,8 @@ export function MessageList({
     /** The reader message whose answer can be taken back, if any. */
     editable?: string | null;
     onEdit?: () => void;
+    /** How much the reader asked Lens to explain, for the results. */
+    explain?: ExplainDepth;
 }) {
     /* Only the newest open question takes answers; older ones read as what was asked. */
     const liveAsk = useMemo(() => {
@@ -1012,6 +1102,7 @@ export function MessageList({
                 body = (
                     <Result
                         message={message}
+                        explain={explain}
                         onOpenCar={(id) => onOpenCar(id, message.judgement)}
                         onWhy={() => message.winner && onOpenCar(message.winner.id, message.judgement)}
                     />

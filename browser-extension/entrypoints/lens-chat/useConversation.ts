@@ -5,6 +5,7 @@ import {
     answer,
     askNext,
     changeAnswers,
+    explainAs,
     rentalMonths,
     rewind,
     startChat,
@@ -18,6 +19,7 @@ import {
 import { judgementFrom, judgeWith, resultMessage, withJudgement } from "@/lib/chats/judge";
 import { addedToJudgement, judgedCars, loadedCars } from "@/lib/chats/scope";
 import { loadChat, loadSettings, messageId, saveChat, saveSettings, setActiveChat } from "@/lib/chats/store";
+import type { ExplainDepth } from "@/lib/chats/depth";
 import type { Chat } from "@/lib/chats/types";
 import { readBack, readTyped } from "@/lib/chats/typing";
 import type { LensRun } from "@/lib/lens-chat/run";
@@ -326,6 +328,15 @@ export function useConversation(page: PageCars) {
         if (current.judgement?.winnerId != null) void requestOpenDrawer(current.id, current.judgement.winnerId);
     }, [commit, lastRun]);
 
+    /** "Tell me more" or "Keep it quick": how much Lens explains from now on. */
+    const explain = useCallback(
+        async (depth: ExplainDepth) => {
+            const current = latest.current;
+            if (current) await commit(explainAs(current, depth));
+        },
+        [commit],
+    );
+
     const change = useCallback(async () => {
         const current = latest.current;
         if (current) await commit(changeAnswers(current, pageRef.current.cars));
@@ -351,5 +362,5 @@ export function useConversation(page: PageCars) {
         });
     }, [judge]);
 
-    return { chat, busy, startNew, open, clear, tap, type, whyWinner, change, changeOne, importance, judgeHere, addHere, takeBack };
+    return { chat, busy, startNew, open, clear, tap, type, whyWinner, change, changeOne, importance, judgeHere, addHere, takeBack, explain };
 }
