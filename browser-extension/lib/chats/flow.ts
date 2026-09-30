@@ -116,6 +116,14 @@ export function rentalFor(u: Understanding, months: number, said: string, today 
 const labelsOf = (ids: EvidenceId[]) => ids.map((id) => EVIDENCE[id]?.label).filter((label): label is string => Boolean(label));
 
 /**
+ * What Lens actually checks for a need: the equipment it scores. Boot space
+ * is read and quoted, never scored — "I'll check boot space" would be a
+ * promise the ranking doesn't keep.
+ */
+const checked = (need: Understanding["needs"][number]): EvidenceId[] =>
+    need.evidence.filter((entry) => !entry.unwanted && EVIDENCE[entry.id]?.scoredIn != null).map((entry) => entry.id);
+
+/**
  * The needs, asked a group at a time: a short question the reader can
  * answer in a glance, rather than seventeen chips at once. Each says why it
  * matters, and each has its own way of saying "none of these".
@@ -340,7 +348,8 @@ export function stepFor(id: StepId, cars: FinnCar[], u: Understanding = EMPTY_UN
             ask: ask.ask,
             why: words.why,
             none: ask.none,
-            custom: { kind: "text", label: "Something else…", placeholder: words.placeholder },
+            /* The count needs no words: the numbers cover it, and who they are comes next. */
+            custom: group === "passengers" ? undefined : { kind: "text", label: "Something else…", placeholder: words.placeholder },
         };
     }
 
@@ -420,7 +429,11 @@ const NOTHING_HERE: Record<NeedGroup, string> = {
 /** What Lens says to one group of needs: what it heard — its own picks, and anything typed alongside them. */
 function acknowledgeGroup(step: ChatStep, u: Understanding, chosen: string[], before: Set<string>): string {
     const own = new Set(step.choices.map((choice) => `life-${choice.id}`));
-    const needs = lifeNeeds(u).filter((need) => own.has(need.id) || (!need.id.startsWith("life-") && !before.has(need.id)));
+    /* This question's own answers first, then anything the words added beside them. */
+    const needs = [
+        ...lifeNeeds(u).filter((need) => own.has(need.id)),
+        ...lifeNeeds(u).filter((need) => !own.has(need.id) && !need.id.startsWith("life-") && !before.has(need.id)),
+    ];
     /* An answer that adds nothing to check says so in its own words: "One passenger can sit beside you…". */
     const nothingToCheck = step.choices
         .filter((choice) => chosen.includes(choice.id) && !choice.looksFor?.length && choice.description)
@@ -433,7 +446,7 @@ function acknowledgeGroup(step: ChatStep, u: Understanding, chosen: string[], be
         return NOTHING_HERE[step.id.slice("life-".length) as NeedGroup] ?? "Noted.";
     }
 
-    const looks = [...new Set(needs.flatMap((need) => labelsOf(need.evidence.map((entry) => entry.id))))].slice(0, 4);
+    const looks = [...new Set(needs.flatMap((need) => labelsOf(checked(need))))].slice(0, 4);
     const heard = looks.length
         ? `Got it — ${joined(needs.map((need) => lower(need.label)))}. For ${needs.length === 1 ? "that" : "those"} I'll check things like ${joined(looks.map(lower))}.`
         : `Got it — ${joined(needs.map((need) => lower(need.label)))}.`;
@@ -532,7 +545,7 @@ export function summaryOf(u: Understanding, id: string = messageId()): Extract<C
         kind: "summary",
         needs: [...needs]
             .sort((a, b) => rank[a.importance] - rank[b.importance])
-            .map((need) => ({ id: need.id, label: need.label, importance: need.importance, looksFor: labelsOf(need.evidence.filter((entry) => !entry.unwanted).map((entry) => entry.id)) })),
+            .map((need) => ({ id: need.id, label: need.label, importance: need.importance, looksFor: labelsOf(checked(need)) })),
         lines,
         priorities: translation.profile.priorities.map((item) => ({ label: item.label, share: item.sharePercent })),
     };
@@ -625,7 +638,8 @@ export function askNext(chat: Chat, cars: FinnCar[]): Chat {
             at: now(),
             from: "lens",
             kind: "ask",
-            step: preselect ? { ...step, selected: selectedFor(step, u, chat.picks) } : step,
+            /* A need already given — typed earlier, or kept from last time — shows as picked, so answering doesn't undo it. */
+            step: preselect || id.startsWith("life-") ? { ...step, selected: selectedFor(step, u, chat.picks) } : step,
             answered: false,
         };
 
@@ -804,7 +818,9 @@ export function answer(
 
     /* -- One of the questions -------------------------------------------- */
     let understanding = extra.heard?.understanding ?? chat.understanding;
-    let said = [tapped, extra.heard?.text].filter(Boolean).join(" ");
+    /* Their words as they'd end a sentence, beside the taps' own. */
+    const typed = extra.heard?.text ? extra.heard.text.replace(/([^.!?…])$/, "$1.") : "";
+    let said = [tapped, typed].filter(Boolean).join(" ");
     let queue = base.queue;
 
     if (step.followUp) {
@@ -834,6 +850,11 @@ export function answer(
             }),
         };
     } else if (step.guide) {
+        /* Words typed here that mean one of this question's own answers — "a big dog" for Pets — count as tapping it. */
+        const owns = (choice: { id: string }, u: Understanding) => u.needs.some((need) => need.id === `${step.guide!.id}-${choice.id}`);
+        const typedHere = extra.heard ? step.choices.filter((choice) => owns(choice, extra.heard!.understanding) && !owns(choice, chat.understanding)).map((choice) => choice.id) : [];
+
+        chosen = [...new Set([...chosen, ...typedHere])];
         understanding = applyChoices(understanding, step.guide, chosen);
 
         if (step.id.startsWith("life-")) {

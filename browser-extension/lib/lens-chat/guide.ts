@@ -629,6 +629,17 @@ const needFor = (step: GuideStepId, choice: GuideChoice): Need | null => {
 };
 
 /**
+ * The need one of the guide's own answers stands for, narrowed to these
+ * cars — so words that mean "Pets" land on exactly what tapping it would.
+ * Null when the answer doesn't exist here or checks nothing on these cars.
+ */
+export function catalogueNeed(choiceId: string, cars: FinnCar[]): Need | null {
+    const choice = guideSteps(cars).find((step) => step.id === "life")?.choices.find((item) => item.id === choiceId);
+
+    return choice?.need ? needFor("life", choice) : null;
+}
+
+/**
  * What the reader tapped, as something Lens understands.
  *
  * The step replaces its own choices' answers and leaves everything else alone: someone

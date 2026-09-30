@@ -66,6 +66,10 @@ const NOT_NEEDED = /\b(don't|do not)\s+(need|care|really care|mind)\b|\bnot both
 
 const has = (text: string, pattern: RegExp) => pattern.test(text);
 
+/** Whether a sentence waves `topic` away — "I don't care much about long-distance comfort" — rather than asking for it. */
+const waved = (text: string, topic: RegExp): boolean =>
+    text.split(/(?<=[.!?;])\s+/).some((sentence) => topic.test(sentence) && NOT_NEEDED.test(sentence.replace(/\b(much|really|that much|too much)\s+/gi, "")));
+
 /** Numbers that are money: a euro sign, "euros", "a month", or a budget word nearby. */
 function readBudget(message: string): WireUnderstanding["budget"] {
     /* Sentences, not clauses: "around 650 is okay but I'd rather be closer to 550" is one thought. */
@@ -372,7 +376,7 @@ function readSituation(message: string, previous: WireUnderstanding) {
     }
 
     const kids =
-        /\b(kids?|children|child|little ones|toddlers?|baby|babies|son|daughter)\b/i.test(text) &&
+        /\b(kids?|children|child|little ones|toddlers?|baby|babies|son|daughter|sons|daughters|teens?|teenagers?)\b/i.test(text) &&
         !/\b(no|don't have|without|never had)\s+(any\s+)?(kids|children)\b/i.test(text);
     const young = /little ones|toddler|baby|babies|car seats?|young (kids|children|enough)|whole production/i.test(text);
     if (kids && !needs.some((need) => need.id === "five-not-seven")) {
@@ -463,7 +467,8 @@ function readSituation(message: string, previous: WireUnderstanding) {
         });
     }
 
-    if (/\bsafe(ty)?\b/i.test(text) && !needs.some((need) => need.priorities.includes("safetyAssistance"))) {
+    /* "I don't care about safety" names safety too: a need only when it isn't waved away. */
+    if (/\bsafe(ty)?\b/i.test(text) && !waved(text, /safe(ty)?/) && !needs.some((need) => need.priorities.includes("safetyAssistance"))) {
         add({
             id: "safety",
             label: /distracted/i.test(text) ? "Help when you're distracted" : "Safety that actually helps",
@@ -478,7 +483,7 @@ function readSituation(message: string, previous: WireUnderstanding) {
         });
     }
 
-    if (/\bcomfort(able)?\b/i.test(text) && !/don't care about comfort/i.test(text)) {
+    if (/\bcomfort(able)?\b/i.test(text) && !waved(text, /comfort/)) {
         add({
             id: "comfort",
             label: "Comfortable over distance",

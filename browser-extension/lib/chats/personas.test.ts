@@ -42,7 +42,8 @@ async function converse(cars: PinnedFinnCar[], picks: Picks): Promise<Chat> {
         if (!ask || ask.step.id === "keep") break;
 
         const key = ask.step.id.startsWith("offer-") ? "offer" : ask.step.id;
-        const pick = picks[key] ?? picks[ask.step.id.startsWith("life-") ? "life" : key] ?? [];
+        /* A question with nothing scripted is answered as the page would: Continue, with whatever it shows picked. */
+        const pick = picks[key] ?? picks[ask.step.id.startsWith("life-") ? "life" : key] ?? ask.step.selected ?? [];
         const own = new Set(ask.step.choices.map((choice) => choice.id));
 
         if (Array.isArray(pick)) {

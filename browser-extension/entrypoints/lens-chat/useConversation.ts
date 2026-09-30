@@ -18,7 +18,7 @@ import { judgementFrom, judgeWith, resultMessage } from "@/lib/chats/judge";
 import { judgedCars, loadedCars } from "@/lib/chats/scope";
 import { loadChat, loadSettings, messageId, saveChat, saveSettings, setActiveChat } from "@/lib/chats/store";
 import type { Chat } from "@/lib/chats/types";
-import { readTyped } from "@/lib/chats/typing";
+import { readBack, readTyped } from "@/lib/chats/typing";
 import type { LensRun } from "@/lib/lens-chat/run";
 import { carNamed, whyNot } from "@/lib/lens-chat/why-not";
 import type { PinnedFinnCar } from "@/lib/types";
@@ -194,16 +194,15 @@ export function useConversation(page: PageCars) {
                         text: extra.text,
                         understanding: read.understanding,
                         /*
-                         * On the needs and rules questions Lens's own
-                         * acknowledgement names everything it heard, the
-                         * typed part included — the reader's echo would say
-                         * it twice.
+                         * On the needs and rules questions Lens says how it
+                         * read the words — "as children and pets" — so a word
+                         * it couldn't place is missing from the list, not
+                         * silently gone. Elsewhere its reader's reply does.
                          */
-                        reply: !read.changes.length
-                            ? `I couldn't find anything in “${extra.text}” that I can check on a car, so I've gone with what you tapped.`
-                            : ask?.kind === "ask" && (ask.step.id.startsWith("life-") || ask.step.id === "rules")
-                              ? ""
-                              : read.reply || "Got it.",
+                        reply:
+                            (ask?.kind === "ask" && (ask.step.id.startsWith("life-") || ask.step.id === "rules")) || !read.changes.length
+                                ? readBack(extra.text, read, chosen.length > 0)
+                                : read.reply || "Got it.",
                     };
                 } finally {
                     setBusy(false);
