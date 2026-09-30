@@ -809,12 +809,12 @@ export function MessageList({
         return last?.kind === "ask" && !last.answered ? last.id : null;
     }, [messages]);
 
-    /* The summary can be edited while its "keep these?" is still open — older ones are a record. */
+    /* The summary can be edited until the reader says it looks good — older ones are a record. */
     const liveSummary = useMemo(() => {
         const last = [...messages].reverse().find((message) => message.kind === "summary");
         const keep = messages.find((message) => message.id === liveAsk);
 
-        return last && keep?.kind === "ask" && keep.step.id === "keep" && messages.indexOf(keep) > messages.indexOf(last) ? last.id : null;
+        return last && keep?.kind === "ask" && keep.step.id === "confirm" && messages.indexOf(keep) > messages.indexOf(last) ? last.id : null;
     }, [messages, liveAsk]);
 
     const settled = !typing && !busy;

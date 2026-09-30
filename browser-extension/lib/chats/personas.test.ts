@@ -40,7 +40,7 @@ async function converse(cars: PinnedFinnCar[], picks: Picks): Promise<Chat> {
 
     for (let guard = 0; guard < 40; guard += 1) {
         const ask = openAsk(chat);
-        if (!ask || ask.step.id === "keep") break;
+        if (!ask || ask.step.id === "confirm" || ask.step.id === "keep") break;
 
         const key = ask.step.id.startsWith("offer-") ? "offer" : ask.step.id;
         /* A question with nothing scripted is answered as the page would: Continue, with whatever it shows picked. */

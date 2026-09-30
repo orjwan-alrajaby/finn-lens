@@ -32,6 +32,8 @@ export type StepId =
     | "period"
     | "start"
     | "keep"
+    /** The summary looked over: the reader says it's right before anything is saved or judged. */
+    | "confirm"
     | "focus"
     | "offers"
     | "noNeeds"

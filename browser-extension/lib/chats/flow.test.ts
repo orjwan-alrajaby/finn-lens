@@ -34,7 +34,7 @@ function walk(chat: Chat, picks: Partial<Record<StepId | "offer", string[]>>): C
 
     for (let guard = 0; guard < 20; guard += 1) {
         const ask = openAsk(current);
-        if (!ask || ask.step.id === "keep" || ask.step.id === "start" || ask.step.id === "noNeeds") return current;
+        if (!ask || ask.step.id === "confirm" || ask.step.id === "keep" || ask.step.id === "start" || ask.step.id === "noNeeds") return current;
 
         const id = ask.step.id.startsWith("offer-") ? "offer" : ask.step.id.startsWith("life-") ? "life" : ask.step.id;
         const own = new Set(ask.step.choices.map((choice) => choice.id));
@@ -78,7 +78,7 @@ describe("a first chat", () => {
         expect(asked).toContain("budget");
         expect(asked).toContain("period");
         expect(asked).toContain("distance");
-        expect(asked.at(-1)).toBe("keep");
+        expect(asked.at(-1)).toBe("confirm");
         expect(chat.phase).toBe("keep");
 
         const summary = chat.messages.find((message) => message.kind === "summary");
@@ -106,7 +106,7 @@ describe("a first chat", () => {
 
         expect(chat.understanding.budget).toBeNull();
         expect(chat.understanding.waived).toEqual(expect.arrayContaining(["budget", "rental"]));
-        expect(openAsk(chat)?.step.id).toBe("keep");
+        expect(openAsk(chat)?.step.id).toBe("confirm");
     });
 
     it("won't judge fit on nothing: with no needs named, it says so and asks again", () => {
@@ -119,8 +119,24 @@ describe("a first chat", () => {
         expect(openAsk(again)?.step.id).toBe("life-passengers");
     });
 
-    it("keeps the answers as settings or for this chat, then asks for a judgement", () => {
+    it("waits for the summary to be looked over, then asks whether to keep the answers", () => {
         const asked = walk(startChat(null, cars(), TODAY), { life: ["city"], budget: ["budget-400"] });
+        const confirm = openAsk(asked)!;
+
+        expect(confirm.step.id).toBe("confirm");
+        expect(confirm.step.choices.map((choice) => choice.label)).toEqual(["Looks good to me — let's go"]);
+        expect(asked.messages.filter((message) => message.kind === "ask").some((message) => message.kind === "ask" && message.step.id === "keep")).toBe(false);
+
+        const going = answer(asked, confirm.id, ["go"], cars(), TODAY);
+        expect(going.after).toBe("wait");
+        expect(openAsk(going.chat)?.step.id).toBe("keep");
+        /* A tap too soon can be taken back to the summary. */
+        expect(openAsk(rewind(going.chat))?.step.id).toBe("confirm");
+    });
+
+    it("keeps the answers as settings or for this chat, then asks for a judgement", () => {
+        const looked = walk(startChat(null, cars(), TODAY), { life: ["city"], budget: ["budget-400"] });
+        const asked = answer(looked, openAsk(looked)!.id, ["go"], cars(), TODAY).chat;
         const keep = openAsk(asked)!;
 
         const saved = answer(asked, keep.id, ["keep-settings"], cars(), TODAY);
@@ -232,7 +248,7 @@ describe("after a judgement", () => {
         expect(openAsk(picked)?.step.selected).toEqual(["budget-500"]);
 
         const done = answer(picked, openAsk(picked)!.id, ["budget-700"], cars(), TODAY).chat;
-        expect(openAsk(done)?.step.id).toBe("keep");
+        expect(openAsk(done)?.step.id).toBe("confirm");
         expect(done.understanding.budget?.monthly).toBe(700);
         expect(done.understanding.needs.map((need) => need.id)).toContain("life-kids");
     });
@@ -465,7 +481,7 @@ describe("a conversation, not a form", () => {
 
         const done = answer(changing, openAsk(changing)!.id, ["budget-700"], cars(), TODAY).chat;
         expect(done.understanding.budget?.monthly).toBe(700);
-        expect(openAsk(done)?.step.id).toBe("keep");
+        expect(openAsk(done)?.step.id).toBe("confirm");
     });
 
     it("sets how much a need counts from the summary, redrawing the same card", () => {
@@ -493,7 +509,7 @@ describe("what Lens says back", () => {
         let chat = startChat(null, page(), TODAY);
         const examples: string[] = [];
 
-        for (let guard = 0; guard < 20 && openAsk(chat) && askOf(chat).step.id !== "keep"; guard += 1) {
+        for (let guard = 0; guard < 20 && openAsk(chat) && askOf(chat).step.id !== "confirm"; guard += 1) {
             const { step } = askOf(chat);
             const example = step.custom?.kind === "text" ? /“(.+)”/.exec(step.custom.placeholder)?.[1] : null;
             if (example) examples.push(example);
@@ -809,7 +825,8 @@ describe("taking an answer back", () => {
     });
 
     it("offers no way back once the answers are kept and judged, or after words typed on their own", () => {
-        const kept = walk(startChat(null, cars(), TODAY), { life: ["passengers-2", "kids"] });
+        const looked = walk(startChat(null, cars(), TODAY), { life: ["passengers-2", "kids"] });
+        const kept = answer(looked, openAsk(looked)!.id, ["go"], cars(), TODAY).chat;
         const judged = answer(kept, openAsk(kept)!.id, ["keep-chat"], cars(), TODAY).chat;
 
         expect(judged.history).toEqual([]);

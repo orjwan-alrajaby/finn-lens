@@ -531,6 +531,7 @@ export function stepFor(id: StepId, cars: FinnCar[], u: Understanding = EMPTY_UN
             };
 
         case "keep":
+        case "confirm":
         case "offers":
             return null;
     }
@@ -938,6 +939,19 @@ const touch = (chat: Chat, messages: ChatMessage[], patch: Partial<Chat> = {}): 
 const closeAsks = (messages: ChatMessage[]): ChatMessage[] =>
     messages.map((message) => (message.kind === "ask" && !message.answered ? { ...message, answered: true } : message));
 
+/*
+ * A pause over the summary. Asking "keep these as your settings?" in the
+ * same breath as showing them made answering it the moment the reader was
+ * done looking — whether or not they were. This is that moment, said.
+ */
+const CONFIRM: ChatStep = {
+    id: "confirm",
+    ask: "Take your time. When it all looks right, carry on and I'll judge the cars.",
+    why: "Nothing is saved or judged until you say so. Until then you can change any line above, or tap an importance.",
+    multiple: false,
+    choices: [{ id: "go", label: "Looks good to me — let's go", said: "Looks good — let's go." }],
+};
+
 const KEEP: ChatStep = {
     id: "keep",
     ask: "Shall I keep these as your settings, so every new chat starts from them? Or use them just for this chat?",
@@ -1032,7 +1046,7 @@ export function askNext(chat: Chat, cars: FinnCar[]): Chat {
         [
             lens("Here's what I'll judge the cars by. Change anything that isn't right — tap an importance to set it, or “Change” beside a line."),
             summaryOf(u),
-            { id: messageId(), at: now(), from: "lens", kind: "ask", step: KEEP, answered: false },
+            { id: messageId(), at: now(), from: "lens", kind: "ask", step: CONFIRM, answered: false },
         ],
         { queue: [], phase: "keep", revising: false },
     );
@@ -1261,6 +1275,13 @@ function answerStep(
         });
 
         return { chat: askNext(next, cars), after: "wait" };
+    }
+
+    /* -- The summary looked over: then whether to keep it ----------------- */
+    if (step.id === "confirm") {
+        if (!picked[0]) return { chat, after: "wait" };
+
+        return { chat: touch(base, [reader(tapped), { id: messageId(), at: now(), from: "lens", kind: "ask", step: KEEP, answered: false }]), after: "wait" };
     }
 
     /* -- Keep as settings, or this chat only ----------------------------- */
