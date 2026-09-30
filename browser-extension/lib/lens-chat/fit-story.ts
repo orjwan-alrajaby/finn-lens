@@ -548,12 +548,19 @@ export function tellFitStory(
         sections.push({
             key: "rental",
             said: u.rental.said,
-            title: problem ? `It may not work for ${period}` : `It works for ${period}`,
+            /* "May not" only where FINN's data can't settle it: a term too short is a plain no. */
+            title: !problem
+                ? `It works for ${period}`
+                : contract.status === "doesNotFit"
+                  ? `It can't be rented for ${period}`
+                  : `It may not work for ${period}`,
             short: period,
             kind: "rental",
             importance: "constraint",
             lines,
-            summary: problem ? "Doesn't fit your dates" : contract.term ? `${contract.term.months}-month term` : "Dates unconfirmed",
+            summary: !problem
+                ? contract.term ? `${contract.term.months}-month term` : "Dates unconfirmed"
+                : contract.status === "doesNotFit" ? "Doesn't fit your dates" : "Dates unconfirmed",
             tone,
         });
     }

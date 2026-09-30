@@ -5,7 +5,7 @@ import { BASELINE, GARAGE, garageCar } from "@/lib/reasoning-engine/test-garage"
 import { EVIDENCE } from "@/lib/lens-chat/evidence";
 import { tellFitStory } from "@/lib/lens-chat/fit-story";
 import { applyChoices, guideSteps } from "@/lib/lens-chat/guide";
-import { EMPTY_UNDERSTANDING, withBudget, withSuggestion, type Understanding } from "@/lib/lens-chat/understanding";
+import { EMPTY_UNDERSTANDING, withBudget, withRental, withSuggestion, type Understanding } from "@/lib/lens-chat/understanding";
 import type { PinnedFinnCar } from "@/lib/types";
 
 import { applyFollowUp, FOLLOW_UPS, WORTH_A_LOOK } from "./follow-ups";
@@ -208,5 +208,18 @@ describe("the rules, in the story", () => {
 
         expect(titles).toContain("It is an automatic and has a towbar");
         expect(titles.filter((title) => /towbar|automatic/i.test(title))).toHaveLength(1);
+    });
+});
+
+describe("the rental period, in the story", () => {
+    it("says plainly when a car can't be rented for the dates, and 'may not' only when FINN can't tell", () => {
+        const term = { months: 6, privateMonthly: 400, businessMonthly: 340, deliveryFrom: "2026-09-25", deliveryTo: "2026-12-31", deviationWeeks: 1 };
+        const short = { ...garageCar({ id: 921, name: "Six Months Only" }), contract: { terms: [term], defaultMonths: null } };
+        const u = withRental(EMPTY_UNDERSTANDING, "2026-10", "2027-09", "a year from October");
+        const { run, translation } = judgeWith(u, [short], "1 car")!;
+        const titles = tellFitStory(run, u, translation.lessRelevant, null).sections.map((section) => section.title);
+
+        expect(titles).toContain("It can't be rented for October 2026 to September 2027");
+        expect(titles.join(" ")).not.toMatch(/may not work/);
     });
 });
