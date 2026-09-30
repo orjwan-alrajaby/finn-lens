@@ -37,7 +37,9 @@ export type StepId =
     | "noNeeds"
     | `life-${NeedGroup}`
     | `follow-${string}`
-    | `offer-${string}`;
+    | `offer-${string}`
+    /** Typed words gave more people than the count, enough to change the seats: which is right? The number is how many they gave. */
+    | `check-passengers-${number}`;
 
 /** One thing the reader can tap. */
 export interface Choice {

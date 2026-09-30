@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { GARAGE } from "@/lib/reasoning-engine/test-garage";
 
-import { answer, startChat } from "./flow";
+import { answer, peopleIn, startChat } from "./flow";
 import { readBack, readTyped } from "./typing";
 
 /*
@@ -96,5 +96,48 @@ describe("a long list of needs", () => {
 
         expect(read.heardAs).toContain("low emissions");
         expect(read.understanding.needs).toHaveLength(17);
+    });
+});
+
+describe("counts that don't add up", () => {
+    const ask = (chat: ReturnType<typeof startChat>) => [...chat.messages].reverse().find((message) => message.kind === "ask")!;
+    const typedWho = async (count: string[], text: string) => {
+        const start = startChat(null, cars());
+        const counted = answer(start, ask(start).id, count, cars()).chat;
+        const read = await readTyped(counted, text, cars(), null);
+
+        return answer(counted, ask(counted).id, ["kids"], cars(), new Date(), { heard: { text, understanding: read.understanding, reply: "" } }).chat;
+    };
+
+    it("counts the people typed, and only people", () => {
+        expect(peopleIn("2 teenagers, 2 kids, 2 pets")).toBe(4);
+        expect(peopleIn("two small kids and my 3 friends")).toBe(5);
+        expect(peopleIn("a big dog")).toBeNull();
+    });
+
+    it("asks which count is right when the words need more seats than the count", async () => {
+        const chat = await typedWho(["passengers-4"], "2 teenagers, 2 kids, 2 adults");
+        const check = ask(chat);
+
+        expect(check.kind === "ask" && check.step.id).toBe("check-passengers-6");
+        if (check.kind !== "ask") return;
+        expect(check.step.ask).toBe("You said four passengers, but what you typed sounds like six — with you that's seven people, so the car needs six or more seats. Which is right?");
+        expect(check.step.choices.map((choice) => choice.label)).toEqual(["4 passengers", "5 or more passengers"]);
+
+        const fixed = answer(chat, check.id, ["passengers-5"], cars()).chat;
+        expect(fixed.understanding.passengers).toBe(5);
+        expect(fixed.understanding.needs.map((need) => need.id).filter((id) => id.startsWith("life-passengers"))).toEqual(["life-passengers-5"]);
+        expect([...fixed.messages].reverse().find((message) => message.kind === "ask")).toMatchObject({ step: { id: "follow-kids" } });
+    });
+
+    it("asks nothing when the words fit the count, or wouldn't change the seats", async () => {
+        const next = async (count: string[], text: string) => {
+            const open = ask(await typedWho(count, text));
+            return open.kind === "ask" ? open.step.id : null;
+        };
+
+        expect(await next(["passengers-4"], "2 teenagers, 2 kids")).toBe("follow-kids");
+        /* Two or three passengers ask the same of the car: rear doors. */
+        expect(await next(["passengers-2"], "3 kids")).toBe("follow-kids");
     });
 });

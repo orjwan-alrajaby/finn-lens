@@ -73,6 +73,48 @@ const LEVEL: Record<NeedImportance, number> = { essential: 3, important: 2, nice
  * The needs sharing the highest importance any of them has. How many ride
  * along is a fact about the reader, not something to rank against the rest.
  */
+/* -------------------------------------------------------------------------- */
+/* How many ride along, checked against what was typed                        */
+/* -------------------------------------------------------------------------- */
+
+const COUNT_WORDS: Record<string, number> = { one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10 };
+
+/**
+ * People the reader's own words number: "2 teenagers, 2 kids" is four. Only
+ * a number beside a word for people counts — "my wife" might be the one
+ * passenger already counted, and two dogs need no seats.
+ */
+export function peopleIn(text: string): number | null {
+    const matches = [
+        ...text.matchAll(
+            /\b(\d{1,2}|one|two|three|four|five|six|seven|eight|nine|ten)\s+(?:\w+\s+)?(people|persons|passengers?|adults?|kids?|child(?:ren)?|teens?|teenagers?|boys?|girls?|sons?|daughters?|friends?|colleagues?|grandchildren|grandkids|parents|toddlers?|bab(?:y|ies))\b/gi,
+        ),
+    ];
+
+    if (!matches.length) return null;
+
+    return matches.reduce((sum, match) => sum + (COUNT_WORDS[match[1]!.toLowerCase()] ?? Number(match[1])), 0);
+}
+
+/**
+ * What a number of passengers asks of the car: nothing (beside the driver),
+ * rear doors (someone in the back), five seats, six. Two counts on the same
+ * step ask the same of the car, so telling them apart changes nothing.
+ */
+const seatStep = (passengers: number) => (passengers >= 5 ? 3 : passengers === 4 ? 2 : passengers >= 2 ? 1 : 0);
+
+/** The check to ask, when the words give more people than the count and that changes the seats or doors. */
+function seatCheck(text: string, passengers: number | null): StepId | null {
+    const typed = peopleIn(text);
+
+    if (typed == null || passengers == null || typed <= passengers || seatStep(typed) <= seatStep(passengers)) return null;
+
+    return `check-passengers-${typed}`;
+}
+
+const NUMBER_WORDS = ["no", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten"];
+const inWords = (n: number) => NUMBER_WORDS[n] ?? String(n);
+
 /** A level this crowded says little: with this many needs on it, each counts for too little to decide anything. */
 const CROWDED = 5;
 
@@ -336,6 +378,34 @@ export function stepFor(id: StepId, cars: FinnCar[], u: Understanding = EMPTY_UN
         };
     }
 
+    if (id.startsWith("check-passengers-")) {
+        const typed = Number(id.slice("check-passengers-".length));
+        const said = u.passengers ?? 0;
+        const count = stepFor("life-passengers", cars, u);
+
+        if (!count?.guide || !Number.isFinite(typed)) return null;
+
+        const keep = new Set([`passengers-${said}`, `passengers-${Math.min(typed, 5)}`]);
+        const needs =
+            seatStep(typed) === 3
+                ? `with you that's ${inWords(typed + 1)} people, so the car needs six or more seats`
+                : seatStep(typed) === 2
+                  ? "with you that's five people, so the car needs five seats"
+                  : "so someone sits in the back, and rear doors count";
+
+        return {
+            ...count,
+            id,
+            ask: `You said ${said ? `${inWords(said)} ${said === 1 ? "passenger" : "passengers"}` : "it's just you"}, but what you typed sounds like ${inWords(typed)} — ${needs}. Which is right?`,
+            why: "The number of passengers decides which seats and doors I check.",
+            choices: count.choices.filter((choice) => keep.has(choice.id)).map((choice) => ({ ...choice, label: `${choice.label} ${choice.label === "1" ? "passenger" : "passengers"}` })),
+            /* "Just me" stays an answer only if it's what they said. */
+            none: said ? undefined : count.none,
+            custom: undefined,
+            guide: { ...count.guide, choices: count.guide.choices.filter((choice) => keep.has(choice.id)) },
+        };
+    }
+
     if (id.startsWith("offer-")) {
         const [evidence, needId] = id.slice("offer-".length).split("|") as [EvidenceId, string];
         const need = u.needs.find((item) => item.id === needId);
@@ -476,7 +546,7 @@ function acknowledgeGroup(step: ChatStep, u: Understanding, chosen: string[], be
         if (nothingToCheck.length) return nothingToCheck.join(" ");
         if (step.none === "No pets") return "No pets — nothing to add for them.";
 
-        return NOTHING_HERE[step.id.slice("life-".length) as NeedGroup] ?? "Noted.";
+        return NOTHING_HERE[(step.id.startsWith("check-") ? "passengers" : step.id.slice("life-".length)) as NeedGroup] ?? "Noted.";
     }
 
     /* A few from each need in turn, so "things like" isn't four things for the first need alone. */
@@ -509,7 +579,7 @@ export function acknowledge(step: ChatStep, u: Understanding, chosen: string[] =
             : "Fine, I'll leave it out and won't offer it again.";
     }
 
-    if (step.id.startsWith("life-")) return acknowledgeGroup(step, u, chosen, before);
+    if (step.id.startsWith("life-") || step.id.startsWith("check-passengers-")) return acknowledgeGroup(step, u, chosen, before);
 
     switch (step.id) {
         case "focus": {
@@ -913,6 +983,10 @@ export function answer(
             /* The second question about each need where it changes something, straight after its group. */
             const follow = chosen.filter((id) => followUpFor(id)).map((id) => `follow-${id}` as StepId);
             queue = [...follow, ...queue.filter((id) => !follow.includes(id))];
+
+            /* More people typed than counted, enough to change the seats: that comes first. */
+            const check = step.id === "life-people" && extra.heard ? seatCheck(extra.heard.text, understanding.passengers ?? null) : null;
+            if (check) queue = [check, ...queue];
         }
 
         if (step.id === "distance" && extra.amount != null) {
