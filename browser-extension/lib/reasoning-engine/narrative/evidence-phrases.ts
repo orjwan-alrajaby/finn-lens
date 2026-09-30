@@ -120,6 +120,7 @@ export function unknownPhrase(key: SignalId): string {
 /** What an unassessed priority is missing, for a sentence about one car. */
 export function unassessedPhrase(priority: CategoryId, isElectric: boolean): string {
   if (priority === "environmental") return "its CO₂ figure";
+  if (priority === "efficiency") return "its consumption";
   if (priority === "longDistance" && isElectric) return "its electric range";
 
   const label = (CATEGORIES as Record<string, { label: string } | undefined>)[priority]?.label ?? priority;

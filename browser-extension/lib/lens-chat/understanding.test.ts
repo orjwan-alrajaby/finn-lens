@@ -247,7 +247,7 @@ describe("turning an understanding into Lens's answers", () => {
                         status: "active",
                     },
                 ],
-                droppedPriorities: ["comfort", "cityParking", "practicality", "longDistance", "climateSuitability", "environmental"],
+                droppedPriorities: ["efficiency", "comfort", "cityParking", "practicality", "longDistance", "climateSuitability", "environmental"],
             }),
             EMPTY_UNDERSTANDING,
         );

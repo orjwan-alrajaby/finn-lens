@@ -797,6 +797,28 @@ export const CATEGORIES = {
     features: [],
   },
 
+  /*
+   * How little of its own kind of energy the car uses, against others of its
+   * kind — a petrol car with petrol cars, an electric car with electric cars.
+   * Not emissions, which is its own priority: a frugal petrol car is
+   * efficient and still emits, and a reader can care about one without the
+   * other. Not running cost either, which is already in every car's price.
+   */
+  efficiency: {
+    label: "Efficiency",
+    icon: "fuel",
+    color: "#CA8A04",
+    question: "How little fuel or electricity does this car use for its kind?",
+    description:
+      "Based on the car's own reported consumption — litres or kWh per 100 km — against FINN Lens's benchmark for cars that run on the same thing. A plug-in hybrid isn't judged: FINN's one figure for it mixes fuel and electricity.",
+    recommendedFor: [
+      "Drivers who want a car that's frugal for its kind",
+      "Anyone who drives far enough for consumption to add up",
+    ],
+    numericOnly: true,
+    features: [],
+  },
+
   comfort: {
     label: "Comfort",
     icon: "sofa",

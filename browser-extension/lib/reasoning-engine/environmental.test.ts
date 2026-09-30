@@ -1,4 +1,4 @@
-import { GOOD_FROM, STRONG_FROM } from "./bands";
+import { bandForScore, GOOD_FROM, STRONG_FROM } from "./bands";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -8,6 +8,7 @@ import {
   co2ClassFor,
   describeEnvironment,
   efficiencyReferenceFor,
+  efficiencyScore,
   ENVIRONMENTAL_METHOD,
   positionForCo2,
 } from "./environmental";
@@ -1043,5 +1044,27 @@ describe("figures FINN leaves empty", () => {
     expect(efficiencyReferenceFor("Electric")?.value).toBe("17 kWh/100km");
     expect(efficiencyReferenceFor("Plug-in Hybrid")).toBeNull();
     expect(efficiencyReferenceFor(null)).toBeNull();
+  });
+});
+
+describe("efficiency as a score", () => {
+  const withUse = (fuelType: string, combined: number) =>
+    ({ fuelType, consumption: { combined } }) as unknown as Parameters<typeof efficiencyScore>[0];
+
+  it("puts a car in the band its efficiency words name", () => {
+    for (const [fuel, combined] of [["Petrol", 3.9], ["Petrol", 5.0], ["Petrol", 5.8], ["Petrol", 7.5], ["Electric", 13], ["Electric", 21]] as const) {
+      const car = withUse(fuel, combined);
+      const words = assessEfficiency(car)!;
+      const band = bandForScore(efficiencyScore(car)!.score);
+
+      const expected = { veryLow: "strong", low: "good", moderate: "partial", high: "limited", veryHigh: "limited" }[words.step];
+      if (words.step === "moderate") expect(["good", "partial"], `${fuel} ${combined}`).toContain(band);
+      else expect(band, `${fuel} ${combined} (${words.step})`).toBe(expected);
+    }
+  });
+
+  it("doesn't judge a plug-in hybrid, or a car with no figure", () => {
+    expect(efficiencyScore(withUse("Plug-in Hybrid", 1.2))).toBeNull();
+    expect(efficiencyScore({ fuelType: "Petrol", consumption: {} } as unknown as Parameters<typeof efficiencyScore>[0])).toBeNull();
   });
 });

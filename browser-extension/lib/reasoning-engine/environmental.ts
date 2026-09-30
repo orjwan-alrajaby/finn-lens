@@ -657,6 +657,41 @@ export interface EfficiencyReference {
 }
 
 /**
+ * How a car's use of its own energy places on the 0–100 the engine speaks in.
+ *
+ * Measured against the same reference and band the efficiency words use, so
+ * the band a reader sees agrees with the word: "very low use" — two bands
+ * under the reference — is where Strong starts, "low use" where Good starts,
+ * about typical is Partial, and two bands over is nothing. Below the Strong
+ * line the score keeps rising, to 100 at three bands under.
+ *
+ * Null wherever the efficiency reading is: a plug-in hybrid, whose one figure
+ * blends two energy sources, or a car FINN publishes no consumption for.
+ */
+export function efficiencyScore(vehicle: FinnCar): { score: number; consumption: number; unit: string } | null {
+  const fuel = vehicle.fuelType;
+  const consumption = published(vehicle.consumption?.combined);
+
+  if (!fuel || fuel === "Plug-in Hybrid" || !isMeasured(consumption) || consumption <= 0) return null;
+
+  const cohort = cohortFor(fuel);
+
+  if (!cohort) return null;
+
+  const band = EFFICIENCY_BAND;
+  const anchors: Anchors = [
+    [1 - 3 * band, 100],
+    [1 - 2 * band, STRONG_FROM],
+    [1 - band, GOOD_FROM],
+    [1, 35],
+    [1 + band, 25],
+    [1 + 2 * band, 0],
+  ];
+
+  return { score: piecewise(anchors, consumption / cohort.reference), consumption, unit: cohort.unit };
+}
+
+/**
  * The reference on its own, without a car to compare with it.
  *
  * A constant for each powertrain, so it doesn't depend on FINN publishing the

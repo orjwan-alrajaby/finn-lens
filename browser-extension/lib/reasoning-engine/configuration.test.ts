@@ -39,7 +39,7 @@ const def = (id: CategoryId) =>
 /* The priorities                                                             */
 /* -------------------------------------------------------------------------- */
 
-describe("the seven priorities", () => {
+describe("the eight priorities", () => {
   it("are the ones the model defines, with Family Friendly folded into Practicality", () => {
     expect(CATEGORY_IDS).toEqual([
       "safetyAssistance",
@@ -48,6 +48,7 @@ describe("the seven priorities", () => {
       "longDistance",
       "climateSuitability",
       "environmental",
+      "efficiency",
       "comfort",
     ]);
     expect(CATEGORY_IDS).not.toContain("familyFriendly");

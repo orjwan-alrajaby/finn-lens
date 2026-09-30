@@ -222,6 +222,15 @@ function headlineMeasurements(
         ? []
         : [{ label: "CO\u2082 emissions", value: co2, unit: "g/km", lowerIsBetter: true }];
 
+    /* What Efficiency is scored on. Litres and kWh never meet: a comparison needs the same unit. */
+    case "efficiency": {
+      const consumption = finite(vehicle.consumption?.combined);
+
+      return consumption == null || consumption <= 0 || vehicle.fuelType === "Plug-in Hybrid"
+        ? []
+        : [{ label: "Consumption", value: consumption, unit: vehicle.fuelType === "Electric" ? "kWh/100km" : "L/100km", lowerIsBetter: true }];
+    }
+
     default:
       return [];
   }
@@ -333,6 +342,7 @@ export function traitFacts(
 
   const wantsDrivetrain =
     breakdown.priority === "environmental" ||
+    breakdown.priority === "efficiency" ||
     breakdown.priority === "longDistance";
 
   if (!wantsDrivetrain || !vehicle.fuelType) return [];

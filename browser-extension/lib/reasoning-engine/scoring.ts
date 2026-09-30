@@ -30,6 +30,7 @@ import { formatNumber, PROPER_NAME } from "./format";
 import {
   assessEnvironment,
   assessEnvironmentOrGaps,
+  efficiencyScore,
 } from "./environmental";
 import {
   ASSESSED_SHARE,
@@ -186,6 +187,7 @@ export function categoryDetail(
   categoryFeatures: Record<CategoryId, FeatureSelection> = DEFAULT_CATEGORY_FEATURES,
 ): CategoryDetail {
   if (category === "environmental") return environmentalDetail(vehicle);
+  if (category === "efficiency") return efficiencyDetail(vehicle);
 
   const def = getCategory(category);
   const selection = categoryFeatures[category] ?? [];
@@ -421,6 +423,39 @@ function environmentalDetail(vehicle: PinnedFinnCar): CategoryDetail {
      * told exactly what FINN didn't publish.
      */
     environmental: assessment ?? assessEnvironmentOrGaps(vehicle),
+    bounds: assessed ? { low: score, high: score } : { low: 0, high: 100 },
+    hasEvidence: assessed,
+  };
+}
+
+/** Efficiency: the car's consumption against the benchmark for its kind, and nothing else. */
+function efficiencyDetail(vehicle: PinnedFinnCar): CategoryDetail {
+  const reading = efficiencyScore(vehicle);
+  const score = reading?.score ?? null;
+  const assessed = score != null;
+
+  return {
+    score: assessed ? Math.round(score) : 0,
+    exactScore: assessed ? score : 0,
+    assessed,
+    items: [],
+    matched: [],
+    missing: [],
+    unknown: [],
+    expectedMissing: [],
+    standard: [],
+    basis: "none",
+    pickedMatched: [],
+    pickedMissing: [],
+    pickedUnknown: [],
+    coverageScore: null,
+    featureScore: null,
+    numericScore: score,
+    numeric: reading ? evidence("Consumption", reading.consumption, reading.unit, `${formatNumber(reading.consumption)} ${reading.unit}`, true) : null,
+    tripFactor: null,
+    chargeFactor: null,
+    chargeMinutes: null,
+    environmental: null,
     bounds: assessed ? { low: score, high: score } : { low: 0, high: 100 },
     hasEvidence: assessed,
   };

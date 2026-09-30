@@ -505,7 +505,7 @@ function describeMissingData(
   return paragraph(
     sentence(
       `Lens can't judge this car on ${phraseLabel(breakdown.label)}: FINN doesn't publish`,
-      breakdown.unknown.length && breakdown.priority !== "environmental"
+      breakdown.unknown.length && breakdown.priority !== "environmental" && breakdown.priority !== "efficiency"
         ? breakdown.unknown.length === breakdown.matched.length + breakdown.missing.length + breakdown.unknown.length
           ? "its equipment list"
           : joinList(breakdown.unknown.map(unknownPhrase))

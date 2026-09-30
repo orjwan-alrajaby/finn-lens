@@ -158,6 +158,13 @@ export function describeCoverage(priority: FitPriority): string {
             : "No CO₂ figure published";
     }
 
+    /* Efficiency, likewise: the figure it was judged on, or why there isn't one. */
+    if (priority.priority === "efficiency") {
+        const consumption = priority.measurements.find((item) => item.label === "Consumption");
+
+        return consumption ? `${consumption.display}, against others of its kind` : "No consumption figure to judge";
+    }
+
     if (priority.band.level === "unknown") {
         return "Equipment not listed by FINN";
     }
