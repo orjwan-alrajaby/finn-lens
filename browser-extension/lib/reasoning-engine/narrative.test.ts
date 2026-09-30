@@ -615,6 +615,7 @@ describe("language primitives", () => {
       "ISOFIX child seat anchors",
     );
     expect(inSentence("360° camera")).toBe("360° camera");
+    expect(inSentence("Apple CarPlay / Android Auto")).toBe("Apple CarPlay / Android Auto");
     expect(phraseLabel("Family Friendly")).toBe("family friendly");
     expect(phraseLabel("CO₂ Impact")).toBe("CO₂ impact");
   });

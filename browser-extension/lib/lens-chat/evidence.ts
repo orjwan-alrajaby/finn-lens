@@ -1,5 +1,6 @@
 import { CATEGORIES, CATEGORY_IDS, SIGNALS } from "@/lib/reasoning-engine/constants";
 import { bootLitres, evRangeKm, isBinarySignal, lengthMm, signalUtility, type Anchors } from "@/lib/reasoning-engine/evidence";
+import { PROPER_NAME } from "@/lib/reasoning-engine/format";
 import type { CategoryId, SignalId } from "@/lib/reasoning-engine/types";
 import type { FinnCar } from "@/lib/types";
 
@@ -281,7 +282,7 @@ const PHRASES: Partial<Record<EvidenceId, string>> = {
 export const asPhrase = (id: EvidenceId): string => {
     const label = EVIDENCE[id].label;
 
-    return PHRASES[id] ?? (/^[A-Z0-9]{2,}/.test(label) ? label : `${label.charAt(0).toLowerCase()}${label.slice(1)}`);
+    return PHRASES[id] ?? (/^[A-Z0-9]{2,}/.test(label) || PROPER_NAME.test(label) ? label : `${label.charAt(0).toLowerCase()}${label.slice(1)}`);
 };
 
 /** Evidence that describes what kind of car it is, rather than what it carries. */

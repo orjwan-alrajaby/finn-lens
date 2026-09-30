@@ -9,7 +9,7 @@
  * evidence always produces the same words, so the output is testable.
  */
 
-import { joinList } from "../format";
+import { joinList, PROPER_NAME } from "../format";
 
 export { joinList };
 
@@ -69,7 +69,7 @@ export function inSentence(label: string): string {
   const isAcronymOrSymbol =
     first.length > 1 && first === first.toUpperCase();
 
-  if (isAcronymOrSymbol || !/^[A-Z]/.test(label)) return label;
+  if (isAcronymOrSymbol || PROPER_NAME.test(label) || !/^[A-Z]/.test(label)) return label;
 
   return label.charAt(0).toLowerCase() + label.slice(1);
 }

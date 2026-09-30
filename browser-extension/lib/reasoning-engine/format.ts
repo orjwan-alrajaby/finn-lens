@@ -41,3 +41,6 @@ export function joinList(items: string[]): string {
 
   return `${items.slice(0, -1).join(", ")} and ${items[items.length - 1]}`;
 }
+
+/** Labels that start with a name, which keeps its capital mid-sentence: not "apple CarPlay". */
+export const PROPER_NAME = /^(Apple|Android)\b/;

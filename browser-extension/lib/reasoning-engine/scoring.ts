@@ -26,7 +26,7 @@ import {
   SIGNALS,
 } from "./constants";
 
-import { formatNumber } from "./format";
+import { formatNumber, PROPER_NAME } from "./format";
 import {
   assessEnvironment,
   assessEnvironmentOrGaps,
@@ -119,7 +119,8 @@ function sentenceCase(label: string): string {
 
   const isAcronymOrSymbol = first.length > 1 && first === first.toUpperCase();
 
-  if (isAcronymOrSymbol || !/^[A-Z]/.test(label)) return label;
+  /* And names: "Apple CarPlay" came out as "apple CarPlay". */
+  if (isAcronymOrSymbol || PROPER_NAME.test(label) || !/^[A-Z]/.test(label)) return label;
 
   return label.charAt(0).toLowerCase() + label.slice(1);
 }
