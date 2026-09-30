@@ -270,3 +270,12 @@ describe("how much each need counts", () => {
         expect(run.narrative.tradeoffs.map((item) => item.sentences.join(" ")).join(" ")).not.toMatch(/your #\d|you ranked/);
     });
 });
+
+describe("how much a need counts", () => {
+    it("doubles with each step on the reader's own scale", async () => {
+        const { NEED_WEIGHT } = await import("@/lib/lens-chat/understanding");
+
+        expect(NEED_WEIGHT.essential / NEED_WEIGHT.important).toBe(2);
+        expect(NEED_WEIGHT.important / NEED_WEIGHT.niceToHave).toBe(2);
+    });
+});

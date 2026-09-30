@@ -674,6 +674,17 @@ export const toWire = (u: Understanding): WireUnderstanding => ({ ...u, cleared:
 
 const RANK: Record<NeedImportance, number> = { essential: 3, important: 2, niceToHave: 1 };
 
+/**
+ * How much a need counts against the reader's other needs: each step on
+ * their own scale doubles it.
+ *
+ * Not the equipment scale (4 : 3 : 2), which says how much one feature counts
+ * beside the standard ones in its priority. Borrowed for needs, a must-have
+ * counted a third more than an important need — so a reader who picked the
+ * three that mattered most out of fourteen moved the result by two points.
+ */
+export const NEED_WEIGHT: Record<NeedImportance, number> = { essential: 4, important: 2, niceToHave: 1 };
+
 const RAISE: Record<NeedImportance, FeatureImportance> = {
     essential: "high",
     important: "medium",
@@ -945,7 +956,7 @@ export function toAnswers(
         const ranked = new Set(order.map((item) => item.id));
 
         for (const need of active) {
-            const weight = FEATURE_IMPORTANCE[RAISE[need.importance]].weight;
+            const weight = NEED_WEIGHT[need.importance];
             const homes = need.evidence
                 .filter(counts)
                 .map((entry) => EVIDENCE[entry.id].scoredIn!)
