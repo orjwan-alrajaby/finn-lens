@@ -93,34 +93,6 @@ export const FOLLOW_UPS: Record<string, FollowUp> = {
             { id: "long", label: "Over 45 minutes", said: "Over 45 minutes.", importance: "essential", reply: "Over 45 minutes: I'll treat your commute as a must-have." },
         ],
     },
-    city: {
-        need: "city",
-        ask: "Where do you usually park?",
-        why: "Street spaces and car-park bays each call for their own help.",
-        choices: [
-            {
-                id: "street",
-                label: "On the street",
-                said: "Mostly on the street.",
-                add: [{ id: "hasThreeSixtyDegreesCamera", why: "so you can check every side in a tight street space" }],
-                reply: "Street parking: I'll also count a 360° camera, which shows all four sides of the car while you park.",
-            },
-            {
-                id: "garage",
-                label: "A garage or car park",
-                said: "In a garage or a car park.",
-                add: [{ id: "hasElectricallyFoldingMirrors", why: "so the mirrors aren't clipped in narrow car-park bays" }],
-                reply: "Garages and car parks: I'll count mirrors that fold in at the press of a button, alongside the car's width.",
-            },
-            {
-                id: "driveway",
-                label: "A driveway",
-                said: "I have a driveway.",
-                importance: "niceToHave",
-                reply: "With a driveway, I'll count city driving and parking as nice to have.",
-            },
-        ],
-    },
     winter: {
         need: "winter",
         ask: "What are your winters mostly like?",
@@ -233,7 +205,6 @@ export const WORTH_A_LOOK: Record<string, { id: EvidenceId; why: string }[]> = {
         { id: "hasElectricTailgate", why: "so you can open the boot while holding a child or a pram" },
         { id: "hasThreeZoneAutomaticClimateControls", why: "so children in the back can set their own temperature" },
     ],
-    city: [{ id: "hasThreeSixtyDegreesCamera", why: "so you can check every side in a tight space" }],
     commute: [
         { id: "hasWirelessAppleCarPlaySlashAndroidAuto", why: "since you'd otherwise plug it in twice a day" },
         { id: "hasWirelessChargingStation", why: "so your phone charges on the daily drive" },

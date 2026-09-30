@@ -132,6 +132,7 @@ export const NEED_GROUPS = {
     passengers: "How many ride with you",
     people: "Who rides with you",
     driving: "Where you drive",
+    parking: "Where you park",
     weather: "The weather",
     loads: "What you carry",
     you: "What makes it yours",
@@ -280,17 +281,72 @@ const LIFE: GuideChoice[] = [
             ["rearDoors", "so a pet can get in and out of the back seat directly"],
         ],
         "Travelling with a pet"),
+    /*
+     * The driving itself — traffic, not parking, which is its own question.
+     * Not adaptive cruise control for jams: Lens scores it under Long
+     * Distance, which marks an electric car down for its range, and a city
+     * driver would be judged on trips they never described.
+     */
     need("city", "driving", "City driving", "I drive in the city.",
-        "A short, narrow car (the “i” gives the exact limits), a reversing camera and parking sensors.",
+        "An automatic gearbox for stop-and-go traffic, a narrow car for narrow streets, blind spot warning, traffic sign recognition and automatic emergency braking.",
+        ["cityParking", "safetyAssistance"],
+        [
+            ["hasAutomaticTransmission", "so stop-and-go traffic doesn't mean constant clutch work"],
+            ["compactWidth", "so it fits narrow streets and lanes"],
+            ["hasBlindSpotAssist", "for cyclists and cars slipping in beside you on busy roads"],
+            ["hasTrafficSignRecognition", "since the limit changes from street to street"],
+            ["hasEmergencyBrakingAssist", "for sudden stops, and people stepping out between parked cars"],
+        ]),
+    /*
+     * Where they park, asked of everyone: every driver parks somewhere, and
+     * each kind of space calls for its own help. A driveway asks for none.
+     */
+    need("street", "parking", "On the street", "On the street.",
+        "A shorter car, a reversing camera, parking sensors and a 360° camera.",
         ["cityParking"],
         [
             ["compactLength", "so it fits shorter street spaces"],
-            ["compactWidth", "so it fits narrow streets and car-park bays"],
             ["hasOneEightyDegreesReversingCamera", "so you can see how close you are when reversing into a space"],
             ["hasParkingSensors", "so you know when you're about to touch another car"],
+            ["hasThreeSixtyDegreesCamera", "so you can check the kerb and every side in a tight space"],
         ],
-        /* Where they park adds the rest: a 360° camera for the street, folding mirrors for car parks. */
-        "City driving and parking"),
+        "Parking on the street"),
+    need("garage", "parking", "A garage at home", "In a garage at home.",
+        "A narrow, shorter car, mirrors that fold in at the press of a button, and parking sensors.",
+        ["cityParking"],
+        [
+            ["compactWidth", "so it clears the garage door frame"],
+            ["compactLength", "so it fits the garage with room to walk round it"],
+            ["hasElectricallyFoldingMirrors", "so the mirrors aren't clipped on the door frame"],
+            ["hasParkingSensors", "so you know how close the back wall is"],
+        ],
+        "Parking in a garage at home"),
+    need("multi-storey", "parking", "Multi-storey or underground car parks", "In multi-storey or underground car parks.",
+        "A narrow car, mirrors that fold in, a 360° camera and parking sensors.",
+        ["cityParking"],
+        [
+            ["compactWidth", "so it fits narrow bays between pillars"],
+            ["hasElectricallyFoldingMirrors", "so the mirrors aren't clipped in narrow bays"],
+            ["hasThreeSixtyDegreesCamera", "so you can see pillars beside you while you turn in"],
+            ["hasParkingSensors", "so you know when you're about to touch a pillar or a wall"],
+        ],
+        "Parking in multi-storey car parks"),
+    need("open-car-park", "parking", "Open car parks", "In open car parks, like at the supermarket or work.",
+        "Rear cross-traffic alert, a reversing camera and parking sensors.",
+        ["cityParking", "safetyAssistance"],
+        [
+            ["hasRearCrosswalkWarning", "for reversing out between parked cars, where you can't see traffic coming"],
+            ["hasOneEightyDegreesReversingCamera", "so you aren't reversing out on mirrors alone"],
+            ["hasParkingSensors", "so you know when you're about to touch another car"],
+        ],
+        "Parking in open car parks"),
+    {
+        id: "driveway",
+        group: "parking",
+        label: "A driveway",
+        said: "On a driveway.",
+        description: "A driveway leaves plenty of room, so there's nothing extra to check for parking.",
+    },
     need("commute", "driving", "Commuting", "I commute by car.",
         "Adaptive cruise control that keeps a set distance in traffic, an automatic gearbox, keyless entry and start, and Apple CarPlay or Android Auto.",
         ["longDistance", "comfort"],
@@ -524,11 +580,12 @@ export function guideSteps(
         if (checkable) return [{ ...choice, need: { ...choice.need, priorities, evidence } }];
 
         /*
-         * Who rides along is the reader's answer whatever the cars here
-         * list: "Adults" can't go missing from "who are they?" because no car
-         * on the page has rear USB ports. It stays, and says it adds nothing.
+         * Who rides along, and where they park, is the reader's answer
+         * whatever the cars here list: "Adults" can't go missing from "who
+         * are they?" because no car on the page has rear USB ports. It
+         * stays, and says it adds nothing.
          */
-        return choice.group === "passengers" || choice.group === "people"
+        return choice.group === "passengers" || choice.group === "people" || choice.group === "parking"
             ? [{ ...choice, need: undefined, description: "None of the cars here list what I'd check for that, so there's nothing extra to check." }]
             : [];
     });

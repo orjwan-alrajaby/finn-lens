@@ -54,9 +54,9 @@ describe("what Lens asks about a page of cars", () => {
 
     it("only offers choices it can check on these cars", () => {
         for (const choice of step("life").choices) {
-            /* A passenger count stays even when it checks nothing: it's still the reader's answer. */
+            /* A passenger count, or a driveway, stays even when it checks nothing: it's still the reader's answer. */
             if (!choice.need) {
-                expect(choice.passengers, choice.id).toBeDefined();
+                expect(["passengers", "people", "parking"], choice.id).toContain(choice.group);
                 continue;
             }
 

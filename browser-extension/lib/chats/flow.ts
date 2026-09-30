@@ -120,12 +120,13 @@ const inWords = (n: number) => NUMBER_WORDS[n] ?? String(n);
 /* -------------------------------------------------------------------------- */
 
 /** The questions a reader can pick to answer again, in the order they're asked. */
-const CHANGEABLE: StepId[] = ["life-passengers", "life-people", "life-driving", "life-weather", "life-loads", "life-you", "rules", "budget", "period", "distance"];
+const CHANGEABLE: StepId[] = ["life-passengers", "life-people", "life-driving", "life-parking", "life-weather", "life-loads", "life-you", "rules", "budget", "period", "distance"];
 
 const CHANGE_LABEL: Partial<Record<StepId, string>> = {
     "life-passengers": "How many ride with you",
     "life-people": "Who rides with you",
     "life-driving": "Your driving",
+    "life-parking": "Where you park",
     "life-weather": "The weather",
     "life-loads": "What you carry or tow",
     "life-you": "Anything else",
@@ -251,6 +252,12 @@ const GROUP_ASK: Record<NeedGroup, { ask: string; why: string; none: string; pla
         why: "Children, adults and pets each need different things from a car. Tap all that apply — the “i” on an answer shows what I'd check.",
         none: "Rather not say",
         placeholder: "e.g. “two teenagers and a big dog”",
+    },
+    parking: {
+        ask: "Where do you park most often?",
+        why: "Each kind of space calls for its own help. The “i” on an answer shows what I'd check.",
+        none: "Parking's no trouble",
+        placeholder: "e.g. “parking stresses me out”",
     },
     driving: {
         ask: "What kind of driving do you do?",
@@ -594,6 +601,7 @@ const NOTHING_HERE: Record<NeedGroup, string> = {
     passengers: "Just you — I won't add anything for passengers.",
     people: "Fine — I'll go by the number of seats alone.",
     driving: "None of these — I won't add anything for how you drive.",
+    parking: "Fine — I won't add anything for parking.",
     weather: "Nothing unusual — I won't add anything for the weather.",
     loads: "Nothing much — I won't add anything for loads.",
     you: "Nothing else — I won't add anything more.",

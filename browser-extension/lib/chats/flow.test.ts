@@ -250,7 +250,7 @@ describe("a conversation, not a form", () => {
     const asked = (chat: Chat) => chat.messages.filter((message): message is Ask => message.kind === "ask").map((message) => message.step.id);
 
     it("says why it asks every question", () => {
-        const chat = walk(startChat(null, cars(), TODAY), { life: ["passengers-2", "kids", "city"], "follow-kids": ["older"], "follow-city": ["street"], budget: ["budget-500"] });
+        const chat = walk(startChat(null, cars(), TODAY), { life: ["passengers-2", "kids", "city"], "follow-kids": ["older"], budget: ["budget-500"] });
 
         for (const message of chat.messages) {
             if (message.kind === "ask" && message.step.id !== "start") expect(message.step.why, message.step.id).toBeTruthy();
@@ -320,11 +320,11 @@ describe("a conversation, not a form", () => {
     });
 
     it("writes \"&\" on chips and \"and\" in sentences", () => {
-        const chat = walk(startChat(null, cars(), TODAY), { life: ["city", "roadtrips"], "follow-city": ["street"], focus: ["life-roadtrips"] });
+        const chat = walk(startChat(null, cars(), TODAY), { life: ["city", "roadtrips"], focus: ["life-city"] });
         const focus = chat.messages.find((message): message is Ask => message.kind === "ask" && message.step.id === "focus")!;
 
-        expect(focus.step.choices.map((choice) => choice.label)).toContain("City driving & parking");
-        expect(texts(chat).find((text) => /one step less/.test(text))).toMatch(/City driving and parking counts one step less/);
+        expect(focus.step.choices.map((choice) => choice.label)).toContain("Road trips & holidays");
+        expect(texts(chat).find((text) => /one step less/.test(text))).toMatch(/Road trips and holidays counts one step less/);
     });
 
     it("counts only the help that matches what makes driving stressful", () => {
@@ -349,7 +349,7 @@ describe("a conversation, not a form", () => {
     });
 
     it("doesn't ask whether a seat count matters more than a need", () => {
-        const chat = walk(startChat(null, cars(), TODAY), { life: ["passengers-2", "city"], "follow-city": ["street"] });
+        const chat = walk(startChat(null, cars(), TODAY), { life: ["passengers-2", "city"] });
 
         expect(asked(chat)).not.toContain("focus");
     });
@@ -370,7 +370,10 @@ describe("a conversation, not a form", () => {
         expect(texts(driving).at(-1)).toMatch(/won't add anything for how you drive/);
         expect(driving.messages.filter((message) => message.from === "reader").at(-1)).toMatchObject({ text: "None of these" });
 
-        const weather = answer(driving, openAsk(driving)!.id, [], cars(), TODAY).chat;
+        expect(openAsk(driving)?.step.id).toBe("life-parking");
+
+        const parking = answer(driving, openAsk(driving)!.id, [], cars(), TODAY).chat;
+        const weather = answer(parking, openAsk(parking)!.id, [], cars(), TODAY).chat;
         expect(weather.messages.filter((message) => message.from === "reader").at(-1)).toMatchObject({ text: "Nothing unusual" });
     });
 
@@ -449,7 +452,7 @@ describe("a conversation, not a form", () => {
     });
 
     it("changes one answer from the summary, and comes straight back to it", () => {
-        const chat = walk(startChat(null, cars(), TODAY), { life: ["city"], "follow-city": ["garage"], budget: ["budget-400"] });
+        const chat = walk(startChat(null, cars(), TODAY), { life: ["city", "garage"], budget: ["budget-400"] });
         const changing = changeOne(chat, "budget", cars());
 
         expect(openAsk(changing)?.step.id).toBe("budget");
@@ -535,7 +538,7 @@ describe("a long list of needs", () => {
     it("asks which matter most when many share a level, and lifts up to three", () => {
         const chat = walk(startChat(null, cars(), TODAY), {
             life: ["passengers-2", "kids", "dog", "city", "commute", "night", "summer", "bulky", "safety", "tech", "comfort"],
-            "follow-kids": ["boosters"], "follow-city": ["street"], "follow-commute": ["long"],
+            "follow-kids": ["boosters"], "follow-commute": ["long"],
             focus: ["life-kids", "life-safety", "life-city"],
         });
         const focus = chat.messages.find((message): message is Ask => message.kind === "ask" && message.step.id === "focus")!;
@@ -551,13 +554,13 @@ describe("a long list of needs", () => {
         expect([level("life-kids"), level("life-safety"), level("life-city")]).toEqual(["essential", "essential", "essential"]);
         expect(level("life-dog")).toBe("important");
         expect(chat.messages.filter((message) => message.from === "reader").map((message) => (message as { text: string }).text)).toContain(
-            "These matter most: travelling with children, city driving and parking and safety.",
+            "These matter most: travelling with children, city driving and safety.",
         );
-        expect(texts(chat).find((text) => /a step above the other/.test(text))).toMatch(/^Travelling with children, city driving and parking and safety now count a step above the other \d+\.$/);
+        expect(texts(chat).find((text) => /a step above the other/.test(text))).toMatch(/^Travelling with children, city driving and safety now count a step above the other \d+\.$/);
     });
 
     it("still asks nothing when one need leads and the rest are few", () => {
-        const chat = walk(startChat(null, cars(), TODAY), { life: ["commute", "city"], "follow-commute": ["long"], "follow-city": ["street"] });
+        const chat = walk(startChat(null, cars(), TODAY), { life: ["commute", "city"], "follow-commute": ["long"] });
 
         expect(asked(chat)).not.toContain("focus");
     });
@@ -582,5 +585,27 @@ describe("the summary", () => {
         const practicality = summaryOf(chat.understanding).priorities.find((priority) => priority.label === "Practicality")!;
 
         expect(practicality.from).toEqual(expect.arrayContaining(["Travelling with children", "Bulky loads"]));
+    });
+});
+
+describe("city driving and parking", () => {
+    it("judges city driving on the traffic, and asks everyone where they park", () => {
+        const chat = walk(startChat(null, cars(), TODAY), { life: ["city", "open-car-park"] });
+        const city = chat.understanding.needs.find((need) => need.id === "life-city")!;
+        const parking = chat.understanding.needs.find((need) => need.id === "life-open-car-park")!;
+
+        expect(city.evidence.map((entry) => entry.id)).not.toContain("hasParkingSensors");
+        expect(parking.evidence.map((entry) => entry.id)).toContain("hasRearCrosswalkWarning");
+
+        const noCity = chat.messages.filter((message): message is Ask => message.kind === "ask").map((message) => message.step.id);
+        expect(noCity).toContain("life-parking");
+        expect(noCity).not.toContain("follow-city");
+    });
+
+    it("adds nothing for a driveway, and says so", () => {
+        const chat = walk(startChat(null, cars(), TODAY), { life: ["city", "driveway"] });
+
+        expect(chat.understanding.needs.map((need) => need.id)).toEqual(["life-city"]);
+        expect(texts(chat).join(" ")).toMatch(/A driveway leaves plenty of room/);
     });
 });
