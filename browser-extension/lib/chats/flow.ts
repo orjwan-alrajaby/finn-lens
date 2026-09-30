@@ -115,6 +115,48 @@ function seatCheck(text: string, passengers: number | null): StepId | null {
 const NUMBER_WORDS = ["no", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten"];
 const inWords = (n: number) => NUMBER_WORDS[n] ?? String(n);
 
+/* -------------------------------------------------------------------------- */
+/* Changing some answers                                                      */
+/* -------------------------------------------------------------------------- */
+
+/** The questions a reader can pick to answer again, in the order they're asked. */
+const CHANGEABLE: StepId[] = ["life-passengers", "life-people", "life-driving", "life-weather", "life-loads", "life-you", "rules", "budget", "period", "distance"];
+
+const CHANGE_LABEL: Partial<Record<StepId, string>> = {
+    "life-passengers": "How many ride with you",
+    "life-people": "Who rides with you",
+    "life-driving": "Your driving",
+    "life-weather": "The weather",
+    "life-loads": "What you carry or tow",
+    "life-you": "Anything else",
+    rules: "Must-haves & must-nots",
+    budget: "Monthly limit",
+    period: "How long",
+    distance: "How far you drive",
+};
+
+/** What a question's answer is now, in a few words: "€700 a month", "travelling with children and pets". */
+function nowSaid(step: StepId, u: Understanding, cars: FinnCar[]): string {
+    switch (step) {
+        case "life-passengers":
+            return u.passengers == null ? "not answered" : u.passengers === 0 ? "just you" : `${u.passengers >= 5 ? "5 or more" : u.passengers}`;
+        case "rules":
+            return rulesText(u).toLowerCase() === "none" ? "none" : lowerFirst(rulesText(u));
+        case "budget":
+            return u.budget ? `${formatEUR(u.budget.monthly)} a month` : "no fixed limit";
+        case "period":
+            return u.rental ? `${monthLabel(u.rental.from)} to ${monthLabel(u.rental.to)}` : "not set";
+        case "distance":
+            return u.monthlyKm ? `about ${u.monthlyKm.value.toLocaleString("en-GB")} km a month` : "not said";
+    }
+
+    const group = step.slice("life-".length);
+    const own = new Set((guideSteps(cars).find((item) => item.id === "life")?.choices ?? []).filter((choice) => choice.group === group).map((choice) => `life-${choice.id}`));
+    const labels = lifeNeeds(u).filter((need) => own.has(need.id)).map((need) => lower(need.label));
+
+    return labels.length ? joined(labels) : "nothing";
+}
+
 /** A level this crowded says little: with this many needs on it, each counts for too little to decide anything. */
 const CROWDED = 5;
 
@@ -354,6 +396,35 @@ export function stepFor(id: StepId, cars: FinnCar[], u: Understanding = EMPTY_UN
                     { id: "change", label: "Change something", said: "I'd like to change something for this chat." },
                     { id: "scratch", label: "Start from scratch", said: "Let's start from scratch." },
                 ],
+            };
+
+        case "changeHow":
+            return {
+                id,
+                ask: "Would you like to change all your answers, or only some of them?",
+                why: "All goes through every question again, with what you said last time already picked. Some asks only the ones you choose.",
+                multiple: false,
+                choices: [
+                    { id: "all", label: "Change all my answers", said: "All of them." },
+                    { id: "some", label: "Change some of my answers", said: "Just some of them." },
+                ],
+                none: "Never mind",
+            };
+
+        case "changeWhich":
+            return {
+                id,
+                ask: "Which answers would you like to change?",
+                why: "I'll ask only those again, with what you said last time already picked. Tap the “i” to see what each is now.",
+                multiple: true,
+                /* Only questions this page would ask: a rule nothing here splits on isn't one to change. */
+                choices: CHANGEABLE.filter((step) => stepFor(step, cars, u)).map((step) => ({
+                    id: step,
+                    label: CHANGE_LABEL[step]!,
+                    said: CHANGE_LABEL[step]!,
+                    description: `Now: ${nowSaid(step, u, cars)}.`,
+                })),
+                none: "Never mind",
             };
 
         case "keep":
@@ -626,6 +697,15 @@ export function acknowledge(step: ChatStep, u: Understanding, chosen: string[] =
     }
 }
 
+/** The reader's rules in a line: "Automatic only and no SUV". */
+function rulesText(u: Understanding): string {
+    const rules = ruledOut(u);
+
+    return rules.length
+        ? joined(rules.map((rule) => `${rule.mode === "without" ? "no " : ""}${asPhrase(rule.id).replace(/^an? /, "")}${rule.mode === "must" ? " only" : ""}`)).replace(/^./, (c) => c.toUpperCase())
+        : "None";
+}
+
 /** What Lens will judge by, as the calibration card shows it. */
 export function summaryOf(u: Understanding, id: string = messageId()): Extract<ChatMessage, { kind: "summary" }> {
     const needs = lifeNeeds(u);
@@ -635,13 +715,7 @@ export function summaryOf(u: Understanding, id: string = messageId()): Extract<C
 
     if (!needs.length) lines.push({ label: "The car has to", value: "Nothing in particular", step: "life" });
 
-    lines.push({
-        label: "Rules",
-        value: rules.length
-            ? joined(rules.map((rule) => `${rule.mode === "without" ? "no " : ""}${asPhrase(rule.id).replace(/^an? /, "")}${rule.mode === "must" ? " only" : ""}`)).replace(/^./, (c) => c.toUpperCase())
-            : "None",
-        step: "rules",
-    });
+    lines.push({ label: "Rules", value: rulesText(u), step: "rules" });
     lines.push({ label: "Monthly limit", value: u.budget ? `${formatEUR(u.budget.monthly)} all in` : "No fixed limit", step: "budget" });
     lines.push({ label: "For", value: u.rental ? `${monthLabel(u.rental.from)} – ${monthLabel(u.rental.to)}` : "Not set", step: "period" });
     lines.push({
@@ -885,15 +959,8 @@ export function answer(
 
         if (picked[0]?.id === "judge") return { chat: touch(base, [reader(said)], { phase: "ready" }), after: "judge" };
 
-        if (picked[0]?.id === "change") {
-            const next = touch(base, [reader(said), lens("Sure. Here are my questions again, with what you said last time already picked.")], {
-                queue: [...STEP_ORDER],
-                kept: null,
-                revising: true,
-            });
-
-            return { chat: askNext(next, cars), after: "wait" };
-        }
+        /* "Change something" is some of it: which part is the question. */
+        if (picked[0]?.id === "change") return { chat: askNext(touch(base, [reader(said)], { queue: ["changeWhich"], kept: null }), cars), after: "wait" };
 
         if (picked[0]?.id === "scratch") {
             const next = touch(base, [reader(said), lens("Starting fresh — your saved settings stay as they are.")], {
@@ -917,6 +984,39 @@ export function answer(
         }
 
         const next = touch(base, [reader(tapped || "Let me pick something."), lens("Here they are again.")], { queue: ["life"], revising: true });
+        return { chat: askNext(next, cars), after: "wait" };
+    }
+
+    /* -- Changing answers: all of them, or which ------------------------- */
+    if (step.id === "changeHow" || step.id === "changeWhich") {
+        const said = step.multiple ? (picked.length ? `I'd like to change: ${joined(picked.map((choice, index) => (index ? lowerFirst(choice.label) : choice.label)))}.` : "Never mind.") : tapped || "Never mind.";
+
+        if (!picked.length) {
+            /* Nothing to change: back to where the chat was. */
+            return { chat: touch(base, [reader(said), lens("Fine — I'll keep everything as it is.")], { queue: [], phase: chat.judgement ? "judged" : "ready" }), after: "wait" };
+        }
+
+        if (step.id === "changeHow" && picked[0]!.id === "all") {
+            const next = touch(base, [reader(said), lens("Sure. Here are my questions again, with what you said last time already picked.")], {
+                queue: [...STEP_ORDER],
+                kept: null,
+                revising: true,
+            });
+
+            return { chat: askNext(next, cars), after: "wait" };
+        }
+
+        if (step.id === "changeHow") return { chat: askNext(touch(base, [reader(said)], { queue: ["changeWhich"] }), cars), after: "wait" };
+
+        /* The picked questions in the order they're asked, and which-matters-most again when a need changed. */
+        const picks = CHANGEABLE.filter((id) => chosen.includes(id));
+        const queue = picks.some((id) => id.startsWith("life-")) ? [...picks.filter((id) => id.startsWith("life-")), "focus" as StepId, ...picks.filter((id) => !id.startsWith("life-"))] : picks;
+        const next = touch(base, [reader(said), lens(picks.length === 1 ? "Sure — here it is again." : "Sure — just those, with what you said last time already picked.")], {
+            queue,
+            kept: null,
+            revising: true,
+        });
+
         return { chat: askNext(next, cars), after: "wait" };
     }
 
@@ -1027,11 +1127,9 @@ export function answer(
 }
 
 /** The reader wants to change what they said, after a judgement. */
+/** The reader wants to change what they said: all of it, or which parts is asked next. */
 export function changeAnswers(chat: Chat, cars: FinnCar[]): Chat {
-    const next = touch({ ...chat, messages: closeAsks(chat.messages) }, [
-        reader("I'd like to change my answers."),
-        lens("Sure. Here are my questions again, with what you said last time already picked."),
-    ], { queue: [...STEP_ORDER], kept: null, revising: true });
+    const next = touch({ ...chat, messages: closeAsks(chat.messages) }, [reader("I'd like to change my answers.")], { queue: ["changeHow"] });
 
     return askNext(next, cars);
 }

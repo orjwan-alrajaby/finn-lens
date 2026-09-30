@@ -164,9 +164,13 @@ describe("a chat from saved settings", () => {
         expect(chat.understanding.rental).toMatchObject({ from: "2027-04", to: "2027-09" });
     });
 
-    it("asks again with the last answers picked, when the reader wants to change something", () => {
+    it("asks which answers to change, then asks those again with the last answers picked", () => {
         const chat = startChat(settings(), cars(), TODAY);
-        const { chat: changing } = answer(chat, openAsk(chat)!.id, ["change"], cars(), TODAY);
+        const { chat: which } = answer(chat, openAsk(chat)!.id, ["change"], cars(), TODAY);
+
+        expect(openAsk(which)?.step.id).toBe("changeWhich");
+
+        const { chat: changing } = answer(which, openAsk(which)!.id, ["life-passengers", "life-people"], cars(), TODAY);
         const ask = openAsk(changing)!;
 
         expect(changing.revising).toBe(true);
@@ -188,14 +192,57 @@ describe("a chat from saved settings", () => {
 });
 
 describe("after a judgement", () => {
-    it("asks every question again, with what was said already picked", () => {
-        const asked = walk(startChat(null, cars(), TODAY), { life: ["passengers-2", "kids", "winter"], budget: ["budget-500"] });
-        const changed = changeAnswers({ ...asked, phase: "judged" }, cars());
+    /* Only whether there is a judgement matters here, not what it says. */
+    const judged = (): Chat => ({
+        ...walk(startChat(null, cars(), TODAY), { life: ["passengers-2", "kids", "winter"], budget: ["budget-500"] }),
+        phase: "judged",
+        judgement: { carIds: [] } as unknown as Chat["judgement"],
+    });
+
+    it("asks whether to change all the answers or only some", () => {
+        const changed = changeAnswers(judged(), cars());
         const ask = openAsk(changed)!;
+
+        expect(ask.step.id).toBe("changeHow");
+        expect(ask.step.choices.map((choice) => choice.label)).toEqual(["Change all my answers", "Change some of my answers"]);
+    });
+
+    it("asks every question again for all of them, with what was said already picked", () => {
+        const changed = changeAnswers(judged(), cars());
+        const all = answer(changed, openAsk(changed)!.id, ["all"], cars(), TODAY).chat;
+        const ask = openAsk(all)!;
 
         expect(ask.step.id).toBe("life-passengers");
         expect(ask.step.selected).toEqual(["passengers-2"]);
-        expect(changed.kept).toBeNull();
+        expect(all.kept).toBeNull();
+    });
+
+    it("asks only the picked questions for some, then says back what it will judge by", () => {
+        const changed = changeAnswers(judged(), cars());
+        const some = answer(changed, openAsk(changed)!.id, ["some"], cars(), TODAY).chat;
+        const which = openAsk(some)!;
+
+        expect(which.step.id).toBe("changeWhich");
+        expect(which.step.choices.find((choice) => choice.id === "budget")?.description).toBe("Now: €500 a month.");
+        expect(which.step.choices.find((choice) => choice.id === "life-people")?.description).toBe("Now: travelling with children.");
+
+        const picked = answer(some, which.id, ["budget"], cars(), TODAY).chat;
+        expect(openAsk(picked)?.step.id).toBe("budget");
+        expect(openAsk(picked)?.step.selected).toEqual(["budget-500"]);
+
+        const done = answer(picked, openAsk(picked)!.id, ["budget-700"], cars(), TODAY).chat;
+        expect(openAsk(done)?.step.id).toBe("keep");
+        expect(done.understanding.budget?.monthly).toBe(700);
+        expect(done.understanding.needs.map((need) => need.id)).toContain("life-kids");
+    });
+
+    it("keeps everything when the reader changes their mind", () => {
+        const changed = changeAnswers(judged(), cars());
+        const never = answer(changed, openAsk(changed)!.id, [], cars(), TODAY).chat;
+
+        expect(openAsk(never)).toBeNull();
+        expect(never.phase).toBe("judged");
+        expect(texts(never).at(-1)).toMatch(/keep everything as it is/);
     });
 });
 

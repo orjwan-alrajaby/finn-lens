@@ -35,6 +35,10 @@ export type StepId =
     | "focus"
     | "offers"
     | "noNeeds"
+    /** Change all the answers, or pick which. */
+    | "changeHow"
+    /** Which answers to change. */
+    | "changeWhich"
     | `life-${NeedGroup}`
     | `follow-${string}`
     | `offer-${string}`
