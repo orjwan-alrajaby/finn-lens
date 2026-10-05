@@ -51,9 +51,27 @@ export interface Need {
     importance: NeedImportance;
     said: string;
     priorities: CategoryId[];
-    evidence: { id: EvidenceId; use: string; unwanted: boolean; mustHave: boolean }[];
+    /** `level`: how much it counts, where that isn't what the need's importance gives — "width counts more" for a garage. */
+    evidence: { id: EvidenceId; use: string; unwanted: boolean; mustHave: boolean; level?: FeatureImportance }[];
+    /** Standard equipment the need points to: checked, never rewarded. See `LensPreferences.checked`. */
+    checks?: EvidenceId[];
     notInData: string | null;
     status: "active" | "dropped";
+}
+
+/**
+ * One life bubble the reader tapped, and what they've said about it since:
+ * its chips, how often, what they took out or added on the summary, and how
+ * much it counts if they set that themselves. The bubble's need is rebuilt
+ * from this — see `lib/lens-chat/bubbles.ts`.
+ */
+export interface BubbleState {
+    chips: string[];
+    often: string | null;
+    removed: EvidenceId[];
+    added: EvidenceId[];
+    /** Set by the reader on the summary; otherwise it comes from the chips or how often. */
+    importance: NeedImportance | null;
 }
 
 export interface Understanding {
@@ -93,6 +111,8 @@ export interface Understanding {
      * Lens asked come back without it.
      */
     passengers?: number | null;
+    /** The life bubbles tapped, in the order they're shown. Absent on chats from before them. */
+    bubbles?: Record<string, BubbleState>;
 }
 
 export const EMPTY_UNDERSTANDING: Understanding = {
@@ -390,6 +410,7 @@ export function readUnderstanding(
         waived: (previous.waived ?? []).filter((part) => (part === "budget" ? !budget : !rental)),
         /* Tapped, never read from words: a turn leaves it as it was. */
         passengers: previous.passengers ?? null,
+        bubbles: previous.bubbles,
     };
 }
 
@@ -916,7 +937,7 @@ export function toAnswers(
                  */
                 if (def.scoredIn !== id || !counts(entry)) continue;
 
-                const level = RAISE[need.importance];
+                const level = entry.level ?? RAISE[need.importance];
                 const existing = raised.get(entry.id as SignalId);
 
                 if (!existing || RANK_FEATURE[level] > RANK_FEATURE[existing]) raised.set(entry.id as SignalId, level);
@@ -976,6 +997,18 @@ export function toAnswers(
         }
 
         preferences.priorityShares = shares;
+
+        /* Standard equipment the needs point to, in priorities already weighed: checked, never rewarded. */
+        const checked: Partial<Record<CategoryId, SignalId[]>> = {};
+
+        for (const id of new Set(active.flatMap((need) => need.checks ?? []))) {
+            const home = EVIDENCE[id]?.scoredIn;
+            if (!home || !ranked.has(home) || rules.some((rule) => rule.id === id) || lessRelevant.includes(id)) continue;
+
+            checked[home] = [...(checked[home] ?? []), id as SignalId];
+        }
+
+        preferences.checked = checked;
         /* The order follows the shares, so "you put X first" names the heaviest. */
         order.sort((a, b) => (shares[b.id] ?? 0) - (shares[a.id] ?? 0));
     }
@@ -988,7 +1021,7 @@ export function toAnswers(
 
                 return counts(entry) && order.some((item) => item.id === def.scoredIn);
             })
-            .map((entry) => ({ id: entry.id, label: EVIDENCE[entry.id].label, importance: RAISE[need.importance] }));
+            .map((entry) => ({ id: entry.id, label: EVIDENCE[entry.id].label, importance: entry.level ?? RAISE[need.importance] }));
 
     return {
         answers: {
