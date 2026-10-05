@@ -734,7 +734,7 @@ function UnderstoodBubble({
         <li className="space-y-1.5">
             <div className={live ? "space-y-1" : "flex items-center justify-between gap-2"}>
                 <span className="block text-[13px] font-black leading-snug text-finn-black">{bubble.heading}</span>
-                {live ? (
+                {bubble.counting === false ? null : live ? (
                     <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
                         <ImportancePicker label={bubble.heading.toLowerCase()} value={bubble.importance} onPick={onImportance} />
                         {!bubble.importanceSaid ? <span className="text-[11px] text-finn-iron">My guess — change it if it's wrong</span> : null}
@@ -755,6 +755,11 @@ function UnderstoodBubble({
                         <Item key={item.id} label={item.label} kind="checks" />
                     ))}
                 </div>
+            ) : null}
+            {bubble.shared?.length ? (
+                <p className="text-[11.5px] leading-snug text-finn-iron">
+                    Also {bubble.shared.map((item) => lowerFirst(item.label)).join(", ")}, from above.
+                </p>
             ) : null}
             {bubble.checks.length ? <p className="text-[11px] leading-snug text-finn-iron">✓ Nearly every car has these: a car FINN says is missing one loses a little, and having one earns nothing.</p> : null}
             {bubble.settled ? <p className="text-[11.5px] leading-snug text-finn-iron">{bubble.settled}</p> : null}

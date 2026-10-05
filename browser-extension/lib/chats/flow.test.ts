@@ -489,3 +489,72 @@ describe("see why, remembered", () => {
         expect(chat.longResults).toBe(false);
     });
 });
+
+describe("answers that can't all be true", () => {
+    const understood = (picks: Partial<Record<StepId, string[]>>) => walk(startChat(null, cars(), TODAY), picks);
+
+    it("won't take mostly dry weather beside rain or snow, but takes rain, snow and hot summers together", () => {
+        const start = startChat(null, cars(), TODAY);
+        const step = openAsk(start)!.step;
+        const dry = answer(start, openAsk(start)!.id, ["weather", "weather:wet", "weather:cold"], cars(), TODAY).chat;
+        const wet = answer(start, openAsk(start)!.id, ["weather", "weather:snow", "weather:wet", "weather:hot"], cars(), TODAY).chat;
+
+        expect(step.bubbleChips?.weather?.exclusive).toEqual([["snow", "cold"], ["wet", "cold"]]);
+        expect(dry.understanding.bubbles?.weather?.chips).toEqual(["wet"]);
+        expect(wet.understanding.bubbles?.weather?.chips).toEqual(["snow", "wet", "hot"]);
+    });
+
+    it("doesn't offer “No fixed limit” to someone who said they're on a budget", () => {
+        const onBudget = understood({ bubbles: ["budget"] });
+        const budget = (chat: Chat) => chat.messages.find((message): message is Ask => message.kind === "ask" && message.step.id === "budget")!.step;
+
+        expect(budget(onBudget).none).toBeUndefined();
+        expect(budget(onBudget).custom).toBeDefined();
+        expect(budget(understood({ bubbles: ["dog"] })).none).toBe("No fixed limit");
+    });
+
+    it("doesn't offer a few hundred kilometres a month to someone who drives long distances every day", () => {
+        const distance = (often: string) =>
+            understood({ bubbles: ["long"], "often-long": [often] }).messages.find((message): message is Ask => message.kind === "ask" && message.step.id === "distance")!.step;
+
+        expect(distance("daily").choices.map((choice) => choice.id)).toEqual(["km-1500", "km-2500"]);
+        expect(distance("daily").why).toMatch(/every day, so I've left out distances shorter/);
+        expect(distance("weekly").choices.map((choice) => choice.id)).toContain("km-500");
+    });
+
+    it("moves the environment's own answer with how much it counts, so the two never disagree", () => {
+        const chat = understood({ bubbles: ["environment", "environment:decides"] });
+        const next = setImportance(chat, "bubble-environment", "niceToHave", cars());
+
+        expect(next.understanding.bubbles?.environment).toMatchObject({ chips: ["bonus"], importance: null });
+        expect(block(next, "environment")).toMatchObject({ heading: "You care about the environment · a bonus", importance: "niceToHave" });
+    });
+
+    it("shows each item once, and takes it out of every bubble that counts it", () => {
+        const chat = understood({ bubbles: ["long", "traffic"] });
+
+        expect(block(chat, "long")!.counts.map((item) => item.id)).toContain("driverAssistLevel2");
+        expect(block(chat, "traffic")).toMatchObject({ counts: [], shared: [{ id: "driverAssistLevel2", label: "Level 2 driver assistance" }] });
+
+        const out = removeItem(chat, "traffic", "driverAssistLevel2", cars());
+        expect(chatAnswers(out.understanding).answers.features.longDistance.map((item) => item.key)).not.toContain("driverAssistLevel2");
+        expect(block(out, "long")!.counts.map((item) => item.id)).not.toContain("driverAssistLevel2");
+    });
+
+    it("doesn't suggest a heat pump to someone who won't go electric", () => {
+        const page = fleet().sort((a, b) => a.id - b.id).slice(0, 24);
+        const chat = walk(startChat(null, page, TODAY), { bubbles: ["weather", "weather:snow"], rules: ["not-electric"] }, page);
+        const electric = walk(startChat(null, page, TODAY), { bubbles: ["weather", "weather:snow"] }, page);
+
+        expect(block(chat, "weather")!.worth.map((item) => item.id)).not.toContain("hasHeatPump");
+        expect(block(electric, "weather")!.worth.map((item) => item.id)).toContain("hasHeatPump");
+    });
+
+    it("says a bubble with nothing left to check counts nothing, rather than offering how much", () => {
+        const chat = understood({ bubbles: ["kids", "dog"] });
+        const out = removeItem(chat, "kids", "rearDoors", cars());
+
+        expect(block(out, "kids")).toMatchObject({ counting: false, counts: [], empty: expect.stringMatching(/^I'm not checking anything for this now/) });
+        expect(out.understanding.needs.map((need) => need.id)).not.toContain("bubble-kids");
+    });
+});

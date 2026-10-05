@@ -16,6 +16,7 @@ import {
     syncBubbles,
     withBubbles,
     withBubbleState,
+    withImportance,
     withItem,
     withoutItem,
     worthHere,
@@ -321,7 +322,8 @@ export function stepFor(id: StepId, cars: FinnCar[], u: Understanding = EMPTY_UN
                 why: WHY.budget,
                 multiple: false,
                 choices: BUDGETS.map((amount) => ({ id: `budget-${amount}`, label: `Up to ${formatEUR(amount)}`, said: `Up to ${formatEUR(amount)} a month.` })),
-                none: "No fixed limit",
+                /* "I'm on a budget" and then "no fixed limit" can't both be true: another amount is the way out. */
+                none: u.bubbles?.budget ? undefined : "No fixed limit",
                 custom: { kind: "amount", label: "Another amount", placeholder: "e.g. 650", min: 100, max: 5000 },
             };
 
@@ -444,7 +446,18 @@ export function stepFor(id: StepId, cars: FinnCar[], u: Understanding = EMPTY_UN
         };
     }
 
-    return { ...fromGuide(step), why: WHY.distance, custom: { kind: "km", label: "Another distance", placeholder: "km a month, e.g. 1,200", min: 50, max: 10000 } };
+    /*
+     * Long drives every day can't add up to 500 or 1,000 km a month — 16 or
+     * 33 km a day. Those are left out, and said so; another figure still can be given.
+     */
+    const daily = u.bubbles?.long?.often === "daily";
+    const distance = fromGuide(daily ? { ...step, choices: step.choices.filter((choice) => (choice.monthlyKm ?? Infinity) > 1000) } : step);
+
+    return {
+        ...distance,
+        why: daily ? `${WHY.distance} You drive long distances every day, so I've left out distances shorter than that adds up to.` : WHY.distance,
+        custom: { kind: "km", label: "Another distance", placeholder: "km a month, e.g. 1,200", min: 50, max: 10000 },
+    };
 }
 
 /** What the reader said last time, so changing an answer starts from it. */
@@ -615,25 +628,47 @@ function summaryBubbles(u: Understanding, cars: FinnCar[]): SummaryBubble[] {
     const tapped = bubblesIn(u);
     const countedAnywhere = new Set(tapped.flatMap(({ bubble, state }) => itemsOf(bubble, state).counts));
     const settled = new Set(ruledOut(u).map((rule) => rule.id));
+    /* Equipment only electric cars can have, for a reader who's ruled electric out. */
+    const noElectric = ruledOut(u).some((rule) => rule.id === "electricCar" && rule.mode === "without");
+    const pointless = (id: EvidenceId) => settled.has(id) || (noElectric && id === "hasHeatPump");
     const named = (ids: EvidenceId[]) => ids.filter((id) => EVIDENCE[id]).map((id) => ({ id, label: EVIDENCE[id].label }));
+    /*
+     * Each item once, under the first bubble to name it: blind spot warning
+     * under two bubbles read as two things, and taking it out of one left it
+     * counted through the other. Later bubbles say they share it.
+     */
+    const shown = new Set<EvidenceId>();
+    const suggested = new Set<EvidenceId>();
 
     return tapped.map(({ bubble, state }) => {
         const items = itemsOf(bubble, state);
         const figure = bubble.figures?.map((id) => FIGURE[id]).find(Boolean);
         const settledHere = items.counts.filter((id) => settled.has(id));
+        const live = items.counts.filter((id) => !settled.has(id));
+        const own = live.filter((id) => !shown.has(id));
+        const shared = live.filter((id) => shown.has(id));
+        const worth = worthHere(items.worth, cars).filter((id) => !countedAnywhere.has(id) && !pointless(id) && !suggested.has(id));
+
+        own.forEach((id) => shown.add(id));
+        worth.forEach((id) => suggested.add(id));
 
         return {
             id: bubble.id,
             heading: bubbleHeading(bubble, state),
             importance: importanceOf(bubble, state),
             importanceSaid: importanceSaid(bubble, state),
+            /* Whether it weighs anything: with nothing left to check, how much it counts means nothing. */
+            counting: live.length > 0 || Boolean(figure),
             /* What a deal-breaker already settles isn't checked: every car left has it. */
-            counts: named(items.counts.filter((id) => !settled.has(id))),
+            counts: named(own),
+            ...(shared.length ? { shared: named(shared) } : {}),
             checks: named(items.checks.filter((id) => !settled.has(id))),
-            worth: named(worthHere(items.worth, cars).filter((id) => !countedAnywhere.has(id) && !settled.has(id))),
+            worth: named(worth),
             ...(figure ? { figure } : {}),
             cantCheck: bubble.cantCheck,
-            ...(!items.counts.length && !figure && bubble.empty ? { empty: bubble.empty } : {}),
+            ...(!live.length && !figure && !settledHere.length
+                ? { empty: !items.counts.length && bubble.empty ? bubble.empty : "I'm not checking anything for this now. Add something below, or take it off with “Change”." }
+                : {}),
             ...(settledHere.length
                 ? { settled: `${joined(settledHere.map((id, index) => (index ? lower(EVIDENCE[id].label) : EVIDENCE[id].label)))} ${settledHere.length > 1 ? "are deal-breakers" : "is a deal-breaker"}, so every car left has ${settledHere.length > 1 ? "them" : "it"}.` }
                 : {}),
@@ -1186,15 +1221,24 @@ export function setImportance(chat: Chat, needId: string, importance: NeedImport
     const bubble = needId.startsWith("bubble-") ? (needId.slice("bubble-".length) as BubbleId) : null;
     const understanding =
         bubble && chat.understanding.bubbles?.[bubble]
-            ? withBubbleState(chat.understanding, bubble, { importance })
+            ? withImportance(chat.understanding, bubble, importance)
             : { ...chat.understanding, needs: chat.understanding.needs.map((need) => (need.id === needId ? { ...need, importance } : need)) };
 
     return redrawn(chat, understanding, cars);
 }
 
-/** Something a bubble counts, taken out from the summary. */
+/**
+ * Something a bubble counts, taken out from the summary — from every bubble
+ * that counts it, since the summary shows it once: "don't check this" means
+ * don't check it, whichever bubble brought it in.
+ */
 export function removeItem(chat: Chat, bubble: BubbleId, item: EvidenceId, cars: FinnCar[] = []): Chat {
-    return redrawn(chat, withoutItem(chat.understanding, bubble, item), cars);
+    const holders = bubblesIn(chat.understanding)
+        .filter(({ bubble: other, state }) => other.id === bubble || itemsOf(other, state).counts.includes(item))
+        .map(({ bubble: other }) => other.id);
+    const understanding = holders.reduce((u, id) => withoutItem(u, id, item), chat.understanding);
+
+    return redrawn(chat, understanding, cars);
 }
 
 /** A suggestion added to what a bubble counts, from the summary. */

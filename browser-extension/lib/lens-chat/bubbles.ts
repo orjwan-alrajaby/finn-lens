@@ -282,7 +282,11 @@ export const BUBBLES: Bubble[] = [
             ask: "What's it like?",
             mode: "required",
             multiple: true,
-            exclusive: [["snow", "cold"]],
+            /* "Mostly dry" can't be snowy or rainy; snow and rain, or either and hot summers, are different months. */
+            exclusive: [
+                ["snow", "cold"],
+                ["wet", "cold"],
+            ],
             options: [
                 {
                     id: "snow",
@@ -627,6 +631,25 @@ export function withBubbleState(u: Understanding, id: BubbleId, patch: Partial<B
     if (!before) return u;
 
     return syncBubbles({ ...u, bubbles: { ...u.bubbles, [id]: { ...before, ...patch } } });
+}
+
+/**
+ * How much a bubble counts, set by the reader. Where the bubble's chips are
+ * themselves how much — "It could decide it" for the environment — the chip
+ * moves with it, so the summary never says "it could decide it" beside
+ * "Nice to have".
+ */
+export function withImportance(u: Understanding, id: BubbleId, importance: NeedImportance): Understanding {
+    const bubble = bubbleById(id);
+    const options = bubble?.chips?.options ?? [];
+    const degrees = bubble?.chips && !bubble.chips.multiple && options.length > 0 && options.every((option) => option.importance);
+
+    if (degrees) {
+        const chip = options.find((option) => option.importance === importance);
+        return withBubbleState(u, id, { chips: chip ? [chip.id] : [], importance: null });
+    }
+
+    return withBubbleState(u, id, { importance });
 }
 
 /** An item taken out of what a bubble counts. Out of what it was given, it goes back to being a suggestion. */

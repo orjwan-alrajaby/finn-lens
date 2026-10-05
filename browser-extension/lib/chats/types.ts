@@ -89,8 +89,12 @@ export interface SummaryBubble {
     importance: NeedImportance;
     /** How much it counts was said by the reader — a chip, how often, or the summary — not assumed. */
     importanceSaid: boolean;
-    /** What it counts; each can be taken out. */
+    /** Whether it weighs anything: false once everything it counted was taken out. */
+    counting?: boolean;
+    /** What it counts; each can be taken out. Each item once, under the first bubble to name it. */
     counts: { id: EvidenceId; label: string }[];
+    /** What it counts that a bubble above already shows. */
+    shared?: { id: EvidenceId; label: string }[];
     /** Standard equipment it checks; nearly every car has it. */
     checks: { id: EvidenceId; label: string }[];
     /** Suggestions the cars here differ on; each can be added. */
