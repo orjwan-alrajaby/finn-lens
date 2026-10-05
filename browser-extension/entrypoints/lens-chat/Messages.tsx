@@ -868,7 +868,7 @@ function ImportancePicker({ label, value, onPick }: { label: string; value: Need
 function Item({ label, kind, onClick }: { label: string; kind: "counts" | "checks" | "worth"; onClick?: () => void }) {
     if (kind === "checks") {
         return (
-            <span className="inline-flex items-center gap-1 rounded-full bg-finn-snow px-2.5 py-1 text-[11.5px] font-semibold text-finn-iron ring-1 ring-finn-cotton">
+            <span className="inline-flex items-center gap-1 rounded-full bg-white px-2.5 py-1.5 text-[11.5px] font-semibold text-finn-iron ring-1 ring-finn-cotton">
                 <Check aria-hidden="true" className="h-3 w-3" strokeWidth={3} />
                 {label}
             </span>
@@ -882,88 +882,140 @@ function Item({ label, kind, onClick }: { label: string; kind: "counts" | "check
             {kind === "counts" && onClick ? <X aria-hidden="true" className="h-3 w-3" strokeWidth={3} /> : null}
         </>
     );
-    const tone = kind === "counts" ? "bg-finn-pale-blue text-finn-highlight-navy" : "bg-white text-finn-accent-blue ring-1 ring-dashed ring-finn-accent-blue/40";
+    const tone = kind === "counts" ? "bg-white text-finn-highlight-navy ring-1 ring-finn-accent-blue/30" : "bg-transparent text-finn-accent-blue ring-1 ring-dashed ring-finn-accent-blue/45";
 
     return onClick ? (
         <button
             type="button"
             onClick={onClick}
             aria-label={kind === "counts" ? `Stop checking ${label}` : `Check ${label} too`}
-            className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11.5px] font-bold transition-colors hover:ring-2 hover:ring-finn-accent-blue/30 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-finn-accent-blue ${tone}`}
+            className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1.5 text-[11.5px] font-bold transition-colors hover:ring-2 hover:ring-finn-accent-blue/30 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-finn-accent-blue ${tone}`}
         >
             {body}
         </button>
     ) : (
-        <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11.5px] font-bold ${tone}`}>{body}</span>
+        <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1.5 text-[11.5px] font-bold ${tone}`}>{body}</span>
     );
 }
 
+/** A small heading inside a summary card: "I'll check", "Might matter". */
+function Label({ children, hint }: { children: React.ReactNode; hint?: string }) {
+    return (
+        <p className="mb-1 text-[10.5px] font-black uppercase tracking-wide text-finn-iron">
+            {children}
+            {hint ? <span className="ml-1 font-semibold normal-case tracking-normal text-finn-iron/80">{hint}</span> : null}
+        </p>
+    );
+}
+
+/** Two tones, alternating, so one bubble's card is never mistaken for the next. */
+const CARD_TONE = ["bg-finn-pale-blue/55 ring-finn-accent-blue/15", "bg-finn-snow ring-black/5"];
+
 /**
- * One bubble as Lens understood it: what it will check — each can be taken
- * out — what nearly every car has, what might matter too — each can be
- * added — what it can't check, and how much the bubble counts.
+ * One bubble as Lens understood it, as a card of its own: its heading and
+ * how much it counts; what Lens will check, each can be taken out; what
+ * nearly every car has; what might matter too, each can be added; and,
+ * last and quietest, what it can't check.
  */
 function UnderstoodBubble({
     bubble,
     live,
+    tone,
     onImportance,
     onRemove,
     onAdd,
 }: {
     bubble: SummaryBubble;
     live: boolean;
+    tone: string;
     onImportance: (level: NeedImportance) => void;
     onRemove: (item: string) => void;
     onAdd: (item: string) => void;
 }) {
     return (
-        <li className="space-y-1.5">
-            <div className={live ? "space-y-1" : "flex items-center justify-between gap-2"}>
-                <span className="block text-[13px] font-black leading-snug text-finn-black">{bubble.heading}</span>
-                {bubble.counting === false ? null : live ? (
-                    <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
+        <li className={`space-y-3 rounded-2xl p-3.5 ring-1 ${tone}`}>
+            <div className="space-y-1.5">
+                <div className="flex items-start justify-between gap-2">
+                    <p className="text-[13.5px] font-black leading-snug text-finn-black">{bubble.heading}</p>
+                    {bubble.counting !== false && !live ? (
+                        <span className="shrink-0 rounded-full bg-white px-2 py-0.5 text-[10.5px] font-black text-finn-accent-blue ring-1 ring-finn-accent-blue/20">{IMPORTANCE_LABEL[bubble.importance]}</span>
+                    ) : null}
+                </div>
+                {bubble.counting !== false && live ? (
+                    <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                        <span className="text-[11px] font-bold text-finn-iron">Counts as</span>
                         <ImportancePicker label={bubble.heading.toLowerCase()} value={bubble.importance} onPick={onImportance} />
-                        {!bubble.importanceSaid ? <span className="text-[11px] text-finn-iron">My guess — change it if it's wrong</span> : null}
-                    </span>
-                ) : (
-                    <span className="shrink-0 rounded-full bg-finn-pale-blue px-2 py-0.5 text-[10.5px] font-black text-finn-accent-blue">{IMPORTANCE_LABEL[bubble.importance]}</span>
-                )}
+                        {!bubble.importanceSaid ? <span className="text-[11px] italic text-finn-iron">My guess — tap to change</span> : null}
+                    </div>
+                ) : null}
             </div>
 
-            {bubble.counts.length || bubble.checks.length || bubble.figure ? (
-                <div className="flex flex-wrap items-center gap-1">
-                    <span className="mr-0.5 text-[11px] font-bold text-finn-iron">I'll check</span>
-                    {bubble.figure ? <Item label={bubble.figure} kind="counts" /> : null}
-                    {bubble.counts.map((item) => (
-                        <Item key={item.id} label={item.label} kind="counts" onClick={live ? () => onRemove(item.id) : undefined} />
-                    ))}
-                    {bubble.checks.map((item) => (
-                        <Item key={item.id} label={item.label} kind="checks" />
-                    ))}
+            {bubble.counts.length || bubble.figure || bubble.shared?.length ? (
+                <div>
+                    <Label hint={live && bubble.counts.length ? "— tap × to take one out" : undefined}>I'll check</Label>
+                    <div className="flex flex-wrap gap-1.5">
+                        {bubble.figure ? <Item label={bubble.figure} kind="counts" /> : null}
+                        {bubble.counts.map((item) => (
+                            <Item key={item.id} label={item.label} kind="counts" onClick={live ? () => onRemove(item.id) : undefined} />
+                        ))}
+                    </div>
+                    {bubble.shared?.length ? (
+                        <p className="mt-1.5 text-[11.5px] leading-snug text-finn-iron">
+                            {bubble.counts.length || bubble.figure ? "Also " : ""}
+                            {bubble.shared.map((item) => lowerFirst(item.label)).join(", ")}, from a card above.
+                        </p>
+                    ) : null}
                 </div>
             ) : null}
-            {bubble.shared?.length ? (
-                <p className="text-[11.5px] leading-snug text-finn-iron">
-                    Also {bubble.shared.map((item) => lowerFirst(item.label)).join(", ")}, from above.
-                </p>
+
+            {bubble.checks.length ? (
+                <div>
+                    <p className="mb-1 flex items-center gap-0.5 text-[10.5px] font-black uppercase tracking-wide text-finn-iron">
+                        On nearly every car
+                        <InfoTip label="On nearly every car">
+                            <p className="font-black">On nearly every car</p>
+                            <p>Standard equipment I still check: a car FINN says is missing one loses a little, and having one earns nothing.</p>
+                        </InfoTip>
+                    </p>
+                    <div className="flex flex-wrap gap-1.5">
+                        {bubble.checks.map((item) => (
+                            <Item key={item.id} label={item.label} kind="checks" />
+                        ))}
+                    </div>
+                </div>
             ) : null}
-            {bubble.checks.length ? <p className="text-[11px] leading-snug text-finn-iron">✓ Nearly every car has these: a car FINN says is missing one loses a little, and having one earns nothing.</p> : null}
-            {bubble.settled ? <p className="text-[11.5px] leading-snug text-finn-iron">{bubble.settled}</p> : null}
-            {bubble.empty ? <p className="text-[11.5px] leading-snug text-finn-iron">{bubble.empty}</p> : null}
+
+            {bubble.settled || bubble.empty ? (
+                <p className="rounded-xl bg-white/80 px-2.5 py-2 text-[11.5px] leading-snug text-finn-black/80 ring-1 ring-black/5">{bubble.settled ?? bubble.empty}</p>
+            ) : null}
 
             {live && bubble.worth.length ? (
-                <div className="flex flex-wrap items-center gap-1">
-                    <span className="mr-0.5 text-[11px] font-bold text-finn-iron">Might matter</span>
-                    {bubble.worth.map((item) => (
-                        <Item key={item.id} label={item.label} kind="worth" onClick={() => onAdd(item.id)} />
-                    ))}
+                <div>
+                    <Label hint="— tap + to add">Might matter</Label>
+                    <div className="flex flex-wrap gap-1.5">
+                        {bubble.worth.map((item) => (
+                            <Item key={item.id} label={item.label} kind="worth" onClick={() => onAdd(item.id)} />
+                        ))}
+                    </div>
                 </div>
             ) : null}
 
-            {bubble.cantCheck ? <p className="text-[11.5px] leading-snug text-finn-iron">I can't check {bubble.cantCheck}.</p> : null}
+            {bubble.cantCheck ? (
+                <p className="flex gap-1.5 border-t border-black/5 pt-2.5 text-[11px] leading-snug text-finn-iron">
+                    <Info aria-hidden="true" className="mt-px h-3.5 w-3.5 shrink-0" />
+                    <span>I can't check {bubble.cantCheck}.</span>
+                </p>
+            ) : null}
         </li>
     );
 }
+
+/** The summary's lines, grouped: what the money and the dates are, then what rules a car out or makes it. */
+const LINE_GROUPS: { title: string; steps: StepId[] }[] = [
+    { title: "Your life", steps: ["bubbles"] },
+    { title: "Money & time", steps: ["budget", "period", "from", "distance"] },
+    { title: "Deal-breakers & sealers", steps: ["deals", "rules"] },
+];
 
 function Summary({
     message,
@@ -985,21 +1037,22 @@ function Summary({
     return (
         <div className="overflow-hidden rounded-2xl bg-white ring-1 ring-black/5 shadow-[0_1px_2px_rgba(0,0,0,0.06)]">
             {message.bubbles?.length ? (
-                <div className="px-3.5 pt-3 pb-3">
-                    <div className="flex items-baseline justify-between gap-2">
-                        <p className="text-[11px] font-black uppercase tracking-wide text-finn-iron">Your life</p>
+                <div className="px-3 pt-3.5 pb-3.5">
+                    <div className="mb-2.5 flex items-baseline justify-between gap-2 px-0.5">
+                        <p className="text-[11.5px] font-black uppercase tracking-wide text-finn-highlight-navy">Your life</p>
                         {live ? (
                             <button type="button" onClick={() => onChange("bubbles")} className="text-[11.5px] font-bold text-finn-accent-blue hover:underline">
                                 Change
                             </button>
                         ) : null}
                     </div>
-                    <ul className="mt-2 space-y-3.5 divide-finn-cotton">
-                        {message.bubbles.map((bubble) => (
+                    <ul className="space-y-2.5">
+                        {message.bubbles.map((bubble, index) => (
                             <UnderstoodBubble
                                 key={bubble.id}
                                 bubble={bubble}
                                 live={live}
+                                tone={CARD_TONE[index % CARD_TONE.length]!}
                                 onImportance={(level) => onImportance(`bubble-${bubble.id}`, level)}
                                 onRemove={(item) => onRemove(bubble.id, item)}
                                 onAdd={(item) => onAdd(bubble.id, item)}
@@ -1010,7 +1063,7 @@ function Summary({
             ) : null}
 
             {message.needs?.length ? (
-                <div className={`px-3.5 pt-3 pb-2 ${message.bubbles?.length ? "border-t border-finn-cotton" : ""}`}>
+                <div className={`px-3 pt-3.5 pb-3.5 ${message.bubbles?.length ? "border-t border-finn-cotton" : ""}`}>
                     <div className="flex items-baseline justify-between gap-2">
                         <p className="text-[11px] font-black uppercase tracking-wide text-finn-iron">{message.bubbles?.length ? "In your own words" : "What matters to you"}</p>
                         {live ? (
@@ -1020,8 +1073,8 @@ function Summary({
                         ) : null}
                     </div>
                     <ul className="mt-2 space-y-2.5">
-                        {message.needs.map((need) => (
-                            <li key={need.id}>
+                        {message.needs.map((need, index) => (
+                            <li key={need.id} className={`rounded-2xl p-3.5 ring-1 ${CARD_TONE[((message.bubbles?.length ?? 0) + index) % CARD_TONE.length]}`}>
                                 <div className={live ? "space-y-1" : "flex items-center justify-between gap-2"}>
                                     <span className="block text-[13px] font-black text-finn-black">{need.label}</span>
                                     {live ? (
@@ -1060,21 +1113,34 @@ function Summary({
                 </div>
             ) : null}
 
-            <dl className="divide-y divide-finn-cotton border-t border-finn-cotton">
-                {message.lines.map((line) => (
-                    <div key={line.label} className="grid grid-cols-[96px_1fr_auto] items-baseline gap-3 px-3.5 py-2.5 text-[12.5px]">
-                        <dt className="font-bold text-finn-iron">{line.label}</dt>
-                        <dd className="font-semibold text-finn-black">{line.value}</dd>
-                        {live && line.step ? (
-                            <button type="button" onClick={() => onChange(line.step!)} className="text-[11.5px] font-bold text-finn-accent-blue hover:underline">
-                                Change
-                            </button>
-                        ) : (
-                            <span />
-                        )}
-                    </div>
-                ))}
-            </dl>
+            {/* The limits and deal-breakers, in groups with their own headings. Lines from older summaries fit one of them, or go last. */}
+            {[...LINE_GROUPS, { title: "", steps: [] as StepId[] }].map((group) => {
+                const lines = message.lines.filter((line) =>
+                    group.title ? group.steps.includes(line.step as StepId) : !LINE_GROUPS.some((other) => other.steps.includes(line.step as StepId)),
+                );
+                if (!lines.length) return null;
+
+                return (
+                    <section key={group.title || "other"} className="border-t border-finn-cotton px-3.5 pt-3 pb-1.5">
+                        {group.title ? <p className="mb-1 text-[11.5px] font-black uppercase tracking-wide text-finn-highlight-navy">{group.title}</p> : null}
+                        <dl className="divide-y divide-finn-cotton/70">
+                            {lines.map((line) => (
+                                <div key={line.label} className="grid grid-cols-[104px_1fr_auto] items-baseline gap-3 py-2 text-[12.5px]">
+                                    <dt className="font-bold text-finn-iron">{line.label}</dt>
+                                    <dd className="font-semibold leading-snug text-finn-black">{line.value}</dd>
+                                    {live && line.step ? (
+                                        <button type="button" onClick={() => onChange(line.step!)} className="text-[11.5px] font-bold text-finn-accent-blue hover:underline">
+                                            Change
+                                        </button>
+                                    ) : (
+                                        <span />
+                                    )}
+                                </div>
+                            ))}
+                        </dl>
+                    </section>
+                );
+            })}
 
             {message.priorities?.length ? (
                 <div className="border-t border-finn-cotton bg-finn-snow px-3.5 py-2.5">

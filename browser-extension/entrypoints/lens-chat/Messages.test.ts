@@ -69,10 +69,16 @@ describe("here's what I understood", () => {
         const words = text(render(chat.messages));
 
         expect(words).toContain("Your life");
+        /* Each bubble a card of its own, the tones alternating. */
+        const html = render(chat.messages);
+        expect(html.match(/<li class="space-y-3 rounded-2xl p-3\.5 ring-1 bg-finn-pale-blue/g)).toHaveLength(1);
+        expect(html.match(/<li class="space-y-3 rounded-2xl p-3\.5 ring-1 bg-finn-snow/g)).toHaveLength(1);
         expect(words).toContain("You have kids · a baby or toddler seat");
-        expect(words).toMatch(/I'll check Rear doors .*ISOFIX child seat anchors/);
+        expect(words).toContain("I'll check — tap × to take one out Rear doors On nearly every car ISOFIX child seat anchors Might matter — tap + to add");
         expect(words).toContain("I can't check rear legroom");
-        expect(words).toContain("My guess — change it if it's wrong");
+        expect(words).toContain("My guess — tap to change");
+        /* Limits and deal-breakers under their own headings. */
+        expect(words).toMatch(/Money & time Monthly limit €500 all in Change .* Deal-breakers & sealers Deal-breakers None Change Deal-sealers None Change/);
         expect(words).toContain("Must have");
         expect(words).toContain("Looks good to me — let's go");
         expect(words).not.toMatch(/\d+%/);
