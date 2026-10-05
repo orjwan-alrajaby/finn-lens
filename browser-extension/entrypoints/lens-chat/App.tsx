@@ -191,6 +191,8 @@ export function App() {
                                 busy={busy}
                                 onAnswer={(askId, chosen, extra) => void conversation.tap(askId, chosen, extra)}
                                 onImportance={(needId, level) => void conversation.importance(needId, level)}
+                                onRemove={(bubble, item) => void conversation.removeItem(bubble, item)}
+                                onAdd={(bubble, item) => void conversation.addItem(bubble, item)}
                                 onChange={(step) => void conversation.changeOne(step)}
                                 editable={rewindable(chat)}
                                 onEdit={() => void conversation.takeBack()}

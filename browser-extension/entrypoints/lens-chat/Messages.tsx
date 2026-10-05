@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Check, ChevronDown, ChevronRight, Info, PencilLine, X } from "lucide-react";
+import { Check, ChevronDown, ChevronRight, Info, PencilLine, Plus, X } from "lucide-react";
 
 import { BandChip, BrandMark, CarPhoto, euros, WinnerChip } from "@/components/lens-parts";
 import { coveredBy, IMPORTANCE_LABEL } from "@/lib/chats/flow";
-import type { CarSnapshot, ChatMessage, Choice, CustomAnswer, StepId } from "@/lib/chats/types";
+import type { BubbleChips, CarSnapshot, ChatMessage, Choice, CustomAnswer, StepId, SummaryBubble } from "@/lib/chats/types";
 import type { NeedImportance } from "@/lib/lens-ai/contract";
 import { lowerFirst } from "@/lib/reasoning-engine/format";
 
@@ -410,6 +410,49 @@ function AddedWords({ text, onEdit, onRemove }: { text: string; onEdit: () => vo
     );
 }
 
+/**
+ * The chips a tapped bubble opens under itself: "Where do you park most
+ * often?". Smaller than the bubbles and set in, so they read as part of the
+ * bubble above rather than more bubbles.
+ */
+function BubbleChipRow({ chips, picked, missing, onToggle }: { chips: BubbleChips; picked: string[]; missing: boolean; onToggle: (id: string) => void }) {
+    const full = Boolean(chips.max && picked.length >= chips.max);
+
+    return (
+        <div className="basis-full rounded-2xl bg-finn-pale-blue/60 px-3 py-2 ring-1 ring-finn-accent-blue/15">
+            <p className="text-[11.5px] font-bold text-finn-highlight-navy">
+                {chips.ask}
+                {chips.max ? <span className="font-semibold text-finn-iron"> Up to {chips.max}.</span> : null}
+            </p>
+            <div className="mt-1.5 flex flex-wrap gap-1">
+                {chips.options.map((option) => {
+                    const on = picked.includes(option.id);
+                    const rival = (chips.exclusive ?? []).some((set) => set.includes(option.id) && set.some((id) => id !== option.id && picked.includes(id)));
+
+                    return (
+                        <button
+                            key={option.id}
+                            type="button"
+                            aria-pressed={on}
+                            disabled={!on && full && !rival && chips.multiple}
+                            onClick={() => onToggle(option.id)}
+                            className={[
+                                "inline-flex items-center gap-1 rounded-full px-2.5 py-1.5 text-[11.5px] font-bold transition-colors disabled:cursor-default disabled:opacity-40",
+                                "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-finn-accent-blue",
+                                on ? "bg-finn-accent-blue text-white" : "bg-white text-finn-accent-blue ring-1 ring-finn-accent-blue/30 hover:bg-finn-pale-blue",
+                            ].join(" ")}
+                        >
+                            {on ? <Check aria-hidden="true" className="h-3 w-3" strokeWidth={3} /> : null}
+                            {option.label}
+                        </button>
+                    );
+                })}
+            </div>
+            {missing ? <p className="mt-1 text-[11px] text-finn-iron">Pick at least one, so I know what to check.</p> : null}
+        </div>
+    );
+}
+
 function Ask({
     message,
     live,
@@ -434,7 +477,8 @@ function Ask({
      */
     const toggle = (id: string) =>
         setPicked((current) => {
-            if (current.includes(id)) return current.filter((item) => item !== id);
+            /* A bubble untapped takes its chips with it. */
+            if (current.includes(id)) return current.filter((item) => item !== id && !item.startsWith(`${id}:`));
 
             const rivals = new Set((step.exclusive ?? []).filter((set) => set.includes(id)).flat());
             const kept = current.filter((item) => item === id || !rivals.has(item));
@@ -442,6 +486,26 @@ function Ask({
             return step.max && kept.length >= step.max ? kept : [...kept, id];
         });
     const full = Boolean(step.max && picked.length >= step.max);
+
+    /* A chip under a bubble: one of its own, held to what that bubble allows. */
+    const toggleChip = (bubble: string, chip: string) =>
+        setPicked((current) => {
+            const rules = step.bubbleChips?.[bubble];
+            const id = `${bubble}:${chip}`;
+            if (!rules) return current;
+            if (current.includes(id)) return current.filter((item) => item !== id);
+
+            const mine = current.filter((item) => item.startsWith(`${bubble}:`)).map((item) => item.slice(bubble.length + 1));
+            const rivals = new Set((rules.exclusive ?? []).filter((set) => set.includes(chip)).flat());
+            const dropped = new Set(rules.multiple ? mine.filter((other) => rivals.has(other)) : mine);
+            const kept = current.filter((item) => !(item.startsWith(`${bubble}:`) && dropped.has(item.slice(bubble.length + 1))));
+
+            return rules.max && mine.length - dropped.size >= rules.max ? current : [...kept, id];
+        });
+    /* Bubbles that need a chip before the answer means anything: "the weather is tough", but what's it like? */
+    const unfinished = Object.entries(step.bubbleChips ?? {})
+        .filter(([bubble, rules]) => rules.required && picked.includes(bubble) && !picked.some((item) => item.startsWith(`${bubble}:`)))
+        .map(([bubble]) => bubble);
 
     /* An answer something already picked mostly covers: set aside, and said why beneath the chips. */
     const covered = step.choices.flatMap((choice) => {
@@ -470,7 +534,7 @@ function Ask({
                     (full && !picked.includes(choice.id) && !(step.exclusive ?? []).some((set) => set.includes(choice.id) && set.some((id) => picked.includes(id)))))
             }
             onClick={() => (step.multiple ? toggle(choice.id) : onAnswer([choice.id]))}
-            onInfo={choice.description ? () => setExplained((open) => (open === choice.id ? null : choice.id)) : undefined}
+            onInfo={choice.description || choice.means || choice.features?.length ? () => setExplained((open) => (open === choice.id ? null : choice.id)) : undefined}
             infoOpen={explained === choice.id}
         />
     );
@@ -504,7 +568,25 @@ function Ask({
                         ))
                     ) : (
                         <div>
-                            <div className="flex flex-wrap gap-1.5">{step.choices.map(chip)}</div>
+                            <div className="flex flex-wrap gap-1.5">
+                                {step.choices.map((choice) => {
+                                    const chips = step.bubbleChips?.[choice.id];
+
+                                    /* A tapped bubble's chips open straight under it: a full-width row in the same flow. */
+                                    return chips && picked.includes(choice.id)
+                                        ? [
+                                              chip(choice),
+                                              <BubbleChipRow
+                                                  key={`${choice.id}-chips`}
+                                                  chips={chips}
+                                                  picked={picked.filter((item) => item.startsWith(`${choice.id}:`)).map((item) => item.slice(choice.id.length + 1))}
+                                                  missing={unfinished.includes(choice.id)}
+                                                  onToggle={(id) => toggleChip(choice.id, id)}
+                                              />,
+                                          ]
+                                        : chip(choice);
+                                })}
+                            </div>
                             {explanation(step.choices)}
                             {covered.map(({ choice, by, shared }) => (
                                 <p key={choice.id} className="mt-1.5 flex gap-1.5 px-1 text-[11.5px] leading-snug text-finn-iron">
@@ -547,13 +629,15 @@ function Ask({
                         />
                     ) : null}
 
-                    {step.multiple ? <Picked choices={chosen.filter((choice) => choice.description || choice.looksFor?.length)} /> : null}
+                    {step.multiple && !step.bubbleChips ? <Picked choices={chosen.filter((choice) => choice.description || choice.looksFor?.length)} /> : null}
 
                     {step.multiple && ready ? (
                         <button
                             type="button"
+                            disabled={unfinished.length > 0}
+                            title={unfinished.length ? "Pick at least one answer under each bubble that asks" : undefined}
                             onClick={() => onAnswer(picked, words ? { text: words } : undefined)}
-                            className="inline-flex items-center gap-1 rounded-full bg-finn-highlight-navy px-4 py-2 text-[12.5px] font-black text-white shadow-sm transition-colors hover:bg-finn-accent-blue focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-finn-accent-blue"
+                            className="inline-flex items-center gap-1 rounded-full bg-finn-highlight-navy px-4 py-2 text-[12.5px] font-black text-white shadow-sm transition-colors hover:bg-finn-accent-blue focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-finn-accent-blue disabled:cursor-default disabled:bg-finn-cotton disabled:text-finn-iron disabled:shadow-none"
                         >
                             Continue
                             <ChevronRight aria-hidden="true" className="h-4 w-4" />
@@ -571,27 +655,175 @@ function Ask({
 
 const LEVELS: NeedImportance[] = ["essential", "important", "niceToHave"];
 
+/** How much something counts, as three taps: Must have · Matters · Nice to have. */
+function ImportancePicker({ label, value, onPick }: { label: string; value: NeedImportance; onPick: (level: NeedImportance) => void }) {
+    return (
+        <span role="radiogroup" aria-label={`How much ${label} counts`} className="inline-flex rounded-full bg-finn-snow p-0.5 ring-1 ring-finn-cotton">
+            {LEVELS.map((level) => (
+                <button
+                    key={level}
+                    type="button"
+                    role="radio"
+                    aria-checked={value === level}
+                    onClick={() => onPick(level)}
+                    className={[
+                        "rounded-full px-2.5 py-1 text-[11px] font-black transition-colors",
+                        value === level ? "bg-finn-accent-blue text-white shadow-sm" : "text-finn-iron hover:text-finn-black",
+                    ].join(" ")}
+                >
+                    {IMPORTANCE_LABEL[level]}
+                </button>
+            ))}
+        </span>
+    );
+}
+
+/** One item on a bubble's block: what Lens checks (×), standard (✓), or might matter (+). */
+function Item({ label, kind, onClick }: { label: string; kind: "counts" | "checks" | "worth"; onClick?: () => void }) {
+    if (kind === "checks") {
+        return (
+            <span className="inline-flex items-center gap-1 rounded-full bg-finn-snow px-2.5 py-1 text-[11.5px] font-semibold text-finn-iron ring-1 ring-finn-cotton">
+                <Check aria-hidden="true" className="h-3 w-3" strokeWidth={3} />
+                {label}
+            </span>
+        );
+    }
+
+    const body = (
+        <>
+            {kind === "worth" ? <Plus aria-hidden="true" className="h-3 w-3" strokeWidth={3} /> : null}
+            {label}
+            {kind === "counts" && onClick ? <X aria-hidden="true" className="h-3 w-3" strokeWidth={3} /> : null}
+        </>
+    );
+    const tone = kind === "counts" ? "bg-finn-pale-blue text-finn-highlight-navy" : "bg-white text-finn-accent-blue ring-1 ring-dashed ring-finn-accent-blue/40";
+
+    return onClick ? (
+        <button
+            type="button"
+            onClick={onClick}
+            aria-label={kind === "counts" ? `Stop checking ${label}` : `Check ${label} too`}
+            className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11.5px] font-bold transition-colors hover:ring-2 hover:ring-finn-accent-blue/30 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-finn-accent-blue ${tone}`}
+        >
+            {body}
+        </button>
+    ) : (
+        <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11.5px] font-bold ${tone}`}>{body}</span>
+    );
+}
+
+/**
+ * One bubble as Lens understood it: what it will check — each can be taken
+ * out — what nearly every car has, what might matter too — each can be
+ * added — what it can't check, and how much the bubble counts.
+ */
+function UnderstoodBubble({
+    bubble,
+    live,
+    onImportance,
+    onRemove,
+    onAdd,
+}: {
+    bubble: SummaryBubble;
+    live: boolean;
+    onImportance: (level: NeedImportance) => void;
+    onRemove: (item: string) => void;
+    onAdd: (item: string) => void;
+}) {
+    return (
+        <li className="space-y-1.5">
+            <div className={live ? "space-y-1" : "flex items-center justify-between gap-2"}>
+                <span className="block text-[13px] font-black leading-snug text-finn-black">{bubble.heading}</span>
+                {live ? (
+                    <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                        <ImportancePicker label={bubble.heading.toLowerCase()} value={bubble.importance} onPick={onImportance} />
+                        {!bubble.importanceSaid ? <span className="text-[11px] text-finn-iron">My guess — change it if it's wrong</span> : null}
+                    </span>
+                ) : (
+                    <span className="shrink-0 rounded-full bg-finn-pale-blue px-2 py-0.5 text-[10.5px] font-black text-finn-accent-blue">{IMPORTANCE_LABEL[bubble.importance]}</span>
+                )}
+            </div>
+
+            {bubble.counts.length || bubble.checks.length || bubble.figure ? (
+                <div className="flex flex-wrap items-center gap-1">
+                    <span className="mr-0.5 text-[11px] font-bold text-finn-iron">I'll check</span>
+                    {bubble.figure ? <Item label={bubble.figure} kind="counts" /> : null}
+                    {bubble.counts.map((item) => (
+                        <Item key={item.id} label={item.label} kind="counts" onClick={live ? () => onRemove(item.id) : undefined} />
+                    ))}
+                    {bubble.checks.map((item) => (
+                        <Item key={item.id} label={item.label} kind="checks" />
+                    ))}
+                </div>
+            ) : null}
+            {bubble.checks.length ? <p className="text-[11px] leading-snug text-finn-iron">✓ Nearly every car has these: a car FINN says is missing one loses a little, and having one earns nothing.</p> : null}
+            {bubble.settled ? <p className="text-[11.5px] leading-snug text-finn-iron">{bubble.settled}</p> : null}
+            {bubble.empty ? <p className="text-[11.5px] leading-snug text-finn-iron">{bubble.empty}</p> : null}
+
+            {live && bubble.worth.length ? (
+                <div className="flex flex-wrap items-center gap-1">
+                    <span className="mr-0.5 text-[11px] font-bold text-finn-iron">Might matter</span>
+                    {bubble.worth.map((item) => (
+                        <Item key={item.id} label={item.label} kind="worth" onClick={() => onAdd(item.id)} />
+                    ))}
+                </div>
+            ) : null}
+
+            {bubble.cantCheck ? <p className="text-[11.5px] leading-snug text-finn-iron">I can't check {bubble.cantCheck}.</p> : null}
+        </li>
+    );
+}
+
 function Summary({
     message,
     live,
     onImportance,
     onChange,
+    onRemove,
+    onAdd,
 }: {
     message: Extract<ChatMessage, { kind: "summary" }>;
     live: boolean;
     onImportance: (needId: string, importance: NeedImportance) => void;
     onChange: (step: StepId) => void;
+    onRemove: (bubble: string, item: string) => void;
+    onAdd: (bubble: string, item: string) => void;
 }) {
     const [weights, setWeights] = useState(false);
 
     return (
         <div className="overflow-hidden rounded-2xl bg-white ring-1 ring-black/5 shadow-[0_1px_2px_rgba(0,0,0,0.06)]">
-            {message.needs?.length ? (
-                <div className="px-3.5 pt-3 pb-2">
+            {message.bubbles?.length ? (
+                <div className="px-3.5 pt-3 pb-3">
                     <div className="flex items-baseline justify-between gap-2">
-                        <p className="text-[11px] font-black uppercase tracking-wide text-finn-iron">What matters to you</p>
+                        <p className="text-[11px] font-black uppercase tracking-wide text-finn-iron">Your life</p>
                         {live ? (
-                            <button type="button" onClick={() => onChange("life")} className="text-[11.5px] font-bold text-finn-accent-blue hover:underline">
+                            <button type="button" onClick={() => onChange("bubbles")} className="text-[11.5px] font-bold text-finn-accent-blue hover:underline">
+                                Change
+                            </button>
+                        ) : null}
+                    </div>
+                    <ul className="mt-2 space-y-3.5 divide-finn-cotton">
+                        {message.bubbles.map((bubble) => (
+                            <UnderstoodBubble
+                                key={bubble.id}
+                                bubble={bubble}
+                                live={live}
+                                onImportance={(level) => onImportance(`bubble-${bubble.id}`, level)}
+                                onRemove={(item) => onRemove(bubble.id, item)}
+                                onAdd={(item) => onAdd(bubble.id, item)}
+                            />
+                        ))}
+                    </ul>
+                </div>
+            ) : null}
+
+            {message.needs?.length ? (
+                <div className={`px-3.5 pt-3 pb-2 ${message.bubbles?.length ? "border-t border-finn-cotton" : ""}`}>
+                    <div className="flex items-baseline justify-between gap-2">
+                        <p className="text-[11px] font-black uppercase tracking-wide text-finn-iron">{message.bubbles?.length ? "In your own words" : "What matters to you"}</p>
+                        {live ? (
+                            <button type="button" onClick={() => onChange("bubbles")} className="text-[11.5px] font-bold text-finn-accent-blue hover:underline">
                                 Change
                             </button>
                         ) : null}
@@ -786,6 +1018,8 @@ export function MessageList({
     onOpenCar,
     onImportance,
     onChange,
+    onRemove,
+    onAdd,
     busy,
     editable = null,
     onEdit,
@@ -797,6 +1031,9 @@ export function MessageList({
     onOpenCar: (id: number, judgement?: string) => void;
     onImportance: (needId: string, importance: NeedImportance) => void;
     onChange: (step: StepId) => void;
+    /** An item a bubble checks, taken out from the summary; a suggestion added. */
+    onRemove: (bubble: string, item: string) => void;
+    onAdd: (bubble: string, item: string) => void;
     busy: boolean;
     /** The reader message whose answer can be taken back, if any. */
     editable?: string | null;
@@ -854,7 +1091,7 @@ export function MessageList({
                 );
                 break;
             case "summary":
-                body = <Summary message={message} live={message.id === liveSummary && settled} onImportance={onImportance} onChange={onChange} />;
+                body = <Summary message={message} live={message.id === liveSummary && settled} onImportance={onImportance} onChange={onChange} onRemove={onRemove} onAdd={onAdd} />;
                 break;
             case "result":
                 /* Each result opens on its own judgement: an earlier one on what it said then, not on a later winner. */

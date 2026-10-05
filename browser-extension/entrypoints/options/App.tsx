@@ -90,6 +90,21 @@ export function App() {
                 <Card icon={<MessageCircle className="h-5 w-5" />} title="Your answers" subtitle="What new chats start from. You change them by talking to Lens, not here.">
                     {settings === undefined ? null : told ? (
                         <>
+                            {told.bubbles?.length ? (
+                                <ul className="mb-3 space-y-2 rounded-2xl bg-white p-4 ring-1 ring-finn-cotton">
+                                    {told.bubbles.map((bubble) => (
+                                        <li key={bubble.id}>
+                                            <p className="flex items-baseline gap-2 text-[13.5px] font-black">
+                                                {bubble.heading}
+                                                <span className="rounded-full bg-finn-pale-blue px-2 py-0.5 text-[11px] font-black text-finn-accent-blue">{IMPORTANCE_LABEL[bubble.importance]}</span>
+                                            </p>
+                                            {bubble.figure || bubble.counts.length ? (
+                                                <p className="text-[12px] text-finn-iron">Lens checks: {[bubble.figure, ...bubble.counts.map((item) => item.label)].filter(Boolean).join(" · ")}</p>
+                                            ) : null}
+                                        </li>
+                                    ))}
+                                </ul>
+                            ) : null}
                             {told.needs?.length ? (
                                 <ul className="mb-3 space-y-2 rounded-2xl bg-white p-4 ring-1 ring-finn-cotton">
                                     {told.needs.map((need) => (

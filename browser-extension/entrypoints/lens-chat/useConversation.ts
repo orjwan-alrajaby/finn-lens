@@ -12,6 +12,8 @@ import {
     withExchange,
     withLensSaying,
     changeOne as changeOneAnswer,
+    addItem as addBubbleItem,
+    removeItem as removeBubbleItem,
     setImportance as setNeedImportance,
     type Heard,
 } from "@/lib/chats/flow";
@@ -19,6 +21,8 @@ import { judgementFrom, judgeWith, resultMessage, withJudgement } from "@/lib/ch
 import { addedToJudgement, judgedCars, loadedCars } from "@/lib/chats/scope";
 import { loadChat, loadSettings, messageId, saveChat, saveSettings, setActiveChat } from "@/lib/chats/store";
 import type { Chat } from "@/lib/chats/types";
+import type { BubbleId } from "@/lib/lens-chat/bubbles";
+import type { EvidenceId } from "@/lib/lens-chat/evidence";
 import { readBack, readTyped } from "@/lib/chats/typing";
 import type { LensRun } from "@/lib/lens-chat/run";
 import { carNamed, whyNot } from "@/lib/lens-chat/why-not";
@@ -95,7 +99,24 @@ export function useConversation(page: PageCars) {
     const importance = useCallback(
         async (needId: string, level: "essential" | "important" | "niceToHave") => {
             const current = latest.current;
-            if (current) await commit(setNeedImportance(current, needId, level));
+            if (current) await commit(setNeedImportance(current, needId, level, pageRef.current.cars));
+        },
+        [commit],
+    );
+
+    /** Something a bubble checks taken out from the summary, or a suggestion added to it. */
+    const removeItem = useCallback(
+        async (bubble: string, item: string) => {
+            const current = latest.current;
+            if (current) await commit(removeBubbleItem(current, bubble as BubbleId, item as EvidenceId, pageRef.current.cars));
+        },
+        [commit],
+    );
+
+    const addItem = useCallback(
+        async (bubble: string, item: string) => {
+            const current = latest.current;
+            if (current) await commit(addBubbleItem(current, bubble as BubbleId, item as EvidenceId, pageRef.current.cars));
         },
         [commit],
     );
@@ -209,7 +230,7 @@ export function useConversation(page: PageCars) {
                          * silently gone. Elsewhere its reader's reply does.
                          */
                         reply:
-                            (ask?.kind === "ask" && (ask.step.id.startsWith("life-") || ask.step.id === "rules")) || !read.changes.length
+                            (ask?.kind === "ask" && (ask.step.id === "bubbles" || ask.step.id === "rules")) || !read.changes.length
                                 ? readBack(extra.text, read, chosen.length > 0)
                                 : read.reply || "Got it.",
                     };
@@ -294,7 +315,7 @@ export function useConversation(page: PageCars) {
                  */
                 const open = [...current.messages].reverse().find((item) => item.kind === "ask" && !item.answered);
                 const queue =
-                    open?.kind === "ask" && (STEP_ORDER.includes(open.step.id) || open.step.id.startsWith("life-"))
+                    open?.kind === "ask" && STEP_ORDER.includes(open.step.id)
                         ? [open.step.id, ...heard.queue.filter((id) => id !== open.step.id)]
                         : heard.queue;
 
@@ -350,5 +371,5 @@ export function useConversation(page: PageCars) {
         });
     }, [judge]);
 
-    return { chat, busy, startNew, open, clear, tap, type, whyWinner, change, changeOne, importance, judgeHere, addHere, takeBack };
+    return { chat, busy, startNew, open, clear, tap, type, whyWinner, change, changeOne, importance, removeItem, addItem, judgeHere, addHere, takeBack };
 }
