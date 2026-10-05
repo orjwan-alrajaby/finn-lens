@@ -98,7 +98,7 @@ export interface BubbleChips {
     required: boolean;
     exclusive?: string[][];
     /** Each with what it means and what Lens checks for it, for its "i". */
-    options: { id: string; label: string; description?: string }[];
+    options: { id: string; label: string; description?: string; recommended?: string }[];
 }
 
 /** One bubble on the summary: what Lens understood, for the reader to correct. */

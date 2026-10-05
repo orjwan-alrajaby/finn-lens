@@ -373,6 +373,8 @@ Changed after trying it again (5 October 2026):
 - **Short labels, tooltips:** bubbles and chips have short labels ("Kids", "In the city", "Bulky things", "Hard limit"); the "i" is a tooltip with a brief explanation and what Lens checks, instead of a card opening under the chips.
 - **Who rides with you:** kids, adults (beside you asks nothing extra; in the back counts rear doors) and a dog. "Six seats or more" moved to deal-breakers & sealers.
 
+- **Recommended from what you said:** comfort chips that earlier answers point to are starred and come first, and their "i" says why — "Recommended because you said winters bring snow and ice, and you spend a lot of time on the road." Never picked for the reader; a bubble's own answers never recommend its own chips. Rain alone doesn't recommend warmth, and time on the road only adds to a heated wheel beside a cold-weather reason.
+
 Two things the spec promised needed engine or flow changes to be true:
 
 - **"Checked" items** (§4) did nothing in the chat's ask-only scoring unless a need named them, and a named one was rewarded like a raise. The engine now takes them as `preferences.checked`: a car FINN confirms is missing one loses a little, having one earns nothing.

@@ -13,6 +13,7 @@ import {
     importanceSaid,
     itemsOf,
     OFTEN,
+    recommendedBecause,
     suggestedRules,
     syncBubbles,
     withBubbles,
@@ -307,7 +308,7 @@ const CHIP = ":";
  * behind its "i", and the chips each opens. With no section — a chat from
  * before them — every bubble at once.
  */
-function bubblesStep(group?: (typeof BUBBLE_GROUPS)[number]): ChatStep {
+function bubblesStep(group?: (typeof BUBBLE_GROUPS)[number], u: Understanding = EMPTY_UNDERSTANDING): ChatStep {
     const bubbles = group ? BUBBLES.filter((bubble) => group.bubbles.includes(bubble.id)) : BUBBLES;
 
     return {
@@ -334,7 +335,13 @@ function bubblesStep(group?: (typeof BUBBLE_GROUPS)[number]): ChatStep {
                         max: bubble.chips!.max,
                         required: bubble.chips!.mode === "required",
                         exclusive: bubble.chips!.exclusive,
-                        options: bubble.chips!.options.map(({ id, label, description }) => ({ id, label, description })),
+                        /* What earlier answers recommend comes first, saying why — never picked for the reader. */
+                        options: bubble.chips!.options
+                            .map(({ id, label, description, counts }) => {
+                                const recommended = (counts ?? []).map((item) => recommendedBecause(item, u, bubble.id)).find(Boolean);
+                                return { id, label, description, ...(recommended ? { recommended } : {}) };
+                            })
+                            .sort((a, b) => Number(Boolean(b.recommended)) - Number(Boolean(a.recommended))),
                     },
                 ]),
         ),
@@ -437,7 +444,7 @@ function bubblePicks(chosen: string[]): Partial<Record<BubbleId, string[]>> {
 export function stepFor(id: StepId, cars: FinnCar[], u: Understanding = EMPTY_UNDERSTANDING): ChatStep | null {
     switch (id) {
         case "bubbles":
-            return bubblesStep();
+            return bubblesStep(undefined, u);
 
         case "from":
             return fromStep(u);
@@ -519,7 +526,7 @@ export function stepFor(id: StepId, cars: FinnCar[], u: Understanding = EMPTY_UN
 
     if (id.startsWith("bubbles-")) {
         const group = BUBBLE_GROUPS.find((item) => `bubbles-${item.id}` === id);
-        return group ? bubblesStep(group) : null;
+        return group ? bubblesStep(group, u) : null;
     }
 
     /* How often: only for a bubble the reader tapped that asks it. */

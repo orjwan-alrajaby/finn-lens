@@ -472,6 +472,77 @@ export const BUBBLES: Bubble[] = [
 
 export const BUBBLE_IDS = BUBBLES.map((bubble) => bubble.id);
 
+/* -------------------------------------------------------------------------- */
+/* Recommended, from what the reader said                                     */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * What an earlier answer says about a later choice: heated seats for cold
+ * winters, lumbar support for hours at the wheel. `for` are answers that
+ * recommend it on their own; `also` add to the reason only beside one of
+ * them — a heated steering wheel matters more the longer you drive, but not
+ * in a warm climate however long that is. Answers are a bubble ("long") or
+ * a bubble's chip ("weather:snow").
+ */
+const RECOMMENDED: Partial<Record<EvidenceId, { for: string[]; also?: string[] }>> = {
+    hasHeatedSeats: { for: ["weather:snow", "weather:cold"] },
+    hasHeatedSteeringWheel: { for: ["weather:snow", "weather:cold"], also: ["long", "traffic"] },
+    hasSeatCooling: { for: ["weather:hot"] },
+    hasAuxiliaryHeater: { for: ["weather:snow", "weather:cold"] },
+    hasLumbarSupport: { for: ["long", "traffic"] },
+    hasWirelessAppleCarPlaySlashAndroidAuto: { for: ["traffic", "long"] },
+    hasWirelessChargingStation: { for: ["traffic", "long"] },
+    hasKeylessEntryAndStart: { for: ["traffic", "carry:shopping", "kids:baby"] },
+    hasThreeZoneAutomaticClimateControls: { for: ["kids:older", "adults:back", "weather:hot"] },
+    hasBackUSBPorts: { for: ["kids", "adults:back"] },
+    hasHeadUpDisplay: { for: ["long", "night"] },
+};
+
+/** Each answer as the reason reads it: "because you said winters bring snow and ice". */
+const SAID: Record<string, string> = {
+    "weather:snow": "winters bring snow and ice",
+    "weather:cold": "winters are cold",
+    "weather:hot": "summers are hot",
+    long: "you drive long distances",
+    traffic: "you sit in traffic a lot",
+    night: "you drive at night a lot",
+    "carry:shopping": "you carry shopping",
+    kids: "you have kids",
+    "kids:baby": "your youngest is in a baby or toddler seat",
+    "kids:older": "your kids are older",
+    "adults:back": "adults ride in the back",
+};
+
+/** "Time on the road", said once, however it was said. */
+const ON_THE_ROAD = new Set(["long", "traffic"]);
+
+/**
+ * Why a piece of equipment is recommended, from what the reader has said so
+ * far: "Recommended because you said winters are cold, and you spend a lot
+ * of time on the road." Null when nothing they said points to it.
+ */
+export function recommendedBecause(item: EvidenceId, u: Understanding, except?: BubbleId): string | null {
+    const rule = RECOMMENDED[item];
+    if (!rule) return null;
+
+    /* Never a bubble's own answers: snow & ice doesn't recommend itself. */
+    const said = (answer: string) => {
+        const [bubble, chip] = answer.split(":") as [string, string | undefined];
+        if (bubble === except) return false;
+        const state = u.bubbles?.[bubble];
+        return Boolean(state) && (!chip || state!.chips.includes(chip));
+    };
+    const reasons = rule.for.filter(said);
+    if (!reasons.length) return null;
+
+    const also = (rule.also ?? []).filter((answer) => said(answer) && !reasons.includes(answer));
+    const phrases = [...new Set(reasons.map((answer) => SAID[answer]!))];
+    const extra = also.some((answer) => ON_THE_ROAD.has(answer)) ? ["you spend a lot of time on the road"] : [];
+    const all = [...phrases, ...extra];
+
+    return `Recommended because you said ${all.length > 1 ? `${all.slice(0, -1).join(", ")}, and ${all.at(-1)}` : all[0]}.`;
+}
+
 export type BubbleGroupId = "people" | "driving" | "copes" | "matters";
 
 /**

@@ -719,3 +719,21 @@ describe("questions in sections, and the changes to them", () => {
         expect(texts(moved).at(-1)).toMatch(/^From .* to .*\. I'll price each car on the FINN term that covers it\.$/);
     });
 });
+
+describe("comforts recommended by earlier answers", () => {
+    it("puts the recommended ones first, each saying why, and picks none of them", () => {
+        let chat = startChat(null, cars(), TODAY);
+        for (const picks of [[], ["long", "traffic"], ["weekly"], ["medium"], ["weather", "weather:snow"]]) chat = answer(chat, openAsk(chat)!.id, picks, cars(), TODAY).chat;
+
+        const ask = openAsk(chat)!;
+        const comfort = ask.step.bubbleChips!.comfort!.options;
+        const recommended = comfort.filter((option) => option.recommended);
+
+        expect(ask.step.id).toBe("bubbles-matters");
+        expect(comfort.slice(0, recommended.length)).toEqual(recommended);
+        expect(recommended.map((option) => option.id)).toEqual(expect.arrayContaining(["warm", "wheel", "preheat", "lumbar", "phone", "charging"]));
+        expect(comfort.find((option) => option.id === "wheel")?.recommended).toBe("Recommended because you said winters bring snow and ice, and you spend a lot of time on the road.");
+        expect(comfort.find((option) => option.id === "sunroof")?.recommended).toBeUndefined();
+        expect(ask.step.selected).toEqual([]);
+    });
+});

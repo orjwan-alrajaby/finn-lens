@@ -1,5 +1,5 @@
 import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { Check, ChevronDown, ChevronRight, Info, PencilLine, Plus, X } from "lucide-react";
+import { Check, ChevronDown, ChevronRight, Info, PencilLine, Plus, Star, X } from "lucide-react";
 
 import { BandChip, BrandMark, CarPhoto, euros, WinnerChip } from "@/components/lens-parts";
 import { allChips, coveredBy, IMPORTANCE_LABEL } from "@/lib/chats/flow";
@@ -514,12 +514,13 @@ function BubbleChipRow({
                                     on ? "" : "hover:text-finn-highlight-navy",
                                 ].join(" ")}
                             >
-                                {on ? <Check aria-hidden="true" className="h-3 w-3" strokeWidth={3} /> : null}
+                                {on ? <Check aria-hidden="true" className="h-3 w-3" strokeWidth={3} /> : option.recommended ? <Star aria-label="Recommended" className="h-3 w-3 fill-current" /> : null}
                                 {option.label}
                             </button>
                             {option.description ? (
                                 <InfoTip label={option.label} tone={on ? "on" : "idle"}>
                                     <p className="font-black">{option.label}</p>
+                                    {option.recommended ? <p className="font-bold text-[#ffd76a]">{option.recommended}</p> : null}
                                     <p>{option.description}</p>
                                 </InfoTip>
                             ) : null}
@@ -527,6 +528,19 @@ function BubbleChipRow({
                     );
                 })}
             </div>
+            {chips.options.some((option) => option.recommended) ? (
+                <p className="mt-1 flex items-start gap-1 text-[11px] leading-snug text-finn-iron">
+                    <Star aria-hidden="true" className="mt-px h-3 w-3 shrink-0 fill-current text-finn-accent-blue" />
+                    <span>
+                        Recommended from what you told me:{" "}
+                        {chips.options
+                            .filter((option) => option.recommended)
+                            .map((option) => lowerFirst(option.label))
+                            .join(", ")}
+                        . The “i” on each says why.
+                    </span>
+                </p>
+            ) : null}
             {missing ? <p className="mt-1 text-[11px] text-finn-iron">Pick at least one, so I know what to check.</p> : null}
         </div>
     );

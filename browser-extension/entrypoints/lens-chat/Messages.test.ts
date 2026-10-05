@@ -3,6 +3,8 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
 import { answer, startChat, stepFor } from "@/lib/chats/flow";
+import { withBubbles } from "@/lib/lens-chat/bubbles";
+import { EMPTY_UNDERSTANDING } from "@/lib/lens-chat/understanding";
 import type { Chat, ChatMessage } from "@/lib/chats/types";
 import { GARAGE } from "@/lib/reasoning-engine/test-garage";
 
@@ -146,5 +148,17 @@ describe("the “i”", () => {
         expect(html).toContain("aria-label=\"What “Kids” means\"");
         expect(html).not.toContain("role=\"tooltip\"");
         expect(html).not.toContain("role=\"note\"");
+    });
+});
+
+describe("recommended comforts", () => {
+    it("are starred, first, and listed under the row with where to find why", () => {
+        const u = withBubbles(EMPTY_UNDERSTANDING, { weather: ["cold"] });
+        const step = stepFor("bubbles-matters", cars(), u)!;
+        const html = render([{ id: "m1", at: "", from: "lens", kind: "ask", answered: false, step: { ...step, selected: ["comfort"] } }]);
+        const words = text(html);
+
+        expect(words).toContain("Recommended from what you told me: heated seats, heated wheel, pre-heating. The “i” on each says why.");
+        expect(html).toContain('aria-label="Recommended"');
     });
 });

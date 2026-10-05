@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { chatAnswers } from "@/lib/chats/judge";
 import { CATEGORIES } from "@/lib/reasoning-engine/constants";
 
-import { BUBBLES, bubbleById, EMPTY_BUBBLE, importanceOf, itemsOf, needOf, OFTEN, suggestedRules, withBubbles, withBubbleState, withItem, withoutItem } from "./bubbles";
+import { BUBBLES, bubbleById, EMPTY_BUBBLE, importanceOf, itemsOf, needOf, OFTEN, recommendedBecause, suggestedRules, withBubbles, withBubbleState, withItem, withoutItem } from "./bubbles";
 import { EVIDENCE, type EvidenceId } from "./evidence";
 import { EMPTY_UNDERSTANDING, ruledOut } from "./understanding";
 import { applyChoices, guideSteps } from "./guide";
@@ -178,5 +178,27 @@ describe("adults", () => {
 
     it("has no seat count among who rides with you: that's a deal-breaker or sealer now", () => {
         expect(bubbleById("six-seats")).toBeUndefined();
+    });
+});
+
+describe("recommended, from what the reader said", () => {
+    const said = (picks: Parameters<typeof withBubbles>[1]) => withBubbles(EMPTY_UNDERSTANDING, picks);
+
+    it("recommends a comfort the earlier answers point to, saying which", () => {
+        expect(recommendedBecause("hasHeatedSeats", said({ weather: ["cold", "wet"] }))).toBe("Recommended because you said winters are cold.");
+        expect(recommendedBecause("hasLumbarSupport", said({ long: [], traffic: [] }))).toBe("Recommended because you said you drive long distances, and you sit in traffic a lot.");
+        expect(recommendedBecause("hasHeatedSteeringWheel", said({ weather: ["snow"], long: [] }))).toBe(
+            "Recommended because you said winters bring snow and ice, and you spend a lot of time on the road.",
+        );
+    });
+
+    it("doesn't recommend what nothing said points to, or warmth for time on the road alone, or rain alone", () => {
+        expect(recommendedBecause("hasHeatedSteeringWheel", said({ long: [], traffic: [] }))).toBeNull();
+        expect(recommendedBecause("hasHeatedSeats", said({ weather: ["wet"] }))).toBeNull();
+        expect(recommendedBecause("hasSunroof", said({ weather: ["hot"], long: [] }))).toBeNull();
+    });
+
+    it("never recommends a bubble's own chips by its own answers", () => {
+        expect(recommendedBecause("hasHeatedSeats", said({ weather: ["snow"] }), "weather")).toBeNull();
     });
 });
