@@ -355,6 +355,18 @@ How the open questions were settled on `life-bubbles`, each the lean the spec al
 5. **Chips under bubbles:** built; worth the paper prototype still, with real readers.
 6. **Removed items:** stay removed, in saved settings too.
 
+Changed after trying it (5 October 2026):
+
+- **Bubbles in four sections**, one screen each, rather than all thirteen at once: who rides with you; where and how you drive (how often follows straight after); what the car has to cope with; what else matters. More screens, each one short.
+- **"Select all / Unselect all"** on chip rows where several can be true and there's no limit; it never picks two that can't both be true.
+- **What you carry:** "Shopping & everyday bags" (electric tailgate) apart from "Bulky things: furniture, a pram, sports kit" (split-folding seats).
+- **Comfort:** every comfort FINN lists that Lens can score, by its name — heated seats and steering wheel, ventilated seats, pre-heating, keyless entry & start, wireless CarPlay / Android Auto, wireless charging, 3-zone climate, electric seats, lumbar support, premium sound, sunroof, rear USB ports, head-up display. Leather seats and ambient lighting are said not to count.
+- **The environment:** "How big a part should CO₂ play in my pick?" — a big part · as much as my other needs · a small part.
+- **A budget:** "A hard limit: nothing over it" (cars over it set aside) or "Some give: a little over is fine" (up to about 15% over still counts — the engine's own soft limit). The limit question is "all costs together", and says what that is.
+- **From when:** after how long — the soonest (next month) and the three after, or later.
+- **Deal-breakers in sections:** from what you told me, money, fuel & emissions, the car itself.
+- **Contradictions ruled out:** mostly dry weather beside rain or snow, "no fixed limit" after "I'm on a budget", a few hundred km a month after long drives every day, an item counted twice, a heat pump suggested to someone who won't go electric.
+
 Two things the spec promised needed engine or flow changes to be true:
 
 - **"Checked" items** (§4) did nothing in the chat's ask-only scoring unless a need named them, and a named one was rewarded like a raise. The engine now takes them as `preferences.checked`: a car FINN confirms is missing one loses a little, having one earns nothing.

@@ -42,8 +42,21 @@ async function converse(cars: PinnedFinnCar[], picks: Picks): Promise<Chat> {
         const ask = openAsk(chat);
         if (!ask || ask.step.id === "confirm" || ask.step.id === "keep") break;
 
-        /* A question with nothing scripted is answered as the page would: Continue, with whatever it shows picked. */
-        const pick = picks[ask.step.id] ?? ask.step.selected ?? [];
+        /*
+         * A question with nothing scripted is answered as the page would:
+         * Continue, with whatever it shows picked. A section of the bubbles
+         * takes the scripted bubbles that are its own; words are typed on the
+         * first section, and land wherever they mean.
+         */
+        const own = new Set(ask.step.choices.map((choice) => choice.id));
+        const section = ask.step.id.startsWith("bubbles-");
+        const scripted = section ? picks.bubbles : picks[ask.step.id];
+        const pick =
+            section && Array.isArray(scripted)
+                ? scripted.filter((id) => own.has(id.split(":")[0]!))
+                : section && scripted && "text" in scripted && ask.step.id !== "bubbles-people"
+                  ? (ask.step.selected ?? [])
+                  : (scripted ?? ask.step.selected ?? []);
 
         if (Array.isArray(pick)) {
             chat = answer(chat, ask.id, pick, cars, TODAY).chat;
@@ -186,6 +199,8 @@ describe.each([
     it.each(PERSONAS)("holds up for $name", async ({ picks }) => {
         const chat = await converse([...cars], picks);
 
+        /* Walked with nothing said, every check would hold for nothing. */
+        expect(Object.keys(chat.understanding.bubbles ?? {}).length).toBeGreaterThan(0);
         expect(problemsWith(chat, [...cars])).toEqual([]);
     });
 });

@@ -53,11 +53,11 @@ describe("words beside the bubbles", () => {
         const start = startChat(null, cars());
         const text = "and long drives to see my parents";
         const read = await readTyped(start, text, cars(), null);
-        const { chat } = answer(start, ask(start).id, ["city"], cars(), new Date(), { heard: { text, understanding: read.understanding, reply: "" } });
+        const { chat } = answer(start, ask(start).id, ["kids"], cars(), new Date(), { heard: { text, understanding: read.understanding, reply: "" } });
 
-        expect(Object.keys(chat.understanding.bubbles ?? {}).sort()).toEqual(["city", "long"]);
-        /* A bubble the words added asks its own question. */
-        expect(ask(chat).kind === "ask" && ask(chat).step.id).toBe("often-long");
+        expect(Object.keys(chat.understanding.bubbles ?? {}).sort()).toEqual(["kids", "long"]);
+        /* Words about another section land there, and show as picked when it's asked. */
+        expect(ask(chat)).toMatchObject({ step: { id: "bubbles-driving", selected: ["long"] } });
     });
 
     it("reads snow onto the weather bubble's own chip", async () => {

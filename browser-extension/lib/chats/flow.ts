@@ -4,6 +4,7 @@ import { FINN_INCLUDED_MONTHLY_KM } from "@/lib/reasoning-engine/constants";
 import { addMonths, monthLabel, type MonthString } from "@/lib/reasoning-engine/contract";
 import type { NeedImportance } from "@/lib/lens-ai/contract";
 import {
+    BUBBLE_GROUPS,
     BUBBLES,
     bubbleById,
     bubbleHeading,
@@ -26,6 +27,7 @@ import {
 import { asPhrase, barePhrase, EVIDENCE, isKind, type EvidenceId } from "@/lib/lens-chat/evidence";
 import { applyChoices, explain, guideSteps, saidFor, type GuideChoice, type GuideStep } from "@/lib/lens-chat/guide";
 import {
+    budgetCeiling,
     EMPTY_UNDERSTANDING,
     ruledOut,
     waiveEssential,
@@ -72,7 +74,13 @@ import type { BubbleChips, Chat, ChatMessage, ChatStep, Rewind, SavedSettings, S
  * The questions, in the order Lens asks them. How far they drive is asked
  * only after a bubble it matters to; otherwise it's assumed, and said so.
  */
-export const STEP_ORDER: StepId[] = ["bubbles", "often-long", "often-traffic", "budget", "period", "distance", "rules"];
+export const STEP_ORDER: StepId[] = ["bubbles", "budget", "period", "from", "distance", "rules"];
+
+/** The bubbles, a section at a time, with how often straight after the driving it's about. */
+const BUBBLE_STEPS: StepId[] = ["bubbles-people", "bubbles-driving", "often-long", "often-traffic", "bubbles-copes", "bubbles-matters"];
+
+/** A bubbles question: one section, or — in a chat from before the sections — all of them. */
+const isBubbleStep = (id: string) => id === "bubbles" || id.startsWith("bubbles-");
 
 const now = () => new Date().toISOString();
 
@@ -94,10 +102,14 @@ const saidAnything = (u: Understanding) => bubblesIn(u).length > 0 || lifeNeeds(
 /* -------------------------------------------------------------------------- */
 
 /** The questions a reader can pick to answer again, in the order they're asked. */
-const CHANGEABLE: StepId[] = ["bubbles", "often-long", "often-traffic", "budget", "period", "distance", "rules"];
+const CHANGEABLE: StepId[] = [...BUBBLE_STEPS, "budget", "period", "from", "distance", "rules"];
 
 const CHANGE_LABEL: Partial<Record<StepId, string>> = {
-    bubbles: "Your life",
+    "bubbles-people": "Who rides with you",
+    "bubbles-driving": "Where and how you drive",
+    "bubbles-copes": "What the car copes with",
+    "bubbles-matters": "What else matters",
+    from: "When you need it from",
     "often-long": "How often you drive far",
     "often-traffic": "How long your drive is",
     rules: "Deal-breakers",
@@ -109,10 +121,8 @@ const CHANGE_LABEL: Partial<Record<StepId, string>> = {
 /** What a question's answer is now, in a few words: "€700 a month", "you have kids and you drive at night a lot". */
 function nowSaid(step: StepId, u: Understanding): string {
     switch (step) {
-        case "bubbles": {
-            const said = bubblesIn(u).map(({ bubble }) => lower(bubble.you));
-            return said.length ? joined(said) : "nothing";
-        }
+        case "from":
+            return u.rental ? `from ${monthLabel(u.rental.from)}` : "not set";
         case "rules":
             return rulesText(u).toLowerCase() === "none" ? "none" : lowerFirst(rulesText(u));
         case "budget":
@@ -121,6 +131,12 @@ function nowSaid(step: StepId, u: Understanding): string {
             return u.rental ? `${monthLabel(u.rental.from)} to ${monthLabel(u.rental.to)}` : "not set";
         case "distance":
             return u.monthlyKm ? `about ${u.monthlyKm.value.toLocaleString("en-GB")} km a month` : "not said";
+    }
+
+    if (step.startsWith("bubbles-")) {
+        const group = BUBBLE_GROUPS.find((item) => `bubbles-${item.id}` === step);
+        const said = bubblesIn(u).filter(({ bubble }) => group?.bubbles.includes(bubble.id)).map(({ bubble }) => lower(bubble.you));
+        return said.length ? joined(said) : "nothing";
     }
 
     if (step.startsWith("often-")) {
@@ -181,9 +197,9 @@ const checked = (need: Understanding["needs"][number], u: Understanding): Eviden
 };
 
 const WHY: Record<string, string> = {
-    bubbles: "Each one tells me what to look for on the cars. Next I'll show you what I'll check for each, what I can't, and how much it counts — and you can correct any of it.",
-    rules: "Anything you pick here takes cars out before I score them, so only choose what you'd truly refuse.",
-    budget: "A car over your limit can't be my pick. I compare each car's FINN price plus estimated fuel or charging and the mileage package your distance needs.",
+    rules: "Each one takes cars out before I score anything, so only pick what you'd truly refuse.",
+    budget: `All costs together: FINN's monthly price (VAT included), plus what I estimate you'd spend on fuel or charging, plus the mileage package your driving needs — FINN's price includes ${FINN_INCLUDED_MONTHLY_KM.toLocaleString("en-GB")} km a month. Parking and tolls aren't in it.`,
+    from: "FINN delivers in weeks, so the soonest is next month. Not every car can be delivered by every date, and each is priced on the term that covers yours.",
     period: "FINN prices each car by how long you subscribe, and not every car is offered for every length — so this changes both the price and which cars fit.",
     distance: `FINN's price includes ${FINN_INCLUDED_MONTHLY_KM.toLocaleString("en-GB")} km a month; more needs one of FINN's mileage packages, which adds to each car's price. Your distance also sets what fuel or charging costs you.`,
 };
@@ -259,17 +275,39 @@ export function coveredBy(step: Pick<ChatStep, "covers">, picked: string, other:
     return step.covers?.[picked]?.find((entry) => entry.id === other)?.shared ?? null;
 }
 
+/** The deal-breakers' sections, in the order they're shown. */
+const RULE_GROUPS: { id: string; title: string }[] = [
+    { id: "yours", title: "From what you told me" },
+    { id: "money", title: "Money" },
+    { id: "energy", title: "Fuel & emissions" },
+    { id: "car", title: "The car itself" },
+];
+
+const RULE_GROUP: Record<string, string> = {
+    "firm-budget": "money",
+    "electric-only": "energy",
+    "not-electric": "energy",
+    "low-co2": "energy",
+    frugal: "energy",
+};
+
 /** "kids:baby" → the bubble and the chip; "kids" → the bubble alone. */
 const CHIP = ":";
 
-/** The bubbles question: every bubble, what it means and counts behind its "i", and the chips it opens. */
-function bubblesStep(): ChatStep {
+/**
+ * A bubbles question: one section's bubbles, what each means and counts
+ * behind its "i", and the chips each opens. With no section — a chat from
+ * before them — every bubble at once.
+ */
+function bubblesStep(group?: (typeof BUBBLE_GROUPS)[number]): ChatStep {
+    const bubbles = group ? BUBBLES.filter((bubble) => group.bubbles.includes(bubble.id)) : BUBBLES;
+
     return {
-        id: "bubbles",
-        ask: "Tell me about your life. Tap everything that fits.",
-        why: WHY.bubbles,
+        id: group ? (`bubbles-${group.id}` as StepId) : "bubbles",
+        ask: group?.ask ?? "Tell me about your life. Tap everything that fits.",
+        why: group?.why,
         multiple: true,
-        choices: BUBBLES.map((bubble) => ({
+        choices: bubbles.map((bubble) => ({
             id: bubble.id,
             label: bubble.label,
             said: bubble.said,
@@ -278,21 +316,59 @@ function bubblesStep(): ChatStep {
             features: bubble.counts.map((id) => ({ label: EVIDENCE[id].label, does: explain(id, bubble.why?.[id]) })),
         })),
         bubbleChips: Object.fromEntries(
-            BUBBLES.filter((bubble) => bubble.chips).map((bubble): [string, BubbleChips] => [
-                bubble.id,
-                {
-                    ask: bubble.chips!.ask,
-                    multiple: bubble.chips!.multiple,
-                    max: bubble.chips!.max,
-                    required: bubble.chips!.mode === "required",
-                    exclusive: bubble.chips!.exclusive,
-                    options: bubble.chips!.options.map(({ id, label }) => ({ id, label })),
-                },
-            ]),
+            bubbles
+                .filter((bubble) => bubble.chips)
+                .map((bubble): [string, BubbleChips] => [
+                    bubble.id,
+                    {
+                        ask: bubble.chips!.ask,
+                        multiple: bubble.chips!.multiple,
+                        max: bubble.chips!.max,
+                        required: bubble.chips!.mode === "required",
+                        exclusive: bubble.chips!.exclusive,
+                        options: bubble.chips!.options.map(({ id, label }) => ({ id, label })),
+                    },
+                ]),
         ),
-        none: "None of these",
-        custom: { kind: "text", label: "Something else…", placeholder: "e.g. “home late after night shifts”" },
+        none: group?.none ?? "None of these",
+        custom: { kind: "text", label: "Something else…", placeholder: group?.placeholder ?? "e.g. “home late after night shifts”" },
     };
+}
+
+/** "When do you need it from?": the next four months, the soonest first, and later as a number of months. */
+function fromStep(u: Understanding): ChatStep | null {
+    if (!u.rental) return null;
+
+    const soonest = startMonth(new Date());
+    const months = [0, 1, 2, 3].map((offset) => addMonths(soonest, offset));
+
+    return {
+        id: "from",
+        ask: "From when do you need it?",
+        why: WHY.from,
+        multiple: false,
+        choices: months.map((month, index) => ({
+            id: `from-${month}`,
+            label: index ? monthLabel(month) : `As soon as possible: ${monthLabel(month)}`,
+            said: index ? `From ${monthLabel(month)}.` : "As soon as possible.",
+        })),
+        custom: { kind: "months", label: "Later", placeholder: "months from now, e.g. 6", min: 1, max: 12 },
+    };
+}
+
+/**
+ * What "Select all" picks under a bubble: every chip that can be true at
+ * once, in order — "Cold but mostly dry" can't join snow or rain, so it's
+ * left out. Null where it isn't offered: one answer only, a limit on how
+ * many, or too few chips to bother.
+ */
+export function allChips(chips: BubbleChips): string[] | null {
+    if (!chips.multiple || chips.max || chips.options.length <= 2) return null;
+
+    return chips.options.reduce<string[]>((kept, option) => {
+        const clash = (chips.exclusive ?? []).some((set) => set.includes(option.id) && set.some((id) => id !== option.id && kept.includes(id)));
+        return clash ? kept : [...kept, option.id];
+    }, []);
 }
 
 /** The bubbles and chips a bubbles answer picked. */
@@ -315,13 +391,16 @@ export function stepFor(id: StepId, cars: FinnCar[], u: Understanding = EMPTY_UN
         case "bubbles":
             return bubblesStep();
 
+        case "from":
+            return fromStep(u);
+
         case "budget":
             return {
                 id,
-                ask: "What's the most you'd spend a month?",
-                why: WHY.budget,
+                ask: "What's the most you'd spend a month, all costs together?",
+                why: u.bubbles?.budget?.chips.includes("soft") ? `${WHY.budget} You said a little over is fine, so cars up to about 15% over it still count.` : WHY.budget,
                 multiple: false,
-                choices: BUDGETS.map((amount) => ({ id: `budget-${amount}`, label: `Up to ${formatEUR(amount)}`, said: `Up to ${formatEUR(amount)} a month.` })),
+                choices: BUDGETS.map((amount) => ({ id: `budget-${amount}`, label: `Up to ${formatEUR(amount)}`, said: `Up to ${formatEUR(amount)} a month, all costs together.` })),
                 /* "I'm on a budget" and then "no fixed limit" can't both be true: another amount is the way out. */
                 none: u.bubbles?.budget ? undefined : "No fixed limit",
                 custom: { kind: "amount", label: "Another amount", placeholder: "e.g. 650", min: 100, max: 5000 },
@@ -387,6 +466,11 @@ export function stepFor(id: StepId, cars: FinnCar[], u: Understanding = EMPTY_UN
             return null;
     }
 
+    if (id.startsWith("bubbles-")) {
+        const group = BUBBLE_GROUPS.find((item) => `bubbles-${item.id}` === id);
+        return group ? bubblesStep(group) : null;
+    }
+
     /* How often: only for a bubble the reader tapped that asks it. */
     if (id.startsWith("often-")) {
         const often = id.slice("often-".length) as OftenId;
@@ -408,8 +492,9 @@ export function stepFor(id: StepId, cars: FinnCar[], u: Understanding = EMPTY_UN
 
     const found = guideSteps(cars).find((item) => item.id === id);
     /* A limit the reader gave can be a rule too: cars over it set aside rather than graded. */
+    /* Unless the budget bubble already said how firm the limit is. */
     const firm: GuideChoice[] =
-        found?.id === "rules" && u.budget
+        found?.id === "rules" && u.budget && !u.bubbles?.budget?.chips.length
             ? [
                   {
                       id: "firm-budget",
@@ -425,21 +510,29 @@ export function stepFor(id: StepId, cars: FinnCar[], u: Understanding = EMPTY_UN
 
     if (step.id === "rules") {
         /*
-         * The deal-breakers the reader's bubbles point to, first, with why:
-         * "six seats or more" for a reader who needs six seats, rather than
-         * only a lower score for every five-seater.
+         * In sections, so it reads as a few kinds of refusal rather than a
+         * pile: what the reader's own answers point to first — each saying
+         * why behind its "i" — then money, what it runs on, and the car
+         * itself.
          */
         const from = new Map<string, string>();
         for (const { bubble, state } of bubblesIn(u)) for (const rule of suggestedRules(bubble, state)) if (!from.has(rule)) from.set(rule, lower(bubble.you));
 
-        const suggested = step.choices.filter((choice) => from.has(choice.id));
-        const chat = fromGuide({ ...step, choices: [...suggested, ...step.choices.filter((choice) => !from.has(choice.id))] });
+        const chat = fromGuide(step);
+        const choices = chat.choices.map((choice) => {
+            const because = from.get(choice.id);
+
+            return because
+                ? { ...choice, group: "yours", description: [`Suggested because ${because}.`, choice.description].filter(Boolean).join(" ") }
+                : { ...choice, group: RULE_GROUP[choice.id] ?? "car" };
+        });
+        const groups = RULE_GROUPS.filter((group) => choices.some((choice) => choice.group === group.id));
 
         return {
             ...chat,
-            why: suggested.length
-                ? `${WHY.rules} ${joined(suggested.map((choice) => `“${choice.label}” is first because ${from.get(choice.id)}`))}.`
-                : WHY.rules,
+            why: WHY.rules,
+            choices: groups.flatMap((group) => choices.filter((choice) => choice.group === group.id)),
+            groups,
             /* Electric only and not electric together would rule out every car. */
             exclusive: [["electric-only", "not-electric"]],
             custom: { kind: "text", label: "Something else…", placeholder: "e.g. “no seven-seaters”" },
@@ -464,7 +557,14 @@ export function stepFor(id: StepId, cars: FinnCar[], u: Understanding = EMPTY_UN
 export function selectedFor(step: ChatStep, u: Understanding, picks: Record<string, string[]> = {}): string[] {
     const valid = (ids: string[]) => ids.filter((id) => step.choices.some((choice) => choice.id === id));
 
-    if (step.id === "bubbles") return bubblesIn(u).flatMap(({ bubble, state }) => [bubble.id, ...state.chips.map((chip) => `${bubble.id}${CHIP}${chip}`)]);
+    if (isBubbleStep(step.id)) {
+        const own = new Set(step.choices.map((choice) => choice.id));
+        return bubblesIn(u)
+            .filter(({ bubble }) => own.has(bubble.id))
+            .flatMap(({ bubble, state }) => [bubble.id, ...state.chips.map((chip) => `${bubble.id}${CHIP}${chip}`)]);
+    }
+
+    if (step.id === "from") return u.rental ? valid([`from-${u.rental.from}`]) : [];
 
     if (step.id.startsWith("often-")) {
         const often = u.bubbles?.[step.id.slice("often-".length)]?.often;
@@ -538,15 +638,23 @@ export function acknowledge(step: ChatStep, u: Understanding, chosen: string[] =
     /* A question from before the bubbles, still open in an old chat. */
     if (step.id.startsWith("life-") || step.id.startsWith("check-passengers-") || step.id === "focus") return "Got it.";
 
-    if (step.id === "bubbles") {
-        const said = bubblesIn(u).map(({ bubble }) => lower(bubble.you));
-        const others = lifeNeeds(u).filter((need) => !need.id.startsWith("bubble-")).map((need) => lower(need.label));
-        const all = [...said, ...others];
+    if (isBubbleStep(step.id)) {
+        const own = new Set(step.choices.map((choice) => choice.id));
+        const said = bubblesIn(u).filter(({ bubble }) => own.has(bubble.id)).map(({ bubble }) => lower(bubble.you));
 
-        return all.length
-            ? `Got it — ${joined(all)}. Once I have your limits, I'll show you what I'll check for each, and you can correct it.`
-            : "Nothing here, then.";
+        if (said.length) return `Got it — ${joined(said)}.`;
+
+        const nothing: Record<string, string> = {
+            "bubbles-people": "Just you — nothing to add for passengers.",
+            "bubbles-driving": "Fine — nothing in particular for how you drive.",
+            "bubbles-copes": "Nothing out of the ordinary, then.",
+            "bubbles-matters": "Nothing else, then.",
+        };
+
+        return nothing[step.id] ?? "Nothing here, then.";
     }
+
+    if (step.id === "from") return u.rental ? `From ${monthLabel(u.rental.from)} to ${monthLabel(u.rental.to)}. I'll price each car on the FINN term that covers it.` : "Got it.";
 
     if (step.id.startsWith("often-")) {
         const often = step.id.slice("often-".length) as OftenId;
@@ -579,9 +687,11 @@ export function acknowledge(step: ChatStep, u: Understanding, chosen: string[] =
             return `Noted. Before judging, I'll set aside ${parts.length > 1 ? `${parts.slice(0, -1).join(", ")}, and ${parts.at(-1)}` : parts[0]}.`;
         }
         case "budget":
-            return u.budget
-                ? `${formatEUR(u.budget.monthly)} a month, all in. Cars over it won't be my pick.`
-                : "No limit, then. I'll still tell you what each car costs.";
+            return !u.budget
+                ? "No limit, then. I'll still tell you what each car costs."
+                : u.budget.kind === "target"
+                  ? `${formatEUR(u.budget.monthly)} a month, all costs together — with some give, so cars up to about ${formatEUR(budgetCeiling(u.budget))} still count.`
+                  : `${formatEUR(u.budget.monthly)} a month, all costs together. ${u.budget.firm ? "Anything over it is set aside." : "Cars over it won't be my pick."}`;
         case "period":
             return u.rental
                 ? `${monthLabel(u.rental.from)} to ${monthLabel(u.rental.to)}. I'll price each car on the FINN term that covers it.`
@@ -685,7 +795,13 @@ export function summaryOf(u: Understanding, id: string = messageId(), cars: Finn
 
     if (!saidAnything(u)) lines.push({ label: "Your life", value: "Nothing in particular", step: "bubbles" });
 
-    lines.push({ label: "Monthly limit", value: u.budget ? `${formatEUR(u.budget.monthly)} all in${u.budget.firm ? ", nothing over it" : ""}` : "No fixed limit", step: "budget" });
+    lines.push({
+        label: "Monthly limit",
+        value: !u.budget
+            ? "No fixed limit"
+            : `${formatEUR(u.budget.monthly)} all in${u.budget.firm ? ", nothing over it" : u.budget.kind === "target" ? `, a little over is fine (up to about ${formatEUR(budgetCeiling(u.budget))})` : ""}`,
+        step: "budget",
+    });
     lines.push({ label: "For", value: u.rental ? `${monthLabel(u.rental.from)} – ${monthLabel(u.rental.to)}` : "Not set", step: "period" });
     lines.push({
         label: "Driving",
@@ -791,6 +907,12 @@ export function askNext(chat: Chat, cars: FinnCar[]): Chat {
         /* Equipment worth a look is on the summary now, not a question each. */
         if (id === "offers" || id === "focus") continue;
 
+        /* The bubbles, reached: a section at a time, how often straight after the driving. */
+        if (id === "bubbles") {
+            queue = [...BUBBLE_STEPS, ...queue.filter((other) => !BUBBLE_STEPS.includes(other))];
+            continue;
+        }
+
         /* How far they drive, only where something they said makes it matter: otherwise it's assumed, and said so. */
         if (id === "distance" && !preselect && !needsDistance(u)) continue;
 
@@ -806,7 +928,7 @@ export function askNext(chat: Chat, cars: FinnCar[]): Chat {
             from: "lens",
             kind: "ask",
             /* What's already been said — typed earlier, or kept from last time — shows as picked, so answering doesn't undo it. */
-            step: preselect || id === "bubbles" ? { ...step, selected: selectedFor(step, u, chat.picks) } : step,
+            step: preselect || isBubbleStep(id) || id === "from" ? { ...step, selected: selectedFor(step, u, chat.picks) } : step,
             answered: false,
         };
 
@@ -1068,7 +1190,7 @@ function answerStep(
 
         /* The picked questions in the order they're asked, and how often again for a bubble newly tapped. */
         const picks = CHANGEABLE.filter((id) => chosen.includes(id));
-        const queue = picks.includes("bubbles") ? [...new Set<StepId>([...picks, "often-long", "often-traffic"])] : picks;
+        const queue = picks.includes("bubbles-driving") ? [...new Set<StepId>([...picks, "often-long", "often-traffic"])] : picks;
         const next = touch(base, [reader(said), lens(picks.length === 1 ? "Sure — here it is again." : "Sure — just those, with what you said last time already picked.")], {
             queue: CHANGEABLE.filter((id) => queue.includes(id)),
             kept: null,
@@ -1115,19 +1237,27 @@ function answerStep(
     let said = [tapped, typed].filter(Boolean).join(" ");
     const queue = base.queue;
 
-    if (step.id === "bubbles") {
+    if (isBubbleStep(step.id)) {
         /*
-         * The taps, and any bubble the reader's own words landed on — "we
-         * have a dog" is the dog bubble — kept beside them rather than undone
-         * by the taps that came with them.
+         * This section's taps. Other sections' bubbles stay as they were, and
+         * any bubble the reader's own words landed on — "we have a dog" is
+         * the dog bubble — is kept beside the taps rather than undone by them.
          */
+        const own = new Set(step.choices.map((choice) => choice.id));
         const picks = bubblePicks(chosen);
         for (const { bubble, state } of bubblesIn(understanding)) {
-            if (!picks[bubble.id] && !chat.understanding.bubbles?.[bubble.id]) picks[bubble.id] = state.chips;
+            if (!own.has(bubble.id) || (!picks[bubble.id] && !chat.understanding.bubbles?.[bubble.id])) picks[bubble.id] ??= state.chips;
         }
 
         understanding = withBubbles(understanding, picks);
         said = [bubblesSaid(chosen), typed].filter(Boolean).join(" ");
+    } else if (step.id === "from" && understanding.rental) {
+        /* The same length, from the month picked — or this many months from now. */
+        const length = rentalMonths(understanding) ?? 1;
+        const from = extra.amount != null ? addMonths(startMonth(today), Math.round(extra.amount) - 1) : ((picked[0]?.id.slice("from-".length) as MonthString | undefined) ?? understanding.rental.from);
+
+        if (extra.amount != null || !said) said = `From ${monthLabel(from)}.`;
+        understanding = withRental(understanding, from, addMonths(from, length - 1), understanding.rental.said);
     } else if (step.id.startsWith("often-")) {
         understanding = withBubbleState(understanding, step.id.slice("often-".length) as BubbleId, { often: picked[0]?.id ?? null, importance: null });
     } else if (step.followUp) {
@@ -1145,8 +1275,8 @@ function answerStep(
         /* A deal-breaker can settle what a bubble counts: its need is rebuilt beside the rules. */
         understanding = syncBubbles(applyChoices(understanding, step.guide, chosen));
 
-        /* "Nothing over my limit" is the budget's own rule, kept on the budget. */
-        if (step.id === "rules" && understanding.budget) {
+        /* "Nothing over my limit" is the budget's own rule, kept on the budget — when it was asked here, not by the budget bubble. */
+        if (step.id === "rules" && understanding.budget && step.choices.some((choice) => choice.id === "firm-budget")) {
             const firm = chosen.includes("firm-budget");
             understanding = { ...understanding, budget: { ...understanding.budget, firm, kind: firm ? "hardMax" : understanding.budget.kind } };
         }
@@ -1159,7 +1289,7 @@ function answerStep(
         const amount = extra.amount ?? (picked[0] ? Number(picked[0].id.replace("budget-", "")) : null);
 
         if (extra.amount != null) said = `Up to ${formatEUR(extra.amount)} a month.`;
-        understanding = amount ? withBudget(understanding, Math.round(amount), said) : waiveEssential(understanding, "budget");
+        understanding = amount ? syncBubbles(withBudget(understanding, Math.round(amount), said)) : waiveEssential(understanding, "budget");
     } else if (step.id === "period") {
         const months = extra.amount ?? (picked[0] ? Number(picked[0].id.replace("period-", "")) : null);
 
@@ -1193,7 +1323,7 @@ const CHANGE_WHAT: Partial<Record<StepId, string>> = {
 
 /** One answer, changed from the summary: that question again, then back to the summary. */
 export function changeOne(chat: Chat, step: StepId, cars: FinnCar[]): Chat {
-    const queue: StepId[] = step === "bubbles" ? ["bubbles", "often-long", "often-traffic"] : [step];
+    const queue: StepId[] = [step];
     const next = touch({ ...chat, messages: closeAsks(chat.messages) }, [reader(`I'd like to change ${CHANGE_WHAT[step] ?? "that"}.`)], { queue, kept: null, revising: true });
 
     return askNext(next, cars);

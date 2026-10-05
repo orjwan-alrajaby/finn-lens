@@ -344,13 +344,16 @@ export const BUBBLES: Bubble[] = [
             mode: "required",
             multiple: true,
             options: [
-                { id: "bulky", label: "Big or bulky things", detail: "big or bulky things", counts: ["hasSplitFoldingRearSeats"], worth: ["hasElectricTailgate"] },
+                /* A week's shopping and a sofa ask different things of a car. */
+                { id: "shopping", label: "Shopping & everyday bags", detail: "shopping and bags", counts: ["hasElectricTailgate"] },
+                { id: "bulky", label: "Bulky things: furniture, a pram, sports kit", detail: "bulky things", counts: ["hasSplitFoldingRearSeats"], worth: ["hasElectricTailgate"] },
                 { id: "bikes", label: "Bikes, skis or a roof box", detail: "bikes, skis or a roof box", counts: ["hasRoofRails"], worth: ["hasTowbar"] },
                 { id: "trailer", label: "A trailer or caravan", detail: "a trailer or caravan", counts: ["hasTowbar", "towingCapacity1500"], suggests: "must-tow" },
             ],
         },
         cantCheck: "boot space — FINN's figure doesn't say whether the seats are up or folded",
         why: {
+            hasElectricTailgate: "so the boot opens when your hands are full",
             hasSplitFoldingRearSeats: "so long or bulky things fit with part of the back seat down",
             hasRoofRails: "for a roof box, a bike carrier or a ski rack",
             hasTowbar: "for the trailer or caravan — and a bike rack can go on it",
@@ -363,7 +366,7 @@ export const BUBBLES: Bubble[] = [
         you: "Comfort matters to you",
         need: "Comfort",
         said: "Comfort matters to me.",
-        means: "The small comforts you'd use every day. Pick which ones next to it.",
+        means: "The comforts you'd use every day. Pick which ones next to it — every one FINN lists that I can check.",
         counts: [],
         checks: ["hasAppleCarPlaySlashAndroidAuto"],
         worth: [],
@@ -372,16 +375,24 @@ export const BUBBLES: Bubble[] = [
             mode: "any",
             multiple: true,
             options: [
-                { id: "warm", label: "Warm seats", detail: "warm seats", counts: ["hasHeatedSeats"] },
-                { id: "keyless", label: "Keyless entry", detail: "keyless entry", counts: ["hasKeylessEntryAndStart"] },
-                { id: "phone", label: "Phone without cables", detail: "your phone without cables", counts: ["hasWirelessAppleCarPlaySlashAndroidAuto", "hasWirelessChargingStation"] },
-                { id: "climate", label: "Everyone sets their own temperature", detail: "your own temperature", counts: ["hasThreeZoneAutomaticClimateControls"] },
-                { id: "seats", label: "Electric seats", detail: "electric seats", counts: ["hasElectricFrontSeatAdjustment"] },
-                { id: "sound", label: "Good sound", detail: "good sound", counts: ["hasPremiumSoundSystem"] },
-                { id: "sunroof", label: "A sunroof", detail: "a sunroof", counts: ["hasSunroof"] },
+                /* Each named as FINN lists it, with what it does where the name doesn't say. */
+                { id: "warm", label: "Heated seats", detail: "heated seats", counts: ["hasHeatedSeats"] },
+                { id: "wheel", label: "Heated steering wheel", detail: "a heated steering wheel", counts: ["hasHeatedSteeringWheel"] },
+                { id: "cooled", label: "Ventilated seats", detail: "ventilated seats", counts: ["hasSeatCooling"] },
+                { id: "preheat", label: "Pre-heating, so it's warm before you get in", detail: "pre-heating", counts: ["hasAuxiliaryHeater"] },
+                { id: "keyless", label: "Keyless entry & start", detail: "keyless entry", counts: ["hasKeylessEntryAndStart"] },
+                { id: "phone", label: "Wireless Apple CarPlay / Android Auto", detail: "wireless CarPlay", counts: ["hasWirelessAppleCarPlaySlashAndroidAuto"] },
+                { id: "charging", label: "Wireless phone charging", detail: "wireless charging", counts: ["hasWirelessChargingStation"] },
+                { id: "climate", label: "Separate temperature for the back (3-zone climate)", detail: "3-zone climate", counts: ["hasThreeZoneAutomaticClimateControls"] },
+                { id: "seats", label: "Electric front seats", detail: "electric seats", counts: ["hasElectricFrontSeatAdjustment"] },
+                { id: "lumbar", label: "Lumbar support", detail: "lumbar support", counts: ["hasLumbarSupport"] },
+                { id: "sound", label: "Premium sound system", detail: "premium sound", counts: ["hasPremiumSoundSystem"] },
+                { id: "sunroof", label: "Sunroof or glass roof", detail: "a sunroof", counts: ["hasSunroof"] },
+                { id: "usb", label: "USB ports in the back", detail: "rear USB ports", counts: ["hasBackUSBPorts"] },
+                { id: "hud", label: "Head-up display", detail: "a head-up display", counts: ["hasHeadUpDisplay"] },
             ],
         },
-        cantCheck: "how comfortable the seats are, or how quiet the cabin is",
+        cantCheck: "how comfortable the seats are or how quiet the cabin is — and I don't weigh leather seats or ambient lighting, which FINN lists but says nothing useful about",
         empty: "Tell me which, and I'll count them.",
     },
     {
@@ -390,19 +401,19 @@ export const BUBBLES: Bubble[] = [
         you: "You care about the environment",
         need: "CO₂ emissions",
         said: "I care about the environment.",
-        means: "Each car's own CO₂ figure, on the EU's A to G scale. How much it should count is picked next to it.",
+        means: "Each car's own CO₂ figure, on the EU's A to G scale. How big a part it plays is picked next to it.",
         counts: [],
         checks: [],
         worth: [],
         figures: ["environmental"],
         chips: {
-            ask: "How much?",
+            ask: "How big a part should CO₂ play in my pick?",
             mode: "optional",
             multiple: false,
             options: [
-                { id: "decides", label: "It could decide it", detail: "it could decide it", importance: "essential" },
-                { id: "matters", label: "It matters", detail: "it matters", importance: "important" },
-                { id: "bonus", label: "A bonus", detail: "a bonus", importance: "niceToHave" },
+                { id: "decides", label: "A big part", detail: "a big part of the pick", importance: "essential" },
+                { id: "matters", label: "As much as my other needs", detail: "as much as your other needs", importance: "important" },
+                { id: "bonus", label: "A small part", detail: "a small part of the pick", importance: "niceToHave" },
             ],
         },
         suggests: "low-co2",
@@ -420,12 +431,67 @@ export const BUBBLES: Bubble[] = [
         worth: [],
         figures: ["efficiency"],
         distance: true,
+        chips: {
+            ask: "How firm is your limit?",
+            mode: "optional",
+            multiple: false,
+            options: [
+                /* A hard limit sets cars over it aside; some give lets cars up to about 15% over count as within it. */
+                { id: "hard", label: "A hard limit: nothing over it", detail: "a hard limit" },
+                { id: "soft", label: "Some give: a little over is fine", detail: "a little over is fine" },
+            ],
+        },
+        /* With no chip, "Nothing over my limit" is offered with the deal-breakers. */
         suggests: "firm-budget",
         cantCheck: "",
     },
 ];
 
 export const BUBBLE_IDS = BUBBLES.map((bubble) => bubble.id);
+
+export type BubbleGroupId = "people" | "driving" | "copes" | "matters";
+
+/**
+ * The bubbles in sections, asked one at a time: who's in the car, how you
+ * drive, what the car has to cope with, and what else matters. Each is a
+ * short screen of its own rather than thirteen bubbles at once.
+ */
+export const BUBBLE_GROUPS: { id: BubbleGroupId; ask: string; why: string; none: string; placeholder: string; bubbles: BubbleId[] }[] = [
+    {
+        id: "people",
+        ask: "First, who rides with you?",
+        why: "Children, a big family and a dog each need different things from a car. The “i” on each says what I'd check.",
+        none: "Just me",
+        placeholder: "e.g. “two teenagers and a big dog”",
+        bubbles: ["kids", "six-seats", "dog"],
+    },
+    {
+        id: "driving",
+        ask: "Where and how do you drive?",
+        why: "Tap what's a regular part of your driving. City streets, traffic, long drives and dark roads each call for different help.",
+        none: "Nothing in particular",
+        placeholder: "e.g. “home late after night shifts”",
+        bubbles: ["city", "traffic", "long", "night"],
+    },
+    {
+        id: "copes",
+        ask: "What does the car have to cope with?",
+        why: "The weather and what you carry each need their own equipment.",
+        none: "Nothing out of the ordinary",
+        placeholder: "e.g. “a double buggy”",
+        bubbles: ["weather", "carry"],
+    },
+    {
+        id: "matters",
+        ask: "What else matters to you?",
+        why: "Each adds what I check — or, for CO₂ and a budget, a figure each car is judged on.",
+        none: "Nothing else",
+        placeholder: "e.g. “something safe and efficient”",
+        bubbles: ["help", "comfort", "environment", "budget"],
+    },
+];
+
+export const groupOf = (id: BubbleId): BubbleGroupId => BUBBLE_GROUPS.find((group) => group.bubbles.includes(id))!.id;
 
 export const bubbleById = (id: string): Bubble | undefined => BUBBLES.find((bubble) => bubble.id === id);
 
@@ -596,7 +662,18 @@ export function syncBubbles(u: Understanding): Understanding {
         .map(({ bubble, state }) => needOf(bubble, state))
         .filter((need): need is Need => need != null && (need.evidence.some((entry) => !settled.has(entry.id)) || !need.evidence.length));
 
-    return { ...u, needs: [...u.needs.filter((need) => !isBubbleNeed(need.id)), ...needs] };
+    /*
+     * How firm the limit is, from the budget bubble: a hard limit sets cars
+     * over it aside, some give lets cars up to about 15% over count as
+     * within it (TARGET_HEADROOM) — the engine's own "target" budget.
+     */
+    const firmness = u.bubbles?.budget?.chips[0];
+    const budget =
+        u.budget && firmness
+            ? { ...u.budget, kind: firmness === "soft" ? ("target" as const) : ("hardMax" as const), firm: firmness === "hard", stretchTo: firmness === "soft" ? null : u.budget.stretchTo }
+            : u.budget;
+
+    return { ...u, budget, needs: [...u.needs.filter((need) => !isBubbleNeed(need.id)), ...needs] };
 }
 
 /**

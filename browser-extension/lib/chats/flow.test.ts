@@ -7,7 +7,10 @@ import { EMPTY_UNDERSTANDING } from "@/lib/lens-chat/understanding";
 import { fleet } from "@/lib/reasoning-engine/test-data/fleet";
 
 import { chatAnswers, judgementFrom, judgeWith } from "./judge";
-import { addItem, answer, askNext, keepShort, openedWhy, changeAnswers, changeOne, removeItem, rentalMonths, rewind, rewindable, setImportance, startChat, startMonth, stepFor, summaryOf } from "./flow";
+import { withBubbles } from "@/lib/lens-chat/bubbles";
+import { addMonths } from "@/lib/reasoning-engine/contract";
+import { CATEGORIES } from "@/lib/reasoning-engine/constants";
+import { addItem, allChips, answer, askNext, keepShort, openedWhy, changeAnswers, changeOne, removeItem, rentalMonths, rewind, rewindable, setImportance, startChat, startMonth, stepFor, summaryOf } from "./flow";
 import type { Chat, ChatMessage, SavedSettings, StepId } from "./types";
 
 /*
@@ -40,11 +43,28 @@ function walk(chat: Chat, picks: Partial<Record<StepId, string[]>>, page = cars(
         const ask = openAsk(current);
         if (!ask || ask.step.id === "confirm" || ask.step.id === "keep" || ask.step.id === "start" || ask.step.id === "noNeeds") return current;
 
-        current = answer(current, ask.id, picks[ask.step.id] ?? [], page, TODAY).chat;
+        /* A section of the bubbles takes the scripted bubbles that are its own. */
+        const own = new Set(ask.step.choices.map((choice) => choice.id));
+        const chosen = ask.step.id.startsWith("bubbles-") ? (picks.bubbles ?? []).filter((id) => own.has(id.split(":")[0]!)) : (picks[ask.step.id] ?? []);
+        current = answer(current, ask.id, chosen, page, TODAY).chat;
     }
 
     throw new Error("Lens never stopped asking");
 }
+
+/** Answers each section of the bubbles with the picks that are its own, up to the first question that isn't one. */
+function throughBubbles(chat: Chat, picks: string[]): Chat {
+    let current = chat;
+
+    for (let ask = openAsk(current); ask?.step.id.startsWith("bubbles-"); ask = openAsk(current)) {
+        const own = new Set(ask.step.choices.map((choice) => choice.id));
+        current = answer(current, ask.id, picks.filter((id) => own.has(id.split(":")[0]!)), cars(), TODAY).chat;
+    }
+
+    return current;
+}
+
+const SECTIONS = ["bubbles-people", "bubbles-driving", "bubbles-copes", "bubbles-matters"];
 
 describe("a first chat", () => {
     it("greets, says what's about to happen, then asks about the reader's life", () => {
@@ -52,16 +72,16 @@ describe("a first chat", () => {
 
         expect(texts(chat)[0]).toMatch(/I'm Lens/);
         expect(texts(chat)[1]).toMatch(/show you what I understood before I judge anything/);
-        expect(openAsk(chat)?.step.ask).toBe("Tell me about your life. Tap everything that fits.");
-        expect(openAsk(chat)?.step.choices.map((choice) => choice.id)).toEqual(BUBBLES.map((bubble) => bubble.id));
+        expect(openAsk(chat)?.step.ask).toBe("First, who rides with you?");
+        expect(openAsk(chat)?.step.choices.map((choice) => choice.id)).toEqual(["kids", "six-seats", "dog"]);
     });
 
-    it("asks four to six questions, then says what it understood", () => {
+    it("asks the bubbles a section at a time, how often after the driving, then the limits, and says what it understood", () => {
         const short = walk(startChat(null, cars(), TODAY), { bubbles: ["kids", "kids:baby", "city", "city:street"], budget: ["budget-500"], period: ["period-12"] });
         const long = walk(startChat(null, cars(), TODAY), { bubbles: ["long", "traffic", "budget"], "often-long": ["weekly"], "often-traffic": ["medium"], budget: ["budget-700"], distance: ["km-1500"] });
 
-        expect(asked(short)).toEqual(["bubbles", "budget", "period", "rules", "confirm"]);
-        expect(asked(long)).toEqual(["bubbles", "often-long", "often-traffic", "budget", "period", "distance", "rules", "confirm"]);
+        expect(asked(short)).toEqual([...SECTIONS, "budget", "period", "from", "rules", "confirm"]);
+        expect(asked(long)).toEqual(["bubbles-people", "bubbles-driving", "often-long", "often-traffic", "bubbles-copes", "bubbles-matters", "budget", "period", "distance", "rules", "confirm"]);
         expect(texts(short).at(-1)).toMatch(/^Here's what I understood/);
     });
 
@@ -76,8 +96,10 @@ describe("a first chat", () => {
         const chat = walk(startChat(null, cars(), TODAY), { bubbles: ["kids", "kids:baby", "weather", "weather:snow", "weather:wet"] });
         const said = chat.messages.filter((message) => message.kind === "text" && message.from === "reader").map((message) => (message as { text: string }).text);
 
-        expect(said[0]).toBe("I have kids — a baby or toddler seat. The weather here is tough — snow & ice and rain & fog.");
-        expect(texts(chat)[2]).toMatch(/^Got it — you have kids and the weather where you live is tough\./);
+        expect(said[0]).toBe("I have kids — a baby or toddler seat.");
+        expect(said[2]).toBe("The weather here is tough — snow & ice and rain & fog.");
+        expect(texts(chat)[2]).toBe("Got it — you have kids.");
+        expect(texts(chat)[3]).toBe("Fine — nothing in particular for how you drive.");
     });
 
     it("takes no limit and no period as answers, not as questions to repeat", () => {
@@ -94,7 +116,7 @@ describe("a first chat", () => {
         expect(texts(chat).at(-1)).toMatch(/haven't told me anything the car has to do/);
 
         const again = answer(chat, openAsk(chat)!.id, ["add"], cars(), TODAY).chat;
-        expect(openAsk(again)?.step.id).toBe("bubbles");
+        expect(openAsk(again)?.step.id).toBe("bubbles-people");
     });
 
     it("waits for the summary to be looked over, then asks whether to keep the answers", () => {
@@ -112,16 +134,17 @@ describe("a first chat", () => {
         expect(kept.chat.kept).toBe("settings");
     });
 
-    it("doesn't ask about the reader's life again once they've said it in their own words", () => {
-        const typed = { ...EMPTY_UNDERSTANDING, needs: [{ id: "commute", label: "The commute", importance: "important" as const, said: "", priorities: ["longDistance" as const], evidence: [{ id: "driverAssistLevel2" as const, use: "", unwanted: false, mustHave: false }], notInData: null, status: "active" as const }] };
-        const chat = askNext({ ...startChat(null, cars(), TODAY), understanding: typed, queue: ["bubbles", "budget"] }, cars());
+    it("shows a bubble already said in the reader's own words as picked in its section", () => {
+        const said = withBubbles(EMPTY_UNDERSTANDING, { long: [] });
+        const chat = askNext({ ...startChat(null, cars(), TODAY), understanding: said, queue: ["bubbles-driving", "budget"] }, cars());
 
-        expect(openAsk(chat)?.step.id).toBe("budget");
+        expect(openAsk(chat)?.step).toMatchObject({ id: "bubbles-driving", selected: ["long"] });
     });
 });
 
 describe("the bubbles", () => {
-    const bubbles = () => openAsk(startChat(null, cars(), TODAY))!.step;
+    /* Every bubble at once, as a chat from before the sections asks them. */
+    const bubbles = () => stepFor("bubbles", cars())!;
 
     it("say what each means and what each checks behind its “i”", () => {
         const step = bubbles();
@@ -129,7 +152,7 @@ describe("the bubbles", () => {
 
         expect(kids.means).toMatch(/Children in the car/);
         expect(kids.features?.[0]).toMatchObject({ label: "Rear doors", does: expect.stringMatching(/so children get in and out/) });
-        expect(step.why).toMatch(/correct any of it/);
+        expect(stepFor("bubbles-people", cars())!.why).toMatch(/The “i” on each says what I'd check/);
     });
 
     it("open their chips under themselves, with “&” on chips and “and” in sentences", () => {
@@ -144,8 +167,7 @@ describe("the bubbles", () => {
     });
 
     it("keep the chips a bubble allows: one child seat, two places parked, never snow and dry together", () => {
-        const chat = startChat(null, cars(), TODAY);
-        const next = answer(chat, openAsk(chat)!.id, ["kids", "kids:baby", "kids:older", "city", "city:street", "city:garage", "city:open", "weather", "weather:snow", "weather:cold"], cars(), TODAY).chat;
+        const next = throughBubbles(startChat(null, cars(), TODAY), ["kids", "kids:baby", "kids:older", "city", "city:street", "city:garage", "city:open", "weather", "weather:snow", "weather:cold"]);
 
         expect(next.understanding.bubbles?.kids?.chips).toEqual(["baby"]);
         expect(next.understanding.bubbles?.city?.chips).toEqual(["street", "garage"]);
@@ -153,15 +175,16 @@ describe("the bubbles", () => {
     });
 
     it("ask how often only for the bubbles that need it, and let the answer set how much they count", () => {
-        const chat = startChat(null, cars(), TODAY);
-        const next = answer(chat, openAsk(chat)!.id, ["long"], cars(), TODAY).chat;
+        const people = startChat(null, cars(), TODAY);
+        const driving = answer(people, openAsk(people)!.id, [], cars(), TODAY).chat;
+        const next = answer(driving, openAsk(driving)!.id, ["long"], cars(), TODAY).chat;
 
         expect(openAsk(next)?.step).toMatchObject({ id: "often-long", ask: "How often do you drive long distances?" });
 
         const rarely = answer(next, openAsk(next)!.id, ["rarely"], cars(), TODAY).chat;
         expect(rarely.understanding.needs.find((need) => need.id === "bubble-long")?.importance).toBe("niceToHave");
         expect(texts(rarely).at(-1)).toBe("Long distances will count as nice to have.");
-        expect(openAsk(rarely)?.step.id).toBe("budget");
+        expect(openAsk(rarely)?.step.id).toBe("bubbles-copes");
     });
 });
 
@@ -236,24 +259,36 @@ describe("deal-breakers", () => {
         let chat = startChat(null, page(), TODAY);
         for (let guard = 0; guard < 20 && openAsk(chat)?.step.id !== "rules"; guard += 1) {
             const ask = openAsk(chat)!;
-            chat = answer(chat, ask.id, ask.step.id === "budget" ? budget : ask.step.id === "bubbles" ? bubbles : ask.step.id.startsWith("often-") ? [ask.step.choices[0]!.id] : [], page(), TODAY).chat;
+            const own = new Set(ask.step.choices.map((choice) => choice.id));
+            const picks =
+                ask.step.id === "budget"
+                    ? budget
+                    : ask.step.id.startsWith("bubbles-")
+                      ? bubbles.filter((id) => own.has(id.split(":")[0]!))
+                      : ask.step.id.startsWith("often-")
+                        ? [ask.step.choices[0]!.id]
+                        : [];
+            chat = answer(chat, ask.id, picks, page(), TODAY).chat;
         }
         return chat;
     };
 
-    it("puts what the bubbles point to first, and says why", () => {
+    it("comes in sections, what the bubbles point to first, each saying why behind its “i”", () => {
         const rules = openAsk(toRules(["carry", "carry:trailer", "environment"]))!.step;
-        const first = rules.choices.slice(0, 2).map((choice) => choice.id);
+        const yours = rules.choices.filter((choice) => choice.group === "yours");
 
-        expect(first).toEqual(expect.arrayContaining(["must-tow", "low-co2"]));
-        expect(rules.why).toMatch(/“Must tow” is first because you carry a lot/);
+        expect(rules.groups?.map((group) => group.title)).toEqual(["From what you told me", "Fuel & emissions", "The car itself"]);
+        expect(yours.map((choice) => choice.id).sort()).toEqual(["low-co2", "must-tow"]);
+        expect(yours.find((choice) => choice.id === "must-tow")?.description).toBe("Suggested because you carry a lot.");
+        expect(rules.choices.slice(0, 2).map((choice) => choice.group)).toEqual(["yours", "yours"]);
+        expect(rules.why).toBe("Each one takes cars out before I score anything, so only pick what you'd truly refuse.");
     });
 
     it("asks the limit before the rules, and offers it as one", () => {
         const chat = toRules(["dog"], ["budget-500"]);
         const rules = openAsk(chat)!.step;
 
-        expect(rules.choices[0]).toMatchObject({ id: "firm-budget", label: "Nothing over €500" });
+        expect(rules.choices[0]).toMatchObject({ id: "firm-budget", label: "Nothing over €500", group: "money" });
 
         const firm = answer(chat, openAsk(chat)!.id, ["firm-budget"], page(), TODAY).chat;
         expect(firm.understanding.budget).toMatchObject({ monthly: 500, firm: true, kind: "hardMax" });
@@ -307,14 +342,16 @@ describe("a chat from saved settings", () => {
         const chat = startChat(settings(), cars(), TODAY);
         const which = answer(chat, openAsk(chat)!.id, ["change"], cars(), TODAY).chat;
 
-        expect(openAsk(which)?.step.choices.find((choice) => choice.id === "bubbles")?.description).toBe("Now: you have kids and you drive long distances.");
+        expect(openAsk(which)?.step.choices.find((choice) => choice.id === "bubbles-people")?.description).toBe("Now: you have kids.");
+        expect(openAsk(which)?.step.choices.find((choice) => choice.id === "bubbles-driving")?.description).toBe("Now: you drive long distances.");
         expect(openAsk(which)?.step.choices.find((choice) => choice.id === "often-long")?.description).toBe("Now: about once a month.");
 
-        const changing = answer(which, openAsk(which)!.id, ["bubbles"], cars(), TODAY).chat;
-        expect(openAsk(changing)?.step.selected).toEqual(["kids", "kids:older", "long"]);
+        const changing = answer(which, openAsk(which)!.id, ["bubbles-driving"], cars(), TODAY).chat;
+        expect(openAsk(changing)?.step).toMatchObject({ id: "bubbles-driving", selected: ["long"] });
 
-        /* How often is asked again with it, as it was. */
-        const again = answer(changing, openAsk(changing)!.id, ["kids", "long"], cars(), TODAY).chat;
+        /* How often is asked again with it, as it was; the other sections stay as they were. */
+        const again = answer(changing, openAsk(changing)!.id, ["long"], cars(), TODAY).chat;
+        expect(again.understanding.bubbles?.kids?.chips).toEqual(["older"]);
         expect(openAsk(again)?.step).toMatchObject({ id: "often-long", selected: ["monthly"] });
     });
 
@@ -324,7 +361,7 @@ describe("a chat from saved settings", () => {
 
         expect(fresh.understanding.needs).toEqual([]);
         expect(fresh.kept).toBeNull();
-        expect(openAsk(fresh)?.step.id).toBe("bubbles");
+        expect(openAsk(fresh)?.step.id).toBe("bubbles-people");
     });
 });
 
@@ -346,7 +383,7 @@ describe("after a judgement", () => {
         const changed = changeAnswers(judged(), cars());
         const all = answer(changed, openAsk(changed)!.id, ["all"], cars(), TODAY).chat;
 
-        expect(openAsk(all)?.step).toMatchObject({ id: "bubbles", selected: ["kids", "weather", "weather:snow"] });
+        expect(openAsk(all)?.step).toMatchObject({ id: "bubbles-people", selected: ["kids"] });
         expect(all.kept).toBeNull();
     });
 
@@ -378,15 +415,19 @@ describe("after a judgement", () => {
 });
 
 describe("the reader's own numbers", () => {
-    it("takes the reader's own amount, length and distance", () => {
-        let chat = startChat(null, cars(), TODAY);
-        chat = answer(chat, openAsk(chat)!.id, ["budget"], cars(), TODAY).chat;
+    it("takes the reader's own amount, length, start and distance", () => {
+        let chat = throughBubbles(startChat(null, cars(), TODAY), ["budget"]);
 
         chat = answer(chat, openAsk(chat)!.id, [], cars(), TODAY, { amount: 650 }).chat;
         expect(chat.understanding.budget?.monthly).toBe(650);
 
         chat = answer(chat, openAsk(chat)!.id, [], cars(), TODAY, { amount: 9 }).chat;
         expect(chat.understanding.rental).toMatchObject({ from: "2026-10", to: "2027-06" });
+
+        /* Three months from now: the same nine months, starting in December. */
+        expect(openAsk(chat)?.step.id).toBe("from");
+        chat = answer(chat, openAsk(chat)!.id, [], cars(), TODAY, { amount: 3 }).chat;
+        expect(chat.understanding.rental).toMatchObject({ from: "2026-12", to: "2027-08" });
 
         expect(openAsk(chat)?.step.id).toBe("distance");
         chat = answer(chat, openAsk(chat)!.id, [], cars(), TODAY, { amount: 1200 }).chat;
@@ -413,8 +454,9 @@ describe("dates", () => {
 
 describe("taking an answer back", () => {
     const start = () => {
-        const first = startChat(null, cars(), TODAY);
-        return answer(first, openAsk(first)!.id, ["long"], cars(), TODAY).chat;
+        const people = startChat(null, cars(), TODAY);
+        const driving = answer(people, openAsk(people)!.id, [], cars(), TODAY).chat;
+        return answer(driving, openAsk(driving)!.id, ["long"], cars(), TODAY).chat;
     };
 
     it("undoes everything the last answer did, and asks the question again with it picked", () => {
@@ -431,11 +473,12 @@ describe("taking an answer back", () => {
         expect(back.understanding).toEqual(before.understanding);
     });
 
-    it("steps back one answer at a time, to the bubbles with what was picked", () => {
+    it("steps back one answer at a time, to the section with what was picked", () => {
         const back = rewind(start());
 
-        expect(openAsk(back)?.step).toMatchObject({ id: "bubbles", selected: ["long"] });
-        expect(back.understanding.bubbles).toBeUndefined();
+        expect(openAsk(back)?.step).toMatchObject({ id: "bubbles-driving", selected: ["long"] });
+        expect(back.understanding.bubbles?.long).toBeUndefined();
+        expect(openAsk(rewind(back))?.step.id).toBe("bubbles-people");
     });
 
     it("offers no way back once the answers are kept and judged", () => {
@@ -494,10 +537,9 @@ describe("answers that can't all be true", () => {
     const understood = (picks: Partial<Record<StepId, string[]>>) => walk(startChat(null, cars(), TODAY), picks);
 
     it("won't take mostly dry weather beside rain or snow, but takes rain, snow and hot summers together", () => {
-        const start = startChat(null, cars(), TODAY);
-        const step = openAsk(start)!.step;
-        const dry = answer(start, openAsk(start)!.id, ["weather", "weather:wet", "weather:cold"], cars(), TODAY).chat;
-        const wet = answer(start, openAsk(start)!.id, ["weather", "weather:snow", "weather:wet", "weather:hot"], cars(), TODAY).chat;
+        const step = stepFor("bubbles-copes", cars())!;
+        const dry = throughBubbles(startChat(null, cars(), TODAY), ["weather", "weather:wet", "weather:cold"]);
+        const wet = throughBubbles(startChat(null, cars(), TODAY), ["weather", "weather:snow", "weather:wet", "weather:hot"]);
 
         expect(step.bubbleChips?.weather?.exclusive).toEqual([["snow", "cold"], ["wet", "cold"]]);
         expect(dry.understanding.bubbles?.weather?.chips).toEqual(["wet"]);
@@ -527,7 +569,7 @@ describe("answers that can't all be true", () => {
         const next = setImportance(chat, "bubble-environment", "niceToHave", cars());
 
         expect(next.understanding.bubbles?.environment).toMatchObject({ chips: ["bonus"], importance: null });
-        expect(block(next, "environment")).toMatchObject({ heading: "You care about the environment · a bonus", importance: "niceToHave" });
+        expect(block(next, "environment")).toMatchObject({ heading: "You care about the environment · a small part of the pick", importance: "niceToHave" });
     });
 
     it("shows each item once, and takes it out of every bubble that counts it", () => {
@@ -556,5 +598,88 @@ describe("answers that can't all be true", () => {
 
         expect(block(out, "kids")).toMatchObject({ counting: false, counts: [], empty: expect.stringMatching(/^I'm not checking anything for this now/) });
         expect(out.understanding.needs.map((need) => need.id)).not.toContain("bubble-kids");
+    });
+});
+
+describe("questions in sections, and the changes to them", () => {
+    const step = (id: StepId, u = EMPTY_UNDERSTANDING) => stepFor(id, cars(), u)!;
+
+    it("offers Select all only where several can be picked with no limit, and never two that can't both be true", () => {
+        const copes = step("bubbles-copes");
+        const matters = step("bubbles-matters");
+
+        expect(allChips(copes.bubbleChips!.weather!)).toEqual(["snow", "wet", "hot"]);
+        expect(allChips(copes.bubbleChips!.carry!)).toEqual(["shopping", "bulky", "bikes", "trailer"]);
+        expect(allChips(matters.bubbleChips!.comfort!)?.length).toBe(14);
+        /* One child seat; two places parked at most. */
+        expect(allChips(step("bubbles-people").bubbleChips!.kids!)).toBeNull();
+        expect(allChips(step("bubbles-driving").bubbleChips!.city!)).toBeNull();
+    });
+
+    it("tells shopping apart from bulky things", () => {
+        const carry = step("bubbles-copes").bubbleChips!.carry!;
+        const chat = throughBubbles(startChat(null, cars(), TODAY), ["carry", "carry:shopping"]);
+
+        expect(carry.options.map((option) => option.label)).toEqual(["Shopping & everyday bags", "Bulky things: furniture, a pram, sports kit", "Bikes, skis or a roof box", "A trailer or caravan"]);
+        expect(chat.understanding.needs.find((need) => need.id === "bubble-carry")?.evidence.map((entry) => entry.id)).toEqual(["hasElectricTailgate"]);
+    });
+
+    it("offers every comfort FINN lists that Lens can check, each by its name", () => {
+        const comfort = BUBBLES.find((bubble) => bubble.id === "comfort")!;
+        const counted = new Set(comfort.chips!.options.flatMap((option) => option.counts ?? []));
+
+        for (const id of [...CATEGORIES.comfort.features, "hasHeatedSeats", "hasHeatedSteeringWheel", "hasSeatCooling", "hasAuxiliaryHeater", "hasLumbarSupport", "hasHeadUpDisplay"]) expect(counted.has(id as never), id).toBe(true);
+        expect(comfort.chips!.options.map((option) => option.label)).toEqual(expect.arrayContaining(["Heated steering wheel", "Wireless Apple CarPlay / Android Auto", "Wireless phone charging", "Premium sound system"]));
+    });
+
+    it("asks how big a part CO₂ plays, in plain words", () => {
+        const environment = step("bubbles-matters").bubbleChips!.environment!;
+
+        expect(environment.ask).toBe("How big a part should CO₂ play in my pick?");
+        expect(environment.options.map((option) => option.label)).toEqual(["A big part", "As much as my other needs", "A small part"]);
+    });
+
+    it("asks the limit as all costs together, and says what that covers", () => {
+        const budget = step("budget");
+
+        expect(budget.ask).toBe("What's the most you'd spend a month, all costs together?");
+        expect(budget.why).toMatch(/^All costs together: FINN's monthly price \(VAT included\), plus .* fuel or charging, plus the mileage package/);
+    });
+
+    it("lets a budget be a hard limit — set aside, not offered again as a deal-breaker — or have some give", () => {
+        const hard = walk(startChat(null, cars(), TODAY), { bubbles: ["dog", "budget", "budget:hard"], budget: ["budget-700"] });
+        const soft = walk(startChat(null, cars(), TODAY), { bubbles: ["dog", "budget", "budget:soft"], budget: ["budget-700"] });
+        const rules = (chat: Chat) => chat.messages.find((message): message is Ask => message.kind === "ask" && message.step.id === "rules")?.step;
+
+        expect(hard.understanding.budget).toMatchObject({ monthly: 700, kind: "hardMax", firm: true });
+        expect(rules(hard)?.choices.map((choice) => choice.id) ?? []).not.toContain("firm-budget");
+        expect(texts(hard)).toContain("€700 a month, all costs together. Anything over it is set aside.");
+
+        expect(soft.understanding.budget).toMatchObject({ monthly: 700, kind: "target", firm: false });
+        expect(lastSummary(soft).lines.find((line) => line.label === "Monthly limit")?.value).toBe("€700 all in, a little over is fine (up to about €805)");
+        expect(soft.messages.find((message): message is Ask => message.kind === "ask" && message.step.id === "budget")!.step.why).toMatch(/up to about 15% over it still count/);
+    });
+
+    it("asks from when, with the soonest first, only once there's a length", () => {
+        const chat = walk(startChat(null, cars(), TODAY), { bubbles: ["dog"], period: ["period-12"] });
+        const from = chat.messages.find((message): message is Ask => message.kind === "ask" && message.step.id === "from")!.step;
+        const soonest = startMonth(new Date());
+
+        expect(from.ask).toBe("From when do you need it?");
+        expect(from.choices.map((choice) => choice.id)).toEqual([0, 1, 2, 3].map((offset) => `from-${addMonths(soonest, offset)}`));
+        expect(from.choices[0]!.label).toMatch(/^As soon as possible: /);
+        expect(stepFor("from", cars(), EMPTY_UNDERSTANDING)).toBeNull();
+        expect(asked(walk(startChat(null, cars(), TODAY), { bubbles: ["dog"] }))).not.toContain("from");
+    });
+
+    it("keeps the length when the start moves", () => {
+        const chat = throughBubbles(startChat(null, cars(), TODAY), ["dog"]);
+        const limit = answer(chat, openAsk(chat)!.id, [], cars(), TODAY).chat;
+        const length = answer(limit, openAsk(limit)!.id, ["period-12"], cars(), TODAY).chat;
+        const later = addMonths(startMonth(new Date()), 2);
+        const moved = answer(length, openAsk(length)!.id, [`from-${later}`], cars(), TODAY).chat;
+
+        expect(moved.understanding.rental).toMatchObject({ from: later, to: addMonths(later, 11) });
+        expect(texts(moved).at(-1)).toMatch(/^From .* to .*\. I'll price each car on the FINN term that covers it\.$/);
     });
 });

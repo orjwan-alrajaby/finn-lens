@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Check, ChevronDown, ChevronRight, Info, PencilLine, Plus, X } from "lucide-react";
 
 import { BandChip, BrandMark, CarPhoto, euros, WinnerChip } from "@/components/lens-parts";
-import { coveredBy, IMPORTANCE_LABEL } from "@/lib/chats/flow";
+import { allChips, coveredBy, IMPORTANCE_LABEL } from "@/lib/chats/flow";
 import type { BubbleChips, CarSnapshot, ChatMessage, Choice, CustomAnswer, StepId, SummaryBubble } from "@/lib/chats/types";
 import type { NeedImportance } from "@/lib/lens-ai/contract";
 import { lowerFirst } from "@/lib/reasoning-engine/format";
@@ -415,15 +415,37 @@ function AddedWords({ text, onEdit, onRemove }: { text: string; onEdit: () => vo
  * often?". Smaller than the bubbles and set in, so they read as part of the
  * bubble above rather than more bubbles.
  */
-function BubbleChipRow({ chips, picked, missing, onToggle }: { chips: BubbleChips; picked: string[]; missing: boolean; onToggle: (id: string) => void }) {
+function BubbleChipRow({
+    chips,
+    picked,
+    missing,
+    onToggle,
+    onSetAll,
+}: {
+    chips: BubbleChips;
+    picked: string[];
+    missing: boolean;
+    onToggle: (id: string) => void;
+    onSetAll: (ids: string[]) => void;
+}) {
     const full = Boolean(chips.max && picked.length >= chips.max);
+    const all = allChips(chips) ?? [];
+    const canAll = all.length > 0;
+    const allPicked = all.every((id) => picked.includes(id));
 
     return (
         <div className="basis-full rounded-2xl bg-finn-pale-blue/60 px-3 py-2 ring-1 ring-finn-accent-blue/15">
-            <p className="text-[11.5px] font-bold text-finn-highlight-navy">
-                {chips.ask}
-                {chips.max ? <span className="font-semibold text-finn-iron"> Up to {chips.max}.</span> : null}
-            </p>
+            <div className="flex items-baseline justify-between gap-2">
+                <p className="text-[11.5px] font-bold text-finn-highlight-navy">
+                    {chips.ask}
+                    {chips.max ? <span className="font-semibold text-finn-iron"> Up to {chips.max}.</span> : null}
+                </p>
+                {canAll ? (
+                    <button type="button" onClick={() => onSetAll(allPicked ? [] : all)} className="shrink-0 text-[11px] font-bold text-finn-accent-blue hover:underline">
+                        {allPicked ? "Unselect all" : "Select all"}
+                    </button>
+                ) : null}
+            </div>
             <div className="mt-1.5 flex flex-wrap gap-1">
                 {chips.options.map((option) => {
                     const on = picked.includes(option.id);
@@ -582,6 +604,9 @@ function Ask({
                                                   picked={picked.filter((item) => item.startsWith(`${choice.id}:`)).map((item) => item.slice(choice.id.length + 1))}
                                                   missing={unfinished.includes(choice.id)}
                                                   onToggle={(id) => toggleChip(choice.id, id)}
+                                                  onSetAll={(ids) =>
+                                                      setPicked((current) => [...current.filter((item) => !item.startsWith(`${choice.id}:`)), ...ids.map((id) => `${choice.id}:${id}`)])
+                                                  }
                                               />,
                                           ]
                                         : chip(choice);

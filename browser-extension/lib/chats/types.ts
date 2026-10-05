@@ -33,6 +33,10 @@ import type { Understanding } from "@/lib/lens-chat/understanding";
 export type StepId =
     | GuideStep["id"]
     | "bubbles"
+    /** One section of the bubbles: `bubbles-people`, `bubbles-driving`… */
+    | `bubbles-${string}`
+    /** When the reader needs the car from: asked after how long. */
+    | "from"
     | `often-${string}`
     | "budget"
     | "period"
@@ -63,7 +67,7 @@ export interface Choice {
     description?: string;
     /** What the answer itself means, before what Lens checks for it. */
     means?: string;
-    group?: NeedGroup;
+    group?: string;
     /** The equipment Lens will check for it, by name. */
     looksFor?: string[];
     /** The same equipment, each with what it does — for the "i" on the chip. */
@@ -149,7 +153,7 @@ export interface ChatStep {
     why?: string;
     custom?: CustomAnswer;
     /** Headings for the choices' groups, in order. */
-    groups?: { id: NeedGroup; title: string }[];
+    groups?: { id: string; title: string }[];
     followUp?: FollowUp;
     /** Equipment offered for a need the reader gave. */
     offer?: { id: EvidenceId; needId: string };

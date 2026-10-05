@@ -5,11 +5,11 @@ A browser extension that helps you choose between FINN car subscriptions by chat
 ## What the reader sees
 
 1. **Install.** Lens opens finn.com, and a bubble in the corner opens by itself. Lens says hello, explains what's about to happen, and asks its first question.
-2. **Questions.** Four to six of them (see [`docs/LIFE-BUBBLES-SPEC-v2.md`](../docs/LIFE-BUBBLES-SPEC-v2.md)):
-   - **"Tell me about your life."** One screen of bubbles — I have kids, I live in the city, I drive long distances, the weather here is tough, comfort matters to me, I'm on a budget and more. Some open a row of chips under themselves where the answer changes what Lens checks: where you park, what the weather's like, which comforts. "Something else…" takes the reader's own words, and words that mean a bubble land on it.
-   - **How often**, only for long distances and time in traffic: it sets how much those count.
-   - **The monthly limit and how long**, then how far the reader drives — only when a bubble makes it matter; otherwise Lens assumes 1,000 km a month and says so.
-   - **Deal-breakers**, with the ones the bubbles point to first, and why (six seats, must tow, low CO₂, nothing over the limit).
+2. **Questions.** Short ones, each a screen of its own (see [`docs/LIFE-BUBBLES-SPEC-v2.md`](../docs/LIFE-BUBBLES-SPEC-v2.md)):
+   - **The reader's life, in four sections of bubbles:** who rides with you (kids, six seats, a dog); where and how you drive (city, traffic, long distances, night); what the car has to cope with (weather, what you carry); and what else matters (help driving & parking, comfort, the environment, a budget). Some bubbles open a row of chips under themselves where the answer changes what Lens checks — where you park, what the weather's like, which comforts, how firm the budget is — with "Select all" where several can be true at once. "Something else…" takes the reader's own words, and words that mean a bubble land on it, whichever section it's in.
+   - **How often**, only for long distances and time in traffic, straight after the driving: it sets how much those count.
+   - **The monthly limit, all costs together** (FINN's price, fuel or charging, mileage), **how long**, **from when**, then how far the reader drives — only when a bubble makes it matter; otherwise Lens assumes 1,000 km a month and says so.
+   - **Deal-breakers**, in sections: what the bubbles point to first (each saying why behind its "i"), then money, fuel & emissions, and the car itself.
 
    Every question says why it's asked. Anything already said isn't asked again. "Edit this answer" under the last answer takes it back — everything it changed with it — and asks that question again.
 3. **Here's what I understood.** One block per bubble: what Lens will check (each can be taken out), standard equipment it checks without rewarding, what the cars here differ on that might matter too (each can be added), what FINN's data can't tell it, and how much the bubble counts — Must have · Matters · Nice to have, marked as Lens's guess when nothing the reader said set it. Then the limits and deal-breakers, each with "Change". No priority names or percentages here. Nothing moves on until the reader taps "Looks good to me — let's go"; then Lens asks whether to keep it as their settings or use it for this chat only.

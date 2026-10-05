@@ -2,7 +2,7 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
-import { answer, startChat } from "@/lib/chats/flow";
+import { answer, startChat, stepFor } from "@/lib/chats/flow";
 import type { Chat, ChatMessage } from "@/lib/chats/types";
 import { GARAGE } from "@/lib/reasoning-engine/test-garage";
 
@@ -40,13 +40,16 @@ const openAsk = (chat: Chat) => [...chat.messages].reverse().find((message) => m
 
 describe("the bubbles", () => {
     it("open the chips of a tapped bubble under it, and hold Continue until a required one is picked", () => {
-        const chat = startChat(null, cars(), TODAY);
-        const ask = openAsk(chat) as Extract<ChatMessage, { kind: "ask" }>;
-        const tapped = { ...ask, step: { ...ask.step, selected: ["city", "city:street", "weather"] } };
+        /* Every bubble at once, as a chat from before the sections asks them. */
+        const step = stepFor("bubbles", cars())!;
+        const tapped: Extract<ChatMessage, { kind: "ask" }> = { id: "a1", at: "", from: "lens", kind: "ask", answered: false, step: { ...step, selected: ["city", "city:street", "weather"] } };
         const html = render([tapped]);
         const words = text(html);
 
         expect(words).toContain("Tell me about your life. Tap everything that fits.");
+        /* Several weathers can be true; parking takes two at most; so only the weather offers them all. */
+        expect(words).toMatch(/What's it like\? Select all/);
+        expect(words).not.toMatch(/Where do you park most often\? Up to 2\. Select all/);
         expect(words).toContain("Where do you park most often? Up to 2.");
         expect(words).toContain("What's it like?");
         expect(words).toContain("Pick at least one, so I know what to check.");
@@ -59,7 +62,7 @@ describe("the bubbles", () => {
 describe("here's what I understood", () => {
     it("shows each bubble with what it checks, what might matter, what it can't check and how much it counts", () => {
         let chat = startChat(null, cars(), TODAY);
-        for (const picks of [["kids", "kids:baby", "city", "city:street"], ["budget-500"], ["period-12"], []]) chat = answer(chat, openAsk(chat).id, picks, cars(), TODAY).chat;
+        for (const picks of [["kids", "kids:baby"], ["city", "city:street"], [], [], ["budget-500"], ["period-12"], [], []]) chat = answer(chat, openAsk(chat).id, picks, cars(), TODAY).chat;
 
         const words = text(render(chat.messages));
 
