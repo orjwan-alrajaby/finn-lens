@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { Check, CircleHelp, Info, Minus, X } from "lucide-react";
+import { Check, ChevronDown, CircleHelp, Info, Minus, X } from "lucide-react";
 
 import { EnvironmentalResult, UsageResult } from "@/components/EnvironmentalResult";
 import { BandChip, CarPhoto, euros, WinnerChip } from "@/components/lens-parts";
@@ -18,7 +18,23 @@ import type { JudgedCar } from "./useJudgedCar";
  * the reader's eye, and every line still says what it is based on.
  */
 
-export function Section({ title, children, aside }: { title: string; children: ReactNode; aside?: ReactNode }) {
+/**
+ * One part of a drawer. `folded` keeps it to its title until tapped — the
+ * drawer opens on why and what it costs, and the rest is one tap away.
+ */
+export function Section({ title, children, aside, folded = false }: { title: string; children: ReactNode; aside?: ReactNode; folded?: boolean }) {
+    if (folded) {
+        return (
+            <details className="group border-t border-finn-cotton px-5 py-3.5">
+                <summary className="flex cursor-pointer list-none items-center justify-between gap-3 rounded-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-finn-accent-blue [&::-webkit-details-marker]:hidden">
+                    <h2 className="text-[11px] font-black uppercase tracking-wide text-finn-iron group-hover:text-finn-black">{title}</h2>
+                    <ChevronDown aria-hidden="true" className="h-4 w-4 shrink-0 text-finn-iron transition-transform group-open:rotate-180" />
+                </summary>
+                <div className="mt-2.5">{children}</div>
+            </details>
+        );
+    }
+
     return (
         <section className="border-t border-finn-cotton px-5 py-4">
             <div className="mb-2.5 flex items-baseline justify-between gap-3">
@@ -118,11 +134,11 @@ export function StoryList({ story, value }: { story: FitStory; value?: JudgedCar
  * month either way, as the playground had it. A reader who did ask has it in
  * their own need's row already.
  */
-export function UsageSection({ value }: { value: JudgedCar }) {
+export function UsageSection({ value, folded = false, title = "How much it uses" }: { value: JudgedCar; folded?: boolean; title?: string }) {
     if (value.story?.sections.some((section) => section.figure?.kind === "efficiency")) return null;
 
     return (
-        <Section title="How much it uses">
+        <Section title={title} folded={folded}>
             <UsageResult car={value.car} />
         </Section>
     );

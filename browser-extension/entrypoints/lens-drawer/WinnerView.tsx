@@ -9,6 +9,7 @@ import { requestOpenDrawer } from "@/lib/chats/bridge";
 import { sameJudgement } from "./useJudgedCar";
 import { alternativesWithinLimits } from "@/lib/lens-chat/run";
 import { whyNot } from "@/lib/lens-chat/why-not";
+import { FEATURE_IMPORTANCE, SIGNALS } from "@/lib/reasoning-engine/constants";
 import type { PriorityStanding } from "@/lib/reasoning-engine/narrative/types";
 
 import { Catch, CostTable, Section, StoryList, UsageSection } from "./parts";
@@ -17,11 +18,11 @@ import type { JudgedCar } from "./useJudgedCar";
 /**
  * The case for the car with the trophy.
  *
- * Where a car's drawer says how that car fits, this one argues: why it won,
- * how it answers each thing the reader said, priority by priority, what they
- * give up by choosing it, why each of the next cars lost, what it costs, and
- * what it was all judged against. Every sentence is the engine's — read off
- * the same run that put the trophy on the card.
+ * Where a car's drawer says how that car fits, this one argues: why it won
+ * and what it costs, open; then, a tap each, how it answers each thing the
+ * reader said, what they give up by choosing it, why each of the next cars
+ * lost, how it was weighed, and what it costs to run. Every sentence is the
+ * engine's — read off the same run that put the trophy on the card.
  *
  * `print` lays the same argument out for the PDF: wider, with a masthead, and
  * without the buttons that only mean something on screen.
@@ -109,8 +110,15 @@ export function WinnerView({ value, print = false }: { value: JudgedCar; print?:
                 ))}
             </Section>
 
+            {cost ? (
+                <Section title="What it costs">
+                    <CostTable cost={cost} />
+                </Section>
+            ) : null}
+
+            {/* -- The rest, a tap away: the PDF has all of it open ---------------- */}
             {story?.sections.length ? (
-                <Section title="How it fits what you told me">
+                <Section title="How it fits what you told me" folded={!print}>
                     <StoryList story={story} value={value} />
                     {story.catch ? (
                         <div className="mt-2">
@@ -120,33 +128,8 @@ export function WinnerView({ value, print = false }: { value: JudgedCar; print?:
                 </Section>
             ) : null}
 
-            {/* -- Priority by priority ----------------------------------------- */}
-            {narrative.priorities.length ? (
-                <Section title="Priority by priority">
-                    <ul className="space-y-2.5">
-                        {narrative.priorities.map((priority) => (
-                            <li key={priority.priority} className="rounded-xl p-3 ring-1 ring-finn-cotton">
-                                <div className="flex items-center gap-2">
-                                    <span className="text-[13px] font-black text-finn-black">{priority.label}</span>
-                                    <span className="text-[11px] font-bold tabular-nums text-finn-iron">counts {priority.weightPercent}%</span>
-                                    <span className={`ml-auto rounded-full px-2 py-0.5 text-[10.5px] font-black ${STANDING[priority.standing].tone}`}>
-                                        {STANDING[priority.standing].label}
-                                    </span>
-                                </div>
-                                <div className="mt-1.5 space-y-1 text-[12.5px] leading-snug text-finn-black">
-                                    {priority.sentences.map((sentence) => (
-                                        <p key={sentence}>{sentence}</p>
-                                    ))}
-                                </div>
-                            </li>
-                        ))}
-                    </ul>
-                </Section>
-            ) : null}
-
-            {/* -- What it costs you -------------------------------------------- */}
             {narrative.tradeoffs.length ? (
-                <Section title="What you'd be giving up">
+                <Section title="What you'd give up" folded={!print}>
                     <ul className="space-y-2">
                         {narrative.tradeoffs.map((tradeoff) => (
                             <li key={tradeoff.headline} className="flex gap-2.5 rounded-xl bg-finn-snow p-3">
@@ -163,7 +146,7 @@ export function WinnerView({ value, print = false }: { value: JudgedCar; print?:
             ) : null}
 
             {runnersUp.length ? (
-                <Section title="Why not the others">
+                <Section title="Why not the others" folded={!print}>
                     <ul className="space-y-2">
                         {runnersUp.map(({ line, versus }) => (
                             <li key={line.id} className="rounded-xl p-3 ring-1 ring-finn-cotton">
@@ -195,27 +178,61 @@ export function WinnerView({ value, print = false }: { value: JudgedCar; print?:
                 </Section>
             ) : null}
 
-            {cost ? (
-                <Section title="What it costs">
-                    <CostTable cost={cost} />
-                </Section>
-            ) : null}
-
-            <UsageSection value={value} />
-
-            <Section title="What you told me">
-                {told.needs?.length ? (
-                    <ul className="mb-3 space-y-1.5">
-                        {told.needs.map((need) => (
-                            <li key={need.id} className="text-[12.5px]">
-                                <span className="font-black text-finn-black">{need.label}</span>
-                                <span className="text-finn-iron"> — {IMPORTANCE_LABEL[need.importance].toLowerCase()}</span>
-                                {need.looksFor.length ? <span className="block text-[11.5px] text-finn-iron">Looked for: {need.looksFor.join(" · ")}</span> : null}
+            {/* -- How I weighed it: what was said, each priority's share, and what counted more in it -- */}
+            <Section title="How I weighed it" folded={!print}>
+                {told.bubbles?.length ? (
+                    <ul className="mb-3 space-y-1">
+                        {told.bubbles.map((bubble) => (
+                            <li key={bubble.id} className="text-[12.5px]">
+                                <span className="font-black text-finn-black">{bubble.heading}</span>
+                                <span className="text-finn-iron"> — {IMPORTANCE_LABEL[bubble.importance].toLowerCase()}</span>
                             </li>
                         ))}
                     </ul>
                 ) : null}
-                <dl className="space-y-1.5">
+                {told.needs?.length ? (
+                    <ul className="mb-3 space-y-1">
+                        {told.needs.map((need) => (
+                            <li key={need.id} className="text-[12.5px]">
+                                <span className="font-black text-finn-black">{need.label}</span>
+                                <span className="text-finn-iron"> — {IMPORTANCE_LABEL[need.importance].toLowerCase()}</span>
+                            </li>
+                        ))}
+                    </ul>
+                ) : null}
+                {narrative.priorities.length ? (
+                    <ul className="space-y-2.5">
+                        {narrative.priorities.map((priority) => {
+                            const raised = judged.translation.answers.features[priority.priority] ?? [];
+
+                            return (
+                                <li key={priority.priority} className="rounded-xl p-3 ring-1 ring-finn-cotton">
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-[13px] font-black text-finn-black">{priority.label}</span>
+                                        <span className="text-[11px] font-bold tabular-nums text-finn-iron">counts {priority.weightPercent}%</span>
+                                        <span className={`ml-auto rounded-full px-2 py-0.5 text-[10.5px] font-black ${STANDING[priority.standing].tone}`}>{STANDING[priority.standing].label}</span>
+                                    </div>
+                                    {raised.length ? (
+                                        <p className="mt-1 text-[11.5px] leading-snug text-finn-iron">
+                                            {raised.map((item, index) => (
+                                                <span key={item.key}>
+                                                    {index ? " · " : ""}
+                                                    {SIGNALS[item.key].label} <span className={`font-black ${FEATURE_IMPORTANCE[item.importance].accentTextClass}`}>{FEATURE_IMPORTANCE[item.importance].label}</span>
+                                                </span>
+                                            ))}
+                                        </p>
+                                    ) : null}
+                                    <div className="mt-1.5 space-y-1 text-[12.5px] leading-snug text-finn-black">
+                                        {priority.sentences.map((sentence) => (
+                                            <p key={sentence}>{sentence}</p>
+                                        ))}
+                                    </div>
+                                </li>
+                            );
+                        })}
+                    </ul>
+                ) : null}
+                <dl className="mt-3 space-y-1.5">
                     {told.lines.map((line) => (
                         <div key={line.label} className="grid grid-cols-[112px_1fr] gap-3 text-[12.5px]">
                             <dt className="font-bold text-finn-iron">{line.label}</dt>
@@ -223,12 +240,9 @@ export function WinnerView({ value, print = false }: { value: JudgedCar; print?:
                         </div>
                     ))}
                 </dl>
-                {told.priorities?.length ? (
-                    <p className="mt-2.5 text-[12px] leading-snug text-finn-iron">
-                        Weighed as {told.priorities.map((item) => `${item.label.toLowerCase()} ${item.share}%`).join(", ")}.
-                    </p>
-                ) : null}
             </Section>
+
+            <UsageSection value={value} folded={!print} title="Costs of use" />
 
             {print ? (
                 <p className="border-t border-finn-cotton px-5 py-3 text-[10.5px] leading-snug text-finn-iron">
