@@ -123,3 +123,28 @@ describe("the result", () => {
         expect(words).toContain("Keep it short");
     });
 });
+
+describe("deal-breakers and deal-sealers", () => {
+    it("draws a row each, with only what that row can be, and an “i” for each", () => {
+        const step = stepFor("deals", cars())!;
+        const html = render([{ id: "d1", at: "", from: "lens", kind: "ask", answered: false, step }]);
+        const words = text(html);
+
+        expect(words).toContain("Any deal-breakers or deal-sealers?");
+        expect(words).toContain("Electric Doesn't matter Must be Mustn't be");
+        expect(words).toContain("Towbar Doesn't matter Must have Seals it");
+        expect(html).toContain("aria-label=\"What “Towbar” means\"");
+        expect(words).toContain("Nothing's off the table");
+    });
+});
+
+describe("the “i”", () => {
+    it("is a tooltip, closed until it's wanted, not a card under the chips", () => {
+        const step = stepFor("bubbles-people", cars())!;
+        const html = render([{ id: "p1", at: "", from: "lens", kind: "ask", answered: false, step }]);
+
+        expect(html).toContain("aria-label=\"What “Kids” means\"");
+        expect(html).not.toContain("role=\"tooltip\"");
+        expect(html).not.toContain("role=\"note\"");
+    });
+});

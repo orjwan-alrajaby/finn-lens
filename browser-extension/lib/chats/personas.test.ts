@@ -72,27 +72,28 @@ async function converse(cars: PinnedFinnCar[], picks: Picks): Promise<Chat> {
 }
 
 const EVERY_BUBBLE = [
-    "kids", "kids:baby", "six-seats", "dog", "city", "city:street", "city:garage", "help", "help:parking", "help:traffic", "help:reversing",
+    "kids", "kids:baby", "adults", "adults:back", "dog", "city", "city:street", "city:garage", "help", "help:parking", "help:traffic", "help:reversing",
     "long", "traffic", "weather", "weather:snow", "weather:wet", "weather:hot", "night", "carry", "carry:bulky", "carry:bikes", "carry:trailer",
     "comfort", "comfort:warm", "comfort:keyless", "comfort:phone", "comfort:climate", "comfort:seats", "comfort:sound", "comfort:sunroof",
     "environment", "environment:matters", "budget",
 ];
 
 const PERSONAS: { name: string; picks: Picks }[] = [
-    { name: "a young family parking on the street", picks: { bubbles: ["kids", "kids:baby", "city", "city:street"], rules: [], budget: { amount: 600 }, period: ["period-12"] } },
-    { name: "a sales rep on the motorway every week, automatic only", picks: { bubbles: ["long", "traffic"], "often-long": ["weekly"], "often-traffic": ["long"], rules: ["automatic"], budget: { amount: 800 }, period: ["period-24"], distance: { amount: 3000 } } },
-    { name: "an electric-only city dweller for six months", picks: { bubbles: ["environment", "environment:decides", "comfort", "comfort:phone", "city", "city:garage"], rules: ["electric-only"], budget: { amount: 450 }, period: ["period-6"] } },
-    { name: "a nervous new driver who wants help parking and in traffic", picks: { bubbles: ["help", "help:parking", "help:traffic"], rules: [], budget: ["budget-400"], period: ["period-12"] } },
-    { name: "a dog owner in snow who needs all-wheel drive", picks: { bubbles: ["dog", "weather", "weather:snow", "carry", "carry:bulky"], rules: ["awd"], budget: ["budget-700"], period: ["period-18"] } },
-    { name: "a road-trip couple who won't go electric", picks: { bubbles: ["long", "comfort", "comfort:climate", "comfort:seats"], "often-long": ["monthly"], rules: ["not-electric"], budget: { amount: 900 }, period: ["period-24"], distance: ["km-1500"] } },
-    { name: "a caravan owner who must tow", picks: { bubbles: ["carry", "carry:trailer", "long"], "often-long": ["monthly"], rules: ["must-tow"], budget: ["budget-1000"], period: ["period-12"], distance: { amount: 2000 } } },
-    { name: "a student on €300 in the city", picks: { bubbles: ["city", "city:street", "budget"], rules: [], budget: ["budget-300"], period: ["period-6"], distance: ["km-500"] } },
-    { name: "a night-shift nurse who types", picks: { bubbles: { text: "I drive home after night shifts on unlit country roads, and I can't spend more than 550 a month" }, rules: [], period: ["period-12"] } },
-    { name: "a big family who need six seats", picks: { bubbles: ["kids", "kids:booster", "six-seats", "carry", "carry:bulky"], rules: ["six-seats"], budget: ["budget-1000"], period: ["period-24"] } },
-    { name: "someone who cares only about emissions, with no budget or dates", picks: { bubbles: ["environment", "environment:matters"], rules: [], budget: [], period: [] } },
-    { name: "a family who type everything at once", picks: { bubbles: { text: "We're a family of four with a dog. I commute 40 minutes each way on the Autobahn, our winters are snowy, and we can spend around 700 a month." }, rules: [], period: ["period-12"], distance: ["km-2500"] } },
-    { name: "someone who taps every bubble", picks: { bubbles: EVERY_BUBBLE, "often-long": ["weekly"], "often-traffic": ["medium"], rules: [], budget: { amount: 800 }, period: ["period-12"], distance: ["km-1500"] } },
-    { name: "a nervous electric-only city driver on €350", picks: { bubbles: ["help", "help:parking", "help:reversing", "city", "city:street"], rules: ["electric-only"], budget: { amount: 350 }, period: ["period-12"] } },
+    { name: "a young family parking on the street", picks: { bubbles: ["kids", "kids:baby", "city", "city:street"], deals: [], budget: { amount: 600 }, period: ["period-12"] } },
+    { name: "a sales rep on the motorway every week, automatic only", picks: { bubbles: ["long", "traffic"], "often-long": ["weekly"], "often-traffic": ["long"], deals: ["automatic=must"], budget: { amount: 800 }, period: ["period-24"], distance: { amount: 3000 } } },
+    { name: "an electric-only city dweller for six months", picks: { bubbles: ["environment", "environment:decides", "comfort", "comfort:phone", "city", "city:garage"], deals: ["electric=must"], budget: { amount: 450 }, period: ["period-6"] } },
+    { name: "a nervous new driver who wants help parking and in traffic", picks: { bubbles: ["help", "help:parking", "help:traffic"], deals: [], budget: ["budget-400"], period: ["period-12"] } },
+    { name: "a dog owner in snow who needs all-wheel drive", picks: { bubbles: ["dog", "weather", "weather:snow", "carry", "carry:bulky"], deals: ["awd=must"], budget: ["budget-700"], period: ["period-18"] } },
+    { name: "a road-trip couple who won't go electric", picks: { bubbles: ["long", "comfort", "comfort:climate", "comfort:seats"], "often-long": ["monthly"], deals: ["electric=mustNot"], budget: { amount: 900 }, period: ["period-24"], distance: ["km-1500"] } },
+    { name: "a caravan owner who must tow", picks: { bubbles: ["carry", "carry:trailer", "long"], "often-long": ["monthly"], deals: ["towbar=must"], budget: ["budget-1000"], period: ["period-12"], distance: { amount: 2000 } } },
+    { name: "a student on €300 in the city", picks: { bubbles: ["city", "city:street", "budget"], deals: [], budget: ["budget-300"], period: ["period-6"], distance: ["km-500"] } },
+    { name: "a night-shift nurse who types", picks: { bubbles: { text: "I drive home after night shifts on unlit country roads, and I can't spend more than 550 a month" }, deals: [], period: ["period-12"] } },
+    { name: "a big family who need six seats", picks: { bubbles: ["kids", "kids:booster", "carry", "carry:bulky"], deals: ["seats=must"], budget: ["budget-1000"], period: ["period-24"] } },
+    { name: "someone who cares only about emissions, with no budget or dates", picks: { bubbles: ["environment", "environment:matters"], deals: [], budget: [], period: [] } },
+    { name: "a family who type everything at once", picks: { bubbles: { text: "We're a family of four with a dog. I commute 40 minutes each way on the Autobahn, our winters are snowy, and we can spend around 700 a month." }, deals: [], period: ["period-12"], distance: ["km-2500"] } },
+    { name: "someone who taps every bubble", picks: { bubbles: EVERY_BUBBLE, "often-long": ["weekly"], "often-traffic": ["medium"], deals: [], budget: { amount: 800 }, period: ["period-12"], distance: ["km-1500"] } },
+    { name: "a couple who'd be sealed by an automatic and a towbar", picks: { bubbles: ["adults", "adults:front", "long", "carry", "carry:bikes"], "often-long": ["monthly"], deals: ["automatic=seal", "towbar=seal"], budget: { amount: 700 }, period: ["period-12"] } },
+    { name: "a nervous electric-only city driver on €350", picks: { bubbles: ["help", "help:parking", "help:reversing", "city", "city:street"], deals: ["electric=must"], budget: { amount: 350 }, period: ["period-12"] } },
 ];
 
 /** Everything wrong with how a chat judged these cars, as sentences; empty when nothing is. */
@@ -195,12 +196,15 @@ const page = everything.slice(0, 24);
 describe.each([
     ["FINN's whole inventory", everything],
     ["one page of it", page],
-] as const)("judging %s", (_scope, cars) => {
+] as const)("judging %s", (scope, cars) => {
     it.each(PERSONAS)("holds up for $name", async ({ picks }) => {
         const chat = await converse([...cars], picks);
 
         /* Walked with nothing said, every check would hold for nothing. */
         expect(Object.keys(chat.understanding.bubbles ?? {}).length).toBeGreaterThan(0);
+        /* Over the whole inventory every deal-breaker splits the cars, so each one asked for is set. */
+        const breakers = Array.isArray(picks.deals) ? picks.deals.filter((pick) => /=must(Not)?$/.test(pick) && !pick.startsWith("limit=")) : [];
+        if (scope === "FINN's whole inventory") expect(ruledOut(chat.understanding)).toHaveLength(breakers.length);
         expect(problemsWith(chat, [...cars])).toEqual([]);
     });
 });

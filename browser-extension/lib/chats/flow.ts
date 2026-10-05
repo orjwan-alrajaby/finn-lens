@@ -25,6 +25,7 @@ import {
     type OftenId,
 } from "@/lib/lens-chat/bubbles";
 import { asPhrase, barePhrase, EVIDENCE, isKind, type EvidenceId } from "@/lib/lens-chat/evidence";
+import { DEALS, dealForRule, dealsHere, dealStates, stateLabel, withDeals, type DealState } from "@/lib/lens-chat/deals";
 import { applyChoices, explain, guideSteps, saidFor, type GuideChoice, type GuideStep } from "@/lib/lens-chat/guide";
 import {
     budgetCeiling,
@@ -42,7 +43,7 @@ import type { FinnCar } from "@/lib/types";
 import { applyFollowUp, offerReason } from "./follow-ups";
 import { BASE_ANSWERS } from "./judge";
 import { messageId, newChatId } from "./store";
-import type { BubbleChips, Chat, ChatMessage, ChatStep, Rewind, SavedSettings, StepId, SummaryBubble } from "./types";
+import type { BubbleChips, Chat, ChatMessage, ChatStep, DealRow, Rewind, SavedSettings, StepId, SummaryBubble } from "./types";
 
 /**
  * How a conversation with Lens goes, as pure functions over a `Chat`.
@@ -74,7 +75,7 @@ import type { BubbleChips, Chat, ChatMessage, ChatStep, Rewind, SavedSettings, S
  * The questions, in the order Lens asks them. How far they drive is asked
  * only after a bubble it matters to; otherwise it's assumed, and said so.
  */
-export const STEP_ORDER: StepId[] = ["bubbles", "budget", "period", "from", "distance", "rules"];
+export const STEP_ORDER: StepId[] = ["bubbles", "budget", "period", "from", "distance", "deals"];
 
 /** The bubbles, a section at a time, with how often straight after the driving it's about. */
 const BUBBLE_STEPS: StepId[] = ["bubbles-people", "bubbles-driving", "often-long", "often-traffic", "bubbles-copes", "bubbles-matters"];
@@ -102,7 +103,7 @@ const saidAnything = (u: Understanding) => bubblesIn(u).length > 0 || lifeNeeds(
 /* -------------------------------------------------------------------------- */
 
 /** The questions a reader can pick to answer again, in the order they're asked. */
-const CHANGEABLE: StepId[] = [...BUBBLE_STEPS, "budget", "period", "from", "distance", "rules"];
+const CHANGEABLE: StepId[] = [...BUBBLE_STEPS, "budget", "period", "from", "distance", "deals"];
 
 const CHANGE_LABEL: Partial<Record<StepId, string>> = {
     "bubbles-people": "Who rides with you",
@@ -110,6 +111,7 @@ const CHANGE_LABEL: Partial<Record<StepId, string>> = {
     "bubbles-copes": "What the car copes with",
     "bubbles-matters": "What else matters",
     from: "When you need it from",
+    deals: "Deal-breakers & sealers",
     "often-long": "How often you drive far",
     "often-traffic": "How long your drive is",
     rules: "Deal-breakers",
@@ -123,6 +125,11 @@ function nowSaid(step: StepId, u: Understanding): string {
     switch (step) {
         case "from":
             return u.rental ? `from ${monthLabel(u.rental.from)}` : "not set";
+        case "deals": {
+            const breakers = rulesText(u);
+            const sealers = sealersText(u);
+            return breakers === "None" && sealers === "None" ? "none" : `${lowerFirst(breakers)}; sealers: ${lowerFirst(sealers)}`;
+        }
         case "rules":
             return rulesText(u).toLowerCase() === "none" ? "none" : lowerFirst(rulesText(u));
         case "budget":
@@ -198,6 +205,7 @@ const checked = (need: Understanding["needs"][number], u: Understanding): Eviden
 
 const WHY: Record<string, string> = {
     rules: "Each one takes cars out before I score anything, so only pick what you'd truly refuse.",
+    deals: "A deal-breaker sets cars aside before I score anything, so only pick what you'd truly refuse. A deal-sealer counts as much as anything can — but a car without it can still win, if it's better at everything else.",
     budget: `All costs together: FINN's monthly price (VAT included), plus what I estimate you'd spend on fuel or charging, plus the mileage package your driving needs — FINN's price includes ${FINN_INCLUDED_MONTHLY_KM.toLocaleString("en-GB")} km a month. Parking and tolls aren't in it.`,
     from: "FINN delivers in weeks, so the soonest is next month. Not every car can be delivered by every date, and each is priced on the term that covers yours.",
     period: "FINN prices each car by how long you subscribe, and not every car is offered for every length — so this changes both the price and which cars fit.",
@@ -326,12 +334,52 @@ function bubblesStep(group?: (typeof BUBBLE_GROUPS)[number]): ChatStep {
                         max: bubble.chips!.max,
                         required: bubble.chips!.mode === "required",
                         exclusive: bubble.chips!.exclusive,
-                        options: bubble.chips!.options.map(({ id, label }) => ({ id, label })),
+                        options: bubble.chips!.options.map(({ id, label, description }) => ({ id, label, description })),
                     },
                 ]),
         ),
         none: group?.none ?? "None of these",
         custom: { kind: "text", label: "Something else…", placeholder: group?.placeholder ?? "e.g. “home late after night shifts”" },
+    };
+}
+
+/**
+ * Deal-breakers and deal-sealers: a row for each thing that can rule a car
+ * out or make it, in sections — what the reader's bubbles point to first,
+ * each saying why behind its "i".
+ */
+function dealsStep(u: Understanding, cars: FinnCar[]): ChatStep | null {
+    const because = new Map<string, string>();
+    for (const { bubble, state } of bubblesIn(u)) {
+        for (const rule of suggestedRules(bubble, state)) {
+            const deal = dealForRule(rule);
+            if (deal && !because.has(deal.id)) because.set(deal.id, lower(bubble.you));
+        }
+    }
+
+    const rows: DealRow[] = dealsHere(u, cars).map(({ deal, options }) => ({
+        id: deal.id,
+        label: deal.label,
+        kind: deal.kind,
+        group: because.has(deal.id) ? "yours" : deal.group,
+        description: deal.description,
+        options,
+        ...(because.has(deal.id) ? { suggested: `Suggested because ${because.get(deal.id)}.` } : {}),
+    }));
+    const groups = RULE_GROUPS.filter((group) => rows.some((row) => row.group === group.id));
+
+    if (!rows.length) return null;
+
+    return {
+        id: "deals",
+        ask: "Any deal-breakers or deal-sealers?",
+        why: WHY.deals,
+        multiple: true,
+        choices: [],
+        deals: groups.flatMap((group) => rows.filter((row) => row.group === group.id)),
+        groups,
+        none: "Nothing's off the table",
+        custom: { kind: "text", label: "Something else…", placeholder: "e.g. “no seven-seaters”" },
     };
 }
 
@@ -393,6 +441,9 @@ export function stepFor(id: StepId, cars: FinnCar[], u: Understanding = EMPTY_UN
 
         case "from":
             return fromStep(u);
+
+        case "deals":
+            return dealsStep(u, cars);
 
         case "budget":
             return {
@@ -566,6 +617,11 @@ export function selectedFor(step: ChatStep, u: Understanding, picks: Record<stri
 
     if (step.id === "from") return u.rental ? valid([`from-${u.rental.from}`]) : [];
 
+    if (step.id === "deals") {
+        const states = dealStates(u);
+        return (step.deals ?? []).filter((row) => states[row.id] && row.options.includes(states[row.id]!)).map((row) => `${row.id}=${states[row.id]}`);
+    }
+
     if (step.id.startsWith("often-")) {
         const often = u.bubbles?.[step.id.slice("often-".length)]?.often;
         return often ? valid([often]) : [];
@@ -666,26 +722,18 @@ export function acknowledge(step: ChatStep, u: Understanding, chosen: string[] =
         return `${lower(bubble.need).replace(/^./, (c) => c.toUpperCase())} will count as ${lower(IMPORTANCE_LABEL[importanceOf(bubble, state)])}${importanceOf(bubble, state) === "important" ? " to you" : ""}.`;
     }
 
+    if (step.id === "deals") {
+        const breakers = breakersSaid(u);
+        const sealers = u.needs.filter((need) => need.status === "active" && need.id.startsWith("sealer-")).map((need) => lower(need.label));
+
+        if (!breakers && !sealers.length) return "Good — nothing's off the table, and nothing seals it.";
+
+        return [breakers, sealers.length ? `${joined(sealers).replace(/^./, (c) => c.toUpperCase())} will count as much as anything can.` : ""].filter(Boolean).join(" ");
+    }
+
     switch (step.id) {
-        case "rules": {
-            const rules = ruledOut(u);
-
-            /* "Any SUV, and any car that isn't an automatic" — not "anything that isn't an automatic and an SUV". */
-            const parts = [
-                ...rules.map((rule) =>
-                    rule.mode === "without"
-                        ? asPhrase(rule.id).replace(/^an? /, "any ")
-                        : isKind(rule.id)
-                          ? `any car that isn't ${asPhrase(rule.id)}`
-                          : `any car without ${asPhrase(rule.id)}`,
-                ),
-                ...(u.budget?.firm ? [`any car over ${formatEUR(u.budget.monthly)} a month`] : []),
-            ];
-
-            if (!parts.length) return "Good — nothing's off the table.";
-
-            return `Noted. Before judging, I'll set aside ${parts.length > 1 ? `${parts.slice(0, -1).join(", ")}, and ${parts.at(-1)}` : parts[0]}.`;
-        }
+        case "rules":
+            return breakersSaid(u) || "Good — nothing's off the table.";
         case "budget":
             return !u.budget
                 ? "No limit, then. I'll still tell you what each car costs."
@@ -705,6 +753,43 @@ export function acknowledge(step: ChatStep, u: Understanding, chosen: string[] =
         default:
             return "";
     }
+}
+
+/** The reader's deal-sealers in a line: "An automatic gearbox and a towbar". */
+function sealersText(u: Understanding): string {
+    const sealers = u.needs.filter((need) => need.status === "active" && need.id.startsWith("sealer-")).map((need, index) => (index ? lower(need.label) : need.label));
+    return sealers.length ? joined(sealers) : "None";
+}
+
+/** A row as the reader said it: "It must be electric.", "It mustn't be an SUV.", "A towbar would seal it." */
+function dealSaid(row: DealRow, state: DealState): string {
+    const deal = DEALS.find((item) => item.id === row.id)!;
+
+    if (deal.id === "limit") return "Nothing over my limit.";
+    if (state === "seal") return `${row.label} would seal it.`;
+
+    return `It ${stateLabel(deal, state).toLowerCase()} ${deal.phrase}.`;
+}
+
+/** What Lens sets aside, in a sentence: "Before judging, I'll set aside any SUV, and any car over €700 a month." Empty when nothing. */
+function breakersSaid(u: Understanding): string {
+    const rules = ruledOut(u);
+
+    /* "Any SUV, and any car that isn't an automatic" — not "anything that isn't an automatic and an SUV". */
+    const parts = [
+        ...rules.map((rule) =>
+            rule.mode === "without"
+                ? asPhrase(rule.id).replace(/^an? /, "any ")
+                : isKind(rule.id)
+                  ? `any car that isn't ${asPhrase(rule.id)}`
+                  : `any car without ${asPhrase(rule.id)}`,
+        ),
+        ...(u.budget?.firm ? [`any car over ${formatEUR(u.budget.monthly)} a month`] : []),
+    ];
+
+    if (!parts.length) return "";
+
+    return `Noted. Before judging, I'll set aside ${parts.length > 1 ? `${parts.slice(0, -1).join(", ")}, and ${parts.at(-1)}` : parts[0]}.`;
 }
 
 /** The reader's rules in a line: "Automatic only and no SUV". */
@@ -780,7 +865,7 @@ function summaryBubbles(u: Understanding, cars: FinnCar[]): SummaryBubble[] {
                 ? { empty: !items.counts.length && bubble.empty ? bubble.empty : "I'm not checking anything for this now. Add something below, or take it off with “Change”." }
                 : {}),
             ...(settledHere.length
-                ? { settled: `${joined(settledHere.map((id, index) => (index ? lower(EVIDENCE[id].label) : EVIDENCE[id].label)))} ${settledHere.length > 1 ? "are deal-breakers" : "is a deal-breaker"}, so every car left has ${settledHere.length > 1 ? "them" : "it"}.` }
+                ? { settled: `A deal-breaker already sets aside ${joined(settledHere.map((id) => (isKind(id) ? `every car that isn't ${asPhrase(id)}` : `every car without ${asPhrase(id)}`)))}.` }
                 : {}),
         };
     });
@@ -789,7 +874,7 @@ function summaryBubbles(u: Understanding, cars: FinnCar[]): SummaryBubble[] {
 /** What Lens will judge by, as the summary shows it: "Here's what I understood". */
 export function summaryOf(u: Understanding, id: string = messageId(), cars: FinnCar[] = []): Extract<ChatMessage, { kind: "summary" }> {
     /* Needs from the reader's own words, beside the bubbles. */
-    const needs = lifeNeeds(u).filter((need) => !need.id.startsWith("bubble-"));
+    const needs = lifeNeeds(u).filter((need) => !need.id.startsWith("bubble-") && !need.id.startsWith("sealer-"));
     const lines: { label: string; value: string; step?: StepId }[] = [];
     const rank: Record<NeedImportance, number> = { essential: 0, important: 1, niceToHave: 2 };
 
@@ -810,7 +895,8 @@ export function summaryOf(u: Understanding, id: string = messageId(), cars: Finn
             : `About ${BASE_ANSWERS.preferences.monthlyKm.toLocaleString("en-GB")} km a month (assumed — you didn't say)`,
         step: "distance",
     });
-    lines.push({ label: "Deal-breakers", value: rulesText(u), step: "rules" });
+    lines.push({ label: "Deal-breakers", value: rulesText(u), step: "deals" });
+    lines.push({ label: "Deal-sealers", value: sealersText(u), step: "deals" });
 
     /* Each item once, under the first need to name it. */
     const seen = new Set<string>();
@@ -928,7 +1014,7 @@ export function askNext(chat: Chat, cars: FinnCar[]): Chat {
             from: "lens",
             kind: "ask",
             /* What's already been said — typed earlier, or kept from last time — shows as picked, so answering doesn't undo it. */
-            step: preselect || isBubbleStep(id) || id === "from" ? { ...step, selected: selectedFor(step, u, chat.picks) } : step,
+            step: preselect || isBubbleStep(id) || id === "from" || id === "deals" ? { ...step, selected: selectedFor(step, u, chat.picks) } : step,
             answered: false,
         };
 
@@ -1100,14 +1186,14 @@ export function rewindable(chat: Chat): string | null {
     return last.readerId;
 }
 
-/** The bubbles answer in the reader's words: "I have kids — a baby or toddler seat. I live in the city — on the street." */
+/** A bubbles answer in the reader's words: "I have kids — a baby or toddler seat. Other adults ride with me — in the back." */
 function bubblesSaid(chosen: string[]): string {
     const picks = bubblePicks(chosen);
 
     return BUBBLES.filter((bubble) => picks[bubble.id])
         .map((bubble) => {
-            const chips = (bubble.chips?.options ?? []).filter((option) => picks[bubble.id]!.includes(option.id)).map((option) => lower(option.label));
-            return chips.length ? `${bubble.label} — ${joined(chips)}.` : bubble.said;
+            const details = (bubble.chips?.options ?? []).filter((option) => picks[bubble.id]!.includes(option.id)).map((option) => option.detail);
+            return details.length ? `${bubble.said.replace(/\.$/, "")} — ${joined(details)}.` : bubble.said;
         })
         .join(" ");
 }
@@ -1251,6 +1337,21 @@ function answerStep(
 
         understanding = withBubbles(understanding, picks);
         said = [bubblesSaid(chosen), typed].filter(Boolean).join(" ");
+    } else if (step.deals) {
+        const states = Object.fromEntries(
+            chosen
+                .map((item) => item.split("=") as [string, DealState])
+                .filter(([id, state]) => step.deals!.some((row) => row.id === id && row.options.includes(state))),
+        );
+
+        understanding = syncBubbles(withDeals(understanding, step.deals.map((row) => row.id), states));
+        said = [
+            ...step.deals.filter((row) => states[row.id] === "must" || states[row.id] === "mustNot").map((row) => dealSaid(row, states[row.id]!)),
+            ...step.deals.filter((row) => states[row.id] === "seal").map((row) => dealSaid(row, "seal")),
+            typed,
+        ]
+            .filter(Boolean)
+            .join(" ");
     } else if (step.id === "from" && understanding.rental) {
         /* The same length, from the month picked — or this many months from now. */
         const length = rentalMonths(understanding) ?? 1;

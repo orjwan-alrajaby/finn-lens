@@ -152,3 +152,31 @@ describe("into the engine's answers", () => {
         expect(CATEGORIES.environmental.numericOnly).toBe(true);
     });
 });
+
+describe("short labels, explained behind the “i”", () => {
+    it("keeps every bubble and chip label short, and gives each a brief explanation", () => {
+        for (const item of BUBBLES) {
+            expect(item.label.length, item.id).toBeLessThanOrEqual(24);
+            expect(item.means.length, item.id).toBeGreaterThan(15);
+            for (const chip of item.chips?.options ?? []) {
+                expect(chip.label.length, `${item.id}/${chip.id}`).toBeLessThanOrEqual(32);
+                expect(chip.description.length, `${item.id}/${chip.id}`).toBeGreaterThan(12);
+            }
+        }
+    });
+});
+
+describe("adults", () => {
+    it("counts rear doors for adults in the back, and nothing for one beside you — saying so", () => {
+        const back = itemsOf(bubble("adults"), state({ chips: ["back"] }));
+
+        expect(back.counts).toEqual(["rearDoors"]);
+        expect(back.worth).toEqual(expect.arrayContaining(["hasThreeZoneAutomaticClimateControls", "hasBackUSBPorts"]));
+        expect(needOf(bubble("adults"), state({ chips: ["front"] }))).toBeNull();
+        expect(bubble("adults").empty).toBe("One adult beside you asks nothing extra of the car.");
+    });
+
+    it("has no seat count among who rides with you: that's a deal-breaker or sealer now", () => {
+        expect(bubbleById("six-seats")).toBeUndefined();
+    });
+});

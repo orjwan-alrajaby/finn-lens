@@ -37,6 +37,8 @@ export type StepId =
     | `bubbles-${string}`
     /** When the reader needs the car from: asked after how long. */
     | "from"
+    /** Deal-breakers and deal-sealers: what rules a car out, and what makes it. */
+    | "deals"
     | `often-${string}`
     | "budget"
     | "period"
@@ -74,6 +76,19 @@ export interface Choice {
     features?: { label: string; does: string }[];
 }
 
+/** One row of deal-breakers and deal-sealers: "Automatic gearbox — Must have · Seals it". */
+export interface DealRow {
+    id: string;
+    label: string;
+    /** "Must be" rather than "Must have". */
+    kind: boolean;
+    group: string;
+    description: string;
+    options: ("must" | "mustNot" | "seal")[];
+    /** Why it's first: "Suggested because you carry a lot." */
+    suggested?: string;
+}
+
 /** The chips a bubble opens under itself: "Where do you park most often?". */
 export interface BubbleChips {
     ask: string;
@@ -82,7 +97,8 @@ export interface BubbleChips {
     /** At least one has to be picked: "What's it like?" for the weather. */
     required: boolean;
     exclusive?: string[][];
-    options: { id: string; label: string }[];
+    /** Each with what it means and what Lens checks for it, for its "i". */
+    options: { id: string; label: string; description?: string }[];
 }
 
 /** One bubble on the summary: what Lens understood, for the reader to correct. */
@@ -164,6 +180,11 @@ export interface ChatStep {
      * tapped. Answered as the bubble's id, and `bubble:chip` for each chip.
      */
     bubbleChips?: Record<string, BubbleChips>;
+    /**
+     * The deal-breakers and deal-sealers question: one row each, with what
+     * it can be set to here. Answered as `row=state` for each row set.
+     */
+    deals?: DealRow[];
     /** The guide's step, for `applyChoices`. Absent on Lens's own steps (budget, period, start). */
     guide?: GuideStep;
 }

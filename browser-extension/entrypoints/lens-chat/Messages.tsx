@@ -1,9 +1,9 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Check, ChevronDown, ChevronRight, Info, PencilLine, Plus, X } from "lucide-react";
 
 import { BandChip, BrandMark, CarPhoto, euros, WinnerChip } from "@/components/lens-parts";
 import { allChips, coveredBy, IMPORTANCE_LABEL } from "@/lib/chats/flow";
-import type { BubbleChips, CarSnapshot, ChatMessage, Choice, CustomAnswer, StepId, SummaryBubble } from "@/lib/chats/types";
+import type { BubbleChips, CarSnapshot, ChatMessage, Choice, CustomAnswer, DealRow, StepId, SummaryBubble } from "@/lib/chats/types";
 import type { NeedImportance } from "@/lib/lens-ai/contract";
 import { lowerFirst } from "@/lib/reasoning-engine/format";
 
@@ -128,6 +128,101 @@ export function Typing() {
 /* A question with answers to tap                                             */
 /* -------------------------------------------------------------------------- */
 
+/**
+ * The "i" beside an answer: a brief explanation as a tooltip. It opens on
+ * hover or keyboard focus, and on a tap for touch screens, and closes on
+ * Escape or a tap anywhere else. Fixed to the viewport and held inside it,
+ * so it never runs off the edge of the narrow chat.
+ */
+export function InfoTip({ label, tone = "idle", children }: { label: string; tone?: "idle" | "on"; children: React.ReactNode }) {
+    const [open, setOpen] = useState(false);
+    const [at, setAt] = useState<{ top: number; left: number } | null>(null);
+    const button = useRef<HTMLButtonElement>(null);
+    const tip = useRef<HTMLDivElement>(null);
+    const id = useId();
+
+    useLayoutEffect(() => {
+        if (!open || !button.current || !tip.current) return;
+
+        const anchor = button.current.getBoundingClientRect();
+        const box = tip.current.getBoundingClientRect();
+        const left = Math.min(Math.max(8, anchor.left + anchor.width / 2 - box.width / 2), window.innerWidth - box.width - 8);
+        const above = anchor.top - box.height - 6;
+
+        setAt({ top: above >= 8 ? above : anchor.bottom + 6, left });
+    }, [open]);
+
+    useEffect(() => {
+        if (!open) return;
+
+        const away = (event: PointerEvent) => {
+            if (!button.current?.contains(event.target as Node) && !tip.current?.contains(event.target as Node)) setOpen(false);
+        };
+        const escape = (event: KeyboardEvent) => {
+            if (event.key === "Escape") setOpen(false);
+        };
+
+        document.addEventListener("pointerdown", away);
+        document.addEventListener("keydown", escape);
+        return () => {
+            document.removeEventListener("pointerdown", away);
+            document.removeEventListener("keydown", escape);
+        };
+    }, [open]);
+
+    return (
+        <>
+            <button
+                ref={button}
+                type="button"
+                aria-label={`What “${label}” means`}
+                aria-describedby={open ? id : undefined}
+                onMouseEnter={() => setOpen(true)}
+                onMouseLeave={() => setOpen(false)}
+                onFocus={() => setOpen(true)}
+                onBlur={() => setOpen(false)}
+                onClick={(event) => {
+                    event.stopPropagation();
+                    setOpen(true);
+                }}
+                className={[
+                    "inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full transition-colors",
+                    "focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-finn-accent-blue",
+                    tone === "on" ? "text-white/80 hover:bg-white/20 hover:text-white" : "text-finn-accent-blue/70 hover:bg-finn-pale-blue hover:text-finn-accent-blue",
+                ].join(" ")}
+            >
+                <Info aria-hidden="true" className="h-3.5 w-3.5" strokeWidth={2.4} />
+            </button>
+            {open ? (
+                <div
+                    ref={tip}
+                    id={id}
+                    role="tooltip"
+                    style={{ position: "fixed", top: at?.top ?? -9999, left: at?.left ?? -9999 }}
+                    className="z-50 w-64 max-w-[calc(100vw-16px)] space-y-0.5 rounded-xl bg-finn-highlight-navy px-3 py-2 text-left text-[11.5px] font-normal leading-snug text-white shadow-lg"
+                >
+                    {children}
+                </div>
+            ) : null}
+        </>
+    );
+}
+
+/** What a choice means, for its tooltip: its name, what it is, and what Lens checks for it. */
+function tipFor(choice: Choice): React.ReactNode | null {
+    const body = choice.means ?? choice.description;
+    if (!body && !choice.looksFor?.length) return null;
+
+    return (
+        <>
+            <p className="font-black">{choice.label}</p>
+            {body ? <p>{body}</p> : null}
+            {choice.means && choice.description && choice.description !== choice.means ? <p>{choice.description}</p> : null}
+            {choice.looksFor?.length ? <p className="text-white/75">I'll check: {choice.looksFor.join(" · ")}</p> : null}
+        </>
+    );
+}
+
 function Chip({
     label,
     selected,
@@ -136,8 +231,7 @@ function Chip({
     muted,
     title,
     icon,
-    onInfo,
-    infoOpen,
+    info,
 }: {
     label: string;
     selected?: boolean;
@@ -146,11 +240,10 @@ function Chip({
     muted?: boolean;
     title?: string;
     icon?: React.ReactNode;
-    /** Shows what the choice means, under the chips. Draws an "i" at the chip's right. */
-    onInfo?: () => void;
-    infoOpen?: boolean;
+    /** What the choice means: an "i" at the chip's right, with this as its tooltip. */
+    info?: React.ReactNode | null;
 }) {
-    if (onInfo) {
+    if (info) {
         /*
          * Two buttons that read as one chip: the name picks it, the "i" explains
          * it. Siblings rather than nested, since a button can't hold a button.
@@ -158,9 +251,9 @@ function Chip({
         return (
             <span
                 className={[
-                    "inline-flex items-center rounded-full transition-colors",
+                    "inline-flex items-center rounded-full pr-1.5 transition-colors",
                     selected ? "bg-finn-accent-blue text-white shadow-sm" : "bg-white text-finn-accent-blue ring-1 ring-finn-accent-blue/35",
-                    infoOpen && !selected ? "ring-2 ring-finn-accent-blue/60" : "",
+                    disabled ? "opacity-40" : "",
                 ].join(" ")}
             >
                 <button
@@ -169,7 +262,7 @@ function Chip({
                     disabled={disabled}
                     aria-pressed={selected}
                     className={[
-                        "inline-flex items-center gap-1.5 rounded-l-full py-2 pr-1.5 pl-3.5 text-[12.5px] font-bold disabled:cursor-default disabled:opacity-40",
+                        "inline-flex items-center gap-1.5 rounded-l-full py-2 pr-1 pl-3.5 text-[12.5px] font-bold disabled:cursor-default",
                         "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-finn-accent-blue",
                         selected ? "" : "hover:text-finn-highlight-navy",
                     ].join(" ")}
@@ -177,26 +270,9 @@ function Chip({
                     {selected ? <Check aria-hidden="true" className="h-3.5 w-3.5" strokeWidth={3} /> : null}
                     {label}
                 </button>
-                <button
-                    type="button"
-                    onClick={onInfo}
-                    aria-expanded={infoOpen}
-                    aria-label={`What “${label}” means`}
-                    title={`What “${label}” means`}
-                    className={[
-                        "mr-1.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full transition-colors",
-                        "focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-finn-accent-blue",
-                        infoOpen
-                            ? selected
-                                ? "bg-white text-finn-accent-blue"
-                                : "bg-finn-accent-blue text-white"
-                            : selected
-                              ? "text-white/80 hover:bg-white/20 hover:text-white"
-                              : "text-finn-accent-blue/70 hover:bg-finn-pale-blue hover:text-finn-accent-blue",
-                    ].join(" ")}
-                >
-                    <Info aria-hidden="true" className="h-3.5 w-3.5" strokeWidth={2.4} />
-                </button>
+                <InfoTip label={label} tone={selected ? "on" : "idle"}>
+                    {info}
+                </InfoTip>
             </span>
         );
     }
@@ -221,44 +297,6 @@ function Chip({
             {selected ? <Check aria-hidden="true" className="h-3.5 w-3.5" strokeWidth={3} /> : icon}
             {label}
         </button>
-    );
-}
-
-/** One choice explained, under the chips, when its "i" is pressed. */
-function Explainer({ choice, onClose }: { choice: Choice; onClose: () => void }) {
-    const card = useRef<HTMLDivElement>(null);
-
-    /* Opened below the fold of the chat, it would go unread: bring it into view. */
-    useEffect(() => {
-        card.current?.scrollIntoView({ behavior: reducedMotion() ? "auto" : "smooth", block: "nearest" });
-    }, [choice.id]);
-
-    return (
-        <div ref={card} role="note" className="mt-1.5 flex gap-2 rounded-2xl bg-white p-3 text-[12px] leading-snug shadow-sm ring-1 ring-finn-accent-blue/25">
-            <Info aria-hidden="true" className="mt-0.5 h-4 w-4 shrink-0 text-finn-accent-blue" />
-            <div className="min-w-0 flex-1">
-                <p className="font-black text-finn-black">{choice.label}</p>
-                {choice.means ? <p className="mt-0.5 text-finn-black/85">{choice.means}</p> : null}
-                {choice.features?.length ? (
-                    <>
-                        <p className="mt-0.5 text-finn-iron">I'll check each car for:</p>
-                        <ul className="mt-1 space-y-1">
-                            {choice.features.map((feature) => (
-                                <li key={feature.label} className="text-finn-black/85">
-                                    <span className="font-bold text-finn-black">{feature.label}</span>
-                                    {feature.does ? ` — ${feature.does}` : ""}
-                                </li>
-                            ))}
-                        </ul>
-                    </>
-                ) : choice.description ? (
-                    <p className="text-finn-black/80">{choice.description}</p>
-                ) : null}
-            </div>
-            <button type="button" onClick={onClose} aria-label="Close" className="-mt-0.5 -mr-0.5 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-finn-iron hover:bg-finn-snow hover:text-finn-black">
-                <X aria-hidden="true" className="h-3.5 w-3.5" />
-            </button>
-        </div>
     );
 }
 
@@ -451,27 +489,146 @@ function BubbleChipRow({
                     const on = picked.includes(option.id);
                     const rival = (chips.exclusive ?? []).some((set) => set.includes(option.id) && set.some((id) => id !== option.id && picked.includes(id)));
 
+                    const disabled = !on && full && !rival && chips.multiple;
+
+                    /* The chip and its "i", side by side as one: a button can't hold a button. */
                     return (
-                        <button
+                        <span
                             key={option.id}
-                            type="button"
-                            aria-pressed={on}
-                            disabled={!on && full && !rival && chips.multiple}
-                            onClick={() => onToggle(option.id)}
                             className={[
-                                "inline-flex items-center gap-1 rounded-full px-2.5 py-1.5 text-[11.5px] font-bold transition-colors disabled:cursor-default disabled:opacity-40",
-                                "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-finn-accent-blue",
-                                on ? "bg-finn-accent-blue text-white" : "bg-white text-finn-accent-blue ring-1 ring-finn-accent-blue/30 hover:bg-finn-pale-blue",
+                                "inline-flex items-center rounded-full transition-colors",
+                                option.description ? "pr-1" : "",
+                                on ? "bg-finn-accent-blue text-white" : "bg-white text-finn-accent-blue ring-1 ring-finn-accent-blue/30",
+                                disabled ? "opacity-40" : "",
                             ].join(" ")}
                         >
-                            {on ? <Check aria-hidden="true" className="h-3 w-3" strokeWidth={3} /> : null}
-                            {option.label}
-                        </button>
+                            <button
+                                type="button"
+                                aria-pressed={on}
+                                disabled={disabled}
+                                onClick={() => onToggle(option.id)}
+                                className={[
+                                    "inline-flex items-center gap-1 rounded-full py-1.5 pl-2.5 text-[11.5px] font-bold disabled:cursor-default",
+                                    option.description ? "pr-1" : "pr-2.5",
+                                    "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-finn-accent-blue",
+                                    on ? "" : "hover:text-finn-highlight-navy",
+                                ].join(" ")}
+                            >
+                                {on ? <Check aria-hidden="true" className="h-3 w-3" strokeWidth={3} /> : null}
+                                {option.label}
+                            </button>
+                            {option.description ? (
+                                <InfoTip label={option.label} tone={on ? "on" : "idle"}>
+                                    <p className="font-black">{option.label}</p>
+                                    <p>{option.description}</p>
+                                </InfoTip>
+                            ) : null}
+                        </span>
                     );
                 })}
             </div>
             {missing ? <p className="mt-1 text-[11px] text-finn-iron">Pick at least one, so I know what to check.</p> : null}
         </div>
+    );
+}
+
+const DEAL_LABEL = (row: DealRow, state: DealRow["options"][number]): string =>
+    state === "seal" ? "Seals it" : state === "must" ? (row.kind ? "Must be" : "Must have") : row.kind ? "Mustn't be" : "Mustn't have";
+
+const DEAL_TONE: Record<DealRow["options"][number], string> = {
+    must: "bg-finn-highlight-navy text-white shadow-sm",
+    mustNot: "bg-finn-fit-limited text-white shadow-sm",
+    seal: "bg-finn-fit-good text-white shadow-sm",
+};
+
+/**
+ * Deal-breakers and deal-sealers: a row each, set to Doesn't matter, a rule
+ * (must, mustn't) or a seal — only the ones that row can be here. Sent
+ * together, as `row=state`.
+ */
+function Deals({ message, live, onAnswer }: { message: Extract<ChatMessage, { kind: "ask" }>; live: boolean; onAnswer: (chosen: string[], extra?: AnswerExtra) => void }) {
+    const { step } = message;
+    const rows = step.deals ?? [];
+    const [states, setStates] = useState<Record<string, DealRow["options"][number] | undefined>>(() =>
+        Object.fromEntries((step.selected ?? []).map((item) => item.split("=") as [string, DealRow["options"][number]])),
+    );
+    const [own, setOwn] = useState(false);
+    const set = Object.entries(states).filter((entry): entry is [string, DealRow["options"][number]] => entry[1] != null);
+    const chosen = set.map(([id, state]) => `${id}=${state}`);
+    const groups = (step.groups ?? [{ id: "", title: "" }]).map((group) => ({ ...group, rows: rows.filter((row) => !group.id || row.group === group.id) }));
+
+    return (
+        <>
+            <LensBubble>
+                <p className="font-semibold">{step.ask}</p>
+                {live && step.why ? <Why text={step.why} /> : null}
+            </LensBubble>
+
+            {live ? (
+                <div className="space-y-2.5 pt-0.5">
+                    {groups.map((group) => (
+                        <div key={group.id}>
+                            {group.title ? <p className="mb-1 px-1 text-[10.5px] font-black uppercase tracking-wide text-finn-iron">{group.title}</p> : null}
+                            <ul className="divide-y divide-finn-cotton overflow-hidden rounded-2xl bg-white ring-1 ring-black/5">
+                                {group.rows.map((row) => (
+                                    <li key={row.id} className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1.5 px-3 py-2">
+                                        <span className="inline-flex items-center gap-0.5 text-[12.5px] font-bold text-finn-black">
+                                            {row.label}
+                                            <InfoTip label={row.label}>
+                                                <p className="font-black">{row.label}</p>
+                                                <p>{row.description}</p>
+                                                {row.suggested ? <p className="text-white/75">{row.suggested}</p> : null}
+                                            </InfoTip>
+                                        </span>
+                                        <span role="radiogroup" aria-label={row.label} className="inline-flex rounded-full bg-finn-snow p-0.5 ring-1 ring-finn-cotton">
+                                            {([undefined, ...row.options] as (DealRow["options"][number] | undefined)[]).map((option) => {
+                                                const on = states[row.id] === option;
+
+                                                return (
+                                                    <button
+                                                        key={option ?? "none"}
+                                                        type="button"
+                                                        role="radio"
+                                                        aria-checked={on}
+                                                        onClick={() => setStates((current) => ({ ...current, [row.id]: option }))}
+                                                        className={[
+                                                            "rounded-full px-2.5 py-1 text-[11px] font-black transition-colors",
+                                                            on ? (option ? DEAL_TONE[option] : "bg-white text-finn-black shadow-sm ring-1 ring-black/10") : "text-finn-iron hover:text-finn-black",
+                                                        ].join(" ")}
+                                                    >
+                                                        {option ? DEAL_LABEL(row, option) : "Doesn't matter"}
+                                                    </button>
+                                                );
+                                            })}
+                                        </span>
+                                    </li>
+                                ))}
+                            </ul>
+                        </div>
+                    ))}
+
+                    {own && step.custom ? (
+                        <OwnAnswer custom={step.custom} inline={false} onSubmit={(extra) => onAnswer(chosen, extra)} />
+                    ) : (
+                        <div className="flex flex-wrap gap-1.5">
+                            {step.custom ? <Chip label={step.custom.label} muted icon={<PencilLine aria-hidden="true" className="h-3.5 w-3.5" />} onClick={() => setOwn(true)} /> : null}
+                            {set.length ? (
+                                <button
+                                    type="button"
+                                    onClick={() => onAnswer(chosen)}
+                                    className="inline-flex items-center gap-1 rounded-full bg-finn-highlight-navy px-4 py-2 text-[12.5px] font-black text-white shadow-sm transition-colors hover:bg-finn-accent-blue focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-finn-accent-blue"
+                                >
+                                    Continue
+                                    <ChevronRight aria-hidden="true" className="h-4 w-4" />
+                                </button>
+                            ) : (
+                                <Chip label={step.none ?? "Nothing's off the table"} muted onClick={() => onAnswer([])} />
+                            )}
+                        </div>
+                    )}
+                </div>
+            ) : null}
+        </>
     );
 }
 
@@ -490,7 +647,6 @@ function Ask({
     const [ownText, setOwnText] = useState("");
     /* Words the reader added with the ✓, shown as a chip of their own until "Continue". */
     const [added, setAdded] = useState<string | null>(null);
-    const [explained, setExplained] = useState<string | null>(null);
 
     /*
      * Up to the question's own limit: past it the other chips rest, and
@@ -556,16 +712,9 @@ function Ask({
                     (full && !picked.includes(choice.id) && !(step.exclusive ?? []).some((set) => set.includes(choice.id) && set.some((id) => picked.includes(id)))))
             }
             onClick={() => (step.multiple ? toggle(choice.id) : onAnswer([choice.id]))}
-            onInfo={choice.description || choice.means || choice.features?.length ? () => setExplained((open) => (open === choice.id ? null : choice.id)) : undefined}
-            infoOpen={explained === choice.id}
+            info={tipFor(choice)}
         />
     );
-
-    /* The explanation opens under the row its chip is in, so the eye doesn't travel. */
-    const explanation = (choices: Choice[]) => {
-        const choice = choices.find((item) => item.id === explained);
-        return choice ? <Explainer choice={choice} onClose={() => setExplained(null)} /> : null;
-    };
 
     const groups = step.groups?.length
         ? step.groups.map((group) => ({ ...group, choices: step.choices.filter((choice) => choice.group === group.id) }))
@@ -585,7 +734,6 @@ function Ask({
                             <div key={group.id}>
                                 <p className="mb-1 px-1 text-[10.5px] font-black uppercase tracking-wide text-finn-iron">{group.title}</p>
                                 <div className="flex flex-wrap gap-1.5">{group.choices.map(chip)}</div>
-                                {explanation(group.choices)}
                             </div>
                         ))
                     ) : (
@@ -612,7 +760,6 @@ function Ask({
                                         : chip(choice);
                                 })}
                             </div>
-                            {explanation(step.choices)}
                             {covered.map(({ choice, by, shared }) => (
                                 <p key={choice.id} className="mt-1.5 flex gap-1.5 px-1 text-[11.5px] leading-snug text-finn-iron">
                                     <Info aria-hidden="true" className="mt-px h-3.5 w-3.5 shrink-0 text-finn-accent-blue" />
@@ -1224,7 +1371,9 @@ export function MessageList({
                 body = <LensBubble>{message.text}</LensBubble>;
                 break;
             case "ask":
-                body = (
+                body = message.step.deals ? (
+                    <Deals key={message.id} message={message} live={message.id === liveAsk && settled} onAnswer={(chosen, extra) => onAnswer(message.id, chosen, extra)} />
+                ) : (
                     <Ask
                         key={message.id}
                         message={message}

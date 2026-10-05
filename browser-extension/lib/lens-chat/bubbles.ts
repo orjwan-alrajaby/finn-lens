@@ -23,7 +23,7 @@ import { ruledOut, type BubbleState, type Need, type Understanding } from "./und
 
 export type BubbleId =
     | "kids"
-    | "six-seats"
+    | "adults"
     | "dog"
     | "city"
     | "help"
@@ -38,8 +38,10 @@ export type BubbleId =
 
 export interface BubbleChip {
     id: string;
-    /** On the chip: "Snow & ice". */
+    /** On the chip, short: "Snow & ice". */
     label: string;
+    /** Behind its "i": what it means, and what Lens checks for it. */
+    description: string;
     /** After the bubble, in a sentence: "snow and ice". */
     detail: string;
     counts?: EvidenceId[];
@@ -55,7 +57,7 @@ export interface BubbleChip {
 
 export interface Bubble {
     id: BubbleId;
-    /** On the bubble, in the reader's voice: "I have kids". */
+    /** On the bubble, short, answering its section's question: "Kids". */
     label: string;
     /** Said back: "You have kids". */
     you: string;
@@ -63,7 +65,7 @@ export interface Bubble {
     need: string;
     /** In the reader's words, for the chat: "I have kids." */
     said: string;
-    /** What tapping it means, under the bubble. */
+    /** What tapping it means, behind its "i". */
     means: string;
     counts: EvidenceId[];
     checks: EvidenceId[];
@@ -104,11 +106,11 @@ export interface Bubble {
 export const BUBBLES: Bubble[] = [
     {
         id: "kids",
-        label: "I have kids",
+        label: "Kids",
         you: "You have kids",
         need: "Travelling with children",
         said: "I have kids.",
-        means: "Children in the car. Whether they're in a child seat is asked next to it.",
+        means: "Children in the car, from babies to teenagers.",
         counts: ["rearDoors"],
         checks: ["hasIsofix"],
         worth: ["hasSplitFoldingRearSeats"],
@@ -119,13 +121,14 @@ export const BUBBLES: Bubble[] = [
             options: [
                 {
                     id: "baby",
-                    label: "A baby or toddler seat",
+                    label: "Baby or toddler seat",
+                    description: "A rear-facing or toddler seat. It makes this a must have, and suggests an electric tailgate.",
                     detail: "a baby or toddler seat",
                     importance: "essential",
                     worth: ["hasElectricTailgate"],
                 },
-                { id: "booster", label: "A booster seat", detail: "a booster seat" },
-                { id: "older", label: "They're older", detail: "older kids", worth: ["hasThreeZoneAutomaticClimateControls", "hasBackUSBPorts"] },
+                { id: "booster", label: "Booster seat", detail: "a booster seat", description: "Older children on a booster seat or cushion." },
+                { id: "older", label: "Older kids", detail: "older kids", description: "Children past child seats. I'll suggest 3-zone climate and rear USB ports.", worth: ["hasThreeZoneAutomaticClimateControls", "hasBackUSBPorts"] },
             ],
         },
         cantCheck: "rear legroom, whether a particular child seat fits, or boot space (FINN's figure doesn't say whether the seats are up or folded)",
@@ -138,23 +141,42 @@ export const BUBBLES: Bubble[] = [
         },
     },
     {
-        id: "six-seats",
-        label: "We need six seats or more",
-        you: "You need six seats or more",
-        need: "Six seats or more",
-        said: "We need six seats or more.",
-        means: "More than five people in the car, often enough that it matters.",
-        counts: ["seatsSixPlus"],
+        id: "adults",
+        label: "Adults",
+        you: "Other adults ride with you",
+        need: "Adult passengers",
+        said: "Other adults ride with me.",
+        means: "Other grown-ups riding with you — beside you, or in the back.",
+        counts: [],
         checks: [],
         worth: [],
-        importance: "essential",
-        suggests: "six-seats",
-        cantCheck: "how usable the third row is for adults",
-        why: { seatsSixPlus: "so everyone has a seat" },
+        chips: {
+            ask: "Where do they usually sit?",
+            mode: "required",
+            multiple: true,
+            options: [
+                { id: "front", label: "Beside me", detail: "beside you", description: "One adult in the front asks nothing extra of the car." },
+                {
+                    id: "back",
+                    label: "In the back",
+                    detail: "in the back",
+                    description: "I'll check rear doors, and suggest 3-zone climate and rear USB ports.",
+                    counts: ["rearDoors"],
+                    worth: ["hasThreeZoneAutomaticClimateControls", "hasBackUSBPorts"],
+                },
+            ],
+        },
+        cantCheck: "rear legroom or headroom",
+        empty: "One adult beside you asks nothing extra of the car.",
+        why: {
+            rearDoors: "so adults get into the back without climbing past the front",
+            hasThreeZoneAutomaticClimateControls: "so the back can set its own temperature",
+            hasBackUSBPorts: "so phones in the back stay charged",
+        },
     },
     {
         id: "dog",
-        label: "I travel with a dog",
+        label: "A dog",
         you: "You travel with a dog",
         need: "Travelling with a dog",
         said: "I travel with a dog.",
@@ -171,11 +193,11 @@ export const BUBBLES: Bubble[] = [
     },
     {
         id: "city",
-        label: "I live in the city",
+        label: "In the city",
         you: "You live in the city",
         need: "City driving",
         said: "I live in the city.",
-        means: "Narrow streets, tight spaces and stop-and-go traffic. Where you park can be added next to it.",
+        means: "Narrow streets, tight spaces and stop-and-go traffic.",
         counts: ["compactWidth", "compactLength"],
         checks: ["hasAutomaticTransmission", "hasParkingSensors", "hasEmergencyBrakingAssist"],
         worth: ["hasOneEightyDegreesReversingCamera", "hasThreeSixtyDegreesCamera", "hasBlindSpotAssist"],
@@ -185,11 +207,11 @@ export const BUBBLES: Bubble[] = [
             multiple: true,
             max: 2,
             options: [
-                { id: "street", label: "On the street", detail: "you park on the street", counts: ["hasOneEightyDegreesReversingCamera"] },
-                { id: "garage", label: "A garage at home", detail: "you park in a garage", stronger: ["compactWidth"], checks: ["hasElectricallyFoldingMirrors"] },
-                { id: "multi-storey", label: "Multi-storey or underground", detail: "you park in multi-storeys", counts: ["hasThreeSixtyDegreesCamera"], checks: ["hasElectricallyFoldingMirrors"] },
-                { id: "open", label: "Open car parks", detail: "you park in open car parks", counts: ["hasRearCrosswalkWarning"] },
-                { id: "driveway", label: "A driveway", detail: "you park on a driveway" },
+                { id: "street", label: "On the street", detail: "you park on the street", description: "Kerbside, between other cars. I'll check a reversing camera.", counts: ["hasOneEightyDegreesReversingCamera"] },
+                { id: "garage", label: "Home garage", detail: "you park in a garage", description: "A tight garage: width counts more, and I check folding mirrors.", stronger: ["compactWidth"], checks: ["hasElectricallyFoldingMirrors"] },
+                { id: "multi-storey", label: "Multi-storey", detail: "you park in multi-storeys", description: "Multi-storey or underground car parks. I'll check a 360° camera and folding mirrors.", counts: ["hasThreeSixtyDegreesCamera"], checks: ["hasElectricallyFoldingMirrors"] },
+                { id: "open", label: "Open car park", detail: "you park in open car parks", description: "Supermarket or office car parks, reversing out into traffic. I'll check rear cross-traffic alert.", counts: ["hasRearCrosswalkWarning"] },
+                { id: "driveway", label: "Driveway", detail: "you park on a driveway", description: "Your own driveway. Nothing extra to check." },
             ],
         },
         cantCheck: "the turning circle, or how well you can see out",
@@ -204,11 +226,11 @@ export const BUBBLES: Bubble[] = [
     },
     {
         id: "help",
-        label: "I want help driving & parking",
+        label: "Help driving & parking",
         you: "You want help driving and parking",
         need: "Help driving and parking",
         said: "I'd like help driving and parking.",
-        means: "Systems that warn you, or watch where you can't. Which kind of help is picked next to it.",
+        means: "Systems that warn you, or watch where you can't.",
         counts: [],
         checks: ["hasEmergencyBrakingAssist", "hasTrafficSignRecognition"],
         worth: ["hasMatrixLedHeadlights"],
@@ -218,9 +240,9 @@ export const BUBBLES: Bubble[] = [
             multiple: true,
             suggestOthers: true,
             options: [
-                { id: "parking", label: "Parking", detail: "parking", counts: ["hasThreeSixtyDegreesCamera"], checks: ["hasParkingSensors"] },
-                { id: "traffic", label: "Busy traffic & changing lanes", detail: "busy traffic", counts: ["hasBlindSpotAssist"], checks: ["hasLaneKeepingAssist"] },
-                { id: "reversing", label: "Reversing out", detail: "reversing out", counts: ["hasRearCrosswalkWarning", "hasOneEightyDegreesReversingCamera"] },
+                { id: "parking", label: "Parking", detail: "parking", description: "I'll check a 360° camera and parking sensors.", counts: ["hasThreeSixtyDegreesCamera"], checks: ["hasParkingSensors"] },
+                { id: "traffic", label: "Traffic & lane changes", detail: "busy traffic", description: "I'll check blind spot warning and lane keeping assist.", counts: ["hasBlindSpotAssist"], checks: ["hasLaneKeepingAssist"] },
+                { id: "reversing", label: "Reversing out", detail: "reversing out", description: "I'll check rear cross-traffic alert and a reversing camera.", counts: ["hasRearCrosswalkWarning", "hasOneEightyDegreesReversingCamera"] },
             ],
         },
         cantCheck: "crash protection — FINN has no crash-test data",
@@ -233,11 +255,11 @@ export const BUBBLES: Bubble[] = [
     },
     {
         id: "long",
-        label: "I drive long distances",
+        label: "Long distances",
         you: "You drive long distances",
         need: "Long distances",
         said: "I drive long distances.",
-        means: "Hours on the motorway. How often is asked next.",
+        means: "Hours on the motorway, or long trips.",
         counts: ["driverAssistLevel2", "hasLumbarSupport"],
         checks: ["hasAdaptiveCruiseControl", "hasCruiseControl", "hasIntegratedNavigationSystem"],
         worth: ["hasHeadUpDisplay", "hasMatrixLedHeadlights", "hasRoofRails"],
@@ -253,11 +275,11 @@ export const BUBBLES: Bubble[] = [
     },
     {
         id: "traffic",
-        label: "I sit in traffic a lot",
+        label: "In traffic",
         you: "You sit in traffic a lot",
         need: "Time in traffic",
         said: "I sit in traffic a lot.",
-        means: "A commute or school run in stop-and-go traffic. How long it is is asked next.",
+        means: "A commute or school run in stop-and-go traffic.",
         counts: ["driverAssistLevel2"],
         checks: ["hasAutomaticTransmission", "hasAdaptiveCruiseControl"],
         worth: ["hasKeylessEntryAndStart", "hasWirelessAppleCarPlaySlashAndroidAuto", "hasWirelessChargingStation"],
@@ -270,11 +292,11 @@ export const BUBBLES: Bubble[] = [
     },
     {
         id: "weather",
-        label: "The weather here is tough",
+        label: "Tough weather",
         you: "The weather where you live is tough",
         need: "Tough weather",
         said: "The weather here is tough.",
-        means: "Winters, rain or heat that make the car harder to live with. What it's like is picked next to it.",
+        means: "Winters, rain or heat that make the car harder to live with.",
         counts: [],
         checks: ["hasAirConditioning"],
         worth: [],
@@ -291,13 +313,14 @@ export const BUBBLES: Bubble[] = [
                 {
                     id: "snow",
                     label: "Snow & ice",
+                    description: "I'll check heated seats and a heated steering wheel, and suggest all-wheel drive and pre-heating.",
                     detail: "snow and ice",
                     counts: ["hasHeatedSeats", "hasHeatedSteeringWheel"],
                     worth: ["hasAllWheelDrive", "hasAuxiliaryHeater", "hasHeatPump", "hasHeadlightCleaningSystem"],
                 },
-                { id: "wet", label: "Rain & fog", detail: "rain and fog", counts: ["hasRainSlashLightSensors", "hasFogLights"] },
-                { id: "cold", label: "Cold but mostly dry", detail: "cold, mostly dry winters", counts: ["hasHeatedSeats"] },
-                { id: "hot", label: "Hot summers", detail: "hot summers", counts: ["hasSeatCooling"], worth: ["hasThreeZoneAutomaticClimateControls"] },
+                { id: "wet", label: "Rain & fog", detail: "rain and fog", description: "I'll check rain & light sensors and fog lights.", counts: ["hasRainSlashLightSensors", "hasFogLights"] },
+                { id: "cold", label: "Cold & dry", detail: "cold, mostly dry winters", description: "Cold but mostly dry winters, so not with snow or rain. I'll check heated seats.", counts: ["hasHeatedSeats"] },
+                { id: "hot", label: "Hot summers", detail: "hot summers", description: "I'll check ventilated seats, and suggest 3-zone climate.", counts: ["hasSeatCooling"], worth: ["hasThreeZoneAutomaticClimateControls"] },
             ],
         },
         cantCheck: "how the car handles on snow, or which tyres it will come on",
@@ -315,7 +338,7 @@ export const BUBBLES: Bubble[] = [
     },
     {
         id: "night",
-        label: "I drive at night a lot",
+        label: "At night",
         you: "You drive at night a lot",
         need: "Driving at night",
         said: "I drive at night a lot.",
@@ -331,11 +354,11 @@ export const BUBBLES: Bubble[] = [
     },
     {
         id: "carry",
-        label: "I carry a lot",
+        label: "Lots to carry",
         you: "You carry a lot",
         need: "Carrying a lot",
         said: "I carry a lot.",
-        means: "Loads that need room, a roof or a hitch. What you carry is picked next to it.",
+        means: "Loads that need room, a roof or a hitch.",
         counts: [],
         checks: [],
         worth: [],
@@ -345,10 +368,10 @@ export const BUBBLES: Bubble[] = [
             multiple: true,
             options: [
                 /* A week's shopping and a sofa ask different things of a car. */
-                { id: "shopping", label: "Shopping & everyday bags", detail: "shopping and bags", counts: ["hasElectricTailgate"] },
-                { id: "bulky", label: "Bulky things: furniture, a pram, sports kit", detail: "bulky things", counts: ["hasSplitFoldingRearSeats"], worth: ["hasElectricTailgate"] },
-                { id: "bikes", label: "Bikes, skis or a roof box", detail: "bikes, skis or a roof box", counts: ["hasRoofRails"], worth: ["hasTowbar"] },
-                { id: "trailer", label: "A trailer or caravan", detail: "a trailer or caravan", counts: ["hasTowbar", "towingCapacity1500"], suggests: "must-tow" },
+                { id: "shopping", label: "Shopping", detail: "shopping and bags", description: "The weekly shop and everyday bags. I'll check an electric tailgate, for when your hands are full.", counts: ["hasElectricTailgate"] },
+                { id: "bulky", label: "Bulky things", detail: "bulky things", description: "Furniture, a pram, sports kit. I'll check split-folding rear seats.", counts: ["hasSplitFoldingRearSeats"], worth: ["hasElectricTailgate"] },
+                { id: "bikes", label: "Bikes, skis, roof box", detail: "bikes, skis or a roof box", description: "Loads on the roof or a rack. I'll check roof rails, and suggest a towbar for a bike rack.", counts: ["hasRoofRails"], worth: ["hasTowbar"] },
+                { id: "trailer", label: "Trailer or caravan", detail: "a trailer or caravan", description: "I'll check a towbar and a towing rating of 1,500 kg or more.", counts: ["hasTowbar", "towingCapacity1500"], suggests: "must-tow" },
             ],
         },
         cantCheck: "boot space — FINN's figure doesn't say whether the seats are up or folded",
@@ -362,11 +385,11 @@ export const BUBBLES: Bubble[] = [
     },
     {
         id: "comfort",
-        label: "Comfort matters to me",
+        label: "Comfort",
         you: "Comfort matters to you",
         need: "Comfort",
         said: "Comfort matters to me.",
-        means: "The comforts you'd use every day. Pick which ones next to it — every one FINN lists that I can check.",
+        means: "The comforts you'd use every day — every one FINN lists that I can check.",
         counts: [],
         checks: ["hasAppleCarPlaySlashAndroidAuto"],
         worth: [],
@@ -376,20 +399,20 @@ export const BUBBLES: Bubble[] = [
             multiple: true,
             options: [
                 /* Each named as FINN lists it, with what it does where the name doesn't say. */
-                { id: "warm", label: "Heated seats", detail: "heated seats", counts: ["hasHeatedSeats"] },
-                { id: "wheel", label: "Heated steering wheel", detail: "a heated steering wheel", counts: ["hasHeatedSteeringWheel"] },
-                { id: "cooled", label: "Ventilated seats", detail: "ventilated seats", counts: ["hasSeatCooling"] },
-                { id: "preheat", label: "Pre-heating, so it's warm before you get in", detail: "pre-heating", counts: ["hasAuxiliaryHeater"] },
-                { id: "keyless", label: "Keyless entry & start", detail: "keyless entry", counts: ["hasKeylessEntryAndStart"] },
-                { id: "phone", label: "Wireless Apple CarPlay / Android Auto", detail: "wireless CarPlay", counts: ["hasWirelessAppleCarPlaySlashAndroidAuto"] },
-                { id: "charging", label: "Wireless phone charging", detail: "wireless charging", counts: ["hasWirelessChargingStation"] },
-                { id: "climate", label: "Separate temperature for the back (3-zone climate)", detail: "3-zone climate", counts: ["hasThreeZoneAutomaticClimateControls"] },
-                { id: "seats", label: "Electric front seats", detail: "electric seats", counts: ["hasElectricFrontSeatAdjustment"] },
-                { id: "lumbar", label: "Lumbar support", detail: "lumbar support", counts: ["hasLumbarSupport"] },
-                { id: "sound", label: "Premium sound system", detail: "premium sound", counts: ["hasPremiumSoundSystem"] },
-                { id: "sunroof", label: "Sunroof or glass roof", detail: "a sunroof", counts: ["hasSunroof"] },
-                { id: "usb", label: "USB ports in the back", detail: "rear USB ports", counts: ["hasBackUSBPorts"] },
-                { id: "hud", label: "Head-up display", detail: "a head-up display", counts: ["hasHeadUpDisplay"] },
+                { id: "warm", label: "Heated seats", detail: "heated seats", description: "Seats that warm up — FINN doesn't say which ones.", counts: ["hasHeatedSeats"] },
+                { id: "wheel", label: "Heated wheel", detail: "a heated steering wheel", description: "A heated steering wheel.", counts: ["hasHeatedSteeringWheel"] },
+                { id: "cooled", label: "Ventilated seats", detail: "ventilated seats", description: "Seats that blow air through, for hot days.", counts: ["hasSeatCooling"] },
+                { id: "preheat", label: "Pre-heating", detail: "pre-heating", description: "An auxiliary heater: the car is warm and the windows clear before you get in.", counts: ["hasAuxiliaryHeater"] },
+                { id: "keyless", label: "Keyless entry & start", detail: "keyless entry", description: "Unlock and start the car with the key in your pocket.", counts: ["hasKeylessEntryAndStart"] },
+                { id: "phone", label: "Wireless CarPlay / Android Auto", detail: "wireless CarPlay", description: "Your phone's maps and music on the car's screen, without a cable.", counts: ["hasWirelessAppleCarPlaySlashAndroidAuto"] },
+                { id: "charging", label: "Wireless charging", detail: "wireless charging", description: "A pad that charges your phone without a cable.", counts: ["hasWirelessChargingStation"] },
+                { id: "climate", label: "3-zone climate", detail: "3-zone climate", description: "Separate temperatures for the driver, the front passenger and the back.", counts: ["hasThreeZoneAutomaticClimateControls"] },
+                { id: "seats", label: "Electric seats", detail: "electric seats", description: "Front seats adjusted with buttons — FINN doesn't say whether both or only the driver's.", counts: ["hasElectricFrontSeatAdjustment"] },
+                { id: "lumbar", label: "Lumbar support", detail: "lumbar support", description: "An adjustable lower-back support.", counts: ["hasLumbarSupport"] },
+                { id: "sound", label: "Premium sound", detail: "premium sound", description: "An upgraded speaker system.", counts: ["hasPremiumSoundSystem"] },
+                { id: "sunroof", label: "Sunroof", detail: "a sunroof", description: "A sunroof, panoramic or glass roof — FINN lists them as one.", counts: ["hasSunroof"] },
+                { id: "usb", label: "Rear USB ports", detail: "rear USB ports", description: "Charging for phones and tablets in the back.", counts: ["hasBackUSBPorts"] },
+                { id: "hud", label: "Head-up display", detail: "a head-up display", description: "Your speed and directions shown on the windscreen.", counts: ["hasHeadUpDisplay"] },
             ],
         },
         cantCheck: "how comfortable the seats are or how quiet the cabin is — and I don't weigh leather seats or ambient lighting, which FINN lists but says nothing useful about",
@@ -397,11 +420,11 @@ export const BUBBLES: Bubble[] = [
     },
     {
         id: "environment",
-        label: "I care about the environment",
+        label: "The environment",
         you: "You care about the environment",
         need: "CO₂ emissions",
         said: "I care about the environment.",
-        means: "Each car's own CO₂ figure, on the EU's A to G scale. How big a part it plays is picked next to it.",
+        means: "Each car's own CO₂ figure, on the EU's A to G scale.",
         counts: [],
         checks: [],
         worth: [],
@@ -411,9 +434,9 @@ export const BUBBLES: Bubble[] = [
             mode: "optional",
             multiple: false,
             options: [
-                { id: "decides", label: "A big part", detail: "a big part of the pick", importance: "essential" },
-                { id: "matters", label: "As much as my other needs", detail: "as much as your other needs", importance: "important" },
-                { id: "bonus", label: "A small part", detail: "a small part of the pick", importance: "niceToHave" },
+                { id: "decides", label: "A big part", detail: "a big part of the pick", description: "CO₂ counts as a must have.", importance: "essential" },
+                { id: "matters", label: "As much as the rest", detail: "as much as your other needs", description: "CO₂ counts like your other needs.", importance: "important" },
+                { id: "bonus", label: "A small part", detail: "a small part of the pick", description: "CO₂ counts a little.", importance: "niceToHave" },
             ],
         },
         suggests: "low-co2",
@@ -421,11 +444,11 @@ export const BUBBLES: Bubble[] = [
     },
     {
         id: "budget",
-        label: "I'm on a budget",
+        label: "A budget",
         you: "You're on a budget",
         need: "Using little fuel or electricity",
         said: "I'm on a budget.",
-        means: "Your monthly limit is asked next, and a car that uses little fuel or electricity for its kind counts, since that's part of what it costs.",
+        means: "A monthly limit — and a car that uses little fuel or electricity for its kind, since that's part of what it costs.",
         counts: [],
         checks: [],
         worth: [],
@@ -437,8 +460,8 @@ export const BUBBLES: Bubble[] = [
             multiple: false,
             options: [
                 /* A hard limit sets cars over it aside; some give lets cars up to about 15% over count as within it. */
-                { id: "hard", label: "A hard limit: nothing over it", detail: "a hard limit" },
-                { id: "soft", label: "Some give: a little over is fine", detail: "a little over is fine" },
+                { id: "hard", label: "Hard limit", detail: "a hard limit", description: "Nothing over it: pricier cars are set aside." },
+                { id: "soft", label: "Some give", detail: "a little over is fine", description: "Cars up to about 15% over still count as within it." },
             ],
         },
         /* With no chip, "Nothing over my limit" is offered with the deal-breakers. */
@@ -460,10 +483,10 @@ export const BUBBLE_GROUPS: { id: BubbleGroupId; ask: string; why: string; none:
     {
         id: "people",
         ask: "First, who rides with you?",
-        why: "Children, a big family and a dog each need different things from a car. The “i” on each says what I'd check.",
+        why: "Children, adults and a dog each need different things from a car. The “i” on each says what I'd check.",
         none: "Just me",
         placeholder: "e.g. “two teenagers and a big dog”",
-        bubbles: ["kids", "six-seats", "dog"],
+        bubbles: ["kids", "adults", "dog"],
     },
     {
         id: "driving",

@@ -232,7 +232,7 @@ export function useConversation(page: PageCars) {
                          * silently gone. Elsewhere its reader's reply does.
                          */
                         reply:
-                            (ask?.kind === "ask" && (ask.step.id === "bubbles" || ask.step.id === "rules")) || !read.changes.length
+                            (ask?.kind === "ask" && (ask.step.id.startsWith("bubbles") || ask.step.id === "rules" || ask.step.id === "deals")) || !read.changes.length
                                 ? readBack(extra.text, read, chosen.length > 0)
                                 : read.reply || "Got it.",
                     };

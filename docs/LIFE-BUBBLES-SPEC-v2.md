@@ -367,6 +367,12 @@ Changed after trying it (5 October 2026):
 - **Deal-breakers in sections:** from what you told me, money, fuel & emissions, the car itself.
 - **Contradictions ruled out:** mostly dry weather beside rain or snow, "no fixed limit" after "I'm on a budget", a few hundred km a month after long drives every day, an item counted twice, a heat pump suggested to someone who won't go electric.
 
+Changed after trying it again (5 October 2026):
+
+- **Deal-breakers & deal-sealers** replace the deal-breakers question: a row per thing, each set to Doesn't matter, a deal-breaker (must / mustn't — a rule, as before) or a deal-sealer (counts as a must have, sets nothing aside). Rows offer only what Lens can do: no "electric seals it", since being electric is ruled on, not scored.
+- **Short labels, tooltips:** bubbles and chips have short labels ("Kids", "In the city", "Bulky things", "Hard limit"); the "i" is a tooltip with a brief explanation and what Lens checks, instead of a card opening under the chips.
+- **Who rides with you:** kids, adults (beside you asks nothing extra; in the back counts rear doors) and a dog. "Six seats or more" moved to deal-breakers & sealers.
+
 Two things the spec promised needed engine or flow changes to be true:
 
 - **"Checked" items** (§4) did nothing in the chat's ask-only scoring unless a need named them, and a named one was rewarded like a raise. The engine now takes them as `preferences.checked`: a car FINN confirms is missing one loses a little, having one earns nothing.
