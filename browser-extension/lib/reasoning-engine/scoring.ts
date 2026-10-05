@@ -193,6 +193,7 @@ export function categoryDetail(
   const selection = categoryFeatures[category] ?? [];
   const known = equipmentKnown(vehicle);
   const onlyAsked = preferences?.countOnlyAsked === true;
+  const checks = onlyAsked ? (preferences?.checked?.[category] ?? []) : [];
 
   const items: EvidenceItem[] = (def ? countedItems(category) : [])
     .filter(({ key }) => appliesTo(key, vehicle))
@@ -205,9 +206,13 @@ export function categoryDetail(
        * everything they didn't name weighs nothing.
        */
       const role = onlyAsked && asked && listedRole === "expected" ? "home" : listedRole;
-      const { weight, preference } = onlyAsked && !asked
-        ? { weight: 0, preference: null }
-        : weighItem(role, niche, asked);
+      /* Checked, not asked for: standard equipment that can only cost a car that lacks it. */
+      const checkOnly = onlyAsked && !asked && listedRole === "expected" && checks.includes(key);
+      const { weight, preference } = checkOnly
+        ? { weight: BASE_FEATURE_WEIGHT, preference: null }
+        : onlyAsked && !asked
+          ? { weight: 0, preference: null }
+          : weighItem(role, niche, asked);
 
       return {
         key,

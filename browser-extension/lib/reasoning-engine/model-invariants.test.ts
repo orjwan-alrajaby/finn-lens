@@ -669,3 +669,20 @@ describe("the working adds up", () => {
     }
   });
 });
+
+describe("checked equipment, when only what was asked counts", () => {
+  const asked = selection({ cityParking: [{ key: "hasThreeSixtyDegreesCamera", importance: "medium", source: "user" }] });
+  const withSensors = garageCar({ id: 901, extra: ["hasThreeSixtyDegreesCamera"] });
+  const without = garageCar({ id: 902, features: [...BASELINE.filter((key) => key !== "hasParkingSensors"), "hasThreeSixtyDegreesCamera"] });
+  const detail = (car: PinnedFinnCar, checked: SignalId[]) =>
+    categoryDetail("cityParking", car, [car], { ...prefs(), countOnlyAsked: true, checked: { cityParking: checked } }, asked);
+
+  it("costs a car FINN confirms is missing it, and earns nothing for having it", () => {
+    expect(detail(without, ["hasParkingSensors"]).exactScore).toBeLessThan(detail(withSensors, ["hasParkingSensors"]).exactScore);
+    expect(detail(withSensors, ["hasParkingSensors"]).exactScore).toBe(detail(withSensors, []).exactScore);
+  });
+
+  it("weighs nothing when it isn't checked", () => {
+    expect(detail(without, []).exactScore).toBe(detail(withSensors, []).exactScore);
+  });
+});

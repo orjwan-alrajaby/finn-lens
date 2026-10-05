@@ -74,6 +74,14 @@ export interface LensPreferences {
    * rather than 2:1 because Safety happened to sort above Climate.
    */
   priorityShares?: Partial<Record<CategoryId, number>>;
+  /**
+   * Standard equipment the reader's answers name, checked without being
+   * rewarded: with `countOnlyAsked`, a car FINN confirms is missing one loses
+   * what a missing standard item costs, and a car that has it gains nothing,
+   * since nearly every car does. It never puts a priority in the order —
+   * only a priority already there checks it.
+   */
+  checked?: Partial<Record<CategoryId, SignalId[]>>;
 }
 
 /**
