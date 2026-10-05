@@ -12,6 +12,8 @@ import {
     withExchange,
     withLensSaying,
     changeOne as changeOneAnswer,
+    keepShort as keepResultsShort,
+    openedWhy,
     addItem as addBubbleItem,
     removeItem as removeBubbleItem,
     setImportance as setNeedImportance,
@@ -168,7 +170,7 @@ export function useConversation(page: PageCars) {
                 if (!judged) throw new Error("the engine returned nothing");
 
                 const at = new Date().toISOString();
-                const result = resultMessage(judged, cars, headline, urls, messageId(), at);
+                const result = resultMessage(judged, cars, headline, urls, messageId(), at, from.understanding);
                 const judgement = judgementFrom(judged, cars, from.understanding, headline, url, urls, at);
 
                 const next = withLensSaying({ ...withJudgement(from, judgement), phase: "judged" }, `I've judged the ${headline}. Here's what I found:`);
@@ -346,6 +348,20 @@ export function useConversation(page: PageCars) {
         if (current.judgement?.winnerId != null) void requestOpenDrawer(current.id, current.judgement.winnerId);
     }, [commit, lastRun]);
 
+    /** "See why" opened on a result; "Keep it short" puts results back to short. */
+    const seeWhy = useCallback(
+        async (resultId: string) => {
+            const current = latest.current;
+            if (current) await commit(openedWhy(current, resultId));
+        },
+        [commit],
+    );
+
+    const keepShort = useCallback(async () => {
+        const current = latest.current;
+        if (current) await commit(keepResultsShort(current));
+    }, [commit]);
+
     const change = useCallback(async () => {
         const current = latest.current;
         if (current) await commit(changeAnswers(current, pageRef.current.cars));
@@ -371,5 +387,5 @@ export function useConversation(page: PageCars) {
         });
     }, [judge]);
 
-    return { chat, busy, startNew, open, clear, tap, type, whyWinner, change, changeOne, importance, removeItem, addItem, judgeHere, addHere, takeBack };
+    return { chat, busy, startNew, open, clear, tap, type, whyWinner, change, changeOne, importance, removeItem, addItem, judgeHere, addHere, takeBack, seeWhy, keepShort };
 }

@@ -1,10 +1,14 @@
 import { buildRecommendation } from "@/lib/reasoning-engine";
 import type { Answers } from "@/lib/reasoning-engine/answers";
 import { bandForScore } from "@/lib/reasoning-engine/bands";
-import { DEFAULT_CATEGORY_FEATURES, DEFAULT_PREFERENCES, DEFAULT_PRIORITIES } from "@/lib/reasoning-engine/constants";
+import { CATEGORIES, DEFAULT_CATEGORY_FEATURES, DEFAULT_PREFERENCES, DEFAULT_PRIORITIES } from "@/lib/reasoning-engine/constants";
+import { assessEnvironment } from "@/lib/reasoning-engine/environmental";
+import { lowerFirst } from "@/lib/reasoning-engine/format";
+import type { NeedImportance } from "@/lib/lens-ai/contract";
+import { bubblesIn } from "@/lib/lens-chat/bubbles";
 import { FIT_BANDS, type FitLevel } from "@/lib/reasoning-engine/fit";
 import { totalFor } from "@/lib/reasoning-engine/scoring";
-import { asPhrase } from "@/lib/lens-chat/evidence";
+import { asPhrase, EVIDENCE, evidenceMet, measuredDisplay } from "@/lib/lens-chat/evidence";
 import { allowedByRules, alternativesWithinLimits, compareRows, runLens, summariseMatch, type CarLine, type LensRun } from "@/lib/lens-chat/run";
 import { ruledOut, toAnswers, type Translation, type Understanding } from "@/lib/lens-chat/understanding";
 import type { PinnedFinnCar } from "@/lib/types";
@@ -191,6 +195,41 @@ const snapshot = (line: CarLine, urls: Record<number, string>): CarSnapshot => (
     overLimit: line.budget === "over" || line.rental === "doesNotFit",
 });
 
+const RANK: Record<NeedImportance, number> = { essential: 0, important: 1, niceToHave: 2 };
+
+/**
+ * What a car has for each bubble, strongest first: the equipment FINN lists
+ * on it, a size it's within, its CO₂ or consumption reading. Only what it
+ * has — what it lacks is a trade-off, said elsewhere — and only bubbles
+ * where it has something.
+ */
+export function whyLines(car: PinnedFinnCar, u: Understanding): { said: string; has: string[] }[] {
+    const environment = assessEnvironment(car);
+
+    return bubblesIn(u)
+        .map(({ bubble }) => ({ bubble, need: u.needs.find((need) => need.id === `bubble-${bubble.id}` && need.status === "active") }))
+        .filter((item): item is { bubble: (typeof item)["bubble"]; need: NonNullable<(typeof item)["need"]> } => item.need != null)
+        .sort((a, b) => RANK[a.need.importance] - RANK[b.need.importance])
+        .map(({ bubble, need }) => {
+            const has = need.evidence.filter((entry) => evidenceMet(car, entry.id) === true).map((entry) => measuredDisplay(car, entry.id) ?? lowerFirst(EVIDENCE[entry.id].label));
+            const figures = [
+                bubble.figures?.includes("environmental") && environment?.co2 ? environment.co2.display : null,
+                bubble.figures?.includes("efficiency") && environment?.efficiency ? `${lowerFirst(environment.efficiency.label)} (${environment.efficiency.display})` : null,
+            ].filter((item): item is string => item != null);
+
+            return { said: bubble.you, has: [...has, ...figures] };
+        })
+        .filter((line) => line.has.length > 0);
+}
+
+/** Which bubbles put weight where, in the reader's words. */
+export function becauseOf(u: Understanding): { said: string; importance: NeedImportance; into: string[] }[] {
+    return bubblesIn(u).flatMap(({ bubble }) => {
+        const need = u.needs.find((item) => item.id === `bubble-${bubble.id}` && item.status === "active");
+        return need ? [{ said: bubble.you, importance: need.importance, into: need.priorities.map((id) => CATEGORIES[id].label) }] : [];
+    });
+}
+
 export function resultMessage(
     judged: Judged,
     cars: PinnedFinnCar[],
@@ -198,6 +237,8 @@ export function resultMessage(
     urls: Record<number, string>,
     id: string,
     at: string,
+    /** What the reader told Lens, for the why lines. Without it, a result says the engine's reasons only. */
+    u?: Understanding,
 ): Extract<ChatMessage, { kind: "result" }> {
     const { run } = judged;
     const summary = summariseMatch(run);
@@ -209,6 +250,15 @@ export function resultMessage(
           ? `Nothing here fits your budget, so I ranked the cars closest to it — up to about €${run.nearestToLimit.upTo} a month.`
           : summary.note;
 
+    /*
+     * One thing to know: a note about a limit first — over budget, nothing
+     * within it, every car broke a rule — since it changes what the pick
+     * means; else the biggest trade-off; else whatever else the engine noted.
+     */
+    const limit = run.ruledOut?.nothingLeft || run.nearestToLimit ? note : (run.narrative.verdict.budgetNote ?? null);
+    const [tradeoff] = run.narrative.tradeoffs;
+    const know = limit ?? (tradeoff ? `${tradeoff.headline}. ${tradeoff.sentences[0] ?? tradeoff.evidence}` : note);
+
     return {
         id,
         at,
@@ -218,7 +268,16 @@ export function resultMessage(
         count: cars.length,
         winner: winner ? snapshot(winner, urls) : null,
         reason: summary.reason,
+        ...(u
+            ? {
+                  why: whyLines(cars.find((car) => car.id === run.recommendation.winner.id) ?? run.recommendation.winner, u),
+                  because: becauseOf(u),
+              }
+            : {}),
+        reasons: run.narrative.verdict.reasons,
+        tradeoffs: run.narrative.tradeoffs.map((tradeoff) => ({ headline: tradeoff.headline, text: tradeoff.sentences[0] ?? tradeoff.evidence })),
         note,
+        know,
         /*
          * The ones that respect the reader's limits first: "closest by score"
          * put a €1,638 car under a €500 limit's pick, which answers a question

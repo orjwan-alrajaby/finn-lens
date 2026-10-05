@@ -73,3 +73,50 @@ describe("here's what I understood", () => {
         expect(words).not.toMatch(/\d+%/);
     });
 });
+
+describe("the result", () => {
+    const result = (): Extract<ChatMessage, { kind: "result" }> => ({
+        id: "r1",
+        at: "",
+        from: "lens",
+        kind: "result",
+        headline: "5 cars",
+        count: 5,
+        winner: { id: 1, name: "Škoda Karoq", configuration: "1.5 TSI", image: null, monthly: 520, band: "good", bandLabel: "Good match", url: null, overLimit: false },
+        reason: "It has the most of what you raised.",
+        reasons: ["It has the most of what you raised.", "It's the narrowest here."],
+        why: [
+            { said: "You live in the city", has: ["4.18 m long", "reversing camera"] },
+            { said: "You have kids", has: ["rear doors"] },
+        ],
+        tradeoffs: [{ headline: "€44/month more than MG S5", text: "At your mileage it's about €44 more." }],
+        because: [{ said: "You have kids", importance: "essential", into: ["Practicality"] }],
+        note: null,
+        runnersUp: [{ id: 2, name: "MG S5", configuration: "", image: null, monthly: 476, band: "good", bandLabel: "Good match", url: null, overLimit: false }],
+        setAside: 0,
+    });
+
+    it("is short: the pick, why for each bubble, and one thing to know", () => {
+        const words = text(render([result()]));
+
+        expect(words).toContain("Your strongest match");
+        expect(words).toContain("You live in the city → 4.18 m long, reversing camera");
+        expect(words).toContain("One thing to know €44/month more than MG S5. At your mileage it's about €44 more.");
+        expect(words).toContain("See why");
+        expect(words).not.toContain("What decided it");
+        expect(words).not.toContain("Next closest");
+    });
+
+    it("opens with everything once the reader keeps asking", () => {
+        const words = text(
+            renderToStaticMarkup(
+                createElement(MessageList, { messages: [result()], typing: false, busy: false, onAnswer: noop, onOpenCar: noop, onImportance: noop, onChange: noop, onRemove: noop, onAdd: noop, longResults: true }),
+            ),
+        );
+
+        expect(words).toContain("What decided it");
+        expect(words).toContain("Because you said… You have kids — must have → Practicality");
+        expect(words).toContain("Next closest");
+        expect(words).toContain("Keep it short");
+    });
+});

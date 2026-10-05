@@ -248,6 +248,20 @@ export type ChatMessage =
           count: number;
           winner: CarSnapshot | null;
           reason: string | null;
+          /**
+           * What the pick has for the reader's life, bubble by bubble, the
+           * strongest first: "You have kids → rear doors". Only what it has.
+           * Absent on results from before the bubbles.
+           */
+          why?: { said: string; has: string[] }[];
+          /** Every reason the engine gave, the first being `reason`. */
+          reasons?: string[];
+          /** What the reader gives up by choosing it. */
+          tradeoffs?: { headline: string; text: string }[];
+          /** One thing to know, short: a limit note, else the biggest trade-off, else the engine's note. */
+          know?: string | null;
+          /** Which bubbles put weight where: "You have kids — must have → Practicality". */
+          because?: { said: string; importance: NeedImportance; into: string[] }[];
           note: string | null;
           runnersUp: CarSnapshot[];
           setAside: number;
@@ -306,6 +320,10 @@ export interface Chat {
      * Chats saved before this come back without it.
      */
     history?: Rewind[];
+    /** Results the reader opened "See why" on. */
+    opened?: string[];
+    /** Results open with everything shown: the reader opened "See why" on two in a row, until "Keep it short". */
+    longResults?: boolean;
 }
 
 /** One answer, and everything it changed, as it was just before it was given. */

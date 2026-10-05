@@ -1202,6 +1202,21 @@ export function addItem(chat: Chat, bubble: BubbleId, item: EvidenceId, cars: Fi
     return redrawn(chat, withItem(chat.understanding, bubble, item), cars);
 }
 
+/**
+ * "See why" opened on a result. Opened on the last two results in a row,
+ * and later results open that way too — the reader keeps wanting the rest.
+ */
+export function openedWhy(chat: Chat, resultId: string): Chat {
+    const results = chat.messages.filter((message) => message.kind === "result").map((message) => message.id);
+    const opened = [...new Set([...(chat.opened ?? []), resultId])].filter((id) => results.includes(id));
+    const lastTwo = results.slice(-2);
+
+    return { ...chat, opened, longResults: chat.longResults || (lastTwo.length === 2 && lastTwo.every((id) => opened.includes(id))) };
+}
+
+/** "Keep it short": results open short again, until the reader opens two in a row. */
+export const keepShort = (chat: Chat): Chat => ({ ...chat, opened: [], longResults: false });
+
 /** Adds what the reader typed, and Lens's reply, without moving the questions on. */
 export function withExchange(chat: Chat, typed: string, reply: string | null, understanding: Understanding = chat.understanding): Chat {
     return touch(chat, [reader(typed), ...(reply ? [lens(reply)] : [])], { understanding });

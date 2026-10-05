@@ -7,7 +7,7 @@ import { EMPTY_UNDERSTANDING } from "@/lib/lens-chat/understanding";
 import { fleet } from "@/lib/reasoning-engine/test-data/fleet";
 
 import { chatAnswers, judgementFrom, judgeWith } from "./judge";
-import { addItem, answer, askNext, changeAnswers, changeOne, removeItem, rentalMonths, rewind, rewindable, setImportance, startChat, startMonth, stepFor, summaryOf } from "./flow";
+import { addItem, answer, askNext, keepShort, openedWhy, changeAnswers, changeOne, removeItem, rentalMonths, rewind, rewindable, setImportance, startChat, startMonth, stepFor, summaryOf } from "./flow";
 import type { Chat, ChatMessage, SavedSettings, StepId } from "./types";
 
 /*
@@ -463,5 +463,29 @@ describe("a bubble a deal-breaker settles", () => {
 
         expect(block(chat, "six-seats")).toMatchObject({ counts: [], settled: "Six or more seats is a deal-breaker, so every car left has it." });
         expect(chat.understanding.needs.map((need) => need.id)).not.toContain("bubble-six-seats");
+    });
+});
+
+describe("see why, remembered", () => {
+    const withResults = (chat: Chat, n: number): Chat => ({
+        ...chat,
+        messages: [...chat.messages, ...Array.from({ length: n }, (_, index) => ({ id: `r${index}`, at: "", from: "lens", kind: "result", headline: "", count: 0, winner: null, reason: null, note: null, runnersUp: [], setAside: 0 }) as ChatMessage)],
+    });
+
+    it("opens later results with everything once the reader opens two in a row, until “Keep it short”", () => {
+        const chat = withResults(startChat(null, cars(), TODAY), 2);
+        const once = openedWhy(chat, "r1");
+
+        expect(once.longResults).toBe(false);
+
+        const twice = openedWhy(once, "r0");
+        expect(twice.longResults).toBe(true);
+        expect(keepShort(twice)).toMatchObject({ longResults: false, opened: [] });
+    });
+
+    it("doesn't count two opens of results that aren't the last two", () => {
+        const chat = openedWhy(openedWhy(withResults(startChat(null, cars(), TODAY), 3), "r0"), "r1");
+
+        expect(chat.longResults).toBe(false);
     });
 });

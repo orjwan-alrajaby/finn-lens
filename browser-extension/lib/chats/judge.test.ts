@@ -9,7 +9,10 @@ import { EMPTY_UNDERSTANDING, withBudget, withRental, withSuggestion, type Under
 import type { PinnedFinnCar } from "@/lib/types";
 
 import { applyFollowUp, FOLLOW_UPS, WORTH_A_LOOK } from "./follow-ups";
-import { BASE_ANSWERS, chatAnswers, judgementAt, judgementFrom, judgeWith, resultMessage, withJudgement } from "./judge";
+import { BASE_ANSWERS, becauseOf, chatAnswers, judgementAt, judgementFrom, judgeWith, resultMessage, whyLines, withJudgement } from "./judge";
+import { withBubbles } from "@/lib/lens-chat/bubbles";
+import { readEvidence } from "@/lib/lens-chat/evidence";
+import { fleet } from "@/lib/reasoning-engine/test-data/fleet";
 
 /*
  * A chat's judgement, and the chips it puts on FINN's cards. One run feeds
@@ -305,5 +308,41 @@ describe("earlier results", () => {
         /* A result from before results were tagged, or one whose judgement is gone, opens on the latest. */
         expect(judgementAt(chat, null)).toEqual({ judgement: two, latest: true });
         expect(judgementAt(chat, "gone")).toEqual({ judgement: two, latest: true });
+    });
+});
+
+describe("why, in the reader's words", () => {
+    const page = fleet().slice(0, 24);
+    const u = withBubbles(EMPTY_UNDERSTANDING, { kids: ["baby"], city: ["street"], environment: ["bonus"] });
+
+    it("says what the pick has for each bubble, the strongest first, and only what it has", () => {
+        const judged = judgeWith(u, page, "24 cars")!;
+        const winner = page.find((car) => car.id === judged.run.recommendation.winner.id)!;
+        const lines = whyLines(winner, u);
+
+        expect(lines[0]?.said).toBe("You have kids");
+        for (const line of lines) expect(line.has.length).toBeGreaterThan(0);
+        for (const line of lines.filter((item) => item.said === "You have kids")) expect(line.has).toEqual(readEvidence(winner, "rearDoors") === "listed" ? ["rear doors"] : []);
+        expect(lines.find((line) => line.said === "You care about the environment")?.has[0]).toMatch(/g\/km · Class [A-G]/);
+    });
+
+    it("goes into the result with every reason, the trade-offs and which bubbles put weight where", () => {
+        const judged = judgeWith(u, page, "24 cars")!;
+        const message = resultMessage(judged, page, "24 cars", {}, "m1", "at", u);
+
+        expect(message.reasons?.[0]).toBe(message.reason);
+        expect(message.tradeoffs?.length).toBe(judged.run.narrative.tradeoffs.length);
+        expect(message.because).toEqual(becauseOf(u));
+        expect(message.because?.[0]).toMatchObject({ said: "You have kids", importance: "essential", into: ["Practicality"] });
+    });
+
+    it("says one thing to know: a limit first, else the biggest trade-off — never the engine's uncertainty first", () => {
+        const judged = judgeWith(u, page, "24 cars")!;
+        const { verdict, tradeoffs } = judged.run.narrative;
+        const message = resultMessage(judged, page, "24 cars", {}, "m1", "at", u);
+
+        if (verdict.budgetNote) expect(message.know).toBe(verdict.budgetNote);
+        else if (tradeoffs[0]) expect(message.know?.startsWith(`${tradeoffs[0].headline}.`)).toBe(true);
+        expect(tradeoffs.length + (verdict.budgetNote ? 1 : 0)).toBeGreaterThan(0);
     });
 });

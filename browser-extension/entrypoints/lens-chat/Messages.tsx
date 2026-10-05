@@ -944,21 +944,37 @@ function RunnerUp({ car, onOpen }: { car: CarSnapshot; onOpen: () => void }) {
 
 function Result({
     message,
+    long,
     onOpenCar,
     onWhy,
+    onSeeWhy,
+    onKeepShort,
 }: {
     message: Extract<ChatMessage, { kind: "result" }>;
+    /** Open with everything shown: the reader opened "See why" on two results in a row. */
+    long: boolean;
     onOpenCar: (id: number) => void;
     onWhy: () => void;
+    onSeeWhy: () => void;
+    onKeepShort: () => void;
 }) {
     const { winner } = message;
+    const [open, setOpen] = useState(long);
+    const why = message.why ?? [];
+    const reasons = message.reasons ?? (message.reason ? [message.reason] : []);
+    const tradeoffs = message.tradeoffs ?? [];
+    /* One thing to know: a limit note first — it changes what the pick means — else the biggest trade-off. */
+    const know = message.know !== undefined ? message.know : (message.note ?? (tradeoffs[0] ? `${tradeoffs[0].headline}. ${tradeoffs[0].text}` : null));
 
     return (
         <div className="overflow-hidden rounded-2xl bg-white ring-1 ring-black/5 shadow-[0_2px_8px_rgba(0,0,0,0.06)]">
             {winner ? (
                 <div className="relative bg-gradient-to-b from-[#fff8e1] to-white p-3.5">
                     <div className="flex items-start justify-between gap-2">
-                        <WinnerChip />
+                        <div>
+                            <p className="text-[11px] font-black uppercase tracking-wide text-[#9a6200]">Your strongest match</p>
+                            <WinnerChip />
+                        </div>
                         {winner.monthly != null ? (
                             <span className="text-right text-[11px] font-semibold text-finn-iron">
                                 <span className="block text-[15px] font-black text-finn-black tabular-nums">{euros(winner.monthly)}</span>
@@ -972,23 +988,113 @@ function Result({
                     <p className="mt-2.5 text-[15px] font-black leading-tight text-finn-black">{winner.name}</p>
                     <p className="text-[12px] text-finn-iron">{winner.configuration}</p>
 
-                    {message.reason ? <p className="mt-2 text-[13px] leading-relaxed text-finn-black">{message.reason}</p> : null}
-                    {message.note ? (
-                        <p className="mt-2 rounded-lg bg-finn-warning-lift/60 px-2.5 py-2 text-[12px] leading-snug text-finn-warning-ink">{message.note}</p>
+                    {why.length ? (
+                        <div className="mt-2.5">
+                            <p className="text-[10.5px] font-black uppercase tracking-wide text-finn-iron">Why</p>
+                            <ul className="mt-1 space-y-1">
+                                {why.slice(0, 3).map((line) => (
+                                    <li key={line.said} className="text-[12.5px] leading-snug text-finn-black">
+                                        <span className="font-bold">{line.said}</span>
+                                        <span className="text-finn-iron"> → </span>
+                                        {line.has.join(", ")}
+                                    </li>
+                                ))}
+                            </ul>
+                        </div>
+                    ) : reasons[0] ? (
+                        <p className="mt-2 text-[13px] leading-relaxed text-finn-black">{reasons[0]}</p>
                     ) : null}
 
-                    <button
-                        type="button"
-                        onClick={onWhy}
-                        className="mt-3 inline-flex w-full items-center justify-center gap-1.5 rounded-full bg-finn-highlight-navy px-4 py-2.5 text-[12.5px] font-black text-white transition-colors hover:bg-finn-accent-blue focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-finn-accent-blue"
-                    >
-                        Why it's the best for you
-                        <ChevronRight aria-hidden="true" className="h-4 w-4" />
-                    </button>
+                    {know ? (
+                        <div className="mt-2.5 rounded-lg bg-finn-warning-lift/60 px-2.5 py-2">
+                            <p className="text-[10.5px] font-black uppercase tracking-wide text-finn-warning-ink">One thing to know</p>
+                            <p className="mt-0.5 text-[12px] leading-snug text-finn-warning-ink">{know}</p>
+                        </div>
+                    ) : null}
+
+                    {open ? (
+                        <div className="mt-3 space-y-3 border-t border-[#f5d78a]/60 pt-3">
+                            {reasons.length || (message.note && message.note !== know) ? (
+                                <div>
+                                    <p className="text-[10.5px] font-black uppercase tracking-wide text-finn-iron">What decided it</p>
+                                    {message.note && message.note !== know ? <p className="mt-1 text-[12px] leading-snug text-finn-iron">{message.note}</p> : null}
+                                    <ul className="mt-1 space-y-1">
+                                        {reasons.map((reason) => (
+                                            <li key={reason} className="flex gap-2 text-[12.5px] leading-snug text-finn-black">
+                                                <Check aria-hidden="true" className="mt-0.5 h-3.5 w-3.5 shrink-0 text-finn-fit-good" strokeWidth={3} />
+                                                <span>{reason}</span>
+                                            </li>
+                                        ))}
+                                    </ul>
+                                </div>
+                            ) : null}
+
+                            {tradeoffs.length ? (
+                                <div>
+                                    <p className="text-[10.5px] font-black uppercase tracking-wide text-finn-iron">What you'd give up</p>
+                                    <ul className="mt-1 space-y-1.5">
+                                        {tradeoffs.map((tradeoff) => (
+                                            <li key={tradeoff.headline} className="text-[12px] leading-snug text-finn-black">
+                                                <span className="font-bold">{tradeoff.headline}.</span> {tradeoff.text}
+                                            </li>
+                                        ))}
+                                    </ul>
+                                </div>
+                            ) : null}
+
+                            {message.because?.length ? (
+                                <div>
+                                    <p className="text-[10.5px] font-black uppercase tracking-wide text-finn-iron">Because you said…</p>
+                                    <ul className="mt-1 space-y-0.5">
+                                        {message.because.map((item) => (
+                                            <li key={item.said} className="text-[12px] leading-snug text-finn-black">
+                                                {item.said} <span className="text-finn-iron">— {IMPORTANCE_LABEL[item.importance].toLowerCase()} → {item.into.join(", ")}</span>
+                                            </li>
+                                        ))}
+                                    </ul>
+                                </div>
+                            ) : null}
+                        </div>
+                    ) : null}
+
+                    <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2">
+                        {open ? (
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setOpen(false);
+                                    onKeepShort();
+                                }}
+                                className="text-[12px] font-black text-finn-iron hover:text-finn-black"
+                            >
+                                Keep it short
+                            </button>
+                        ) : (
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setOpen(true);
+                                    onSeeWhy();
+                                }}
+                                className="inline-flex items-center gap-1 text-[12.5px] font-black text-finn-accent-blue hover:underline"
+                            >
+                                See why
+                                <ChevronRight aria-hidden="true" className="h-4 w-4" />
+                            </button>
+                        )}
+                        <button
+                            type="button"
+                            onClick={onWhy}
+                            className="ml-auto inline-flex items-center gap-1 rounded-full bg-finn-highlight-navy px-3.5 py-2 text-[12px] font-black text-white transition-colors hover:bg-finn-accent-blue focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-finn-accent-blue"
+                        >
+                            The whole case
+                            <ChevronRight aria-hidden="true" className="h-4 w-4" />
+                        </button>
+                    </div>
                 </div>
             ) : null}
 
-            {message.runnersUp.length ? (
+            {open && message.runnersUp.length ? (
                 <div className="border-t border-finn-cotton">
                     <p className="px-3.5 pt-3 text-[11px] font-black uppercase tracking-wide text-finn-iron">Next closest</p>
                     <ul className="py-1">
@@ -1023,6 +1129,9 @@ export function MessageList({
     busy,
     editable = null,
     onEdit,
+    longResults = false,
+    onSeeWhy = () => {},
+    onKeepShort = () => {},
 }: {
     messages: ChatMessage[];
     typing: boolean;
@@ -1035,6 +1144,10 @@ export function MessageList({
     onRemove: (bubble: string, item: string) => void;
     onAdd: (bubble: string, item: string) => void;
     busy: boolean;
+    /** Results open with everything shown, after "See why" on two in a row. */
+    longResults?: boolean;
+    onSeeWhy?: (resultId: string) => void;
+    onKeepShort?: () => void;
     /** The reader message whose answer can be taken back, if any. */
     editable?: string | null;
     onEdit?: () => void;
@@ -1098,8 +1211,11 @@ export function MessageList({
                 body = (
                     <Result
                         message={message}
+                        long={longResults}
                         onOpenCar={(id) => onOpenCar(id, message.judgement)}
                         onWhy={() => message.winner && onOpenCar(message.winner.id, message.judgement)}
+                        onSeeWhy={() => onSeeWhy(message.id)}
+                        onKeepShort={onKeepShort}
                     />
                 );
                 break;

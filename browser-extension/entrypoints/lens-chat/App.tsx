@@ -193,6 +193,9 @@ export function App() {
                                 onImportance={(needId, level) => void conversation.importance(needId, level)}
                                 onRemove={(bubble, item) => void conversation.removeItem(bubble, item)}
                                 onAdd={(bubble, item) => void conversation.addItem(bubble, item)}
+                                longResults={chat.longResults ?? false}
+                                onSeeWhy={(id) => void conversation.seeWhy(id)}
+                                onKeepShort={() => void conversation.keepShort()}
                                 onChange={(step) => void conversation.changeOne(step)}
                                 editable={rewindable(chat)}
                                 onEdit={() => void conversation.takeBack()}

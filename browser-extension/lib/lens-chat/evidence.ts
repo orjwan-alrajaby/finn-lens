@@ -1,5 +1,5 @@
 import { CATEGORIES, CATEGORY_IDS, SIGNALS } from "@/lib/reasoning-engine/constants";
-import { bootLitres, evRangeKm, isBinarySignal, lengthMm, signalUtility, type Anchors } from "@/lib/reasoning-engine/evidence";
+import { bootLitres, evRangeKm, isBinarySignal, lengthMm, signalUtility, widthMm, type Anchors } from "@/lib/reasoning-engine/evidence";
 import { assessEfficiency, assessEnvironment } from "@/lib/reasoning-engine/environmental";
 import { PROPER_NAME } from "@/lib/reasoning-engine/format";
 import type { CategoryId, SignalId } from "@/lib/reasoning-engine/types";
@@ -400,6 +400,12 @@ export function measuredDisplay(car: FinnCar, id: EvidenceId): string | null {
         const length = lengthMm(car);
 
         return length ? `${(length / 1000).toFixed(2)} m long` : null;
+    }
+
+    if (id === "compactWidth") {
+        const width = widthMm(car);
+
+        return width ? `${(width / 1000).toFixed(2)} m wide` : null;
     }
 
     if (id === "bootVolume") {
