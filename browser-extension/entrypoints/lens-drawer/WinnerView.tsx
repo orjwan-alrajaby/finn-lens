@@ -223,7 +223,7 @@ export function WinnerView({ value, print = false }: { value: JudgedCar; print?:
                         </div>
                     ))}
                 </dl>
-                {told.priorities.length ? (
+                {told.priorities?.length ? (
                     <p className="mt-2.5 text-[12px] leading-snug text-finn-iron">
                         Weighed as {told.priorities.map((item) => `${item.label.toLowerCase()} ${item.share}%`).join(", ")}.
                     </p>

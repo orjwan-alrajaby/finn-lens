@@ -3,7 +3,8 @@ import { createMockAdapter } from "@/lib/lens-ai/mock";
 import { buildVocabulary } from "@/lib/lens-ai/vocabulary";
 import { evidenceCatalogue } from "@/lib/lens-chat/evidence";
 import { evidenceForNeeds } from "@/lib/lens-chat/fit-story";
-import { catalogueNeed, guideSteps } from "@/lib/lens-chat/guide";
+import { bubbleById, bubblesIn, syncBubbles, withBubbles, type BubbleId } from "@/lib/lens-chat/bubbles";
+import { catalogueNeed } from "@/lib/lens-chat/guide";
 import { lowerFirst } from "@/lib/reasoning-engine/format";
 import type { LensRun } from "@/lib/lens-chat/run";
 import {
@@ -62,54 +63,64 @@ export interface Read {
 }
 
 /**
- * Typed needs that mean exactly one of the guide's own answers.
+ * Typed needs that mean one of the life bubbles.
  *
  * The keyword reader has its own names for things. Where one is the same
- * thing as a tap — "a big dog" is Pets, "two teenagers" is Children — the
- * tap's need takes its place: the same dog isn't counted twice, it weighs
- * what a tapped dog weighs, and the question's follow-up still gets asked.
- * A reader's need with no equal among the answers stays as the reader read it.
+ * thing as a bubble — "a big dog" is the dog bubble, "two teenagers" is
+ * kids — the bubble takes its place: the same dog isn't counted twice, it
+ * weighs what a tapped dog weighs, and the summary shows it as the bubble,
+ * correctable like any other. A need with no equal among the bubbles stays
+ * as the reader read it.
  */
-const AS_TAPPED: Record<string, string> = {
-    "the-dogs": "dog",
-    "kids-in-and-out": "kids",
-    "room-to-carry": "bulky",
-    "dark-roads": "night",
-    winter: "winter",
-    safety: "safety",
-    efficient: "efficiency-matters",
-    clean: "co2-matters",
+const AS_BUBBLE: Record<string, (text: string) => { bubble: BubbleId; chips: string[] }> = {
+    "the-dogs": () => ({ bubble: "dog", chips: [] }),
+    "kids-in-and-out": () => ({ bubble: "kids", chips: [] }),
+    "room-to-carry": () => ({ bubble: "carry", chips: ["bulky"] }),
+    "dark-roads": () => ({ bubble: "night", chips: [] }),
+    "long-drives": () => ({ bubble: "long", chips: [] }),
+    clean: () => ({ bubble: "environment", chips: ["matters"] }),
+    winter: (text) => ({ bubble: "weather", chips: [/snow|\bice\b|icy/i.test(text) ? "snow" : "cold"] }),
+    safety: () => ({ bubble: "help", chips: [] }),
 };
 
-function asTapped(u: Understanding, before: Understanding, cars: FinnCar[]): { understanding: Understanding; heardAs: string[] } {
+/**
+ * Typed needs that mean one of the guide's needs but no bubble: "low fuel
+ * consumption" is how little the car uses, which the keyword reader files
+ * under CO₂. It isn't "I'm on a budget", so it stays a need of its own.
+ */
+const AS_NEED: Record<string, string> = { efficient: "efficiency-matters" };
+
+function asTapped(u: Understanding, before: Understanding, text: string, cars: FinnCar[]): { understanding: Understanding; heardAs: string[] } {
     const had = new Set(before.needs.map((need) => need.id));
-    /* An answer's chip, or — where the chip is a degree, "It matters" — the need it is a degree of. */
-    const labels = new Map(
-        (guideSteps(cars).find((step) => step.id === "life")?.choices ?? []).map((choice) => [
-            choice.id,
-            choice.group === "co2" || choice.group === "efficiency" ? (choice.need?.label ?? choice.label) : choice.label,
-        ]),
-    );
     const heardAs: string[] = [];
+    const picks: Partial<Record<BubbleId, string[]>> = Object.fromEntries(bubblesIn(u).map(({ bubble, state }) => [bubble.id, state.chips]));
     let needs = u.needs;
 
     for (const need of u.needs) {
-        if (had.has(need.id)) continue;
+        if (had.has(need.id) || need.id.startsWith("bubble-")) continue;
 
-        const choice = AS_TAPPED[need.id];
-        const tapped = choice ? catalogueNeed(choice, cars) : null;
+        const match = AS_BUBBLE[need.id]?.(text);
+        const bubble = match ? bubbleById(match.bubble) : null;
+        const catalogue = !bubble && AS_NEED[need.id] ? catalogueNeed(AS_NEED[need.id]!, cars) : null;
 
-        if (!choice || !tapped) {
+        if (catalogue) {
+            needs = needs.filter((item) => item.id !== need.id);
+            if (!needs.some((item) => item.id === catalogue.id)) needs = [...needs, catalogue];
+            heardAs.push(lowerFirst(catalogue.label));
+            continue;
+        }
+
+        if (!match || !bubble) {
             heardAs.push(lowerFirst(need.label));
             continue;
         }
 
         needs = needs.filter((item) => item.id !== need.id);
-        if (!needs.some((item) => item.id === tapped.id)) needs = [...needs, tapped];
-        heardAs.push(lowerFirst(labels.get(choice) ?? tapped.label));
+        picks[match.bubble] = [...new Set([...(picks[match.bubble] ?? []), ...match.chips])];
+        heardAs.push(lowerFirst(bubble.need));
     }
 
-    return { understanding: { ...u, needs }, heardAs: [...new Set(heardAs)] };
+    return { understanding: withBubbles({ ...u, needs }, picks), heardAs: [...new Set(heardAs)] };
 }
 
 export async function readTyped(chat: Chat, message: string, cars: FinnCar[], run: LensRun | null): Promise<Read> {
@@ -146,7 +157,8 @@ export async function readTyped(chat: Chat, message: string, cars: FinnCar[], ru
         readUnderstanding(result.understanding, chat.understanding, undefined, undefined, result.kind === "whatIf" ? null : message),
         said,
     );
-    const { understanding, heardAs } = asTapped(grounded.understanding, chat.understanding, cars);
+    /* The bubbles' needs, rebuilt from their state: the reader's round trip may have changed them. */
+    const { understanding, heardAs } = asTapped(syncBubbles(grounded.understanding), chat.understanding, message, cars);
     const changes = diffUnderstanding(chat.understanding, understanding);
     /* Needs are said by name above; anything else that changed — the budget, the dates — by what it is now. */
     const others = changes.filter((change) => !understanding.needs.some((need) => need.label === change.label)).map((change) => `${lowerFirst(change.label)}: ${change.to}`);

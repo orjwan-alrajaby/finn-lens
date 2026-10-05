@@ -42,13 +42,11 @@ async function converse(cars: PinnedFinnCar[], picks: Picks): Promise<Chat> {
         const ask = openAsk(chat);
         if (!ask || ask.step.id === "confirm" || ask.step.id === "keep") break;
 
-        const key = ask.step.id.startsWith("offer-") ? "offer" : ask.step.id;
         /* A question with nothing scripted is answered as the page would: Continue, with whatever it shows picked. */
-        const pick = picks[key] ?? picks[ask.step.id.startsWith("life-") ? "life" : key] ?? ask.step.selected ?? [];
-        const own = new Set(ask.step.choices.map((choice) => choice.id));
+        const pick = picks[ask.step.id] ?? ask.step.selected ?? [];
 
         if (Array.isArray(pick)) {
-            chat = answer(chat, ask.id, pick.filter((id) => own.has(id) || !ask.step.id.startsWith("life-")), cars, TODAY).chat;
+            chat = answer(chat, ask.id, pick, cars, TODAY).chat;
         } else if ("amount" in pick) {
             chat = answer(chat, ask.id, [], cars, TODAY, { amount: pick.amount }).chat;
         } else {
@@ -60,21 +58,28 @@ async function converse(cars: PinnedFinnCar[], picks: Picks): Promise<Chat> {
     return chat;
 }
 
+const EVERY_BUBBLE = [
+    "kids", "kids:baby", "six-seats", "dog", "city", "city:street", "city:garage", "help", "help:parking", "help:traffic", "help:reversing",
+    "long", "traffic", "weather", "weather:snow", "weather:wet", "weather:hot", "night", "carry", "carry:bulky", "carry:bikes", "carry:trailer",
+    "comfort", "comfort:warm", "comfort:keyless", "comfort:phone", "comfort:climate", "comfort:seats", "comfort:sound", "comfort:sunroof",
+    "environment", "environment:matters", "budget",
+];
+
 const PERSONAS: { name: string; picks: Picks }[] = [
-    { name: "a young family parking on the street", picks: { life: ["passengers-2", "kids", "city", "street"], "follow-kids": ["seats"], rules: [], budget: { amount: 600 }, period: ["period-12"], distance: ["km-1000"], offer: ["yes"] } },
-    { name: "a sales rep on the motorway every week, automatic only", picks: { life: ["commute", "motorway"], "follow-commute": ["long"], "follow-motorway": ["weekly"], rules: ["automatic"], budget: { amount: 800 }, period: ["period-24"], distance: { amount: 3000 }, offer: ["yes"] } },
-    { name: "an electric-only city dweller for six months", picks: { life: ["co2-decides", "tech", "city", "garage"], rules: ["electric-only"], budget: { amount: 450 }, period: ["period-6"], distance: ["km-500"], offer: ["no"] } },
-    { name: "a nervous new driver who puts safety first", picks: { life: ["nervous", "safety"], "follow-nervous": ["parking", "traffic"], rules: [], budget: ["budget-400"], period: ["period-12"], distance: ["km-500"], focus: ["life-safety"], offer: ["yes"] } },
-    { name: "a dog owner in snow who needs all-wheel drive", picks: { life: ["dog", "winter", "bulky"], "follow-winter": ["snow"], rules: ["awd"], budget: ["budget-700"], period: ["period-18"], distance: ["km-1500"], offer: ["yes"] } },
-    { name: "a road-trip couple who won't go electric", picks: { life: ["passengers-1", "adults", "roadtrips", "comfort"], rules: ["not-electric"], budget: { amount: 900 }, period: ["period-24"], distance: ["km-1500"], offer: ["yes"] } },
-    { name: "a caravan owner who must tow", picks: { life: ["towing", "motorway"], "follow-motorway": ["monthly"], rules: ["must-tow"], budget: ["budget-1000"], period: ["period-12"], distance: { amount: 2000 }, offer: ["yes"] } },
-    { name: "a student on €300 in the city", picks: { life: ["city", "street"], rules: [], budget: ["budget-300"], period: ["period-6"], distance: ["km-500"], offer: ["no"] } },
-    { name: "a night-shift nurse who types", picks: { "life-people": { text: "I drive home after night shifts on unlit country roads, and I can't spend more than 550 a month" }, rules: [], period: ["period-12"], distance: ["km-1500"], offer: ["yes"] } },
-    { name: "a big family who need six seats", picks: { life: ["passengers-5", "kids", "bulky"], "follow-kids": ["boosters"], rules: ["six-seats"], budget: ["budget-1000"], period: ["period-24"], distance: { amount: 2000 }, offer: ["yes"] } },
-    { name: "someone who cares only about emissions, with no budget or dates", picks: { life: ["co2-matters"], rules: [], budget: [], period: [], distance: ["km-1000"], offer: ["no"] } },
-    { name: "a family who type everything at once", picks: { "life-people": { text: "We're a family of four with a dog. I commute 40 minutes each way on the Autobahn, our winters are snowy, and we can spend around 700 a month." }, rules: [], period: ["period-12"], distance: ["km-2500"], offer: ["yes"] } },
-    { name: "someone who picks every need", picks: { life: ["passengers-4", "kids", "dog", "adults", "city", "commute", "motorway", "roadtrips", "night", "winter", "street", "garage", "summer", "bulky", "bikes", "towing", "nervous", "safety", "tech", "comfort", "co2-matters", "efficiency-matters"], rules: [], budget: { amount: 800 }, period: ["period-12"], distance: ["km-1500"], offer: ["yes"] } },
-    { name: "a nervous electric-only city driver on €350", picks: { life: ["nervous", "city", "street"], "follow-nervous": ["parking", "reversing"], rules: ["electric-only"], budget: { amount: 350 }, period: ["period-12"], distance: ["km-500"], offer: ["yes"] } },
+    { name: "a young family parking on the street", picks: { bubbles: ["kids", "kids:baby", "city", "city:street"], rules: [], budget: { amount: 600 }, period: ["period-12"] } },
+    { name: "a sales rep on the motorway every week, automatic only", picks: { bubbles: ["long", "traffic"], "often-long": ["weekly"], "often-traffic": ["long"], rules: ["automatic"], budget: { amount: 800 }, period: ["period-24"], distance: { amount: 3000 } } },
+    { name: "an electric-only city dweller for six months", picks: { bubbles: ["environment", "environment:decides", "comfort", "comfort:phone", "city", "city:garage"], rules: ["electric-only"], budget: { amount: 450 }, period: ["period-6"] } },
+    { name: "a nervous new driver who wants help parking and in traffic", picks: { bubbles: ["help", "help:parking", "help:traffic"], rules: [], budget: ["budget-400"], period: ["period-12"] } },
+    { name: "a dog owner in snow who needs all-wheel drive", picks: { bubbles: ["dog", "weather", "weather:snow", "carry", "carry:bulky"], rules: ["awd"], budget: ["budget-700"], period: ["period-18"] } },
+    { name: "a road-trip couple who won't go electric", picks: { bubbles: ["long", "comfort", "comfort:climate", "comfort:seats"], "often-long": ["monthly"], rules: ["not-electric"], budget: { amount: 900 }, period: ["period-24"], distance: ["km-1500"] } },
+    { name: "a caravan owner who must tow", picks: { bubbles: ["carry", "carry:trailer", "long"], "often-long": ["monthly"], rules: ["must-tow"], budget: ["budget-1000"], period: ["period-12"], distance: { amount: 2000 } } },
+    { name: "a student on €300 in the city", picks: { bubbles: ["city", "city:street", "budget"], rules: [], budget: ["budget-300"], period: ["period-6"], distance: ["km-500"] } },
+    { name: "a night-shift nurse who types", picks: { bubbles: { text: "I drive home after night shifts on unlit country roads, and I can't spend more than 550 a month" }, rules: [], period: ["period-12"] } },
+    { name: "a big family who need six seats", picks: { bubbles: ["kids", "kids:booster", "six-seats", "carry", "carry:bulky"], rules: ["six-seats"], budget: ["budget-1000"], period: ["period-24"] } },
+    { name: "someone who cares only about emissions, with no budget or dates", picks: { bubbles: ["environment", "environment:matters"], rules: [], budget: [], period: [] } },
+    { name: "a family who type everything at once", picks: { bubbles: { text: "We're a family of four with a dog. I commute 40 minutes each way on the Autobahn, our winters are snowy, and we can spend around 700 a month." }, rules: [], period: ["period-12"], distance: ["km-2500"] } },
+    { name: "someone who taps every bubble", picks: { bubbles: EVERY_BUBBLE, "often-long": ["weekly"], "often-traffic": ["medium"], rules: [], budget: { amount: 800 }, period: ["period-12"], distance: ["km-1500"] } },
+    { name: "a nervous electric-only city driver on €350", picks: { bubbles: ["help", "help:parking", "help:reversing", "city", "city:street"], rules: ["electric-only"], budget: { amount: 350 }, period: ["period-12"] } },
 ];
 
 /** Everything wrong with how a chat judged these cars, as sentences; empty when nothing is. */

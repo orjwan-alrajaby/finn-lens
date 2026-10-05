@@ -21,13 +21,19 @@ import type { Understanding } from "@/lib/lens-chat/understanding";
  */
 
 /**
- * Lens's questions. `life` stands for the needs, asked a group at a time as
- * `life-people`, `life-driving`…; `focus` asks which need matters most; `offers` stands for
- * the equipment worth a look, expanded into one `offer-…` question each when
- * it's reached; `follow-…` is the second question about one need.
+ * Lens's questions. `bubbles` asks about the reader's life, one screen of
+ * bubbles with chips under them; `often-long` and `often-traffic` ask how
+ * often, which sets how much a bubble counts.
+ *
+ * The rest are from chats before the bubbles, kept so a question still open
+ * in one can be answered: `life-…` asked the needs a group at a time,
+ * `focus` which mattered most, `offer-…` equipment worth a look, and
+ * `follow-…` the second question about one need.
  */
 export type StepId =
     | GuideStep["id"]
+    | "bubbles"
+    | `often-${string}`
     | "budget"
     | "period"
     | "start"
@@ -62,6 +68,41 @@ export interface Choice {
     looksFor?: string[];
     /** The same equipment, each with what it does — for the "i" on the chip. */
     features?: { label: string; does: string }[];
+}
+
+/** The chips a bubble opens under itself: "Where do you park most often?". */
+export interface BubbleChips {
+    ask: string;
+    multiple: boolean;
+    max?: number;
+    /** At least one has to be picked: "What's it like?" for the weather. */
+    required: boolean;
+    exclusive?: string[][];
+    options: { id: string; label: string }[];
+}
+
+/** One bubble on the summary: what Lens understood, for the reader to correct. */
+export interface SummaryBubble {
+    id: string;
+    /** "You have kids · a baby or toddler seat". */
+    heading: string;
+    importance: NeedImportance;
+    /** How much it counts was said by the reader — a chip, how often, or the summary — not assumed. */
+    importanceSaid: boolean;
+    /** What it counts; each can be taken out. */
+    counts: { id: EvidenceId; label: string }[];
+    /** Standard equipment it checks; nearly every car has it. */
+    checks: { id: EvidenceId; label: string }[];
+    /** Suggestions the cars here differ on; each can be added. */
+    worth: { id: EvidenceId; label: string }[];
+    /** A figure it's judged on, with no equipment: "each car's CO₂ per km". */
+    figure?: string;
+    /** What matters for this life that FINN's data can't tell Lens. */
+    cantCheck: string;
+    /** Said when it counts nothing yet: "Tell me which, and I'll count them." */
+    empty?: string;
+    /** What a deal-breaker already settles, so it isn't checked: "Six or more seats is a deal-breaker, so every car left has it." */
+    settled?: string;
 }
 
 /** An answer of the reader's own, where the pre-made ones don't fit. */
@@ -110,6 +151,11 @@ export interface ChatStep {
     offer?: { id: EvidenceId; needId: string };
     /** Choices preselected: what the reader said last time, when they're changing an answer. */
     selected?: string[];
+    /**
+     * The bubbles question: the chips each bubble opens under itself once
+     * tapped. Answered as the bubble's id, and `bubble:chip` for each chip.
+     */
+    bubbleChips?: Record<string, BubbleChips>;
     /** The guide's step, for `applyChoices`. Absent on Lens's own steps (budget, period, start). */
     guide?: GuideStep;
 }
@@ -186,10 +232,12 @@ export type ChatMessage =
               /** How many more it counts that a need above already listed: each item is shown once. */
               also?: number;
           }[];
+          /** What Lens understood from each bubble the reader tapped. Absent on chats from before them. */
+          bubbles?: SummaryBubble[];
           /** What Lens will judge by, in plain lines, each with the question that sets it. */
           lines: { label: string; value: string; step?: StepId }[];
-          /** The priorities those answers came to, with how much each counts. */
-          priorities: { label: string; share: number; from?: string[] }[];
+          /** The priorities those answers came to, with how much each counts. Only on summaries from before the bubbles: that's the drawer's now. */
+          priorities?: { label: string; share: number; from?: string[] }[];
       }
     | {
           id: string;

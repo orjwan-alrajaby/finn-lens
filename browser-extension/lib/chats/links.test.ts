@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
 
+import { BUBBLES } from "@/lib/lens-chat/bubbles";
 import { GARAGE } from "@/lib/reasoning-engine/test-garage";
 import { guideSteps } from "@/lib/lens-chat/guide";
 
 import { FOLLOW_UPS, offerReason, WORTH_A_LOOK } from "./follow-ups";
-import { stepFor } from "./flow";
 
 /*
  * Wherever Lens puts a need and a feature together, it says why they belong
@@ -45,24 +45,12 @@ describe("the link between a need and its equipment", () => {
         expect(offerReason("life-kids", "hasSunroof")).toBeUndefined();
     });
 
-    it("puts the reason in the offer itself", () => {
-        const cars = [GARAGE.safeCompact(), GARAGE.familySuv(), GARAGE.cityHatch()];
-        const step = stepFor("offer-hasElectricTailgate|life-kids", cars, {
-            budget: null,
-            rental: null,
-            monthlyKm: null,
-            needs: [{ id: "life-kids", label: "Travelling with children", importance: "important", said: "", priorities: ["practicality"], evidence: [], notInData: null, status: "active" }],
-            context: [],
-            capabilities: [],
-            droppedPriorities: [],
-            declined: [],
-            tension: "",
-            notModelled: [],
-            waived: [],
-        })!;
-
-        expect(step.why).toContain("so you can open the boot while holding a child or a pram");
-        expect(step.why).toMatch(/^You mentioned travelling with children\. Electric tailgate: /);
+    it("says why each bubble counts each of its items", () => {
+        /* Comforts are named by the reader themselves: “Warm seats” is the reason for heated seats. */
+        for (const bubble of BUBBLES.filter((item) => item.id !== "comfort")) {
+            const counted = [...bubble.counts, ...(bubble.chips?.options ?? []).flatMap((chip) => chip.counts ?? [])];
+            for (const id of counted) expect(bubble.why?.[id], `${bubble.id} → ${id}`).toMatch(/\w{3,}/);
+        }
     });
 });
 

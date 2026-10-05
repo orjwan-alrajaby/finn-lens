@@ -4,7 +4,7 @@ import type { FinnCar } from "@/lib/types";
 
 import { coverage, EVIDENCE, type EvidenceId } from "./evidence";
 import { explain } from "./guide";
-import type { BubbleState, Need, Understanding } from "./understanding";
+import { ruledOut, type BubbleState, type Need, type Understanding } from "./understanding";
 
 /**
  * The reader's life, as bubbles they tap — and what Lens makes of each.
@@ -150,6 +150,7 @@ export const BUBBLES: Bubble[] = [
         importance: "essential",
         suggests: "six-seats",
         cantCheck: "how usable the third row is for adults",
+        why: { seatsSixPlus: "so everyone has a seat" },
     },
     {
         id: "dog",
@@ -297,6 +298,9 @@ export const BUBBLES: Bubble[] = [
         },
         cantCheck: "how the car handles on snow, or which tyres it will come on",
         why: {
+            hasHeatedSeats: "to warm you on a cold start, before the cabin is",
+            hasHeatedSteeringWheel: "so the wheel is warm to hold on a frozen morning",
+            hasSeatCooling: "so your back doesn't stick to the seat in the heat",
             hasAllWheelDrive: "for grip pulling away and climbing on snow and ice — it doesn't shorten braking",
             hasAuxiliaryHeater: "so the car is warm and the windows clear before you set off",
             hasHeatPump: "so an electric car keeps more of its range in the cold",
@@ -343,7 +347,10 @@ export const BUBBLES: Bubble[] = [
         },
         cantCheck: "boot space — FINN's figure doesn't say whether the seats are up or folded",
         why: {
-            hasTowbar: "a bike rack can go on it",
+            hasSplitFoldingRearSeats: "so long or bulky things fit with part of the back seat down",
+            hasRoofRails: "for a roof box, a bike carrier or a ski rack",
+            hasTowbar: "for the trailer or caravan — and a bike rack can go on it",
+            towingCapacity1500: "enough to pull most small caravans",
         },
     },
     {
@@ -573,11 +580,17 @@ export function bubblesIn(u: Understanding): { bubble: Bubble; state: BubbleStat
 
 const isBubbleNeed = (id: string) => id.startsWith("bubble-");
 
-/** The bubbles' needs rebuilt from their state: everything else the reader said stays as it was. */
+/**
+ * The bubbles' needs rebuilt from their state: everything else the reader
+ * said stays as it was. A bubble whose every item a deal-breaker already
+ * settles — six seats beside "six seats or more" — counts nothing a car
+ * left could differ on, so it leaves no need: the rule says it once.
+ */
 export function syncBubbles(u: Understanding): Understanding {
+    const settled = new Set(ruledOut(u).map((rule) => rule.id));
     const needs = bubblesIn(u)
         .map(({ bubble, state }) => needOf(bubble, state))
-        .filter((need): need is Need => need != null);
+        .filter((need): need is Need => need != null && (need.evidence.some((entry) => !settled.has(entry.id)) || !need.evidence.length));
 
     return { ...u, needs: [...u.needs.filter((need) => !isBubbleNeed(need.id)), ...needs] };
 }

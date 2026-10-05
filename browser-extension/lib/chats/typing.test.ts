@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { GARAGE } from "@/lib/reasoning-engine/test-garage";
 
-import { answer, peopleIn, startChat } from "./flow";
+import { answer, startChat } from "./flow";
 import { readBack, readTyped } from "./typing";
 
 /*
@@ -10,12 +10,12 @@ import { readBack, readTyped } from "./typing";
  */
 
 const cars = () => [GARAGE.safeCompact(), GARAGE.familySuv(), GARAGE.cityHatch()];
+const ask = (chat: ReturnType<typeof startChat>) => [...chat.messages].reverse().find((message) => message.kind === "ask")!;
 
 describe("typing", () => {
     it("adds what was typed to what was tapped, without doubling anything", async () => {
         const start = startChat(null, cars());
-        const counted = answer(start, start.messages.at(-1)!.id, ["passengers-2"], cars()).chat;
-        const tapped = answer(counted, counted.messages.at(-1)!.id, ["kids"], cars()).chat;
+        const tapped = answer(start, ask(start).id, ["kids"], cars()).chat;
 
         const read = await readTyped(tapped, "actually I can go up to 650 a month", cars(), null);
         const labels = read.understanding.needs.filter((need) => need.status === "active").map((need) => need.label);
@@ -28,51 +28,42 @@ describe("typing", () => {
     it("reads only what was said, never a stock set of needs", async () => {
         const start = startChat(null, cars());
         const read = await readTyped(start, "we have two kids and I can't spend more than 600 a month", cars(), null);
-        const labels = read.understanding.needs.filter((need) => need.status === "active").map((need) => need.label.toLowerCase());
 
         expect(read.understanding.budget?.monthly).toBe(600);
-        expect(labels.length).toBeGreaterThan(0);
-        expect(labels.every((label) => /kid|child|famil/.test(label))).toBe(true);
+        expect(Object.keys(read.understanding.bubbles ?? {})).toEqual(["kids"]);
+        expect(read.understanding.needs.map((need) => need.id)).toEqual(["bubble-kids"]);
     });
 });
 
-describe("words beside the taps", () => {
-    const ask = (chat: ReturnType<typeof startChat>) => [...chat.messages].reverse().find((message) => message.kind === "ask")!;
-
-    it("puts typed words on the answers they mean, so one dog is one need", async () => {
+describe("words beside the bubbles", () => {
+    it("puts typed words on the bubbles they mean, so one dog is one bubble", async () => {
         const start = startChat(null, cars());
-        const counted = answer(start, ask(start).id, ["passengers-4"], cars()).chat;
         const text = "2 teenagers & a big dog";
-        const read = await readTyped(counted, text, cars(), null);
-        const { chat } = answer(counted, ask(counted).id, ["kids", "dog"], cars(), new Date(), {
+        const read = await readTyped(start, text, cars(), null);
+        const { chat } = answer(start, ask(start).id, ["kids", "dog"], cars(), new Date(), {
             heard: { text, understanding: read.understanding, reply: readBack(text, read, true) },
         });
-        const ids = chat.understanding.needs.map((need) => need.id);
 
-        expect(ids.filter((id) => /dog/.test(id))).toEqual(["life-dog"]);
-        expect(ids.filter((id) => /kid/.test(id))).toEqual(["life-kids"]);
-        expect(readBack(text, read, true)).toBe("I read “2 teenagers & a big dog” as children and pets.");
-        const texts = chat.messages.filter((message) => message.kind === "text");
-        expect(texts.filter((message) => message.from === "reader").at(-1)).toMatchObject({ text: "Children. A pet. 2 teenagers & a big dog." });
-        /* Nothing Lens only quotes is promised as checked. */
-        expect(texts.at(-1)).toMatchObject({ from: "lens" });
-        expect((texts.at(-1) as { text: string }).text).not.toMatch(/boot space/i);
+        expect(chat.understanding.needs.map((need) => need.id).sort()).toEqual(["bubble-dog", "bubble-kids"]);
+        expect(readBack(text, read, true)).toBe("I read “2 teenagers & a big dog” as travelling with children and travelling with a dog.");
+        expect(chat.messages.filter((message) => message.kind === "text" && message.from === "reader").at(-1)).toMatchObject({ text: "I have kids. I travel with a dog. 2 teenagers & a big dog." });
     });
 
-    it("counts a typed answer to this question as tapped, so its follow-up is asked", async () => {
+    it("keeps a bubble the words landed on beside the taps", async () => {
         const start = startChat(null, cars());
-        const counted = answer(start, ask(start).id, ["passengers-2"], cars()).chat;
-        const read = await readTyped(counted, "two teenagers", cars(), null);
-        const { chat } = answer(counted, ask(counted).id, [], cars(), new Date(), { heard: { text: "two teenagers", understanding: read.understanding, reply: "" } });
+        const text = "and long drives to see my parents";
+        const read = await readTyped(start, text, cars(), null);
+        const { chat } = answer(start, ask(start).id, ["city"], cars(), new Date(), { heard: { text, understanding: read.understanding, reply: "" } });
 
-        expect(ask(chat).kind === "ask" && ask(chat).step.id).toBe("follow-kids");
+        expect(Object.keys(chat.understanding.bubbles ?? {}).sort()).toEqual(["city", "long"]);
+        /* A bubble the words added asks its own question. */
+        expect(ask(chat).kind === "ask" && ask(chat).step.id).toBe("often-long");
     });
 
-    it("asks the count with numbers only, since who they are comes next", () => {
-        const start = startChat(null, cars());
-        const count = ask(start);
+    it("reads snow onto the weather bubble's own chip", async () => {
+        const read = await readTyped(startChat(null, cars()), "we get a lot of snow", cars(), null);
 
-        expect(count.kind === "ask" && count.step.custom).toBeUndefined();
+        expect(read.understanding.bubbles?.weather?.chips).toEqual(["snow"]);
     });
 
     it("hears safety or comfort waved away as not wanted", async () => {
@@ -86,9 +77,9 @@ describe("words beside the taps", () => {
 });
 
 describe("a long list of needs", () => {
-    it("still hears a need typed after sixteen tapped ones", async () => {
+    it("still hears a need typed after sixteen others", async () => {
         const many = Array.from({ length: 16 }, (_, index) => ({
-            id: `life-need-${index}`, label: `Need ${index}`, importance: "important" as const, said: "", priorities: ["comfort" as const],
+            id: `need-${index}`, label: `Need ${index}`, importance: "important" as const, said: "", priorities: ["comfort" as const],
             evidence: [], notInData: null, status: "active" as const,
         }));
         const start = startChat(null, cars());
@@ -99,57 +90,15 @@ describe("a long list of needs", () => {
     });
 });
 
-describe("counts that don't add up", () => {
-    const ask = (chat: ReturnType<typeof startChat>) => [...chat.messages].reverse().find((message) => message.kind === "ask")!;
-    const typedWho = async (count: string[], text: string) => {
-        const start = startChat(null, cars());
-        const counted = answer(start, ask(start).id, count, cars()).chat;
-        const read = await readTyped(counted, text, cars(), null);
-
-        return answer(counted, ask(counted).id, ["kids"], cars(), new Date(), { heard: { text, understanding: read.understanding, reply: "" } }).chat;
-    };
-
-    it("counts the people typed, and only people", () => {
-        expect(peopleIn("2 teenagers, 2 kids, 2 pets")).toBe(4);
-        expect(peopleIn("two small kids and my 3 friends")).toBe(5);
-        expect(peopleIn("a big dog")).toBeNull();
-    });
-
-    it("asks which count is right when the words need more seats than the count", async () => {
-        const chat = await typedWho(["passengers-4"], "2 teenagers, 2 kids, 2 adults");
-        const check = ask(chat);
-
-        expect(check.kind === "ask" && check.step.id).toBe("check-passengers-6");
-        if (check.kind !== "ask") return;
-        expect(check.step.ask).toBe("You said four passengers, but what you typed sounds like six — with you that's seven people, so the car needs six or more seats. Which is right?");
-        expect(check.step.choices.map((choice) => choice.label)).toEqual(["4 passengers", "5 or more passengers"]);
-
-        const fixed = answer(chat, check.id, ["passengers-5"], cars()).chat;
-        expect(fixed.understanding.passengers).toBe(5);
-        expect(fixed.understanding.needs.map((need) => need.id).filter((id) => id.startsWith("life-passengers"))).toEqual(["life-passengers-5"]);
-        expect([...fixed.messages].reverse().find((message) => message.kind === "ask")).toMatchObject({ step: { id: "follow-kids" } });
-    });
-
-    it("asks nothing when the words fit the count, or wouldn't change the seats", async () => {
-        const next = async (count: string[], text: string) => {
-            const open = ask(await typedWho(count, text));
-            return open.kind === "ask" ? open.step.id : null;
-        };
-
-        expect(await next(["passengers-4"], "2 teenagers, 2 kids")).toBe("follow-kids");
-        /* Two or three passengers ask the same of the car: rear doors. */
-        expect(await next(["passengers-2"], "3 kids")).toBe("follow-kids");
-    });
-});
-
 describe("words about CO₂ and consumption", () => {
-    it("reads them onto their own questions, not onto each other", async () => {
+    it("reads them onto their own needs, not onto each other", async () => {
         const start = startChat(null, cars());
         const green = await readTyped(start, "I'd like something eco-friendly", cars(), null);
         const frugal = await readTyped(start, "it shouldn't guzzle fuel, low fuel consumption", cars(), null);
 
-        expect(green.understanding.needs.map((need) => need.id)).toEqual(["life-co2-matters"]);
+        expect(green.understanding.bubbles?.environment?.chips).toEqual(["matters"]);
         expect(green.heardAs).toEqual(["CO₂ emissions"]);
         expect(frugal.understanding.needs.map((need) => need.id)).toEqual(["life-efficiency-matters"]);
+        expect(Object.keys(frugal.understanding.bubbles ?? {})).toEqual([]);
     });
 });

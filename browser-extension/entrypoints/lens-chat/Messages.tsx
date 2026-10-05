@@ -653,7 +653,7 @@ function Summary({
                 ))}
             </dl>
 
-            {message.priorities.length ? (
+            {message.priorities?.length ? (
                 <div className="border-t border-finn-cotton bg-finn-snow px-3.5 py-2.5">
                     <button type="button" onClick={() => setWeights((open) => !open)} aria-expanded={weights} className="flex w-full items-center justify-between text-[11.5px] font-bold text-finn-iron hover:text-finn-black">
                         How this weighs the cars
