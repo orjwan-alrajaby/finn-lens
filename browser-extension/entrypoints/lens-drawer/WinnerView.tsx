@@ -5,6 +5,8 @@ import { BandChip, CarPhoto, euros } from "@/components/lens-parts";
 import { configurationName } from "@/lib/car-labels";
 import { IMPORTANCE_LABEL, summaryOf } from "@/lib/chats/flow";
 import { weighingOf, type Weighing } from "@/lib/chats/weighing";
+import { fitFor } from "@/lib/reasoning-engine";
+import { GOOD_FROM, PARTIAL_FROM, STRONG_FROM } from "@/lib/reasoning-engine/bands";
 import { requestOpenDrawer } from "@/lib/chats/bridge";
 
 import { sameJudgement } from "./useJudgedCar";
@@ -173,7 +175,8 @@ export function WinnerView({ value, print = false }: { value: JudgedCar; print?:
 
             {/* -- How I weighed it: what you said, how much each counted, what set cars aside, money & time -- */}
             <Section title="How I weighed it" folded={!print}>
-                <Weighed weighing={weighing} />
+                {/* The band the car wears on its chip, so the two never disagree. */}
+                <Weighed weighing={weighing} total={Math.round(fitFor(run.recommendation.scores, car.id))} bandLabel={value.verdict.label} />
             </Section>
 
             <UsageSection value={value} folded={!print} title="Costs of use" />
@@ -202,7 +205,7 @@ export function WinnerView({ value, print = false }: { value: JudgedCar; print?:
  * bar, and what Lens looked at for it; then what set cars aside, and the
  * money and dates. One scale — the one they set — and no percentages.
  */
-function Weighed({ weighing }: { weighing: Weighing }) {
+function Weighed({ weighing, total, bandLabel }: { weighing: Weighing; total: number; bandLabel: string }) {
     return (
         <div className="space-y-4">
             {weighing.needs.length ? (
@@ -223,6 +226,25 @@ function Weighed({ weighing }: { weighing: Weighing }) {
                             </li>
                         ))}
                     </ul>
+
+                    {/*
+                     * The car's total: how it did on each of these, averaged by the
+                     * shares above — the engine's fit, out of 100, and the band it puts
+                     * the car in.
+                     */}
+                    <div className="mt-3 border-t border-finn-cotton pt-2.5">
+                        <div className="flex items-baseline justify-between gap-2">
+                            <p className="text-[12.5px] font-black text-finn-black">Total: this car scored {total} out of 100</p>
+                            <span className="shrink-0 rounded-full bg-finn-pale-blue px-2 py-0.5 text-[10.5px] font-black text-finn-accent-blue">{bandLabel}</span>
+                        </div>
+                        <div className="mt-1 flex items-center gap-2">
+                            <Pips percent={total} />
+                            <span className="text-[12px] font-black tabular-nums text-finn-black">{total}/100</span>
+                        </div>
+                        <p className="mt-0.5 text-[11px] leading-snug text-finn-iron">
+                            How it did on each of the above, by their share. Strong match from {STRONG_FROM}, Good from {GOOD_FROM}, Partial from {PARTIAL_FROM}.
+                        </p>
+                    </div>
                 </div>
             ) : null}
 
@@ -264,10 +286,7 @@ function Pips({ percent }: { percent: number }) {
     return (
         <span aria-hidden="true" className="inline-flex gap-0.5">
             {Array.from({ length: 10 }, (_, index) => (
-                <span
-                    key={index}
-                    className={`h-2 w-3 rounded-[3px] ${index < lit ? "bg-finn-accent-blue" : "bg-finn-pale-blue ring-1 ring-inset ring-finn-accent-blue/35"}`}
-                />
+                <span key={index} className={`h-2 w-3 rounded-[3px] ${index < lit ? "bg-finn-accent-blue" : "bg-[#e6e8ec] ring-1 ring-inset ring-black/10"}`} />
             ))}
         </span>
     );

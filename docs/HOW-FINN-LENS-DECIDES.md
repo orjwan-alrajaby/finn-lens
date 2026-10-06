@@ -394,8 +394,9 @@ How much it counts stays on the one scale, on the summary.
   "Not enough data" for a car that can't be judged. **Provisional**: calibrated against score distributions
   over FINN's inventory, and expected to move when that calibration runs. What each band *means* is fixed in
   fit.ts; these numbers only place the meanings.
-- The 0–100 number is never shown. The reader sees the band and counts they can check ("has 4 of the 5
-  things you asked for").
+- The 0–100 number is shown in one place: the total at the end of the winner's "How I weighed it", "this car
+  scored 72 out of 100", beside the band the car's chip shows and where each band starts. Everywhere else the
+  reader sees the band and counts they can check ("has 4 of the 5 things you asked for").
 
 ---
 
@@ -544,7 +545,7 @@ either car, since any could be the deciding one.
 - **How I weighed it** (the winner's drawer, `weighingOf`, lib/chats/weighing.ts): in the reader's own terms
   only — each thing they said, strongest first, with its importance on the one scale, its part of the decision as
   ten segments and a whole percentage (its 4 / 2 / 1 weight over all of them, rounded so they add up to exactly
-  100), and what Lens looked at for it; deal-sealers
+  100), and what Lens looked at for it; then the car's total out of 100, with its band; deal-sealers
   as top priorities; then what set cars aside, and the money and dates. Not the engine's priority categories,
   their percentages, or the item-level "Highly / Somewhat" scale.
 - **Chips on finn.com**: each judged car's band; the winner's in gold.

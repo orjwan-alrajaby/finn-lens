@@ -424,8 +424,8 @@ function FollowUpCount({ done, total, tone = "light" }: { done: number; total: n
                                     ? "bg-white"
                                     : "bg-finn-fit-good"
                                 : tone === "dark"
-                                  ? "bg-white/15 ring-1 ring-inset ring-white/60"
-                                  : "bg-finn-fit-good-pale ring-1 ring-inset ring-finn-fit-good/50"}`} />
+                                  ? "bg-white/30"
+                                  : "bg-[#e6e8ec] ring-1 ring-inset ring-black/10"}`} />
                 ))}
             </span>
             Follow-ups answered: {done} of {total}

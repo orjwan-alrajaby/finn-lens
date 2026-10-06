@@ -69,6 +69,8 @@ describe("the winner's drawer", () => {
 
         expect(weighed).toMatch(/What counted, strongest first, and each one's part of the decision\. You have kids · a baby or toddler seat Top priority \d+% Looked at: Rear doors/);
         expect(weighed).not.toMatch(/counts \d+%|\b(Highly|Moderately|Somewhat)\b|Practicality|Climate Suitability/);
+        /* And the car's total, out of 100, with its band and where the bands start. */
+        expect(weighed).toMatch(/Total: this car scored (\d+) out of 100 (Strong|Good|Partial|Limited) match \1\/100 How it did on each of the above, by their share\. Strong match from 65, Good from 45, Partial from 25\./);
     });
 
     it("has everything open in the PDF", () => {
