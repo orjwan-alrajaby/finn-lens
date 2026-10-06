@@ -1162,3 +1162,16 @@ describe("never mind — keep my answers", () => {
         expect(neverMind(done)).toBe(done);
     });
 });
+
+describe("the Adjust panel's feature chips", () => {
+    it("each say what the feature does, and why it's there for this need — for their “i”", () => {
+        const u = withBubbles(EMPTY_UNDERSTANDING, { kids: ["baby"], city: ["street"], weather: ["snow"], environment: ["moderate"] });
+        const bubbles = summaryOf(u, "s1", cars()).bubbles!;
+        const items = bubbles.flatMap((bubble) => [...bubble.counts, ...bubble.checks, ...bubble.worth]);
+
+        expect(items.length).toBeGreaterThan(5);
+        for (const item of items) expect(item.does, item.id).toMatch(/\w{4,}/);
+        expect(bubbles.find((bubble) => bubble.id === "kids")!.counts.find((item) => item.id === "rearDoors")?.does).toMatch(/so children get in and out/);
+        expect(bubbles.find((bubble) => bubble.id === "environment")?.figureDoes).toMatch(/official CO₂ figure FINN lists/);
+    });
+});

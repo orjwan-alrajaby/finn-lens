@@ -114,6 +114,13 @@ export interface BubbleChips {
 }
 
 /** One bubble on the summary: what Lens understood, for the reader to correct. */
+/** One piece of equipment on the summary: its name, and what it does for this need — for its "i". */
+export interface SummaryItem {
+    id: EvidenceId;
+    label: string;
+    does?: string;
+}
+
 export interface SummaryBubble {
     id: string;
     /** "You have kids · a baby or toddler seat". */
@@ -124,15 +131,17 @@ export interface SummaryBubble {
     /** Whether it weighs anything: false once everything it counted was taken out. */
     counting?: boolean;
     /** What it counts; each can be taken out. Each item once, under the first bubble to name it. */
-    counts: { id: EvidenceId; label: string }[];
+    counts: SummaryItem[];
     /** What it counts that a bubble above already shows. */
-    shared?: { id: EvidenceId; label: string }[];
+    shared?: SummaryItem[];
     /** Standard equipment it checks; nearly every car has it. */
-    checks: { id: EvidenceId; label: string }[];
+    checks: SummaryItem[];
     /** Suggestions the cars here differ on; each can be added. */
-    worth: { id: EvidenceId; label: string }[];
+    worth: SummaryItem[];
     /** A figure it's judged on, with no equipment: "each car's CO₂ per km". */
     figure?: string;
+    /** What that figure is, for its "i". */
+    figureDoes?: string;
     /** What matters for this life that FINN's data can't tell Lens. */
     cantCheck: string;
     /** Said when it counts nothing yet: "Tell me which, and I'll count them." */

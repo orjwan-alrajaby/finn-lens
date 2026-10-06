@@ -1181,36 +1181,47 @@ function ImportancePicker({ label, value, onPick, guess = false }: { label: stri
 }
 
 /** One item on a bubble's block: what Lens checks (×), standard (✓), or might matter (+). */
-function Item({ label, kind, onClick }: { label: string; kind: "counts" | "checks" | "worth"; onClick?: () => void }) {
-    if (kind === "checks") {
-        return (
-            <span className="inline-flex items-center gap-1 rounded-full bg-white px-2.5 py-1.5 text-[11.5px] font-semibold text-finn-iron ring-1 ring-finn-cotton">
-                <Check aria-hidden="true" className="h-3 w-3" strokeWidth={3} />
-                {label}
-            </span>
-        );
-    }
-
+function Item({ label, kind, onClick, does }: { label: string; kind: "counts" | "checks" | "worth"; onClick?: () => void; does?: string }) {
+    const tone =
+        kind === "checks"
+            ? "bg-white text-finn-iron ring-1 ring-finn-cotton font-semibold"
+            : kind === "counts"
+              ? "bg-white text-finn-highlight-navy ring-1 ring-finn-accent-blue/30 font-bold"
+              : "bg-transparent text-finn-accent-blue ring-1 ring-dashed ring-finn-accent-blue/45 font-bold";
     const body = (
         <>
+            {kind === "checks" ? <Check aria-hidden="true" className="h-3 w-3" strokeWidth={3} /> : null}
             {kind === "worth" ? <Plus aria-hidden="true" className="h-3 w-3" strokeWidth={3} /> : null}
             {label}
             {kind === "counts" && onClick ? <X aria-hidden="true" className="h-3 w-3" strokeWidth={3} /> : null}
         </>
     );
-    const tone = kind === "counts" ? "bg-white text-finn-highlight-navy ring-1 ring-finn-accent-blue/30" : "bg-transparent text-finn-accent-blue ring-1 ring-dashed ring-finn-accent-blue/45";
+    const inner = `inline-flex items-center gap-1 rounded-full py-1.5 pl-2.5 ${does ? "pr-1" : "pr-2.5"}`;
 
-    return onClick ? (
-        <button
-            type="button"
-            onClick={onClick}
-            aria-label={kind === "counts" ? `Stop checking ${label}` : `Check ${label} too`}
-            className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1.5 text-[11.5px] font-bold transition-colors hover:ring-2 hover:ring-finn-accent-blue/30 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-finn-accent-blue ${tone}`}
-        >
-            {body}
-        </button>
-    ) : (
-        <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1.5 text-[11.5px] font-bold ${tone}`}>{body}</span>
+    /* The chip — taking it out or adding it — and its "i", side by side: a button can't hold a button. */
+    return (
+        <span className={`inline-flex items-center rounded-full text-[11.5px] ${does ? "pr-1" : ""} ${tone}`}>
+            {onClick ? (
+                <button
+                    type="button"
+                    onClick={onClick}
+                    aria-label={kind === "counts" ? `Stop checking ${label}` : `Check ${label} too`}
+                    className={`${inner} transition-colors hover:text-finn-black focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-finn-accent-blue`}
+                >
+                    {body}
+                </button>
+            ) : (
+                <span className={inner}>{body}</span>
+            )}
+            {does ? (
+                <InfoTip label={label}>
+                    <p className="font-black">{label}</p>
+                    <p>{does.replace(/^./, (c) => c.toUpperCase())}.</p>
+                    {kind === "checks" ? <p className="text-white/75">Nearly every car has it: a car FINN says is missing it loses a little, and having it earns nothing.</p> : null}
+                    {kind === "worth" ? <p className="text-white/75">Not checked yet — tap it to add it.</p> : null}
+                </InfoTip>
+            ) : null}
+        </span>
     );
 }
 
@@ -1269,9 +1280,9 @@ function UnderstoodBubble({
                 <div>
                     <Label hint={live && bubble.counts.length ? "— tap × to take one out" : undefined}>I'll check</Label>
                     <div className="flex flex-wrap gap-1.5">
-                        {bubble.figure ? <Item label={bubble.figure} kind="counts" /> : null}
+                        {bubble.figure ? <Item label={bubble.figure} kind="counts" does={bubble.figureDoes} /> : null}
                         {bubble.counts.map((item) => (
-                            <Item key={item.id} label={item.label} kind="counts" onClick={live ? () => onRemove(item.id) : undefined} />
+                            <Item key={item.id} label={item.label} kind="counts" does={item.does} onClick={live ? () => onRemove(item.id) : undefined} />
                         ))}
                     </div>
                     {bubble.shared?.length ? (
@@ -1294,7 +1305,7 @@ function UnderstoodBubble({
                     </p>
                     <div className="flex flex-wrap gap-1.5">
                         {bubble.checks.map((item) => (
-                            <Item key={item.id} label={item.label} kind="checks" />
+                            <Item key={item.id} label={item.label} kind="checks" does={item.does} />
                         ))}
                     </div>
                 </div>
@@ -1309,7 +1320,7 @@ function UnderstoodBubble({
                     <Label hint="— tap + to add">Might matter</Label>
                     <div className="flex flex-wrap gap-1.5">
                         {bubble.worth.map((item) => (
-                            <Item key={item.id} label={item.label} kind="worth" onClick={() => onAdd(item.id)} />
+                            <Item key={item.id} label={item.label} kind="worth" does={item.does} onClick={() => onAdd(item.id)} />
                         ))}
                     </div>
                 </div>

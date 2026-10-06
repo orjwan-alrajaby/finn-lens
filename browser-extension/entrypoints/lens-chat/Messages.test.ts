@@ -295,3 +295,16 @@ describe("never mind", () => {
         expect(text(without)).not.toContain("Never mind — keep my answers");
     });
 });
+
+describe("Adjust panel chips", () => {
+    it("carry an “i” beside the label, closed until clicked", () => {
+        let chat = startChat(null, cars(), TODAY);
+        for (const picks of [["kids", "kids:baby"], ["city", "city:street"], [], [], ["budget-500"], ["period-12"], [], [], []]) chat = answer(chat, openAsk(chat).id, picks, cars(), TODAY).chat;
+        const summary = [...chat.messages].reverse().find((message): message is Extract<ChatMessage, { kind: "summary" }> => message.kind === "summary")!;
+        const html = renderToStaticMarkup(createElement(AdjustPanel, { message: summary, busy: false, onImportance: noop, onChange: noop, onRemove: noop, onAdd: noop, onDone: noop }));
+
+        expect(html).toContain('aria-label="What “Rear doors” means"');
+        expect(html).toContain('aria-label="What “ISOFIX child seat anchors” means"');
+        expect(html).toContain('aria-label="Stop checking Rear doors"');
+    });
+});

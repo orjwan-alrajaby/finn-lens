@@ -950,6 +950,12 @@ function rulesText(u: Understanding): string {
     return said.length ? joined(said).replace(/^./, (c) => c.toUpperCase()) : "None";
 }
 
+/** What a figure a bubble is judged on is, for its "i". */
+const FIGURE_DOES: Partial<Record<string, string>> = {
+    environmental: "the official CO₂ figure FINN lists for each car, placed on the German label's A to G classes",
+    efficiency: "how much fuel or electricity each car uses as FINN lists it, compared with the others that run on the same thing",
+};
+
 const FIGURE: Partial<Record<string, string>> = {
     environmental: "Each car's CO₂ per km",
     efficiency: "Each car's fuel or electricity use, against others of its kind",
@@ -968,7 +974,12 @@ function summaryBubbles(u: Understanding, cars: FinnCar[]): SummaryBubble[] {
     /* Equipment only electric cars can have, for a reader who's ruled electric out. */
     const noElectric = ruledOut(u).some((rule) => rule.id === "electricCar" && rule.mode === "without");
     const pointless = (id: EvidenceId) => settled.has(id) || (noElectric && id === "hasHeatPump");
-    const named = (ids: EvidenceId[]) => ids.filter((id) => EVIDENCE[id]).map((id) => ({ id, label: EVIDENCE[id].label }));
+    /* Each with what it does, and why it's there for this need — what its "i" says. */
+    const named = (ids: EvidenceId[], why?: Partial<Record<EvidenceId, string>>) =>
+        ids
+            .filter((id) => EVIDENCE[id])
+            /* The short description where there is one; the catalogue's own where there isn't. */
+            .map((id) => ({ id, label: EVIDENCE[id].label, does: explain(id, why?.[id]) || EVIDENCE[id].explanation.replace(/\.$/, "") }));
     /*
      * Each item once, under the first bubble to name it: blind spot warning
      * under two bubbles read as two things, and taking it out of one left it
@@ -997,11 +1008,11 @@ function summaryBubbles(u: Understanding, cars: FinnCar[]): SummaryBubble[] {
             /* Whether it weighs anything: with nothing left to check, how much it counts means nothing. */
             counting: live.length > 0 || Boolean(figure),
             /* What a deal-breaker already settles isn't checked: every car left has it. */
-            counts: named(own),
-            ...(shared.length ? { shared: named(shared) } : {}),
-            checks: named(items.checks.filter((id) => !settled.has(id))),
-            worth: named(worth),
-            ...(figure ? { figure } : {}),
+            counts: named(own, bubble.why),
+            ...(shared.length ? { shared: named(shared, bubble.why) } : {}),
+            checks: named(items.checks.filter((id) => !settled.has(id)), bubble.why),
+            worth: named(worth, bubble.why),
+            ...(figure ? { figure, figureDoes: figuresOf(bubble, state).map((id) => FIGURE_DOES[id]).find(Boolean) } : {}),
             cantCheck: bubble.cantCheck,
             ...(!live.length && !figure && !settledHere.length
                 ? { empty: !items.counts.length && bubble.empty ? bubble.empty : "I'm not checking anything for this now. Add something below, or take it off with “Change”." }

@@ -245,7 +245,7 @@ export const FEATURES = {
   hadLedLights: {
     label: "LED headlights",
     explanation:
-      "Headlights that use LEDs instead of halogen bulbs. They throw a brighter, whiter beam and use less power.",
+      "Headlights that use LEDs rather than bulbs, as FINN lists them.",
   },
   hasFogLights: {
     label: "Fog lights",
@@ -272,7 +272,7 @@ export const FEATURES = {
   hasPrivacyGlass: {
     label: "Privacy glass",
     explanation:
-      "Darkened rear side and tailgate windows. They make it harder to see into the back of the car and cut sun glare for rear passengers.",
+      "Darkened rear side and tailgate windows, harder to see into from outside.",
   },
   hasRoofRails: {
     label: "Roof rails",
@@ -324,7 +324,7 @@ export const FEATURES = {
   hasLeatherSeats: {
     label: "Leather seats",
     explanation:
-      "Leather upholstery rather than cloth. It wipes clean and doesn't soak up spills, but gets colder in winter and hotter in summer.",
+      "Leather upholstery rather than cloth.",
   },
   hasElectricFrontSeatAdjustment: {
     label: "Electric front seats",
@@ -334,7 +334,7 @@ export const FEATURES = {
   hasAmbientInteriorLightning: {
     label: "Ambient interior lighting",
     explanation:
-      "Coloured strip lighting in the doors and dashboard, usually adjustable. It's decorative — it isn't bright enough to read by.",
+      "Decorative lighting in the cabin, as FINN lists it.",
   },
   hasLumbarSupport: {
     label: "Lumbar support",
@@ -379,7 +379,7 @@ export const FEATURES = {
   hasIntegratedNavigationSystem: {
     label: "Built-in navigation",
     explanation:
-      "Maps stored in the car itself, so directions keep working where there's no phone signal.",
+      "A navigation system built into the car, as FINN lists it.",
   },
 
   hasAdaptiveCruiseControl: {
@@ -510,18 +510,18 @@ export const FEATURES = {
     article: "a",
     label: "Start/stop system",
     explanation:
-      "Switches the engine off when you stop in traffic and restarts it when you pull away, to cut fuel use and idling emissions.",
+      "Switches the engine off when you stop and restarts it when you pull away.",
   },
   hasElectricParkingBrake: {
     article: "an",
     label: "Electric parking brake",
     explanation:
-      "A switch replaces the handbrake lever. It usually holds the car automatically at a standstill and releases as you drive off.",
+      "A switch in place of the handbrake lever.",
   },
   hasAlloyWheels: {
     label: "Alloy wheels",
     explanation:
-      "Cast metal wheels instead of steel wheels with plastic covers. Mostly a cosmetic difference.",
+      "Alloy wheels rather than steel ones.",
   },
   hasAutomaticTransmission: {
     article: "an",
