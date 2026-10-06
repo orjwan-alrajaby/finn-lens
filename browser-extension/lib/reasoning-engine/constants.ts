@@ -374,7 +374,7 @@ export const FEATURES = {
     article: "a",
     label: "Premium sound system",
     explanation:
-      "The manufacturer's upgraded audio system — typically more speakers and a separate amplifier than the standard fit.",
+      "An upgraded audio system, as FINN lists it.",
   },
   hasIntegratedNavigationSystem: {
     label: "Built-in navigation",
@@ -1192,13 +1192,12 @@ export const DEFAULT_PRIORITIES: CategoryId[] = [
 export const FINN_INCLUDED_MONTHLY_KM = 500;
 
 /**
- * The most electricity Lens allows a plug-in hybrid to use, for bounding what
- * FINN's data leaves out. FINN gives a plug-in hybrid one combined litres
- * figure and no electricity figure — none of the 44 it lists has one — so
- * its energy cost can't be estimated, only bounded: as if every kilometre
- * were driven on electricity, at more than any plug-in's official figure
- * (the large ones are around 25). An assumption, and said as one wherever
- * it's used.
+ * The allowance Lens makes for a plug-in hybrid's electricity, for bounding
+ * what FINN's data leaves out. FINN gives a plug-in hybrid one combined
+ * litres figure and no electricity figure, so its energy cost can't be
+ * estimated, only bounded: as if every kilometre were driven on electricity
+ * at this. It is Lens's own assumption, not a FINN figure, and is said as
+ * one wherever it's used.
  */
 export const PLUG_IN_MAX_KWH_PER_100KM = 30;
 

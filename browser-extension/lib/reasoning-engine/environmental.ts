@@ -444,8 +444,8 @@ function assessEmissions(
   if (powertrain === "Plug-in Hybrid") {
     return {
       level: "moderate",
-      label: "Low only if you charge it",
-      explanation: `Its published figure is ${figure} g/km, which is low — but for a plug-in hybrid that number assumes the car is plugged in regularly. How much you'd actually emit depends on how often you do.`,
+      label: "Low on its published figure",
+      explanation: `Its published figure is ${figure} g/km, which is low. FINN gives a plug-in hybrid this one figure and doesn't say how much of the driving behind it is on electricity, so it can't be checked against how you'd drive.`,
       display,
       gPerKm,
       className,
@@ -885,7 +885,7 @@ function caveatsFor(vehicle: FinnCar): string[] {
 
   if (vehicle.fuelType === "Plug-in Hybrid") {
     return [
-      "This figure assumes the car gets charged often. Drive it mostly on petrol and the real emissions are several times higher — so it describes a way of driving as much as it describes the car.",
+      "FINN gives a plug-in hybrid one CO₂ figure and doesn't say how much of the driving behind it is on electricity — so it can't say what you'd emit the way you'd drive it.",
     ];
   }
 
@@ -1139,7 +1139,7 @@ export const ENVIRONMENTAL_METHOD: EnvironmentalMethodNote[] = [
     group: "limits",
     icon: "plug",
     heading: "Plug-in hybrids can't be rated Strong",
-    body: "Their official CO₂ assumes the car is plugged in regularly, and studies of cars on the road find real emissions several times higher when it isn't. Nobody can tell from FINN's data how often you'd charge, so Lens won't give the Strong rating on that figure — the best a plug-in hybrid can reach is the top of Good. No corrected figure is invented, and among plug-in hybrids a lower official figure still ranks higher.",
+    body: "FINN gives a plug-in hybrid one CO₂ figure and doesn't say how much of the driving behind it is on electricity, so the figure can't be checked against how you'd drive. Lens won't give the Strong rating on a figure it can't check — the best a plug-in hybrid can reach is the top of Good. No corrected figure is invented, and among plug-in hybrids a lower official figure still ranks higher.",
   },
   {
     group: "limits",

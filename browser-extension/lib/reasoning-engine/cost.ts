@@ -158,15 +158,15 @@ function energyComponent(
 
   /*
    * What the left-out electricity could cost at most: as if every kilometre
-   * were electric, at more than any plug-in's official figure. The fuel is
-   * counted too, so this over-counts — which is the point of a ceiling.
+   * were electric, at Lens's own allowance. The fuel is counted too, so this
+   * over-counts — which is the point of a ceiling.
    */
   const ceilingExtra = isPlugIn && electricity != null ? (monthlyKm / 100) * PLUG_IN_MAX_KWH_PER_100KM * electricity : null;
 
   const caveat = isPlugIn
     ? `FINN lists one combined fuel figure for plug-in hybrids and no electricity figure, so this prices the fuel and leaves out the electricity it charges on.${
         ceilingExtra != null
-          ? ` That can't add more than about ${formatEUR(ceilingExtra)} a month: even if all ${formatKm(monthlyKm)} were driven on electricity, at a generous ${PLUG_IN_MAX_KWH_PER_100KM} kWh/100 km and an assumed €${electricity!.toFixed(2)} per kWh.`
+          ? ` That can't add more than about ${formatEUR(ceilingExtra)} a month: even if all ${formatKm(monthlyKm)} were driven on electricity, at ${PLUG_IN_MAX_KWH_PER_100KM} kWh/100 km — Lens's own allowance, since FINN gives no figure — and an assumed €${electricity!.toFixed(2)} per kWh.`
           : ""
       }`
     : null;

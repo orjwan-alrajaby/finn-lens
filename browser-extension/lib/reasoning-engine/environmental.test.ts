@@ -359,12 +359,12 @@ describe("plug-in hybrids", () => {
     expect(assessment?.co2?.display).toContain("30");
   });
 
-  it("says what the figure actually assumes", () => {
+  it("says what FINN's data doesn't, and nothing it can't back", () => {
     const caveats = assessEnvironment(phev(30, 1.4))?.caveats.join(" ") ?? "";
 
-    /* Said as a condition the reader controls, not as a property of the car. */
-    expect(caveats).toMatch(/assumes the car gets charged/i);
-    expect(caveats).toMatch(/several times higher/i);
+    /* What FINN leaves out, not what studies or charging habits suggest. */
+    expect(caveats).toMatch(/doesn't say how much of the driving behind it is on electricity/);
+    expect(caveats).not.toMatch(/studies|several times higher|charged often|charged regularly/i);
   });
 
   it("leaves a high-emitting one where its emissions put it", () => {
@@ -605,7 +605,7 @@ describe("the shape of the explanation", () => {
       /zero from the car/i,
     );
     expect(assessEnvironment(phev(30, 1.4))?.caveats[0]).toMatch(
-      /charged/i,
+      /on electricity/i,
     );
     /*
      * A petrol car needs no caveat: nothing about reading "117 g/km" is
@@ -929,7 +929,7 @@ describe("what the efficiency reference is, and isn't", () => {
 
     expect(assessment?.efficiency).toBeNull();
     expect(assessment?.confidence).toBe("optimistic");
-    expect(assessment?.co2?.label).toBe("Low only if you charge it");
+    expect(assessment?.co2?.label).toBe("Low on its published figure");
     expect(copyFor(phev(30, 1.4))).not.toMatch(/FINN Lens benchmark/);
   });
 });

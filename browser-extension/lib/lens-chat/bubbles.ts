@@ -452,7 +452,7 @@ export const BUBBLES: Bubble[] = [
                     label: "Clean for its fuel type",
                     detail: "clean for its fuel type",
                     description:
-                        "Any fuel — petrol and diesel too — as long as it uses little for its kind. I compare each car's fuel or electricity use with others that run on the same thing, so a frugal petrol scores well.",
+                        "Any fuel — petrol and diesel too — as long as it uses little for its kind. I compare each car's fuel or electricity use, as FINN lists it, with the others that run on the same thing.",
                     figures: ["efficiency"],
                     suggests: null,
                 },
@@ -461,7 +461,7 @@ export const BUBBLES: Bubble[] = [
                     label: "Moderately green",
                     detail: "moderately green",
                     description:
-                        "Low CO₂ on the label: plug-in hybrids are usually here, class A or B, as are the odd very frugal hybrid. I judge each car on its CO₂ class, suggest “low CO₂ emissions” (class A to C) as a deal-breaker, and star Electric and Plug-in hybrid when I ask what it can run on. A plug-in's figure assumes it's charged regularly.",
+                        "Low CO₂ on the German label: class A to C, 115 g/km or less. I judge each car on its CO₂ class as FINN lists it, suggest “low CO₂ emissions” as a deal-breaker, and star the fuels where most of the cars here are low CO₂ when I ask what it can run on.",
                     figures: ["environmental"],
                     suggests: "low-co2",
                 },
@@ -470,7 +470,7 @@ export const BUBBLES: Bubble[] = [
                     label: "Totally green",
                     detail: "totally green",
                     description:
-                        "Electric: 0 g/km of CO₂ on the road, the best class there is. CO₂ becomes a top priority, and I'll star Electric when I ask what it can run on. Making the electricity isn't counted — FINN's figure is for driving.",
+                        "Electric: FINN lists them in CO₂ class A, which on the German label is 0 g/km. CO₂ becomes a top priority, and I'll star Electric when I ask what it can run on. FINN's CO₂ figure says nothing about making the electricity.",
                     figures: ["environmental"],
                     importance: "essential",
                     /* Electric is starred on "What can it run on?", not suggested as a row. */
@@ -478,7 +478,7 @@ export const BUBBLES: Bubble[] = [
                 },
             ],
         },
-        cantCheck: "emissions over the car's whole life, or making the electricity. A plug-in hybrid's figure also assumes it's charged regularly",
+        cantCheck: "emissions over the car's whole life or from making the electricity, or how much of a plug-in hybrid's driving its figure takes to be on electricity",
     },
     {
         id: "budget",

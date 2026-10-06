@@ -26,7 +26,7 @@ import {
     type BubbleId,
     type OftenId,
 } from "@/lib/lens-chat/bubbles";
-import { asPhrase, barePhrase, EVIDENCE, isKind, type EvidenceId } from "@/lib/lens-chat/evidence";
+import { asPhrase, barePhrase, EVIDENCE, evidenceMet, isKind, type EvidenceId } from "@/lib/lens-chat/evidence";
 import { IMPORTANCE, IMPORTANCE_LABEL } from "@/lib/lens-chat/importance";
 import { DEALS, dealForRule, dealsHere, dealStates, letGo, stateLabel, withDeals, type DealState } from "@/lib/lens-chat/deals";
 import { applyChoices, explain, guideSteps, saidFor, type GuideChoice, type GuideStep } from "@/lib/lens-chat/guide";
@@ -395,12 +395,35 @@ function dealsStep(u: Understanding, cars: FinnCar[]): ChatStep | null {
 }
 
 /** The fuels, in the order they're offered, each with what it means — plug-in hybrids saying what FINN's data leaves out. */
+/*
+ * FINN's own four fuel types, each said only as FINN's data has it — what
+ * FINN lists, and what Lens prices it on. Nothing about how the cars work.
+ */
 const FUELS: { id: EvidenceId; fuel: FinnCar["fuelType"]; label: string; description: string }[] = [
-    { id: "electricCar", fuel: "Electric", label: "Electric", description: "Battery only, charged at home or on the road: 0 g/km of CO₂ while driving. I price it on its electricity use." },
-    { id: "plugInHybrid", fuel: "Plug-in Hybrid", label: "Plug-in hybrid", description: "A petrol engine and a battery you charge. FINN lists only a combined fuel figure for these, no electricity figure — so I price the fuel and allow for the most the electricity could add." },
-    { id: "petrolCar", fuel: "Petrol", label: "Petrol", description: "A petrol engine, including hybrids you don't plug in. I price it on its fuel use." },
-    { id: "dieselCar", fuel: "Diesel", label: "Diesel", description: "A diesel engine. I price it on its fuel use." },
+    { id: "electricCar", fuel: "Electric", label: "Electric", description: "Cars FINN lists as electric. I price each on the electricity use FINN lists for it." },
+    {
+        id: "plugInHybrid",
+        fuel: "Plug-in Hybrid",
+        label: "Plug-in hybrid",
+        description:
+            "Cars FINN lists as plug-in hybrids. FINN gives each one combined fuel figure and no electricity figure, so I price the fuel and add an allowance for the electricity — my own assumption, not FINN's.",
+    },
+    { id: "petrolCar", fuel: "Petrol", label: "Petrol", description: "Cars FINN lists as petrol. I price each on the fuel use FINN lists for it." },
+    { id: "dieselCar", fuel: "Diesel", label: "Diesel", description: "Cars FINN lists as diesel. I price each on the fuel use FINN lists for it." },
 ];
+
+/**
+ * Cars here FINN files under this fuel with "Hybrid" in its own engine name
+ * — "Toyota Yaris 1.5-l-VVT-i Hybrid 116 CVT", under petrol — said so a
+ * reader looking for one knows where FINN puts it. Only what's on the page.
+ */
+function hybridNamed(cars: FinnCar[], fuel: FinnCar["fuelType"]): string | null {
+    const named = cars.filter((car) => car.fuelType === fuel && /\bhybrid\b/i.test(car.engine ?? ""));
+    if (!named.length) return null;
+
+    const example = named[0]!;
+    return ` FINN files ${named.length} ${named.length === 1 ? "car" : "cars"} here with “Hybrid” in the engine name under ${fuel.toLowerCase()} — ${named.length === 1 ? "" : "such as "}the ${example.name} ${example.engine}.`;
+}
 
 /** What the reader would take, as a line: "Electric or plug-in hybrid". "Any" when nothing's ruled out. */
 function fuelText(u: Understanding): string {
@@ -421,13 +444,23 @@ function fuelStep(u: Understanding, cars: FinnCar[]): ChatStep | null {
     const here = cars.length ? FUELS.filter((fuel) => cars.some((car) => car.fuelType === fuel.fuel)) : FUELS;
     if (here.length < 2) return null;
 
+    /*
+     * Starred from the cars here, not from what fuels are like in general:
+     * totally green points to electric, which FINN lists in CO₂ class A;
+     * moderately green to any fuel most of whose cars here are low CO₂.
+     */
     const green = u.bubbles?.environment?.chips[0];
-    const because = (id: EvidenceId) =>
-        green === "zero" && id === "electricCar"
-            ? "Recommended because you said totally green: electric is 0 g/km on the road."
-            : green === "moderate" && (id === "electricCar" || id === "plugInHybrid")
-              ? "Recommended because you said moderately green: these are where low CO₂ is."
-              : undefined;
+    const because = (fuel: (typeof FUELS)[number]) => {
+        const ofFuel = cars.filter((car) => car.fuelType === fuel.fuel);
+
+        if (green === "zero" && fuel.id === "electricCar") return "Recommended because you said totally green: FINN lists electric cars in CO₂ class A, 0 g/km on the German label.";
+        if (green !== "moderate" || !ofFuel.length) return undefined;
+
+        const low = ofFuel.filter((car) => evidenceMet(car, "lowCo2") === true).length;
+        return low * 2 > ofFuel.length
+            ? `Recommended because you said moderately green: ${low} of the ${ofFuel.length} ${fuel.label.toLowerCase()} cars here have low CO₂ emissions (class A to C).`
+            : undefined;
+    };
 
     return {
         id: "fuel",
@@ -435,8 +468,9 @@ function fuelStep(u: Understanding, cars: FinnCar[]): ChatStep | null {
         why: WHY.fuel,
         multiple: true,
         choices: here.map((fuel) => {
-            const recommended = because(fuel.id);
-            return { id: `fuel-${fuel.id}`, label: fuel.label, said: fuel.label, description: fuel.description, ...(recommended ? { recommended } : {}) };
+            const recommended = because(fuel);
+            const description = `${fuel.description}${hybridNamed(cars, fuel.fuel) ?? ""}`;
+            return { id: `fuel-${fuel.id}`, label: fuel.label, said: fuel.label, description, ...(recommended ? { recommended } : {}) };
         }),
         none: "Any of them",
     };

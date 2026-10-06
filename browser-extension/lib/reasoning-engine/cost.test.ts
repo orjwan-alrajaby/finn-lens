@@ -354,14 +354,14 @@ describe("mileage, the way FINN sells it", () => {
 describe("a plug-in hybrid's left-out electricity", () => {
   const plugIn = () => makeCar({ id: 7, customerMonthly: 357, consumption: 1.7, fuelType: "Plug-in Hybrid" } as never);
 
-  it("is bounded, as if every kilometre were electric at a generous figure, and said as an assumption", () => {
+  it("is bounded, as if every kilometre were electric at Lens's own allowance, and said as one", () => {
     const analysis = buildCostAnalysis(plugIn(), prefs({ monthlyKm: 1000, monthlyBudget: 800 }));
     const { breakdown } = analysis;
     const energy = analysis.lines.find((line) => line.id === "energy")!;
 
     expect(breakdown.energy.ceilingExtra).toBeCloseTo((1000 / 100) * 30 * breakdown.energy.ceilingExtra! / ((1000 / 100) * 30), 5);
     expect(breakdown.ceilingMonthly).toBeCloseTo(breakdown.totalMonthly + breakdown.energy.ceilingExtra!, 5);
-    expect(energy.explanation).toMatch(/FINN lists one combined fuel figure for plug-in hybrids and no electricity figure.*even if all 1,000 km were driven on electricity, at a generous 30 kWh\/100 km/);
+    expect(energy.explanation).toMatch(/FINN lists one combined fuel figure for plug-in hybrids and no electricity figure.*even if all 1,000 km were driven on electricity, at 30 kWh\/100 km — Lens's own allowance, since FINN gives no figure/);
     /* Within even at the most: it fits, and says why. */
     expect(breakdown.budgetStatus).toBe("within");
     expect(analysis.budgetSentence).toMatch(/even with the most the electricity could add, about €\d+ — within your budget\.$/);

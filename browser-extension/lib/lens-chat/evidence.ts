@@ -166,7 +166,7 @@ export const EVIDENCE: Record<EvidenceId, EvidenceDef> = {
         id: "lowCo2",
         label: "Low CO₂ emissions",
         explanation:
-            "Whether the car's official CO₂ figure puts it in class A, B or C on the German CO₂ label (Pkw-EnVKV): 115 g/km or less. An electric car is class A. A plug-in hybrid's figure assumes it's charged often.",
+            "Whether the car's official CO₂ figure puts it in class A, B or C on the German CO₂ label (Pkw-EnVKV): 115 g/km or less. An electric car is class A. FINN doesn't say how much of a plug-in hybrid's figure comes from driving on electricity.",
         scoredIn: null,
         raisable: false,
     },

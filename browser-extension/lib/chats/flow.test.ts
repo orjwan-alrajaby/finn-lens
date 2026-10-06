@@ -688,8 +688,8 @@ describe("questions in sections, and the changes to them", () => {
         expect(environment.ask).toBe("How green should the car be?");
         expect(environment.options.map((option) => option.label)).toEqual(["Clean for its fuel type", "Moderately green", "Totally green"]);
         expect(environment.options[0]!.description).toMatch(/petrol and diesel too.*others that run on the same thing/);
-        expect(environment.options[1]!.description).toMatch(/plug-in hybrids are usually here/);
-        expect(environment.options[2]!.description).toMatch(/^Electric: 0 g\/km of CO₂ on the road.*Making the electricity isn't counted/);
+        expect(environment.options[1]!.description).toMatch(/^Low CO₂ on the German label: class A to C, 115 g\/km or less\./);
+        expect(environment.options[2]!.description).toMatch(/^Electric: FINN lists them in CO₂ class A, which on the German label is 0 g\/km\..*FINN's CO₂ figure says nothing about making the electricity\.$/);
     });
 
     it("asks the limit as all costs together, and says what that covers", () => {
@@ -1018,7 +1018,7 @@ describe("what it can run on", () => {
         expect(step.multiple).toBe(true);
         expect(step.none).toBe("Any of them");
         expect(step.choices.length).toBe(here.size);
-        expect(step.choices.find((choice) => choice.id === "fuel-plugInHybrid")?.description).toMatch(/FINN lists only a combined fuel figure for these, no electricity figure — so I price the fuel and allow for the most the electricity could add/);
+        expect(step.choices.find((choice) => choice.id === "fuel-plugInHybrid")?.description).toMatch(/FINN gives each one combined fuel figure and no electricity figure, so I price the fuel and add an allowance for the electricity — my own assumption, not FINN's\./);
         expect(stepFor("fuel", page().filter((car) => car.fuelType === "Petrol"))).toBeNull();
     });
 
@@ -1057,5 +1057,31 @@ describe("what it can run on", () => {
         const freed = letGo(picked.understanding, ["petrolCar"]);
         expect(ruledOut(freed).map((item) => item.id)).not.toContain("petrolCar");
         expect(freed.needs.find((need) => need.id === "fuel")?.evidence.some((entry) => entry.id === "petrolCar")).toBe(false);
+    });
+});
+
+describe("fuels, said only as FINN's data has them", () => {
+    it("claims nothing about how a fuel works, and names FINN's own “Hybrid” engines where they're filed", () => {
+        const page = fleet().filter((car) => car.fuelType === "Petrol" || car.fuelType === "Diesel");
+        const step = stepFor("fuel", page)!;
+        const petrol = step.choices.find((choice) => choice.id === "fuel-petrolCar")!;
+        const named = page.filter((car) => car.fuelType === "Petrol" && /\bhybrid\b/i.test(car.engine));
+
+        expect(petrol.description).toMatch(/^Cars FINN lists as petrol\. I price each on the fuel use FINN lists for it\./);
+        expect(petrol.description).toContain(`FINN files ${named.length} cars here with “Hybrid” in the engine name under petrol`);
+        for (const choice of stepFor("fuel", fleet())!.choices) expect(choice.description).not.toMatch(/you don't plug in|battery you charge|charged at home|petrol engine and/i);
+
+        const noHybrids = page.filter((car) => !named.includes(car));
+        expect(stepFor("fuel", noHybrids)!.choices.find((choice) => choice.id === "fuel-petrolCar")!.description).not.toContain("Hybrid");
+    });
+
+    it("stars a fuel for moderately green only where most of its cars here are low CO₂, and says how many", () => {
+        const u = withBubbles(EMPTY_UNDERSTANDING, { environment: ["moderate"] });
+        const step = stepFor("fuel", fleet(), u)!;
+        const plugIn = step.choices.find((choice) => choice.id === "fuel-plugInHybrid")!;
+        const diesel = step.choices.find((choice) => choice.id === "fuel-dieselCar")!;
+
+        expect(plugIn.recommended).toMatch(/^Recommended because you said moderately green: \d+ of the \d+ plug-in hybrid cars here have low CO₂ emissions \(class A to C\)\.$/);
+        expect(diesel.recommended).toBeUndefined();
     });
 });
