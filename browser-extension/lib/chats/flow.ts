@@ -437,6 +437,16 @@ export function followUps(step: ChatStep, picked: string[]): { bubble: string; a
         .map((choice) => ({ bubble: choice.id, ask: step.bubbleChips![choice.id]!.ask, answered: picked.some((item) => item.startsWith(`${choice.id}${CHIP}`)) }));
 }
 
+/**
+ * The follow-up the reader is on: the one they last touched — its bubble,
+ * a chip, "Select all" — as long as it's still open. Not wherever the rows
+ * happen to sit on screen: opening the environment's follow-up under an
+ * answered "Which comforts?" puts the reader on the environment's.
+ */
+export function activeFollowUp(step: ChatStep, picked: string[], touched: string | null): { bubble: string; ask: string; answered: boolean } | null {
+    return followUps(step, picked).find((item) => item.bubble === touched) ?? null;
+}
+
 /** The bubbles and chips a bubbles answer picked. */
 function bubblePicks(chosen: string[]): Partial<Record<BubbleId, string[]>> {
     const picks: Partial<Record<BubbleId, string[]>> = {};

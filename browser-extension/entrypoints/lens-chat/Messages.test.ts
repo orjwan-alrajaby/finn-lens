@@ -199,7 +199,10 @@ describe("follow-ups", () => {
 
         expect(words).toContain("Follow-ups answered: 1 of 2");
         expect(html.match(/aria-label="Answered"/g)).toHaveLength(1);
-        expect(html).toContain('data-followup="What do you carry?"');
+        expect(html).toContain('role="progressbar" aria-label="Questions answered" aria-valuemin="0" aria-valuemax="8" aria-valuenow="2"');
+        /* No block elements inside the pinned button. */
+        const pinned = html.slice(html.indexOf('tabindex="-1"'), html.indexOf("</button>", html.indexOf('tabindex="-1"')));
+        expect(pinned).not.toMatch(/<(div|p)\b/);
     });
 
     it("aren't counted on a section with none open", () => {

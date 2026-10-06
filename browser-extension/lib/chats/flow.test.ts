@@ -10,7 +10,7 @@ import { chatAnswers, judgementFrom, judgeWith } from "./judge";
 import { withBubbles } from "@/lib/lens-chat/bubbles";
 import { addMonths } from "@/lib/reasoning-engine/contract";
 import { CATEGORIES } from "@/lib/reasoning-engine/constants";
-import { addItem, allChips, answer, followUps, askNext, keepShort, openedWhy, changeAnswers, changeOne, removeItem, rentalMonths, rewind, rewindable, setImportance, startChat as beginChat, startMonth, stepFor, summaryOf } from "./flow";
+import { activeFollowUp, addItem, allChips, answer, followUps, askNext, keepShort, openedWhy, changeAnswers, changeOne, removeItem, rentalMonths, rewind, rewindable, setImportance, startChat as beginChat, startMonth, stepFor, summaryOf } from "./flow";
 import type { Chat, ChatMessage, SavedSettings, StepId } from "./types";
 
 /** A first chat, past "Got it — let's start": most tests begin at the first question. */
@@ -809,5 +809,25 @@ describe("follow-ups in a section", () => {
             { bubble: "weather", ask: "What's it like?", answered: false },
             { bubble: "carry", ask: "What do you carry?", answered: true },
         ]);
+    });
+});
+
+describe("the follow-up the reader is on", () => {
+    const step = () => stepFor("bubbles-matters", cars())!;
+
+    it("is the environment's once it's opened under an answered “Which comforts?”, not the comforts'", () => {
+        const picked = ["comfort", "comfort:warm", "comfort:wheel", "environment"];
+
+        expect(activeFollowUp(step(), picked, "environment")).toEqual({ bubble: "environment", ask: "How big a part should CO₂ play in my pick?", answered: false });
+        expect(followUps(step(), picked).map((item) => [item.bubble, item.answered])).toEqual([
+            ["comfort", true],
+            ["environment", false],
+        ]);
+    });
+
+    it("is none once that bubble is untapped, or when the last one tapped asks nothing more", () => {
+        expect(activeFollowUp(step(), ["comfort", "comfort:warm"], "environment")).toBeNull();
+        expect(activeFollowUp(step(), ["comfort", "comfort:warm", "help"], "help")?.bubble).toBe("help");
+        expect(activeFollowUp(stepFor("bubbles-people", cars())!, ["kids", "dog"], "dog")).toBeNull();
     });
 });

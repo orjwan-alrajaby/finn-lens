@@ -2,7 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useId, useLayoutEffe
 import { Check, ChevronDown, ChevronRight, Info, PencilLine, Plus, Star, X } from "lucide-react";
 
 import { BandChip, BrandMark, CarPhoto, euros, WinnerChip } from "@/components/lens-parts";
-import { allChips, coveredBy, followUps, IMPORTANCE_LABEL } from "@/lib/chats/flow";
+import { activeFollowUp, allChips, coveredBy, followUps, IMPORTANCE_LABEL } from "@/lib/chats/flow";
 import type { BubbleChips, CarSnapshot, ChatMessage, Choice, CustomAnswer, DealRow, StepId, SummaryBubble } from "@/lib/chats/types";
 import type { NeedImportance } from "@/lib/lens-ai/contract";
 import { lowerFirst } from "@/lib/reasoning-engine/format";
@@ -309,33 +309,40 @@ export interface AnswerExtra {
 /** "Answered 2 of 9", with a bar: how far through the questions the reader is. */
 function Progress({ done, total, tone = "light" }: { done: number; total: number; tone?: "light" | "dark" }) {
     return (
-        <div className="mb-1.5 flex items-center gap-2" aria-label={`Answered ${done} of ${total} questions`}>
+        <span className="mb-1.5 flex items-center gap-2">
             <span className={`shrink-0 text-[10.5px] font-black uppercase tracking-wide ${tone === "dark" ? "text-white/75" : "text-finn-iron"}`}>
                 Answered {done} of {total}
             </span>
-            <span aria-hidden="true" className={`block h-1 flex-1 overflow-hidden rounded-full ${tone === "dark" ? "bg-white/20" : "bg-finn-cotton"}`}>
+            <span
+                role="progressbar"
+                aria-label="Questions answered"
+                aria-valuemin={0}
+                aria-valuemax={total}
+                aria-valuenow={done}
+                className={`block h-1 flex-1 overflow-hidden rounded-full ${tone === "dark" ? "bg-white/20" : "bg-finn-cotton"}`}
+            >
                 <span className={`block h-full rounded-full transition-[width] ${tone === "dark" ? "bg-white" : "bg-finn-accent-blue"}`} style={{ width: `${(done / Math.max(1, total)) * 100}%` }} />
             </span>
-        </div>
+        </span>
     );
 }
 
 /** "Follow-ups answered: 1 of 3": the chip rows a section's bubbles opened, and how many have an answer. */
 function FollowUpCount({ done, total, tone = "light" }: { done: number; total: number; tone?: "light" | "dark" }) {
     return (
-        <p className={`flex items-center gap-1.5 text-[11px] font-bold ${tone === "dark" ? "text-white/80" : "px-1 text-finn-iron"}`}>
+        <span className={`flex items-center gap-1.5 text-[11px] font-bold ${tone === "dark" ? "text-white/80" : "px-1 text-finn-iron"}`}>
             <span className="inline-flex gap-0.5" aria-hidden="true">
                 {Array.from({ length: total }, (_, index) => (
                     <span key={index} className={`h-1.5 w-1.5 rounded-full ${index < done ? (tone === "dark" ? "bg-white" : "bg-finn-fit-good") : tone === "dark" ? "bg-white/25" : "bg-finn-cotton"}`} />
                 ))}
             </span>
             Follow-ups answered: {done} of {total}
-        </p>
+        </span>
     );
 }
 
 /** How an open question tells the pinned bar its follow-ups: answered of opened, or null for none. */
-type FollowUps = { done: number; total: number } | null;
+type FollowUps = { done: number; total: number; current: { ask: string; answered: boolean } | null } | null;
 const FollowUpsReport = createContext<(askId: string, value: FollowUps) => void>(() => {});
 
 /** The nearest ancestor that scrolls: the chat's own scroller, in the panel. */
@@ -353,34 +360,31 @@ function scrollParent(element: HTMLElement | null): HTMLElement | null {
  */
 function PinnedQuestion({ message, follow }: { message: Extract<ChatMessage, { kind: "ask" }> | null; follow: FollowUps }) {
     const [pinned, setPinned] = useState(false);
-    /* The follow-up being worked through: its question scrolled away, its chips still on screen. */
-    const [current, setCurrent] = useState<string | null>(null);
 
     useEffect(() => {
         setPinned(false);
-        setCurrent(null);
         if (!message?.progress) return;
 
+        const question = () => document.querySelector<HTMLElement>(`[data-question="${message.id}"]`);
         const check = () => {
-            const question = document.querySelector<HTMLElement>(`[data-question="${message.id}"]`);
-            const scroller = scrollParent(question);
-            if (!question || !scroller) return setPinned(false);
-
-            const top = scroller.getBoundingClientRect().top;
-            setPinned(question.getBoundingClientRect().bottom < top + 4);
-
-            const rows = [...(question.closest("[data-ask]")?.querySelectorAll<HTMLElement>("[data-followup]") ?? [])];
-            const row = rows.find((item) => {
-                const box = item.getBoundingClientRect();
-                return box.top < top + 4 && box.bottom > top + 48;
-            });
-            setCurrent(row?.dataset.followup ?? null);
+            const element = question();
+            const scroller = scrollParent(element);
+            setPinned(Boolean(element && scroller && element.getBoundingClientRect().bottom < scroller.getBoundingClientRect().top + 4));
         };
 
         check();
+        /*
+         * Scrolling isn't the only thing that moves the question: a row of
+         * chips opening or closing above the fold does too, with no scroll
+         * event. So the open question's row is watched for size as well.
+         */
+        const row = question()?.closest<HTMLElement>("[data-ask]");
+        const resized = typeof ResizeObserver === "undefined" || !row ? null : new ResizeObserver(check);
+        if (row) resized?.observe(row);
         document.addEventListener("scroll", check, true);
         window.addEventListener("resize", check);
         return () => {
+            resized?.disconnect();
             document.removeEventListener("scroll", check, true);
             window.removeEventListener("resize", check);
         };
@@ -412,8 +416,14 @@ function PinnedQuestion({ message, follow }: { message: Extract<ChatMessage, { k
                 <span className="line-clamp-2 text-[12.5px] font-bold leading-snug">{message.step.ask}</span>
                 {follow ? (
                     <span className="mt-1.5 block space-y-0.5 border-t border-white/15 pt-1.5">
-                        {current ? <span className="block text-[12px] font-semibold leading-snug">↳ {current}</span> : null}
-                        <FollowUpCount {...follow} tone="dark" />
+                        {follow.current ? (
+                            <span className="flex items-baseline gap-1 text-[12px] font-semibold leading-snug">
+                                <span aria-hidden="true">↳</span>
+                                <span className="min-w-0 flex-1">{follow.current.ask}</span>
+                                <span className="shrink-0 text-[10.5px] font-black uppercase tracking-wide text-white/70">{follow.current.answered ? "✓ Answered" : "To answer"}</span>
+                            </span>
+                        ) : null}
+                        <FollowUpCount done={follow.done} total={follow.total} tone="dark" />
                     </span>
                 ) : null}
             </button>
@@ -602,10 +612,10 @@ function BubbleChipRow({
     const allPicked = all.every((id) => picked.includes(id));
 
     return (
-        <div data-followup={chips.ask} className="basis-full rounded-2xl bg-finn-pale-blue/60 px-3 py-2 ring-1 ring-finn-accent-blue/15">
+        <div className="basis-full rounded-2xl bg-finn-pale-blue/60 px-3 py-2 ring-1 ring-finn-accent-blue/15">
             <div className="flex items-baseline justify-between gap-2">
                 <p className="text-[11.5px] font-bold text-finn-highlight-navy">
-                    {picked.length ? <Check aria-label="Answered" className="mr-1 inline h-3 w-3 text-finn-fit-good" strokeWidth={3.5} /> : null}
+                    {picked.length ? <Check role="img" aria-label="Answered" className="mr-1 inline h-3 w-3 text-finn-fit-good" strokeWidth={3.5} /> : null}
                     {chips.ask}
                     {chips.max ? <span className="font-semibold text-finn-iron"> Up to {chips.max}.</span> : null}
                 </p>
@@ -645,7 +655,7 @@ function BubbleChipRow({
                                     on ? "" : "hover:text-finn-highlight-navy",
                                 ].join(" ")}
                             >
-                                {on ? <Check aria-hidden="true" className="h-3 w-3" strokeWidth={3} /> : option.recommended ? <Star aria-label="Recommended" className="h-3 w-3 fill-current" /> : null}
+                                {on ? <Check aria-hidden="true" className="h-3 w-3" strokeWidth={3} /> : option.recommended ? <Star role="img" aria-label="Recommended" className="h-3 w-3 fill-current" /> : null}
                                 {option.label}
                             </button>
                             {option.description ? (
@@ -778,6 +788,8 @@ function Ask({
 }) {
     const { step } = message;
     const [picked, setPicked] = useState<string[]>(step.selected ?? []);
+    /* The bubble whose follow-up the reader last touched: the one they're on. */
+    const [touched, setTouched] = useState<string | null>(null);
     const [own, setOwn] = useState(false);
     const [ownText, setOwnText] = useState("");
     /* Words the reader added with the ✓, shown as a chip of their own until "Continue". */
@@ -788,7 +800,8 @@ function Ask({
      * untapping one frees a place. An answer that can't be true beside
      * another takes its place instead.
      */
-    const toggle = (id: string) =>
+    const toggle = (id: string) => {
+        if (step.bubbleChips) setTouched(id);
         setPicked((current) => {
             /* A bubble untapped takes its chips with it. */
             if (current.includes(id)) return current.filter((item) => item !== id && !item.startsWith(`${id}:`));
@@ -798,10 +811,12 @@ function Ask({
 
             return step.max && kept.length >= step.max ? kept : [...kept, id];
         });
+    };
     const full = Boolean(step.max && picked.length >= step.max);
 
     /* A chip under a bubble: one of its own, held to what that bubble allows. */
-    const toggleChip = (bubble: string, chip: string) =>
+    const toggleChip = (bubble: string, chip: string) => {
+        setTouched(bubble);
         setPicked((current) => {
             const rules = step.bubbleChips?.[bubble];
             const id = `${bubble}:${chip}`;
@@ -815,13 +830,15 @@ function Ask({
 
             return rules.max && mine.length - dropped.size >= rules.max ? current : [...kept, id];
         });
-    /* The follow-ups this section has opened, and how many have an answer: for the count, and the pinned bar. */
+    };
+    /* The follow-ups this section has opened, how many have an answer, and the one the reader is on: for the count, and the pinned bar. */
     const follow = followUps(step, picked);
     const followDone = follow.filter((item) => item.answered).length;
+    const active = activeFollowUp(step, picked, touched);
     const report = useContext(FollowUpsReport);
     useEffect(() => {
-        report(message.id, live && follow.length ? { done: followDone, total: follow.length } : null);
-    }, [report, message.id, live, follow.length, followDone]);
+        report(message.id, live && follow.length ? { done: followDone, total: follow.length, current: active ? { ask: active.ask, answered: active.answered } : null } : null);
+    }, [report, message.id, live, follow.length, followDone, active?.ask, active?.answered]);
 
     /* Bubbles that need a chip before the answer means anything: "the weather is tough", but what's it like? */
     const unfinished = Object.entries(step.bubbleChips ?? {})
@@ -900,9 +917,10 @@ function Ask({
                                                   picked={picked.filter((item) => item.startsWith(`${choice.id}:`)).map((item) => item.slice(choice.id.length + 1))}
                                                   missing={unfinished.includes(choice.id)}
                                                   onToggle={(id) => toggleChip(choice.id, id)}
-                                                  onSetAll={(ids) =>
-                                                      setPicked((current) => [...current.filter((item) => !item.startsWith(`${choice.id}:`)), ...ids.map((id) => `${choice.id}:${id}`)])
-                                                  }
+                                                  onSetAll={(ids) => {
+                                                      setTouched(choice.id);
+                                                      setPicked((current) => [...current.filter((item) => !item.startsWith(`${choice.id}:`)), ...ids.map((id) => `${choice.id}:${id}`)]);
+                                                  }}
                                               />,
                                           ]
                                         : chip(choice);
@@ -1633,8 +1651,9 @@ export function MessageList({
 
     return (
         <FollowUpsReport.Provider value={report}>
+            {/* Outside the live region: a bar sliding in isn't news to read out. */}
+            <PinnedQuestion message={open?.kind === "ask" && settled ? open : null} follow={liveAsk ? (follow[liveAsk] ?? null) : null} />
             <div className="space-y-2" aria-live="polite">
-                <PinnedQuestion message={open?.kind === "ask" && settled ? open : null} follow={liveAsk ? (follow[liveAsk] ?? null) : null} />
                 {rows}
                 {typing ? <Typing /> : null}
             </div>
