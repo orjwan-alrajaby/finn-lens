@@ -886,6 +886,8 @@ function caveatsFor(vehicle: FinnCar): string[] {
   if (vehicle.fuelType === "Plug-in Hybrid") {
     return [
       "FINN gives a plug-in hybrid one CO₂ figure and doesn't say how much of the driving behind it is on electricity — so it can't say what you'd emit the way you'd drive it.",
+      /* Sourced where it's shown: SOURCES.realWorldGap. Said with its date, since the 2025 rules changed the figure it's about. */
+      "The European Commission found plug-ins registered in 2021 emitted 3.5 times their official CO₂ on the road. The EU changed the official method from 2025; FINN's figures use the new one.",
     ];
   }
 

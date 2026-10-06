@@ -5,6 +5,7 @@ import { BandChip, BrandMark, CarPhoto, euros, WinnerChip } from "@/components/l
 import { activeFollowUp, allChips, coveredBy, followUps, IMPORTANCE_LABEL } from "@/lib/chats/flow";
 import { IMPORTANCE, IMPORTANCE_LEVELS, SCALE_EXPLAINED } from "@/lib/lens-chat/importance";
 import { DEAL_MEANS } from "@/lib/lens-chat/deals";
+import type { Source } from "@/lib/sources";
 import type { BubbleChips, CarSnapshot, ChatMessage, Choice, CustomAnswer, DealRow, StepId, SummaryBubble } from "@/lib/chats/types";
 import type { NeedImportance } from "@/lib/lens-ai/contract";
 import { lowerFirst } from "@/lib/reasoning-engine/format";
@@ -139,6 +140,16 @@ export function Typing() {
 export function InfoTip({ label, tone = "idle", children }: { label: string; tone?: "idle" | "on"; children: React.ReactNode }) {
     const [open, setOpen] = useState(false);
     const [at, setAt] = useState<{ top: number; left: number } | null>(null);
+    /* Leaving the "i" closes it after a moment, so the pointer can reach a source link inside. */
+    const closing = useRef<number | undefined>(undefined);
+    const show = () => {
+        window.clearTimeout(closing.current);
+        setOpen(true);
+    };
+    const hide = () => {
+        window.clearTimeout(closing.current);
+        closing.current = window.setTimeout(() => setOpen(false), 180);
+    };
     const button = useRef<HTMLButtonElement>(null);
     const tip = useRef<HTMLDivElement>(null);
     const id = useId();
@@ -179,10 +190,13 @@ export function InfoTip({ label, tone = "idle", children }: { label: string; ton
                 type="button"
                 aria-label={`What “${label}” means`}
                 aria-describedby={open ? id : undefined}
-                onMouseEnter={() => setOpen(true)}
-                onMouseLeave={() => setOpen(false)}
-                onFocus={() => setOpen(true)}
-                onBlur={() => setOpen(false)}
+                onMouseEnter={show}
+                onMouseLeave={hide}
+                onFocus={show}
+                onBlur={(event) => {
+                    /* Tabbing into a link inside keeps it open. */
+                    if (!tip.current?.contains(event.relatedTarget as Node)) hide();
+                }}
                 onClick={(event) => {
                     event.stopPropagation();
                     setOpen(true);
@@ -200,6 +214,11 @@ export function InfoTip({ label, tone = "idle", children }: { label: string; ton
                     ref={tip}
                     id={id}
                     role="tooltip"
+                    onMouseEnter={show}
+                    onMouseLeave={hide}
+                    onBlur={(event) => {
+                        if (!tip.current?.contains(event.relatedTarget as Node) && event.relatedTarget !== button.current) hide();
+                    }}
                     style={{ position: "fixed", top: at?.top ?? -9999, left: at?.left ?? -9999 }}
                     className="z-50 w-64 max-w-[calc(100vw-16px)] space-y-0.5 rounded-xl bg-finn-highlight-navy px-3 py-2 text-left text-[11.5px] font-normal leading-snug text-white shadow-lg"
                 >
@@ -210,10 +229,29 @@ export function InfoTip({ label, tone = "idle", children }: { label: string; ton
     );
 }
 
+/** Where something in a tooltip comes from, when it isn't FINN's: named, and linked to check. */
+function TipSources({ sources }: { sources?: Source[] }) {
+    if (!sources?.length) return null;
+
+    return (
+        <p className="border-t border-white/15 pt-1 text-white/75">
+            Source{sources.length > 1 ? "s" : ""}:{" "}
+            {sources.map((source, index) => (
+                <span key={source.url}>
+                    {index ? " · " : ""}
+                    <a href={source.url} target="_blank" rel="noreferrer" className="font-bold text-white underline decoration-white/40 underline-offset-2 hover:decoration-white">
+                        {source.name}
+                    </a>
+                </span>
+            ))}
+        </p>
+    );
+}
+
 /** What a choice means, for its tooltip: its name, what it is, and what Lens checks for it. */
 function tipFor(choice: Choice): React.ReactNode | null {
     const body = choice.means ?? choice.description;
-    if (!body && !choice.looksFor?.length) return null;
+    if (!body && !choice.looksFor?.length && !choice.recommended) return null;
 
     return (
         <>
@@ -222,6 +260,7 @@ function tipFor(choice: Choice): React.ReactNode | null {
             {body ? <p>{body}</p> : null}
             {choice.means && choice.description && choice.description !== choice.means ? <p>{choice.description}</p> : null}
             {choice.looksFor?.length ? <p className="text-white/75">I'll check: {choice.looksFor.join(" · ")}</p> : null}
+            <TipSources sources={choice.sources} />
         </>
     );
 }
@@ -704,6 +743,7 @@ function BubbleChipRow({
                                     <p className="font-black">{option.label}</p>
                                     {option.recommended ? <p className="font-bold text-[#ffd76a]">{option.recommended}</p> : null}
                                     <p>{option.description}</p>
+                                    <TipSources sources={option.sources} />
                                 </InfoTip>
                             ) : null}
                         </span>
@@ -767,6 +807,7 @@ function Deals({ message, live, onAnswer }: { message: Extract<ChatMessage, { ki
                                                 <p className="font-black">{row.label}</p>
                                                 <p>{row.description}</p>
                                                 {row.suggested ? <p className="text-white/75">{row.suggested}</p> : null}
+                                                <TipSources sources={row.sources} />
                                             </InfoTip>
                                         </span>
                                         <span

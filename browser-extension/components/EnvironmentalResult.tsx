@@ -1,5 +1,6 @@
 import { ComparisonTable } from "@/components/ComparisonTable";
 import { readEnvironment, USE_TONE } from "@/lib/environment-copy";
+import { SOURCES } from "@/lib/sources";
 import type { EnvironmentalAssessment } from "@/lib/reasoning-engine/environmental";
 import type { FitBand } from "@/lib/reasoning-engine/fit";
 import { ROW_TONE, type RowTone } from "@/lib/row-tone";
@@ -53,7 +54,37 @@ export function EnvironmentalResult({ assessment, band }: { assessment: Environm
                     {line}
                 </p>
             ))}
+
+            <Sources powertrain={assessment?.powertrain ?? null} />
         </div>
+    );
+}
+
+/**
+ * Where the scale and the comparison points come from, linked: the CO₂ label
+ * rules, the ICCT's figures for new cars, and — for a plug-in hybrid — the
+ * Commission's report on how far their figures run from real driving.
+ */
+function Sources({ powertrain }: { powertrain: EnvironmentalAssessment["powertrain"] }) {
+    const sources = [
+        SOURCES.co2Label,
+        SOURCES.icctFleet,
+        ...(powertrain === "Electric" ? [SOURCES.icctLifeCycle] : []),
+        ...(powertrain === "Plug-in Hybrid" ? [SOURCES.realWorldGap] : []),
+    ];
+
+    return (
+        <p className="text-[11px] leading-snug text-finn-iron">
+            Sources:{" "}
+            {sources.map((source, index) => (
+                <span key={source.url}>
+                    {index ? " · " : ""}
+                    <a href={source.url} target="_blank" rel="noreferrer" className="font-bold text-finn-accent-blue underline decoration-finn-accent-blue/40 underline-offset-2 hover:decoration-finn-accent-blue">
+                        {source.name}
+                    </a>
+                </span>
+            ))}
+        </p>
     );
 }
 

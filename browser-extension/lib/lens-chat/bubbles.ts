@@ -1,4 +1,5 @@
 import type { NeedImportance } from "@/lib/lens-ai/contract";
+import { SOURCES, type Source } from "@/lib/sources";
 import type { CategoryId, FeatureImportance } from "@/lib/reasoning-engine/types";
 import type { FinnCar } from "@/lib/types";
 
@@ -42,6 +43,8 @@ export interface BubbleChip {
     label: string;
     /** Behind its "i": what it means, and what Lens checks for it. */
     description: string;
+    /** Where anything in the description that isn't FINN's comes from. */
+    sources?: Source[];
     /** After the bubble, in a sentence: "snow and ice". */
     detail: string;
     counts?: EvidenceId[];
@@ -462,6 +465,7 @@ export const BUBBLES: Bubble[] = [
                     detail: "moderately green",
                     description:
                         "Low CO₂ on the German label: class A to C, 115 g/km or less. I judge each car on its CO₂ class as FINN lists it, suggest “low CO₂ emissions” as a deal-breaker, and star the fuels where most of the cars here are low CO₂ when I ask what it can run on.",
+                    sources: [SOURCES.co2Label],
                     figures: ["environmental"],
                     suggests: "low-co2",
                 },
@@ -471,6 +475,7 @@ export const BUBBLES: Bubble[] = [
                     detail: "totally green",
                     description:
                         "Electric: FINN lists them in CO₂ class A, which on the German label is 0 g/km. CO₂ becomes a top priority, and I'll star Electric when I ask what it can run on. FINN's CO₂ figure says nothing about making the electricity.",
+                    sources: [SOURCES.co2Label],
                     figures: ["environmental"],
                     importance: "essential",
                     /* Electric is starred on "What can it run on?", not suggested as a row. */

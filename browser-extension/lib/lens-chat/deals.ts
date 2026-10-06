@@ -1,4 +1,5 @@
 import type { CategoryId } from "@/lib/reasoning-engine/types";
+import { SOURCES, type Source } from "@/lib/sources";
 import type { FinnCar } from "@/lib/types";
 
 import { barePhrase, coverage, EVIDENCE, type EvidenceId } from "./evidence";
@@ -30,6 +31,7 @@ export interface Deal {
     group: "money" | "energy" | "car";
     /** Behind its "i". */
     description: string;
+    sources?: Source[];
     /** The car fact its rule is about: what a "must" or "mustn't" checks. */
     rule?: EvidenceId;
     /** The rule a "must" sets, by the rules question's id. */
@@ -72,6 +74,7 @@ export const DEALS: Deal[] = [
         must: "low-co2",
         seal: { figure: "environmental", need: "Low CO₂ emissions" },
         description: "Class A to C on the German CO₂ label: 115 g/km or less. Every electric car is class A.",
+        sources: [SOURCES.co2Label],
     },
     {
         id: "frugal",

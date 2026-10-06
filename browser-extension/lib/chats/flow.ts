@@ -28,6 +28,7 @@ import {
 } from "@/lib/lens-chat/bubbles";
 import { asPhrase, barePhrase, EVIDENCE, evidenceMet, isKind, type EvidenceId } from "@/lib/lens-chat/evidence";
 import { IMPORTANCE, IMPORTANCE_LABEL } from "@/lib/lens-chat/importance";
+import { SOURCES } from "@/lib/sources";
 import { DEALS, dealForRule, dealsHere, dealStates, letGo, stateLabel, withDeals, type DealState } from "@/lib/lens-chat/deals";
 import { applyChoices, explain, guideSteps, saidFor, type GuideChoice, type GuideStep } from "@/lib/lens-chat/guide";
 import {
@@ -339,9 +340,9 @@ function bubblesStep(group?: (typeof BUBBLE_GROUPS)[number], u: Understanding = 
                         exclusive: bubble.chips!.exclusive,
                         /* What earlier answers recommend comes first, saying why — never picked for the reader. */
                         options: bubble.chips!.options
-                            .map(({ id, label, description, counts }) => {
+                            .map(({ id, label, description, counts, sources }) => {
                                 const recommended = (counts ?? []).map((item) => recommendedBecause(item, u, bubble.id)).find(Boolean);
-                                return { id, label, description, ...(recommended ? { recommended } : {}) };
+                                return { id, label, description, ...(recommended ? { recommended } : {}), ...(sources ? { sources } : {}) };
                             })
                             .sort((a, b) => Number(Boolean(b.recommended)) - Number(Boolean(a.recommended))),
                     },
@@ -372,6 +373,7 @@ function dealsStep(u: Understanding, cars: FinnCar[]): ChatStep | null {
         kind: deal.kind,
         group: because.has(deal.id) ? "yours" : deal.group,
         /* A row that can only be a hard line says why, so its missing "Flexible" isn't a puzzle. */
+        ...(deal.sources ? { sources: deal.sources } : {}),
         /* A row that can't seal the deal says why, so the missing "Seals it" isn't a puzzle. */
         description: options.includes("seal") ? deal.description : `${deal.description} I can only rule on this, not weigh it — so it can't seal the deal.`,
         options,
@@ -470,7 +472,9 @@ function fuelStep(u: Understanding, cars: FinnCar[]): ChatStep | null {
         choices: here.map((fuel) => {
             const recommended = because(fuel);
             const description = `${fuel.description}${hybridNamed(cars, fuel.fuel) ?? ""}`;
-            return { id: `fuel-${fuel.id}`, label: fuel.label, said: fuel.label, description, ...(recommended ? { recommended } : {}) };
+            /* The EU's figures a plug-in's electricity is priced on; the CO₂ label a star for electric rests on. */
+            const sources = fuel.id === "plugInHybrid" ? [SOURCES.euRegistrations] : recommended && fuel.id === "electricCar" ? [SOURCES.co2Label] : undefined;
+            return { id: `fuel-${fuel.id}`, label: fuel.label, said: fuel.label, description, ...(recommended ? { recommended } : {}), ...(sources ? { sources } : {}) };
         }),
         none: "Any of them",
     };

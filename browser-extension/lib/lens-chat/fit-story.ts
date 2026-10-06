@@ -1,4 +1,5 @@
 import { lowerFirst } from "@/lib/reasoning-engine/format";
+import { SOURCES, type Source } from "@/lib/sources";
 import { describeRentalProblem, formatEUR, monthLabel } from "@/lib/reasoning-engine";
 import { bandForScore } from "@/lib/reasoning-engine/bands";
 import { FIT_BANDS, type FitLevel } from "@/lib/reasoning-engine/fit";
@@ -55,6 +56,8 @@ export type Tone = "good" | "missing" | "unknown" | "note";
 export interface StoryLine {
     tone: Tone;
     text: string;
+    /** Where a figure or rule in it comes from, when it isn't FINN's. */
+    sources?: Source[];
 }
 
 export interface StorySection {
@@ -248,9 +251,11 @@ function emissionsReading(car: PinnedFinnCar, cars: PinnedFinnCar[]): { tone: To
         lines: [
             { tone, text: `${co2.display}. ${co2.explanation}${among}` },
             ...(env.powertrain === "Plug-in Hybrid" && env.caveats[0] ? [{ tone: "note" as const, text: env.caveats[0] }] : []),
+            ...(env.powertrain === "Plug-in Hybrid" && env.caveats[1] ? [{ tone: "note" as const, text: env.caveats[1], sources: [SOURCES.realWorldGap] }] : []),
             {
                 tone: "note",
                 text: "Lens places emissions on the A–G CO₂ label German law uses for new cars (Pkw-EnVKV): A is nothing at the tailpipe, B up to 95 g/km, C up to 115, D up to 135, E up to 155, F up to 175, and G above. For comparison, new cars that burn fuel emit about 136 g/km on average (ICCT, from EU registrations 2021–2024).",
+                sources: [SOURCES.co2Label, SOURCES.icctFleet],
             },
         ],
     };

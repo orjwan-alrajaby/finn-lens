@@ -111,7 +111,22 @@ export function StoryRow({ section, value }: { section: StorySection; value?: Ju
                         <span className="mt-px">
                             <ToneDot tone={line.tone} />
                         </span>
-                        <span className={line.tone === "note" ? "text-finn-iron" : ""}>{line.text}</span>
+                        <span className={line.tone === "note" ? "text-finn-iron" : ""}>
+                            {line.text}
+                            {line.sources?.length ? (
+                                <span className="mt-0.5 block text-[11px] text-finn-iron">
+                                    Source{line.sources.length > 1 ? "s" : ""}:{" "}
+                                    {line.sources.map((source, index) => (
+                                        <span key={source.url}>
+                                            {index ? " · " : ""}
+                                            <a href={source.url} target="_blank" rel="noreferrer" className="font-bold text-finn-accent-blue underline decoration-finn-accent-blue/40 underline-offset-2 hover:decoration-finn-accent-blue">
+                                                {source.name}
+                                            </a>
+                                        </span>
+                                    ))}
+                                </span>
+                            ) : null}
+                        </span>
                     </li>
                 ))}
             </ul>

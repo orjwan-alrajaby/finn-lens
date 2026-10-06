@@ -1,4 +1,5 @@
 import type { FitLevel } from "@/lib/reasoning-engine/fit";
+import type { Source } from "@/lib/sources";
 import type { NeedImportance } from "@/lib/lens-ai/contract";
 import type { EvidenceId } from "@/lib/lens-chat/evidence";
 import type { GuideStep, NeedGroup } from "@/lib/lens-chat/guide";
@@ -77,6 +78,8 @@ export interface Choice {
     means?: string;
     /** Starred, with why: "Recommended because you said totally green." */
     recommended?: string;
+    /** Where anything it says that isn't FINN's comes from. */
+    sources?: Source[];
     group?: string;
     /** The equipment Lens will check for it, by name. */
     looksFor?: string[];
@@ -92,6 +95,7 @@ export interface DealRow {
     kind: boolean;
     group: string;
     description: string;
+    sources?: Source[];
     options: ("must" | "mustNot" | "seal")[];
     /** Why it's first: "Suggested because you carry a lot." */
     suggested?: string;
@@ -106,7 +110,7 @@ export interface BubbleChips {
     required: boolean;
     exclusive?: string[][];
     /** Each with what it means and what Lens checks for it, for its "i". */
-    options: { id: string; label: string; description?: string; recommended?: string }[];
+    options: { id: string; label: string; description?: string; recommended?: string; sources?: Source[] }[];
 }
 
 /** One bubble on the summary: what Lens understood, for the reader to correct. */
