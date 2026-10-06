@@ -204,7 +204,7 @@ const checked = (need: Understanding["needs"][number], u: Understanding): Eviden
 
 const WHY: Record<string, string> = {
     rules: "Each one takes cars out before I score anything, so only pick what you'd truly refuse.",
-    deals: "A deal-breaker — must or mustn't — sets cars aside before I score anything, so only pick what you'd truly refuse. A deal-sealer counts as a top priority — the most anything can — but a car without it can still win, if it's clearly better at everything else.",
+    deals: "Only pick what you'd truly refuse, or what would win you over — everything else is weighed on what you've already told me.",
     budget: `All costs together: FINN's monthly price (VAT included), plus what I estimate you'd spend on fuel or charging, plus the mileage package your driving needs — FINN's price includes ${FINN_INCLUDED_MONTHLY_KM.toLocaleString("en-GB")} km a month. Parking and tolls aren't in it.`,
     from: "FINN delivers in weeks, so the soonest is next month. Not every car can be delivered by every date, and each is priced on the term that covers yours.",
     period: "FINN prices each car by how long you subscribe, and not every car is offered for every length — so this changes both the price and which cars fit.",

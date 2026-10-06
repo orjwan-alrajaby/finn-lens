@@ -448,6 +448,37 @@ function StarKey() {
     );
 }
 
+/**
+ * What each option on a deal row means, said once under the question —
+ * each beside a chip in the colour it takes when picked — so the reader
+ * knows before choosing, rather than finding out on hover. Only the
+ * options some row here offers.
+ */
+function DealKey({ rows }: { rows: DealRow[] }) {
+    const offered = new Set(rows.flatMap((row) => row.options));
+    const must = [rows.some((row) => row.options.includes("must") && row.kind) && "Must be", rows.some((row) => row.options.includes("must") && !row.kind) && "Must have"].filter(Boolean).join(" / ");
+    const mustNot = [rows.some((row) => row.options.includes("mustNot") && row.kind) && "Mustn't be", rows.some((row) => row.options.includes("mustNot") && !row.kind) && "Mustn't have"]
+        .filter(Boolean)
+        .join(" / ");
+    const entries: { label: string; tone: string; means: string }[] = [
+        { label: "Doesn't matter", tone: "bg-white text-finn-black ring-1 ring-black/10", means: "Not part of the judgement." },
+        ...(offered.has("must") ? [{ label: must, tone: DEAL_TONE.must, means: DEAL_MEANS.must }] : []),
+        ...(offered.has("mustNot") ? [{ label: mustNot, tone: DEAL_TONE.mustNot, means: DEAL_MEANS.mustNot }] : []),
+        ...(offered.has("seal") ? [{ label: "Seals it", tone: DEAL_TONE.seal, means: DEAL_MEANS.seal }] : []),
+    ];
+
+    return (
+        <dl className="mt-2 space-y-1.5 text-[12px] leading-snug">
+            {entries.map((entry) => (
+                <div key={entry.label} className="flex items-start gap-2">
+                    <dt className={`mt-px shrink-0 rounded-full px-2 py-0.5 text-[10.5px] font-black ${entry.tone}`}>{entry.label}</dt>
+                    <dd className="text-finn-iron">{entry.means}</dd>
+                </div>
+            ))}
+        </dl>
+    );
+}
+
 function Why({ text }: { text: string }) {
     return (
         <p className="mt-1.5 flex gap-1.5 text-[12px] leading-snug text-finn-iron">
@@ -709,6 +740,7 @@ function Deals({ message, live, onAnswer }: { message: Extract<ChatMessage, { ki
                     {step.ask}
                 </p>
                 {live && step.why ? <Why text={step.why} /> : null}
+                {live ? <DealKey rows={rows} /> : null}
             </LensBubble>
 
             {live ? (
@@ -737,7 +769,6 @@ function Deals({ message, live, onAnswer }: { message: Extract<ChatMessage, { ki
                                                         type="button"
                                                         role="radio"
                                                         aria-checked={on}
-                                                        title={option ? DEAL_MEANS[option] : "Not part of the judgement."}
                                                         onClick={() => setStates((current) => ({ ...current, [row.id]: option }))}
                                                         className={[
                                                             "rounded-full px-2.5 py-1 text-[11px] font-black transition-colors",

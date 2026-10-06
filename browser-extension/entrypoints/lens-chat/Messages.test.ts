@@ -164,8 +164,11 @@ describe("deal-breakers and deal-sealers", () => {
         expect(words).toContain("Any deal-breakers or deal-sealers?");
         expect(words).toContain("Electric Doesn't matter Must be Mustn't be");
         expect(words).toContain("Towbar Doesn't matter Must have Seals it");
-        expect(html).toContain('title="A deal-sealer: counts as a top priority, but a car without it can still win');
-        expect(html).toContain('title="A deal-breaker: any car without it is set aside before I score anything."');
+        /* What each option means, said under the question rather than on hover. */
+        expect(words).toMatch(
+            /Why I'm asking: Only pick what you'd truly refuse, or what would win you over — everything else is weighed on what you've already told me\. Doesn't matter Not part of the judgement\. Must be \/ Must have A deal-breaker: any car without it is set aside before I score anything\. Mustn't be A deal-breaker: any car that is one is set aside before I score anything\. Seals it A deal-sealer: counts as a top priority, but a car without it can still win if it's clearly better at everything else\./,
+        );
+        expect(html).not.toContain('title="A deal-');
         expect(html).toContain("aria-label=\"What “Towbar” means\"");
         expect(words).toContain("Nothing's off the table");
     });
