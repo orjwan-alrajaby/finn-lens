@@ -8,7 +8,8 @@ import { EMPTY_UNDERSTANDING } from "@/lib/lens-chat/understanding";
 import type { Chat, ChatMessage } from "@/lib/chats/types";
 import { GARAGE } from "@/lib/reasoning-engine/test-garage";
 
-import { AdjustPanel, MessageList } from "./Messages";
+import { AdjustPanel, MessageList, TipSources } from "./Messages";
+import { SOURCES } from "@/lib/sources";
 
 /** A first chat, past "Got it — let's start": most tests begin at the first question. */
 function startChat(...args: Parameters<typeof beginChat>): ReturnType<typeof beginChat> {
@@ -266,5 +267,20 @@ describe("question numbers", () => {
 
         /* Four sections, limit, length, from when, fuel, deal-breakers: nine. "How it works" and "looks good?" aren't numbered. */
         expect(numbers).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9]);
+    });
+});
+
+describe("sources in a tooltip", () => {
+    it("read “Source ↗”, the name kept for screen readers, and number themselves when there are several", () => {
+        const one = renderToStaticMarkup(createElement(TipSources, { sources: [SOURCES.adacAwd] }));
+        const two = renderToStaticMarkup(createElement(TipSources, { sources: [SOURCES.co2Label, SOURCES.icctFleet] }));
+
+        expect(text(one).trim()).toBe("Source");
+        expect(one).toContain(`href="${SOURCES.adacAwd.url}"`);
+        expect(one).toContain('target="_blank"');
+        expect(one).toContain('aria-label="Source: ADAC');
+        expect(one).toContain("<svg");
+        expect(text(one)).not.toContain("Mit Allradantrieb");
+        expect(text(two).trim()).toBe("Source 1 Source 2");
     });
 });

@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { Check, ChevronDown, ChevronRight, Info, PencilLine, Plus, Star, X } from "lucide-react";
+import { ArrowUpRight, Check, ChevronDown, ChevronRight, Info, PencilLine, Plus, Star, X } from "lucide-react";
 
 import { BandChip, BrandMark, CarPhoto, euros, WinnerChip } from "@/components/lens-parts";
 import { activeFollowUp, allChips, coveredBy, followUps, IMPORTANCE_LABEL } from "@/lib/chats/flow";
@@ -221,20 +221,28 @@ export function InfoTip({ label, tone = "idle", children }: { label: string; ton
     );
 }
 
-/** Where something in a tooltip comes from, when it isn't FINN's: named, and linked to check. */
-function TipSources({ sources }: { sources?: Source[] }) {
+/**
+ * Where something in a tooltip comes from, when it isn't FINN's: "Source ↗",
+ * linked to check. The tooltip is small, so the name is left to the link's
+ * label — read out by a screen reader, and on the page it opens.
+ */
+export function TipSources({ sources }: { sources?: Source[] }) {
     if (!sources?.length) return null;
 
     return (
-        <p className="border-t border-white/15 pt-1 text-white/75">
-            Source{sources.length > 1 ? "s" : ""}:{" "}
+        <p className="flex flex-wrap gap-x-3 border-t border-white/15 pt-1">
             {sources.map((source, index) => (
-                <span key={source.url}>
-                    {index ? " · " : ""}
-                    <a href={source.url} target="_blank" rel="noreferrer" className="font-bold text-white underline decoration-white/40 underline-offset-2 hover:decoration-white">
-                        {source.name}
-                    </a>
-                </span>
+                <a
+                    key={source.url}
+                    href={source.url}
+                    target="_blank"
+                    rel="noreferrer"
+                    aria-label={`Source: ${source.name} (opens in a new tab)`}
+                    className="inline-flex items-center gap-0.5 font-bold text-white underline decoration-white/40 underline-offset-2 hover:decoration-white"
+                >
+                    {sources.length > 1 ? `Source ${index + 1}` : "Source"}
+                    <ArrowUpRight aria-hidden="true" className="h-3 w-3" strokeWidth={2.6} />
+                </a>
             ))}
         </p>
     );
