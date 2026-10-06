@@ -218,6 +218,7 @@ function tipFor(choice: Choice): React.ReactNode | null {
     return (
         <>
             <p className="font-black">{choice.label}</p>
+            {choice.recommended ? <p className="font-bold text-[#ffd76a]">{choice.recommended}</p> : null}
             {body ? <p>{body}</p> : null}
             {choice.means && choice.description && choice.description !== choice.means ? <p>{choice.description}</p> : null}
             {choice.looksFor?.length ? <p className="text-white/75">I'll check: {choice.looksFor.join(" · ")}</p> : null}
@@ -234,6 +235,7 @@ function Chip({
     title,
     icon,
     info,
+    recommended = false,
 }: {
     label: string;
     selected?: boolean;
@@ -244,6 +246,8 @@ function Chip({
     icon?: React.ReactNode;
     /** What the choice means: an "i" at the chip's right, with this as its tooltip. */
     info?: React.ReactNode | null;
+    /** Starred: something the reader said points to it. */
+    recommended?: boolean;
 }) {
     if (info) {
         /*
@@ -269,7 +273,11 @@ function Chip({
                         selected ? "" : "hover:text-finn-highlight-navy",
                     ].join(" ")}
                 >
-                    {selected ? <Check aria-hidden="true" className="h-3.5 w-3.5" strokeWidth={3} /> : null}
+                    {selected ? (
+                        <Check aria-hidden="true" className="h-3.5 w-3.5" strokeWidth={3} />
+                    ) : recommended ? (
+                        <Star role="img" aria-label="Recommended" className="h-3.5 w-3.5 fill-current" />
+                    ) : null}
                     {label}
                 </button>
                 <InfoTip label={label} tone={selected ? "on" : "idle"}>
@@ -919,6 +927,7 @@ function Ask({
             }
             onClick={() => (step.multiple ? toggle(choice.id) : onAnswer([choice.id]))}
             info={tipFor(choice)}
+            recommended={Boolean(choice.recommended)}
         />
     );
 
@@ -935,7 +944,9 @@ function Ask({
                     {step.ask}
                 </p>
                 {live && (step.why ?? step.hint) ? <Why text={(step.why ?? step.hint)!} /> : null}
-                {live && Object.values(step.bubbleChips ?? {}).some((chips) => chips.options.some((option) => option.recommended)) ? <StarKey /> : null}
+                {live && (step.choices.some((choice) => choice.recommended) || Object.values(step.bubbleChips ?? {}).some((chips) => chips.options.some((option) => option.recommended))) ? (
+                    <StarKey />
+                ) : null}
             </LensBubble>
 
             {live ? (
@@ -1222,7 +1233,7 @@ function UnderstoodBubble({
 const LINE_GROUPS: { title: string; steps: StepId[] }[] = [
     { title: "Your life", steps: ["bubbles"] },
     { title: "Money & time", steps: ["budget", "period", "from", "distance"] },
-    { title: "Deal-breakers & sealers", steps: ["deals", "rules"] },
+    { title: "Deal-breakers & sealers", steps: ["fuel", "deals", "rules"] },
 ];
 
 /**

@@ -67,7 +67,7 @@ describe("the bubbles", () => {
 describe("here's what you told me, and what I understood", () => {
     const understood = () => {
         let chat = startChat(null, cars(), TODAY);
-        for (const picks of [["kids", "kids:baby"], ["city", "city:street"], [], [], ["budget-500"], ["period-12"], [], []]) chat = answer(chat, openAsk(chat).id, picks, cars(), TODAY).chat;
+        for (const picks of [["kids", "kids:baby"], ["city", "city:street"], [], [], ["budget-500"], ["period-12"], [], [], []]) chat = answer(chat, openAsk(chat).id, picks, cars(), TODAY).chat;
         return chat;
     };
     const summary = (chat: Chat) => [...chat.messages].reverse().find((message): message is Extract<ChatMessage, { kind: "summary" }> => message.kind === "summary")!;
@@ -77,7 +77,7 @@ describe("here's what you told me, and what I understood", () => {
 
         expect(words).toContain("Here's what you told me, and what I understood:");
         expect(words).toMatch(/What you told me You have kids · a baby or toddler seat Top priority I'll check: Rear doors/);
-        expect(words).toMatch(/Money & time Monthly limit €500 all in .* Deal-breakers & sealers Deal-breakers None Deal-sealers None/);
+        expect(words).toMatch(/Money & time Monthly limit €500 all in .* Deal-breakers & sealers Runs on Any Deal-breakers None Deal-sealers None/);
         expect(words).toContain("Does that look right?");
         expect(words).toMatch(/Looks good to me — continue This doesn't look right/);
         /* Nothing to edit in the chat itself. */
@@ -166,16 +166,16 @@ describe("deal-breakers and deal-sealers", () => {
         const words = text(html);
 
         expect(words).toContain("Any deal-breakers or deal-sealers?");
-        expect(words).toContain("Electric Doesn't matter Must be Mustn't be");
+        expect(words).not.toMatch(/Electric Doesn't matter/);
         expect(words).toContain("Towbar Doesn't matter Must have Seals it");
         /* What each option means, said under the question rather than on hover. */
         expect(words).toMatch(
-            /Why I'm asking: Only pick what you'd truly refuse, or what would win you over — everything else is weighed on what you've already told me\. Doesn't matter Not part of the judgement\. Must be \/ Must have A deal-breaker: any car without it is set aside before I score anything\. Mustn't be A deal-breaker: any car that is one is set aside before I score anything\. Seals it A deal-sealer: counts as a top priority, but a car without it can still win if it's clearly better at everything else\./,
+            /Why I'm asking: Only pick what you'd truly refuse, or what would win you over — everything else is weighed on what you've already told me\. Doesn't matter Not part of the judgement\. Must (be \/ )?have A deal-breaker: any car without it is set aside before I score anything\. (Mustn't be A deal-breaker: any car that is one is set aside before I score anything\. )?Seals it A deal-sealer: counts as a top priority, but a car without it can still win if it's clearly better at everything else\./,
         );
         expect(html).not.toContain('title="A deal-');
         /* Soft fills with the darker shade for text and border, never solid colour. */
         expect(html).toContain("bg-finn-fit-good-pale text-finn-fit-good ring-1 ring-finn-fit-good/45");
-        expect(html).toContain("bg-finn-fit-limited-pale text-finn-fit-limited ring-1 ring-finn-fit-limited/45");
+        expect(html).toContain("bg-finn-pale-blue text-finn-highlight-navy ring-1 ring-finn-highlight-navy/45");
         expect(html).not.toMatch(/bg-finn-fit-(good|limited) text-white/);
         expect(html).toContain("aria-label=\"What “Towbar” means\"");
         expect(words).toContain("Nothing's off the table");
@@ -214,7 +214,7 @@ describe("progress", () => {
         const chat = startChat(null, cars(), TODAY);
         const html = render(chat.messages);
 
-        expect(text(html)).toMatch(/Answered 0 of 8 First, who rides with you\? .*Answered 0 of 8 First, who rides with you\?/);
+        expect(text(html)).toMatch(/Answered 0 of 9 First, who rides with you\? .*Answered 0 of 9 First, who rides with you\?/);
         /* The pinned copy starts hidden, out of the tab order. */
         expect(html).toMatch(/tabindex="-1" aria-hidden="true"/);
     });

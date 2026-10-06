@@ -78,7 +78,7 @@ import type { BubbleChips, Chat, ChatMessage, ChatStep, DealRow, Rewind, SavedSe
  * The questions, in the order Lens asks them. How far they drive is asked
  * only after a bubble it matters to; otherwise it's assumed, and said so.
  */
-export const STEP_ORDER: StepId[] = ["bubbles", "budget", "period", "from", "distance", "deals"];
+export const STEP_ORDER: StepId[] = ["bubbles", "budget", "period", "from", "distance", "fuel", "deals"];
 
 /** The bubbles, a section at a time, with how often straight after the driving it's about. */
 const BUBBLE_STEPS: StepId[] = ["bubbles-people", "bubbles-driving", "often-long", "often-traffic", "bubbles-copes", "bubbles-matters"];
@@ -106,7 +106,7 @@ const saidAnything = (u: Understanding) => bubblesIn(u).length > 0 || lifeNeeds(
 /* -------------------------------------------------------------------------- */
 
 /** The questions a reader can pick to answer again, in the order they're asked. */
-const CHANGEABLE: StepId[] = [...BUBBLE_STEPS, "budget", "period", "from", "distance", "deals"];
+const CHANGEABLE: StepId[] = [...BUBBLE_STEPS, "budget", "period", "from", "distance", "fuel", "deals"];
 
 const CHANGE_LABEL: Partial<Record<StepId, string>> = {
     "bubbles-people": "Who rides with you",
@@ -114,6 +114,7 @@ const CHANGE_LABEL: Partial<Record<StepId, string>> = {
     "bubbles-copes": "What the car copes with",
     "bubbles-matters": "What else matters",
     from: "When you need it from",
+    fuel: "What it runs on",
     deals: "Deal-breakers & sealers",
     "often-long": "How often you drive far",
     "often-traffic": "How long your drive is",
@@ -128,6 +129,8 @@ function nowSaid(step: StepId, u: Understanding): string {
     switch (step) {
         case "from":
             return u.rental ? `from ${monthLabel(u.rental.from)}` : "not set";
+        case "fuel":
+            return lowerFirst(fuelText(u));
         case "deals": {
             const breakers = rulesText(u);
             const sealers = sealersText(u);
@@ -205,6 +208,7 @@ const checked = (need: Understanding["needs"][number], u: Understanding): Eviden
 const WHY: Record<string, string> = {
     rules: "Each one takes cars out before I score anything, so only pick what you'd truly refuse.",
     deals: "Only pick what you'd truly refuse, or what would win you over — everything else is weighed on what you've already told me.",
+    fuel: "Pick every one you'd consider. The ones you don't pick are set aside before I score anything — so if you'd take any of them, say so.",
     budget: `All costs together: FINN's monthly price (VAT included), plus what I estimate you'd spend on fuel or charging, plus the mileage package your driving needs — FINN's price includes ${FINN_INCLUDED_MONTHLY_KM.toLocaleString("en-GB")} km a month. Parking and tolls aren't in it.`,
     from: "FINN delivers in weeks, so the soonest is next month. Not every car can be delivered by every date, and each is priced on the term that covers yours.",
     period: "FINN prices each car by how long you subscribe, and not every car is offered for every length — so this changes both the price and which cars fit.",
@@ -390,6 +394,54 @@ function dealsStep(u: Understanding, cars: FinnCar[]): ChatStep | null {
     };
 }
 
+/** The fuels, in the order they're offered, each with what it means — plug-in hybrids saying what FINN's data leaves out. */
+const FUELS: { id: EvidenceId; fuel: FinnCar["fuelType"]; label: string; description: string }[] = [
+    { id: "electricCar", fuel: "Electric", label: "Electric", description: "Battery only, charged at home or on the road: 0 g/km of CO₂ while driving. I price it on its electricity use." },
+    { id: "plugInHybrid", fuel: "Plug-in Hybrid", label: "Plug-in hybrid", description: "A petrol engine and a battery you charge. FINN lists only a combined fuel figure for these, no electricity figure — so I price the fuel and allow for the most the electricity could add." },
+    { id: "petrolCar", fuel: "Petrol", label: "Petrol", description: "A petrol engine, including hybrids you don't plug in. I price it on its fuel use." },
+    { id: "dieselCar", fuel: "Diesel", label: "Diesel", description: "A diesel engine. I price it on its fuel use." },
+];
+
+/** What the reader would take, as a line: "Electric or plug-in hybrid". "Any" when nothing's ruled out. */
+function fuelText(u: Understanding): string {
+    const need = u.needs.find((item) => item.id === "fuel" && item.status === "active");
+    if (!need) return "Any";
+
+    const out = new Set(need.evidence.filter((entry) => entry.unwanted).map((entry) => entry.id));
+    const kept = FUELS.filter((fuel) => !out.has(fuel.id)).map((fuel, index) => (index ? lowerFirst(fuel.label) : fuel.label));
+    return kept.length ? kept.join(" or ") : "Any";
+}
+
+/**
+ * "What can it run on?": the fuels on this page, any or all of them. The ones
+ * not picked are set aside, as a deal-breaker would. Starred where how green
+ * the reader wants points to them. Not asked when the page has only one.
+ */
+function fuelStep(u: Understanding, cars: FinnCar[]): ChatStep | null {
+    const here = cars.length ? FUELS.filter((fuel) => cars.some((car) => car.fuelType === fuel.fuel)) : FUELS;
+    if (here.length < 2) return null;
+
+    const green = u.bubbles?.environment?.chips[0];
+    const because = (id: EvidenceId) =>
+        green === "zero" && id === "electricCar"
+            ? "Recommended because you said totally green: electric is 0 g/km on the road."
+            : green === "moderate" && (id === "electricCar" || id === "plugInHybrid")
+              ? "Recommended because you said moderately green: these are where low CO₂ is."
+              : undefined;
+
+    return {
+        id: "fuel",
+        ask: "What can it run on?",
+        why: WHY.fuel,
+        multiple: true,
+        choices: here.map((fuel) => {
+            const recommended = because(fuel.id);
+            return { id: `fuel-${fuel.id}`, label: fuel.label, said: fuel.label, description: fuel.description, ...(recommended ? { recommended } : {}) };
+        }),
+        none: "Any of them",
+    };
+}
+
 /** "When do you need it from?": the next four months, the soonest first, and later as a number of months. */
 function fromStep(u: Understanding): ChatStep | null {
     if (!u.rental) return null;
@@ -469,6 +521,9 @@ export function stepFor(id: StepId, cars: FinnCar[], u: Understanding = EMPTY_UN
 
         case "from":
             return fromStep(u);
+
+        case "fuel":
+            return fuelStep(u, cars);
 
         case "deals":
             return dealsStep(u, cars);
@@ -653,6 +708,12 @@ export function selectedFor(step: ChatStep, u: Understanding, picks: Record<stri
 
     if (step.id === "from") return u.rental ? valid([`from-${u.rental.from}`]) : [];
 
+    if (step.id === "fuel") {
+        const need = u.needs.find((item) => item.id === "fuel" && item.status === "active");
+        const out = new Set(need?.evidence.filter((entry) => entry.unwanted).map((entry) => entry.id) ?? []);
+        return need ? step.choices.filter((choice) => !out.has(choice.id.slice("fuel-".length) as EvidenceId)).map((choice) => choice.id) : [];
+    }
+
     if (step.id === "deals") {
         const states = dealStates(u);
         return (step.deals ?? []).filter((row) => states[row.id] && row.options.includes(states[row.id]!)).map((row) => `${row.id}=${states[row.id]}`);
@@ -748,6 +809,11 @@ export function acknowledge(step: ChatStep, u: Understanding, chosen: string[] =
 
     if (step.id === "from") return u.rental ? `From ${monthLabel(u.rental.from)} to ${monthLabel(u.rental.to)}. I'll price each car on the FINN term that covers it.` : "Got it.";
 
+    if (step.id === "fuel") {
+        const text = fuelText(u);
+        return text === "Any" ? "Any of them, then." : `${text} only, then — I'll set aside the rest before scoring.`;
+    }
+
     if (step.id.startsWith("often-")) {
         const often = step.id.slice("often-".length) as OftenId;
         const bubble = bubbleById(often);
@@ -830,7 +896,8 @@ function breakersSaid(u: Understanding): string {
 
 /** The reader's rules in a line: "Automatic only and no SUV". */
 function rulesText(u: Understanding): string {
-    const rules = ruledOut(u);
+    /* What it runs on has a line of its own. */
+    const rules = ruledOut({ ...u, needs: u.needs.filter((need) => need.id !== "fuel") });
 
     /* "No SUV", "automatic only", "must have rear doors": a kind of car is, anything else is had. */
     const said = rules.map((rule) =>
@@ -931,6 +998,7 @@ export function summaryOf(u: Understanding, id: string = messageId(), cars: Finn
             : `About ${BASE_ANSWERS.preferences.monthlyKm.toLocaleString("en-GB")} km a month (assumed — you didn't say)`,
         step: "distance",
     });
+    lines.push({ label: "Runs on", value: fuelText(u), step: "fuel" });
     lines.push({ label: "Deal-breakers", value: rulesText(u), step: "deals" });
     lines.push({ label: "Deal-sealers", value: sealersText(u), step: "deals" });
 
@@ -1039,7 +1107,7 @@ const NO_NEEDS: ChatStep = {
  * says back what Lens understood and waits for the reader to say it's right.
  */
 /** A question in the run the reader is counted through — not "how it works", "keep this?" or "what would you like to do?". */
-const isQuestion = (id: StepId) => isBubbleStep(id) || id.startsWith("often-") || ["budget", "period", "from", "distance", "deals", "rules"].includes(id);
+const isQuestion = (id: StepId) => isBubbleStep(id) || id.startsWith("often-") || ["budget", "period", "from", "distance", "fuel", "deals", "rules"].includes(id);
 
 /** The questions in `queue` that would be asked, as things stand: what askNext would skip, skipped. */
 function stillToAsk(queue: StepId[], chat: Chat, cars: FinnCar[]): number {
@@ -1118,7 +1186,7 @@ export function askNext(chat: Chat, cars: FinnCar[]): Chat {
             from: "lens",
             kind: "ask",
             /* What's already been said — typed earlier, or kept from last time — shows as picked, so answering doesn't undo it. */
-            step: preselect || isBubbleStep(id) || id === "from" || id === "deals" ? { ...step, selected: selectedFor(step, u, chat.picks) } : step,
+            step: preselect || isBubbleStep(id) || id === "from" || id === "fuel" || id === "deals" ? { ...step, selected: selectedFor(step, u, chat.picks) } : step,
             answered: false,
             ...(isQuestion(id) ? { progress: { done, total: done + 1 + stillToAsk(queue, { ...chat, queue }, cars) } } : {}),
         };
@@ -1483,6 +1551,35 @@ function answerStep(
 
         understanding = withBubbles(understanding, picks);
         said = [bubblesSaid(chosen), typed].filter(Boolean).join(" ");
+    } else if (step.id === "fuel") {
+        /*
+         * Every fuel not picked is set aside — on this page and the next, so
+         * the four, not only the ones offered here. None picked, or every one
+         * offered: any of them.
+         */
+        const kept = new Set(picked.map((choice) => choice.id.slice("fuel-".length)));
+        const all = !picked.length || picked.length === step.choices.length;
+        const others = understanding.needs.filter((need) => need.id !== "fuel");
+
+        understanding = all
+            ? { ...understanding, needs: others }
+            : {
+                  ...understanding,
+                  needs: [
+                      ...others,
+                      {
+                          id: "fuel",
+                          label: "What it runs on",
+                          importance: "essential",
+                          said: tapped,
+                          priorities: [],
+                          evidence: FUELS.filter((fuel) => !kept.has(fuel.id)).map((fuel) => ({ id: fuel.id, use: `Set aside: you'd rather not have ${asPhrase(fuel.id)}.`, unwanted: true, mustHave: false })),
+                          notInData: null,
+                          status: "active",
+                      },
+                  ],
+              };
+        said = all ? "Any of them." : `${joined(picked.map((choice, index) => (index ? lowerFirst(choice.label) : choice.label)))}.`;
     } else if (step.deals) {
         const states: Record<string, DealState> = Object.fromEntries(
             chosen

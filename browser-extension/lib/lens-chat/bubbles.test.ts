@@ -217,7 +217,8 @@ describe("how green", () => {
         expect(needOf(moderate.bubble, moderate.state)?.priorities).toEqual(["environmental"]);
         expect(suggestedRules(moderate.bubble, moderate.state)).toEqual(["low-co2"]);
         expect(needOf(zero.bubble, zero.state)).toMatchObject({ priorities: ["environmental"], importance: "essential" });
-        expect(suggestedRules(zero.bubble, zero.state)).toEqual(["electric-only"]);
+        /* Electric is starred on "What can it run on?" instead of suggested as a row. */
+        expect(suggestedRules(zero.bubble, zero.state)).toEqual([]);
         /* Nothing picked: the CO₂ label, low CO₂ suggested, as before. */
         expect(needOf(none.bubble, none.state)?.priorities).toEqual(["environmental"]);
         expect(suggestedRules(none.bubble, none.state)).toEqual(["low-co2"]);

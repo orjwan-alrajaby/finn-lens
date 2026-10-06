@@ -182,7 +182,8 @@ export function dealsHere(u: Understanding, cars: FinnCar[]): { deal: Deal; opti
         return listed > 0 && notListed + unknown > 0;
     };
 
-    return DEALS.map((deal) => ({
+    /* Electric or not is asked on its own now — "What can it run on?" — so it isn't a row here too. */
+    return DEALS.filter((deal) => deal.id !== "electric").map((deal) => ({
         deal,
         options: [ruleHere(deal.must) ? ("must" as const) : null, ruleHere(deal.mustNot) ? ("mustNot" as const) : null, sealHere(deal) ? ("seal" as const) : null].filter(
             (state): state is DealState => state != null,
@@ -250,7 +251,10 @@ export function demandOf(rule: Pick<Rule, "id" | "mode">): string {
     const deal = DEALS.find((item) => item.rule === rule.id);
     const state: DealState = rule.mode === "must" ? "must" : "mustNot";
 
-    return deal ? `${stateLabel(deal, state)} ${deal.phrase}` : `${rule.mode === "must" ? "Must have" : "Mustn't have"} ${barePhrase(rule.id)}`;
+    if (deal) return `${stateLabel(deal, state)} ${deal.phrase}`;
+    /* A fuel set aside, from "What can it run on?": "Not petrol". */
+    if (rule.mode === "without" && EVIDENCE[rule.id].negativeLabel) return EVIDENCE[rule.id].negativeLabel!;
+    return `${rule.mode === "must" ? "Must have" : "Mustn't have"} ${barePhrase(rule.id)}`;
 }
 
 /**
@@ -270,10 +274,16 @@ export function letGo(u: Understanding, rules: EvidenceId[]): Understanding {
 
         next = {
             ...next,
-            needs: next.needs.map((need) => ({
-                ...need,
-                evidence: need.evidence.map((entry) => (entry.id === id && (entry.mustHave || entry.unwanted) ? { ...entry, mustHave: false, unwanted: false } : entry)),
-            })),
+            needs: next.needs
+                .map((need) => ({
+                    ...need,
+                    /* A fuel let go of is simply allowed again: what it runs on counts nothing, so it's dropped, not kept as a want. */
+                    evidence:
+                        need.id === "fuel"
+                            ? need.evidence.filter((entry) => entry.id !== id)
+                            : need.evidence.map((entry) => (entry.id === id && (entry.mustHave || entry.unwanted) ? { ...entry, mustHave: false, unwanted: false } : entry)),
+                }))
+                .filter((need) => need.id !== "fuel" || need.evidence.length > 0),
         };
     }
 

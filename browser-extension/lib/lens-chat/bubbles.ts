@@ -461,7 +461,7 @@ export const BUBBLES: Bubble[] = [
                     label: "Moderately green",
                     detail: "moderately green",
                     description:
-                        "Low CO₂ on the label: plug-in hybrids are usually here, class A or B, as are the odd very frugal hybrid. I judge each car on its CO₂ class, and suggest “low CO₂ emissions” (class A to C) as a deal-breaker. A plug-in's figure assumes it's charged regularly.",
+                        "Low CO₂ on the label: plug-in hybrids are usually here, class A or B, as are the odd very frugal hybrid. I judge each car on its CO₂ class, suggest “low CO₂ emissions” (class A to C) as a deal-breaker, and star Electric and Plug-in hybrid when I ask what it can run on. A plug-in's figure assumes it's charged regularly.",
                     figures: ["environmental"],
                     suggests: "low-co2",
                 },
@@ -470,10 +470,11 @@ export const BUBBLES: Bubble[] = [
                     label: "Totally green",
                     detail: "totally green",
                     description:
-                        "Electric: 0 g/km of CO₂ on the road, the best class there is. CO₂ becomes a top priority, and I suggest “electric” as a deal-breaker. Making the electricity isn't counted — FINN's figure is for driving.",
+                        "Electric: 0 g/km of CO₂ on the road, the best class there is. CO₂ becomes a top priority, and I'll star Electric when I ask what it can run on. Making the electricity isn't counted — FINN's figure is for driving.",
                     figures: ["environmental"],
                     importance: "essential",
-                    suggests: "electric-only",
+                    /* Electric is starred on "What can it run on?", not suggested as a row. */
+                    suggests: null,
                 },
             ],
         },

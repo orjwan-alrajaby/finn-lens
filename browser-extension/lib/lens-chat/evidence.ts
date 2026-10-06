@@ -22,7 +22,7 @@ import type { FinnCar } from "@/lib/types";
  * but it's the first thing anyone driving far asks about, and FINN publishes
  * it. So Lens can point at it even though nobody can raise it.
  */
-export type EvidenceId = SignalId | "electricRange" | "electricCar" | "suvBody" | "winterReadyTyres" | "lowCo2" | "frugal";
+export type EvidenceId = SignalId | "electricRange" | "electricCar" | "petrolCar" | "dieselCar" | "plugInHybrid" | "suvBody" | "winterReadyTyres" | "lowCo2" | "frugal";
 
 /** Where Lens's own label would claim more than FINN's field says. */
 const RELABEL: Partial<Record<EvidenceId, string>> = {
@@ -116,6 +116,31 @@ export const EVIDENCE: Record<EvidenceId, EvidenceDef> = {
         negativeLabel: "Not electric",
         explanation:
             "Whether FINN lists this car as electric. Lens doesn't score fuel type — it prices each car on what it burns or charges — but wanting one, or not, is a rule a reader can give.",
+        scoredIn: null,
+        raisable: false,
+    },
+    /* The other fuels, for "what can it run on?": ruled on, never scored, like electric. */
+    petrolCar: {
+        id: "petrolCar",
+        label: "Petrol",
+        negativeLabel: "Not petrol",
+        explanation: "Whether FINN lists this car as petrol. A rule a reader can give, never something Lens scores.",
+        scoredIn: null,
+        raisable: false,
+    },
+    dieselCar: {
+        id: "dieselCar",
+        label: "Diesel",
+        negativeLabel: "Not diesel",
+        explanation: "Whether FINN lists this car as diesel. A rule a reader can give, never something Lens scores.",
+        scoredIn: null,
+        raisable: false,
+    },
+    plugInHybrid: {
+        id: "plugInHybrid",
+        label: "Plug-in hybrid",
+        negativeLabel: "Not a plug-in hybrid",
+        explanation: "Whether FINN lists this car as a plug-in hybrid. A rule a reader can give, never something Lens scores.",
         scoredIn: null,
         raisable: false,
     },
@@ -245,6 +270,11 @@ export function readEvidence(car: FinnCar, id: EvidenceId): EvidenceState {
         return car.fuelType === "Electric" ? "listed" : "notListed";
     }
 
+    if (id === "petrolCar" || id === "dieselCar" || id === "plugInHybrid") {
+        const fuel = { petrolCar: "Petrol", dieselCar: "Diesel", plugInHybrid: "Plug-in Hybrid" }[id];
+        return car.fuelType === fuel ? "listed" : "notListed";
+    }
+
     if (id === "suvBody") {
         return bodyWord(car) == null ? "unknown" : isSuv(car) ? "listed" : "notListed";
     }
@@ -309,6 +339,9 @@ export const withoutLabel = (id: EvidenceId): string =>
 /** The thing itself, in a sentence: "you ruled out an SUV". */
 const PHRASES: Partial<Record<EvidenceId, string>> = {
     electricCar: "an electric car",
+    petrolCar: "a petrol car",
+    dieselCar: "a diesel",
+    plugInHybrid: "a plug-in hybrid",
     seatsFivePlus: "a five-seater or bigger",
     hasAutomaticTransmission: "an automatic",
     suvBody: "an SUV",
@@ -328,7 +361,7 @@ export const asPhrase = (id: EvidenceId): string => {
 
 /** Evidence that describes what kind of car it is, rather than what it carries. */
 /* Low CO₂ emissions are had, not been: "any car without low CO₂ emissions". */
-const KINDS = new Set<EvidenceId>(["electricCar", "suvBody", "seatsSixPlus", "seatsFivePlus", "hasAutomaticTransmission", "frugal"]);
+const KINDS = new Set<EvidenceId>(["electricCar", "petrolCar", "dieselCar", "plugInHybrid", "suvBody", "seatsSixPlus", "seatsFivePlus", "hasAutomaticTransmission", "frugal"]);
 
 export const isKind = (id: EvidenceId): boolean => KINDS.has(id);
 
