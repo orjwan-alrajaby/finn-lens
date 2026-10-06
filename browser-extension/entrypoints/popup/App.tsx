@@ -93,7 +93,6 @@ export function App() {
                     <button
                         type="button"
                         aria-label="Settings and your data"
-                        title="Settings and your data"
                         onClick={() => void browser.runtime.openOptionsPage()}
                         className="rounded-full border border-white/20 bg-white/10 p-2 text-white/80 transition hover:bg-white/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/50"
                     >

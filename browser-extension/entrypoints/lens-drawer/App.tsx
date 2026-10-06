@@ -176,7 +176,6 @@ function Footer({ value, children }: { value: JudgedCar; children?: React.ReactN
                 type="button"
                 onClick={() => void requestShowCar(value.car.id)}
                 aria-label="Show this car on the page"
-                title="Show this car on the page"
                 className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-finn-cotton text-finn-black transition-colors hover:bg-finn-pale-blue hover:text-finn-accent-blue"
             >
                 <LocateFixed aria-hidden="true" className="h-4 w-4" />

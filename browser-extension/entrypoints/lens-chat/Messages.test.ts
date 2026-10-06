@@ -101,7 +101,8 @@ describe("here's what you told me, and what I understood", () => {
         /* The scale said once, and each level's meaning on the picker. */
         expect(words).toContain("How much it counts: Top priority counts twice as much as Important, and Important twice as much as Nice to have. None of them rules a car out — that's what deal-breakers are for.");
         expect(words).toMatch(/How much it counts Top priority Important Nice to have Counts the most — twice as much as Important/);
-        expect(html).toContain('title="Counts half as much as Important: enough to settle a close call, not to decide on its own."');
+        /* Each level's meaning is said under the picker, not hidden in a hover. */
+        expect(html).not.toMatch(/ title="/);
         expect(words).toMatch(/Money & time Monthly limit €500 all in Change/);
         expect(words).toMatch(/Done $/);
         expect(words).not.toMatch(/\d+%/);
@@ -237,5 +238,21 @@ describe("follow-ups", () => {
     it("aren't counted on a section with none open", () => {
         const step = stepFor("bubbles-people", cars())!;
         expect(text(render([{ id: "p1", at: "", from: "lens", kind: "ask", answered: false, step }]))).not.toContain("Follow-ups");
+    });
+});
+
+describe("tooltips", () => {
+    it("open only on a click: the “i” starts closed, and nothing in the chat explains itself on hover", () => {
+        const first = render(startChat(null, cars(), TODAY).messages);
+        expect(first).toContain('aria-expanded="false"');
+        expect(first).not.toContain('role="note"');
+        expect(first).not.toMatch(/ title="/);
+
+        let chat = startChat(null, cars(), TODAY);
+        for (const picks of [["kids", "kids:baby"], ["city", "city:street"], [], [], ["budget-500"], ["period-12"], [], [], []]) chat = answer(chat, openAsk(chat).id, picks, cars(), TODAY).chat;
+        const html = render(chat.messages);
+
+        expect(html).not.toContain('role="note"');
+        expect(html).not.toMatch(/ title="/);
     });
 });

@@ -132,24 +132,15 @@ export function Typing() {
 /* -------------------------------------------------------------------------- */
 
 /**
- * The "i" beside an answer: a brief explanation as a tooltip. It opens on
- * hover or keyboard focus, and on a tap for touch screens, and closes on
- * Escape or a tap anywhere else. Fixed to the viewport and held inside it,
- * so it never runs off the edge of the narrow chat.
+ * The "i" beside an answer: a brief explanation, opened by clicking it (or
+ * Enter / Space) and never by hovering — a tooltip that pops up as the
+ * pointer passes covers the very chips the reader is reaching for. A second
+ * click, Escape, or a click anywhere else closes it. Fixed to the viewport
+ * and held inside it, so it never runs off the edge of the narrow chat.
  */
 export function InfoTip({ label, tone = "idle", children }: { label: string; tone?: "idle" | "on"; children: React.ReactNode }) {
     const [open, setOpen] = useState(false);
     const [at, setAt] = useState<{ top: number; left: number } | null>(null);
-    /* Leaving the "i" closes it after a moment, so the pointer can reach a source link inside. */
-    const closing = useRef<number | undefined>(undefined);
-    const show = () => {
-        window.clearTimeout(closing.current);
-        setOpen(true);
-    };
-    const hide = () => {
-        window.clearTimeout(closing.current);
-        closing.current = window.setTimeout(() => setOpen(false), 180);
-    };
     const button = useRef<HTMLButtonElement>(null);
     const tip = useRef<HTMLDivElement>(null);
     const id = useId();
@@ -172,14 +163,20 @@ export function InfoTip({ label, tone = "idle", children }: { label: string; ton
             if (!button.current?.contains(event.target as Node) && !tip.current?.contains(event.target as Node)) setOpen(false);
         };
         const escape = (event: KeyboardEvent) => {
-            if (event.key === "Escape") setOpen(false);
+            if (event.key !== "Escape") return;
+            setOpen(false);
+            button.current?.focus();
         };
+        /* Scrolling the chat moves the "i" away from a box fixed to the viewport: close it rather than leave it floating. */
+        const scrolled = () => setOpen(false);
 
         document.addEventListener("pointerdown", away);
         document.addEventListener("keydown", escape);
+        document.addEventListener("scroll", scrolled, true);
         return () => {
             document.removeEventListener("pointerdown", away);
             document.removeEventListener("keydown", escape);
+            document.removeEventListener("scroll", scrolled, true);
         };
     }, [open]);
 
@@ -189,22 +186,22 @@ export function InfoTip({ label, tone = "idle", children }: { label: string; ton
                 ref={button}
                 type="button"
                 aria-label={`What “${label}” means`}
-                aria-describedby={open ? id : undefined}
-                onMouseEnter={show}
-                onMouseLeave={hide}
-                onFocus={show}
-                onBlur={(event) => {
-                    /* Tabbing into a link inside keeps it open. */
-                    if (!tip.current?.contains(event.relatedTarget as Node)) hide();
-                }}
+                aria-expanded={open}
+                aria-controls={open ? id : undefined}
                 onClick={(event) => {
                     event.stopPropagation();
-                    setOpen(true);
+                    setOpen((current) => !current);
                 }}
                 className={[
                     "inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full transition-colors",
                     "focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-finn-accent-blue",
-                    tone === "on" ? "text-white/80 hover:bg-white/20 hover:text-white" : "text-finn-accent-blue/70 hover:bg-finn-pale-blue hover:text-finn-accent-blue",
+                    open
+                        ? tone === "on"
+                            ? "bg-white/25 text-white"
+                            : "bg-finn-pale-blue text-finn-accent-blue"
+                        : tone === "on"
+                          ? "text-white/80 hover:bg-white/20 hover:text-white"
+                          : "text-finn-accent-blue/70 hover:bg-finn-pale-blue hover:text-finn-accent-blue",
                 ].join(" ")}
             >
                 <Info aria-hidden="true" className="h-3.5 w-3.5" strokeWidth={2.4} />
@@ -213,12 +210,7 @@ export function InfoTip({ label, tone = "idle", children }: { label: string; ton
                 <div
                     ref={tip}
                     id={id}
-                    role="tooltip"
-                    onMouseEnter={show}
-                    onMouseLeave={hide}
-                    onBlur={(event) => {
-                        if (!tip.current?.contains(event.relatedTarget as Node) && event.relatedTarget !== button.current) hide();
-                    }}
+                    role="note"
                     style={{ position: "fixed", top: at?.top ?? -9999, left: at?.left ?? -9999 }}
                     className="z-50 w-64 max-w-[calc(100vw-16px)] space-y-0.5 rounded-xl bg-finn-highlight-navy px-3 py-2 text-left text-[11.5px] font-normal leading-snug text-white shadow-lg"
                 >
@@ -271,7 +263,6 @@ function Chip({
     onClick,
     disabled,
     muted,
-    title,
     icon,
     info,
     recommended = false,
@@ -281,7 +272,6 @@ function Chip({
     onClick: () => void;
     disabled?: boolean;
     muted?: boolean;
-    title?: string;
     icon?: React.ReactNode;
     /** What the choice means: an "i" at the chip's right, with this as its tooltip. */
     info?: React.ReactNode | null;
@@ -332,7 +322,6 @@ function Chip({
             onClick={onClick}
             disabled={disabled}
             aria-pressed={selected}
-            title={title}
             className={[
                 "inline-flex items-center gap-1.5 rounded-full px-3.5 py-2 text-[12.5px] font-bold transition-colors",
                 "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-finn-accent-blue disabled:cursor-default disabled:opacity-40",
@@ -616,7 +605,6 @@ function OwnAnswer({
                         type="button"
                         onClick={add}
                         aria-label="Add this"
-                        title="Add this"
                         className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-finn-accent-blue text-white hover:bg-finn-highlight-navy focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-finn-accent-blue"
                     >
                         <Check aria-hidden="true" className="h-4 w-4" strokeWidth={3} />
@@ -650,7 +638,6 @@ function AddedWords({ text, onEdit, onRemove }: { text: string; onEdit: () => vo
             <button
                 type="button"
                 onClick={onEdit}
-                title="Edit"
                 className="inline-flex min-w-0 items-center gap-1.5 py-2 pr-1 pl-3.5 text-[12.5px] font-bold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-finn-accent-blue"
             >
                 <Check aria-hidden="true" className="h-3.5 w-3.5 shrink-0" strokeWidth={3} />
@@ -1075,7 +1062,6 @@ function Ask({
                         <button
                             type="button"
                             disabled={unfinished.length > 0}
-                            title={unfinished.length ? "Pick at least one answer under each bubble that asks" : undefined}
                             onClick={() => onAnswer(picked, words ? { text: words } : undefined)}
                             className="inline-flex items-center gap-1 rounded-full bg-finn-highlight-navy px-4 py-2 text-[12.5px] font-black text-white shadow-sm transition-colors hover:bg-finn-accent-blue focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-finn-accent-blue disabled:cursor-default disabled:bg-finn-cotton disabled:text-finn-iron disabled:shadow-none"
                         >
@@ -1108,7 +1094,6 @@ function ImportancePicker({ label, value, onPick, guess = false }: { label: stri
                         type="button"
                         role="radio"
                         aria-checked={value === level}
-                        title={IMPORTANCE[level].means}
                         onClick={() => onPick(level)}
                         className={[
                             "rounded-full px-2.5 py-1 text-[11px] font-black transition-colors",

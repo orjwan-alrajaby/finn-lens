@@ -115,7 +115,6 @@ function resizeHandle(): HTMLElement {
         attrs: {
             type: "button",
             "aria-label": "Resize the chat — drag, or use the arrow keys; double-click to reset",
-            title: "Drag to resize · double-click to reset",
         },
         on: {
             pointerdown: (event: Event) => {

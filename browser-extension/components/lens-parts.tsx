@@ -87,7 +87,6 @@ export function IconButton({
         <button
             type="button"
             aria-label={label}
-            title={label}
             onClick={onClick}
             className={[
                 "inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition-colors",

@@ -130,7 +130,6 @@ export function ChatList({
                             <button
                                 type="button"
                                 aria-label={`Delete “${chat.title}”`}
-                                title="Delete this chat"
                                 onClick={() => setConfirming(chat.id)}
                                 className="absolute top-1/2 right-2 inline-flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full text-finn-iron opacity-60 transition hover:bg-white hover:text-finn-fit-limited hover:opacity-100 focus-visible:opacity-100 group-hover:opacity-100"
                             >
