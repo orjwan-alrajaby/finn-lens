@@ -542,8 +542,9 @@ either car, since any could be the deciding one.
 - **The whole case** (the drawer, fit-story.ts): per need, what the car has and lacks, measurements against
   the scale, CO₂ and efficiency, the cost table with its sources, the rental fit.
 - **How I weighed it** (the winner's drawer, `weighingOf`, lib/chats/weighing.ts): in the reader's own terms
-  only — each thing they said, strongest first, with its importance on the one scale, a bar for its part of the
-  decision (its 4 / 2 / 1 weight over all of them; no percentages), and what Lens looked at for it; deal-sealers
+  only — each thing they said, strongest first, with its importance on the one scale, its part of the decision as
+  ten segments and a whole percentage (its 4 / 2 / 1 weight over all of them, rounded so they add up to exactly
+  100), and what Lens looked at for it; deal-sealers
   as top priorities; then what set cars aside, and the money and dates. Not the engine's priority categories,
   their percentages, or the item-level "Highly / Somewhat" scale.
 - **Chips on finn.com**: each judged car's band; the winner's in gold.

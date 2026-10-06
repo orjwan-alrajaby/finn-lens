@@ -203,24 +203,23 @@ export function WinnerView({ value, print = false }: { value: JudgedCar; print?:
  * money and dates. One scale — the one they set — and no percentages.
  */
 function Weighed({ weighing }: { weighing: Weighing }) {
-    const widest = Math.max(...weighing.needs.map((need) => need.share), 0);
-
     return (
         <div className="space-y-4">
             {weighing.needs.length ? (
                 <div>
-                    <p className="mb-2 text-[12px] leading-snug text-finn-iron">What counted, strongest first. The bar is each one's part of the decision.</p>
-                    <ul className="space-y-2.5">
+                    <p className="mb-2 text-[12px] leading-snug text-finn-iron">What counted, strongest first, and each one's part of the decision.</p>
+                    <ul className="space-y-3">
                         {weighing.needs.map((need) => (
                             <li key={need.id}>
                                 <div className="flex items-baseline justify-between gap-2">
                                     <p className="min-w-0 text-[12.5px] font-bold leading-snug text-finn-black">{need.label}</p>
                                     <span className="shrink-0 rounded-full bg-finn-pale-blue px-2 py-0.5 text-[10.5px] font-black text-finn-accent-blue">{IMPORTANCE_LABEL[need.importance]}</span>
                                 </div>
-                                <span aria-hidden="true" className="mt-1 block h-1.5 overflow-hidden rounded-full bg-finn-cotton">
-                                    <span className="block h-full rounded-full bg-finn-accent-blue" style={{ width: `${widest ? Math.max(6, (need.share / widest) * 100) : 0}%` }} />
-                                </span>
-                                {need.looksAt.length ? <p className="mt-1 text-[11.5px] leading-snug text-finn-iron">Looked at: {need.looksAt.join(" · ")}</p> : null}
+                                <div className="mt-1 flex items-center gap-2">
+                                    <Pips percent={need.percent} />
+                                    <span className="text-[12px] font-black tabular-nums text-finn-black">{need.percent}%</span>
+                                </div>
+                                {need.looksAt.length ? <p className="mt-0.5 text-[11.5px] leading-snug text-finn-iron">Looked at: {need.looksAt.join(" · ")}</p> : null}
                             </li>
                         ))}
                     </ul>
@@ -255,5 +254,18 @@ function Weighed({ weighing }: { weighing: Weighing }) {
                 </div>
             ) : null}
         </div>
+    );
+}
+
+/** A share as ten short segments, one per 10% — at least one lit, so nothing that counted reads as nothing. */
+function Pips({ percent }: { percent: number }) {
+    const lit = Math.max(1, Math.min(10, Math.round(percent / 10)));
+
+    return (
+        <span aria-hidden="true" className="inline-flex gap-0.5">
+            {Array.from({ length: 10 }, (_, index) => (
+                <span key={index} className={`h-2 w-3 rounded-[3px] ${index < lit ? "bg-finn-accent-blue" : "bg-finn-cotton"}`} />
+            ))}
+        </span>
     );
 }

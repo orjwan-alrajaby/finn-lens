@@ -28,6 +28,8 @@ export interface WeighedNeed {
     importance: NeedImportance;
     /** Its part of the decision, 0–1. All of them add up to 1. */
     share: number;
+    /** The same, as a whole percentage; all of them add up to exactly 100. */
+    percent: number;
     /** What Lens looked at for it, by name. */
     looksAt: string[];
 }
@@ -40,8 +42,30 @@ export interface Weighing {
     terms: { label: string; value: string }[];
 }
 
+/**
+ * Shares as whole percentages that add up to exactly 100: each rounded down,
+ * then the points left over go to the largest remainders — so three equal
+ * needs read 34 / 33 / 33, never 33 / 33 / 33.
+ */
+export function wholePercents(shares: number[]): number[] {
+    if (!shares.length) return [];
+
+    const raw = shares.map((share) => share * 100);
+    const floors = raw.map(Math.floor);
+    let left = 100 - floors.reduce((sum, value) => sum + value, 0);
+    const order = raw.map((value, index) => ({ index, rest: value - floors[index]! })).sort((a, b) => b.rest - a.rest || a.index - b.index);
+
+    for (const { index } of order) {
+        if (left <= 0) break;
+        floors[index]! += 1;
+        left -= 1;
+    }
+
+    return floors;
+}
+
 export function weighingOf(u: Understanding, summary: Summary): Weighing {
-    const counted: Omit<WeighedNeed, "share">[] = [
+    const counted: Omit<WeighedNeed, "share" | "percent">[] = [
         ...(summary.bubbles ?? [])
             .filter((bubble) => bubble.counting !== false)
             .map((bubble) => ({
@@ -58,9 +82,9 @@ export function weighingOf(u: Understanding, summary: Summary): Weighing {
     ];
     const total = counted.reduce((sum, need) => sum + NEED_WEIGHT[need.importance], 0);
 
-    const needs = counted
-        .map((need) => ({ ...need, share: total ? NEED_WEIGHT[need.importance] / total : 0 }))
-        .sort((a, b) => b.share - a.share);
+    const shared = counted.map((need) => ({ ...need, share: total ? NEED_WEIGHT[need.importance] / total : 0 })).sort((a, b) => b.share - a.share);
+    const percents = wholePercents(shared.map((need) => need.share));
+    const needs = shared.map((need, index) => ({ ...need, percent: percents[index]! }));
 
     const line = (label: string) => summary.lines.find((item) => item.label === label);
     const setAside = [
