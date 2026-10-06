@@ -8,7 +8,7 @@ import { EMPTY_UNDERSTANDING } from "@/lib/lens-chat/understanding";
 import type { Chat, ChatMessage } from "@/lib/chats/types";
 import { GARAGE } from "@/lib/reasoning-engine/test-garage";
 
-import { MessageList } from "./Messages";
+import { AdjustPanel, MessageList } from "./Messages";
 
 /** A first chat, past "Got it — let's start": most tests begin at the first question. */
 function startChat(...args: Parameters<typeof beginChat>): ReturnType<typeof beginChat> {
@@ -38,10 +38,6 @@ const render = (messages: ChatMessage[]) =>
             busy: false,
             onAnswer: noop,
             onOpenCar: noop,
-            onImportance: noop,
-            onChange: noop,
-            onRemove: noop,
-            onAdd: noop,
         }),
     );
 
@@ -68,26 +64,42 @@ describe("the bubbles", () => {
     });
 });
 
-describe("here's what I understood", () => {
-    it("shows each bubble with what it checks, what might matter, what it can't check and how much it counts", () => {
+describe("here's what you told me, and what I understood", () => {
+    const understood = () => {
         let chat = startChat(null, cars(), TODAY);
         for (const picks of [["kids", "kids:baby"], ["city", "city:street"], [], [], ["budget-500"], ["period-12"], [], []]) chat = answer(chat, openAsk(chat).id, picks, cars(), TODAY).chat;
+        return chat;
+    };
+    const summary = (chat: Chat) => [...chat.messages].reverse().find((message): message is Extract<ChatMessage, { kind: "summary" }> => message.kind === "summary")!;
 
-        const words = text(render(chat.messages));
+    it("is read-only in the chat: each thing said, how much it counts and what's checked, then the limits — and two choices", () => {
+        const words = text(render(understood().messages));
 
-        expect(words).toContain("Your life");
-        /* Each bubble a card of its own, the tones alternating. */
-        const html = render(chat.messages);
+        expect(words).toContain("Here's what you told me, and what I understood:");
+        expect(words).toMatch(/What you told me You have kids · a baby or toddler seat Must have I'll check: Rear doors/);
+        expect(words).toMatch(/Money & time Monthly limit €500 all in .* Deal-breakers & sealers Deal-breakers None Deal-sealers None/);
+        expect(words).toContain("Does that look right?");
+        expect(words).toMatch(/Looks good to me — continue This doesn't look right/);
+        /* Nothing to edit in the chat itself. */
+        expect(words).not.toContain("Change");
+        expect(words).not.toContain("tap × to take one out");
+        expect(render(understood().messages)).not.toContain('role="radiogroup"');
+    });
+
+    it("is edited in the Adjust panel: cards to take out, add, and set how much each counts, a Change on each line, and Done", () => {
+        const html = renderToStaticMarkup(
+            createElement(AdjustPanel, { message: summary(understood()), busy: false, onImportance: noop, onChange: noop, onRemove: noop, onAdd: noop, onDone: noop }),
+        );
+        const words = text(html);
+
+        expect(words).toMatch(/^ ?Adjust Take out what's wrong/);
         expect(html.match(/<li class="space-y-3 rounded-2xl p-3\.5 ring-1 bg-finn-pale-blue/g)).toHaveLength(1);
         expect(html.match(/<li class="space-y-3 rounded-2xl p-3\.5 ring-1 bg-finn-snow/g)).toHaveLength(1);
-        expect(words).toContain("You have kids · a baby or toddler seat");
         expect(words).toContain("I'll check — tap × to take one out Rear doors On nearly every car ISOFIX child seat anchors Might matter — tap + to add");
         expect(words).toContain("I can't check rear legroom");
         expect(words).toContain("My guess — tap to change");
-        /* Limits and deal-breakers under their own headings. */
-        expect(words).toMatch(/Money & time Monthly limit €500 all in Change .* Deal-breakers & sealers Deal-breakers None Change Deal-sealers None Change/);
-        expect(words).toContain("Must have");
-        expect(words).toContain("Looks good to me — let's go");
+        expect(words).toMatch(/Money & time Monthly limit €500 all in Change/);
+        expect(words).toMatch(/Done $/);
         expect(words).not.toMatch(/\d+%/);
     });
 });
@@ -128,7 +140,7 @@ describe("the result", () => {
     it("opens with everything once the reader keeps asking", () => {
         const words = text(
             renderToStaticMarkup(
-                createElement(MessageList, { messages: [result()], typing: false, busy: false, onAnswer: noop, onOpenCar: noop, onImportance: noop, onChange: noop, onRemove: noop, onAdd: noop, longResults: true }),
+                createElement(MessageList, { messages: [result()], typing: false, busy: false, onAnswer: noop, onOpenCar: noop, longResults: true }),
             ),
         );
 

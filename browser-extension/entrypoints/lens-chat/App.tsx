@@ -2,13 +2,13 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ArrowLeft, ArrowUp, MessagesSquare, SquarePen, X } from "lucide-react";
 
 import { BrandMark, IconButton } from "@/components/lens-parts";
-import { onPageChanged, requestCloseChat, requestOpenDrawer, requestPageContext } from "@/lib/chats/bridge";
+import { onPageChanged, requestChatWide, requestCloseChat, requestOpenDrawer, requestPageContext } from "@/lib/chats/bridge";
 import { rewindable } from "@/lib/chats/flow";
 import { loadedCars, pageCars } from "@/lib/chats/scope";
 import { ACTIVE_CHAT_KEY, activeChatId } from "@/lib/chats/store";
 
 import { ChatList } from "./ChatList";
-import { MessageList, useReveal } from "./Messages";
+import { AdjustPanel, MessageList, useReveal } from "./Messages";
 import { useConversation, type PageCars } from "./useConversation";
 
 /**
@@ -120,6 +120,14 @@ export function App() {
     }, [shown.length, typing, busy]);
 
     const settled = !typing && !busy && chat != null;
+
+    /* "This doesn't look right": the Adjust panel, on the summary it's about, with the chat made wider for it. */
+    const adjusting = Boolean(chat?.adjusting) && view === "chat";
+    const summary = useMemo(() => [...(chat?.messages ?? [])].reverse().find((message) => message.kind === "summary") ?? null, [chat?.messages]);
+
+    useEffect(() => {
+        void requestChatWide(adjusting).catch(() => {});
+    }, [adjusting]);
     const openAsk = chat?.messages.some((message) => message.kind === "ask" && !message.answered) ?? false;
 
     /* Cars on this page the chat's judgement didn't cover: a different page, or more cars since. */
@@ -182,7 +190,13 @@ export function App() {
                     }}
                 />
             ) : (
-                <>
+                /*
+                 * The chat, and — while adjusting — the Adjust panel: beside it
+                 * when the frame is wide enough (the page widens it for this),
+                 * over it when it isn't.
+                 */
+                <div className="relative flex min-h-0 flex-1">
+                <div className={`flex min-h-0 min-w-0 flex-1 flex-col ${adjusting ? "min-[720px]:max-w-[420px] min-[720px]:border-r min-[720px]:border-finn-cotton" : ""}`}>
                     <div ref={scroller} className="min-h-0 flex-1 overflow-y-auto px-3 py-4">
                         {chat ? (
                             <MessageList
@@ -190,13 +204,9 @@ export function App() {
                                 typing={typing || busy}
                                 busy={busy}
                                 onAnswer={(askId, chosen, extra) => void conversation.tap(askId, chosen, extra)}
-                                onImportance={(needId, level) => void conversation.importance(needId, level)}
-                                onRemove={(bubble, item) => void conversation.removeItem(bubble, item)}
-                                onAdd={(bubble, item) => void conversation.addItem(bubble, item)}
                                 longResults={chat.longResults ?? false}
                                 onSeeWhy={(id) => void conversation.seeWhy(id)}
                                 onKeepShort={() => void conversation.keepShort()}
-                                onChange={(step) => void conversation.changeOne(step)}
                                 editable={rewindable(chat)}
                                 onEdit={() => void conversation.takeBack()}
                                 onOpenCar={(id, judgement) => chat && void requestOpenDrawer(chat.id, id, judgement)}
@@ -235,7 +245,22 @@ export function App() {
                     ) : null}
 
                     <Composer disabled={!chat || busy} asking={openAsk} onSend={(text) => void conversation.type(text)} />
-                </>
+                </div>
+
+                {adjusting && summary ? (
+                    <div className="absolute inset-0 z-40 min-[720px]:static min-[720px]:z-auto min-[720px]:min-w-0 min-[720px]:flex-1">
+                        <AdjustPanel
+                            message={summary}
+                            busy={busy}
+                            onImportance={(needId, level) => void conversation.importance(needId, level)}
+                            onRemove={(bubble, item) => void conversation.removeItem(bubble, item)}
+                            onAdd={(bubble, item) => void conversation.addItem(bubble, item)}
+                            onChange={(step) => void conversation.changeOne(step)}
+                            onDone={() => void conversation.finishAdjusting()}
+                        />
+                    </div>
+                ) : null}
+                </div>
             )}
         </div>
     );

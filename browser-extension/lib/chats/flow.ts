@@ -988,11 +988,31 @@ const closeAsks = (messages: ChatMessage[]): ChatMessage[] =>
  */
 const CONFIRM: ChatStep = {
     id: "confirm",
-    ask: "Take your time. When it all looks right, carry on and I'll judge the cars.",
-    why: "Nothing is saved or judged until you say so. Until then you can take anything out, add a suggestion, set how much each counts, or change a line.",
+    ask: "Does that look right?",
+    why: "Nothing is saved or judged until you say so. If something's off, you can take it out, add what's missing, set how much each thing counts, or answer a question again.",
     multiple: false,
-    choices: [{ id: "go", label: "Looks good to me — let's go", said: "Looks good — let's go." }],
+    choices: [
+        { id: "go", label: "Looks good to me — continue", said: "Looks good to me." },
+        { id: "adjust", label: "This doesn't look right", said: "This doesn't look right." },
+    ],
 };
+
+/** The summary, said again after adjusting it: what Lens understood now, and the same question. */
+function understoodNow(chat: Chat, cars: FinnCar[], intro: string): Chat {
+    return touch({ ...chat, messages: closeAsks(chat.messages) }, [lens(intro), summaryOf(chat.understanding, messageId(), cars), { id: messageId(), at: now(), from: "lens", kind: "ask", step: CONFIRM, answered: false }], {
+        queue: [],
+        phase: "keep",
+        revising: false,
+        adjusting: false,
+    });
+}
+
+/** Done adjusting: the panel closes, and the chat shows what Lens understood now. */
+export function doneAdjusting(chat: Chat, cars: FinnCar[]): Chat {
+    if (!chat.adjusting) return chat;
+
+    return understoodNow(touch(chat, [reader("Done — that's right now.")]), cars, "Here's what I understood now:");
+}
 
 const KEEP: ChatStep = {
     id: "keep",
@@ -1103,7 +1123,8 @@ export function askNext(chat: Chat, cars: FinnCar[]): Chat {
             ...(isQuestion(id) ? { progress: { done, total: done + 1 + stillToAsk(queue, { ...chat, queue }, cars) } } : {}),
         };
 
-        return touch({ ...chat, messages: closeAsks(chat.messages) }, [ask], { queue, phase: "asking" });
+        /* A question in the chat closes the Adjust panel: the chat is where it's answered. */
+        return touch({ ...chat, messages: closeAsks(chat.messages) }, [ask], { queue, phase: "asking", adjusting: false });
     }
 
     /*
@@ -1120,18 +1141,18 @@ export function askNext(chat: Chat, cars: FinnCar[]): Chat {
                 ),
                 { id: messageId(), at: now(), from: "lens", kind: "ask", step: NO_NEEDS, answered: false },
             ],
-            { queue: [], phase: "asking" },
+            { queue: [], phase: "asking", adjusting: false },
         );
     }
 
     return touch(
         { ...chat, messages: closeAsks(chat.messages) },
         [
-            lens("Here's what I understood. Take out anything that's wrong, add anything that might matter, and set how much each counts."),
+            lens("Here's what you told me, and what I understood:"),
             summaryOf(u, messageId(), cars),
             { id: messageId(), at: now(), from: "lens", kind: "ask", step: CONFIRM, answered: false },
         ],
-        { queue: [], phase: "keep", revising: false },
+        { queue: [], phase: "keep", revising: false, adjusting: false },
     );
 }
 
@@ -1251,6 +1272,7 @@ export function rewind(chat: Chat): Chat {
         picks: last.picks,
         revising: last.revising,
         kept: last.kept,
+        adjusting: false,
         history: history.slice(0, -1),
         title: titleFor(last.understanding),
         updatedAt: now(),
@@ -1373,6 +1395,16 @@ function answerStep(
     /* -- The summary looked over: then whether to keep it ----------------- */
     if (step.id === "confirm") {
         if (!picked[0]) return { chat, after: "wait" };
+
+        /* Not right: the Adjust panel opens beside the chat, and Done brings the summary back. */
+        if (picked[0].id === "adjust") {
+            return {
+                chat: touch(base, [reader(tapped), lens("Let's fix it. In the Adjust panel, take out what's wrong, add what's missing, set how much each counts, or answer a question again. Tap Done when it's right.")], {
+                    adjusting: true,
+                }),
+                after: "wait",
+            };
+        }
 
         return { chat: touch(base, [reader(tapped), { id: messageId(), at: now(), from: "lens", kind: "ask", step: KEEP, answered: false }]), after: "wait" };
     }
@@ -1509,7 +1541,7 @@ const CHANGE_WHAT: Partial<Record<StepId, string>> = {
 /** One answer, changed from the summary: that question again, then back to the summary. */
 export function changeOne(chat: Chat, step: StepId, cars: FinnCar[]): Chat {
     const queue: StepId[] = [step];
-    const next = touch({ ...chat, messages: closeAsks(chat.messages) }, [reader(`I'd like to change ${CHANGE_WHAT[step] ?? "that"}.`)], { queue, kept: null, revising: true });
+    const next = touch({ ...chat, messages: closeAsks(chat.messages) }, [reader(`I'd like to change ${CHANGE_WHAT[step] ?? "that"}.`)], { queue, kept: null, revising: true, adjusting: false });
 
     return askNext(next, cars);
 }

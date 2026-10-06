@@ -1171,6 +1171,120 @@ const LINE_GROUPS: { title: string; steps: StepId[] }[] = [
     { title: "Deal-breakers & sealers", steps: ["deals", "rules"] },
 ];
 
+/**
+ * What Lens understood, in the chat: read-only and to the point. Each thing
+ * the reader said, how much it counts and what Lens will check for it; then
+ * the money, the dates and the deal-breakers. Changing any of it is the
+ * Adjust panel's job.
+ */
+function StaticSummary({ message }: { message: Extract<ChatMessage, { kind: "summary" }> }) {
+    const said = [
+        ...(message.bubbles ?? []).map((bubble) => ({
+            id: bubble.id,
+            heading: bubble.heading,
+            importance: bubble.counting === false ? null : bubble.importance,
+            checks: [...(bubble.figure ? [bubble.figure] : []), ...bubble.counts.map((item) => item.label), ...(bubble.shared ?? []).map((item) => item.label)],
+            note: bubble.settled ?? bubble.empty ?? null,
+        })),
+        ...(message.needs ?? []).map((need) => ({ id: need.id, heading: need.label, importance: need.importance, checks: need.looksFor, note: null })),
+    ];
+
+    return (
+        <div className="overflow-hidden rounded-2xl bg-white ring-1 ring-black/5 shadow-[0_1px_2px_rgba(0,0,0,0.06)]">
+            {said.length ? (
+                <section className="px-3.5 pt-3 pb-1">
+                    <p className="text-[11px] font-black uppercase tracking-wide text-finn-highlight-navy">What you told me</p>
+                    <ul className="divide-y divide-finn-cotton/70">
+                        {said.map((item) => (
+                            <li key={item.id} className="py-2">
+                                <div className="flex items-start justify-between gap-2">
+                                    <p className="text-[12.5px] font-black leading-snug text-finn-black">{item.heading}</p>
+                                    {item.importance ? (
+                                        <span className="shrink-0 rounded-full bg-finn-pale-blue px-2 py-0.5 text-[10.5px] font-black text-finn-accent-blue">{IMPORTANCE_LABEL[item.importance]}</span>
+                                    ) : null}
+                                </div>
+                                {item.checks.length ? (
+                                    <p className="mt-0.5 text-[11.5px] leading-snug text-finn-iron">I'll check: {item.checks.join(" · ")}</p>
+                                ) : item.note ? (
+                                    <p className="mt-0.5 text-[11.5px] leading-snug text-finn-iron">{item.note}</p>
+                                ) : null}
+                            </li>
+                        ))}
+                    </ul>
+                </section>
+            ) : null}
+
+            {LINE_GROUPS.filter((group) => group.title !== "Your life").map((group) => {
+                const lines = message.lines.filter((line) => group.steps.includes(line.step as StepId));
+                if (!lines.length) return null;
+
+                return (
+                    <section key={group.title} className="border-t border-finn-cotton px-3.5 pt-2.5 pb-1.5">
+                        <p className="text-[11px] font-black uppercase tracking-wide text-finn-highlight-navy">{group.title}</p>
+                        <dl className="py-1">
+                            {lines.map((line) => (
+                                <div key={line.label} className="grid grid-cols-[104px_1fr] items-baseline gap-3 py-1 text-[12px]">
+                                    <dt className="font-bold text-finn-iron">{line.label}</dt>
+                                    <dd className="font-semibold leading-snug text-finn-black">{line.value}</dd>
+                                </div>
+                            ))}
+                        </dl>
+                    </section>
+                );
+            })}
+        </div>
+    );
+}
+
+/**
+ * "This doesn't look right": everything on the summary, to change — take an
+ * item out, add a suggestion, set how much each counts, answer a question
+ * again — and Done to say it's right now. Beside the chat when there's room,
+ * over it when there isn't.
+ */
+export function AdjustPanel({
+    message,
+    onImportance,
+    onChange,
+    onRemove,
+    onAdd,
+    onDone,
+    busy,
+}: {
+    message: Extract<ChatMessage, { kind: "summary" }>;
+    onImportance: (needId: string, importance: NeedImportance) => void;
+    onChange: (step: StepId) => void;
+    onRemove: (bubble: string, item: string) => void;
+    onAdd: (bubble: string, item: string) => void;
+    onDone: () => void;
+    busy: boolean;
+}) {
+    return (
+        <aside aria-label="Adjust what Lens understood" className="flex h-full min-h-0 flex-col bg-white">
+            <div className="shrink-0 border-b border-finn-cotton px-4 pt-3.5 pb-3">
+                <p className="text-[15px] font-black text-finn-black">Adjust</p>
+                <p className="mt-0.5 text-[12px] leading-snug text-finn-iron">
+                    Take out what's wrong, add what's missing, and set how much each counts. “Change” answers a question again, in the chat.
+                </p>
+            </div>
+            <div className="min-h-0 flex-1 overflow-y-auto bg-finn-snow px-3 py-3.5">
+                <Summary message={message} live={!busy} onImportance={onImportance} onChange={onChange} onRemove={onRemove} onAdd={onAdd} />
+            </div>
+            <div className="flex shrink-0 justify-end border-t border-finn-cotton bg-white px-4 py-3">
+                <button
+                    type="button"
+                    disabled={busy}
+                    onClick={onDone}
+                    className="inline-flex items-center gap-1 rounded-full bg-finn-highlight-navy px-5 py-2.5 text-[13px] font-black text-white shadow-sm transition-colors hover:bg-finn-accent-blue focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-finn-accent-blue disabled:opacity-50"
+                >
+                    <Check aria-hidden="true" className="h-4 w-4" strokeWidth={3} />
+                    Done
+                </button>
+            </div>
+        </aside>
+    );
+}
+
 function Summary({
     message,
     live,
@@ -1533,10 +1647,6 @@ export function MessageList({
     typing,
     onAnswer,
     onOpenCar,
-    onImportance,
-    onChange,
-    onRemove,
-    onAdd,
     busy,
     editable = null,
     onEdit,
@@ -1549,11 +1659,6 @@ export function MessageList({
     onAnswer: (askId: string, chosen: string[], extra?: AnswerExtra) => void;
     /** A car's drawer, read out of the judgement its result came from. */
     onOpenCar: (id: number, judgement?: string) => void;
-    onImportance: (needId: string, importance: NeedImportance) => void;
-    onChange: (step: StepId) => void;
-    /** An item a bubble checks, taken out from the summary; a suggestion added. */
-    onRemove: (bubble: string, item: string) => void;
-    onAdd: (bubble: string, item: string) => void;
     busy: boolean;
     /** Results open with everything shown, after "See why" on two in a row. */
     longResults?: boolean;
@@ -1568,14 +1673,6 @@ export function MessageList({
         const last = [...messages].reverse().find((message) => message.kind === "ask");
         return last?.kind === "ask" && !last.answered ? last.id : null;
     }, [messages]);
-
-    /* The summary can be edited until the reader says it looks good — older ones are a record. */
-    const liveSummary = useMemo(() => {
-        const last = [...messages].reverse().find((message) => message.kind === "summary");
-        const keep = messages.find((message) => message.id === liveAsk);
-
-        return last && keep?.kind === "ask" && keep.step.id === "confirm" && messages.indexOf(keep) > messages.indexOf(last) ? last.id : null;
-    }, [messages, liveAsk]);
 
     const settled = !typing && !busy;
 
@@ -1623,7 +1720,7 @@ export function MessageList({
                 );
                 break;
             case "summary":
-                body = <Summary message={message} live={message.id === liveSummary && settled} onImportance={onImportance} onChange={onChange} onRemove={onRemove} onAdd={onAdd} />;
+                body = <StaticSummary message={message} />;
                 break;
             case "result":
                 /* Each result opens on its own judgement: an earlier one on what it said then, not on a later winner. */

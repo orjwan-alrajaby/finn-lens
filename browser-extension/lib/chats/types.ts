@@ -364,6 +364,11 @@ export interface Chat {
      * Chats saved before this come back without it.
      */
     history?: Rewind[];
+    /**
+     * The reader said the summary doesn't look right, and is adjusting it:
+     * the Adjust panel is open beside the chat until they tap Done.
+     */
+    adjusting?: boolean;
     /** Results the reader opened "See why" on. */
     opened?: string[];
     /** Results open with everything shown: the reader opened "See why" on two in a row, until "Keep it short". */

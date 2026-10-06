@@ -10,7 +10,7 @@ import { chatAnswers, judgementFrom, judgeWith } from "./judge";
 import { withBubbles } from "@/lib/lens-chat/bubbles";
 import { addMonths } from "@/lib/reasoning-engine/contract";
 import { CATEGORIES } from "@/lib/reasoning-engine/constants";
-import { activeFollowUp, addItem, allChips, answer, followUps, askNext, keepShort, openedWhy, changeAnswers, changeOne, removeItem, rentalMonths, rewind, rewindable, setImportance, startChat as beginChat, startMonth, stepFor, summaryOf } from "./flow";
+import { activeFollowUp, addItem, allChips, answer, doneAdjusting, followUps, askNext, keepShort, openedWhy, changeAnswers, changeOne, removeItem, rentalMonths, rewind, rewindable, setImportance, startChat as beginChat, startMonth, stepFor, summaryOf } from "./flow";
 import type { Chat, ChatMessage, SavedSettings, StepId } from "./types";
 
 /** A first chat, past "Got it — let's start": most tests begin at the first question. */
@@ -90,7 +90,7 @@ describe("a first chat", () => {
 
         expect(asked(short)).toEqual(["intro", ...SECTIONS, "budget", "period", "from", "deals", "confirm"]);
         expect(asked(long)).toEqual(["intro", "bubbles-people", "bubbles-driving", "often-long", "often-traffic", "bubbles-copes", "bubbles-matters", "budget", "period", "distance", "deals", "confirm"]);
-        expect(texts(short).at(-1)).toMatch(/^Here's what I understood/);
+        expect(texts(short).at(-1)).toBe("Here's what you told me, and what I understood:");
     });
 
     it("asks how far they drive only when something they said makes it matter, and says it assumed otherwise", () => {
@@ -132,7 +132,7 @@ describe("a first chat", () => {
         const chat = walk(startChat(null, cars(), TODAY), { bubbles: ["night"] });
         const confirm = openAsk(chat)!;
 
-        expect(confirm.step.choices.map((choice) => choice.label)).toEqual(["Looks good to me — let's go"]);
+        expect(confirm.step.choices.map((choice) => choice.label)).toEqual(["Looks good to me — continue", "This doesn't look right"]);
 
         const going = answer(chat, confirm.id, ["go"], cars(), TODAY);
         expect(going.after).toBe("wait");
@@ -829,5 +829,49 @@ describe("the follow-up the reader is on", () => {
         expect(activeFollowUp(step(), ["comfort", "comfort:warm"], "environment")).toBeNull();
         expect(activeFollowUp(step(), ["comfort", "comfort:warm", "help"], "help")?.bubble).toBe("help");
         expect(activeFollowUp(stepFor("bubbles-people", cars())!, ["kids", "dog"], "dog")).toBeNull();
+    });
+});
+
+describe("“This doesn't look right”", () => {
+    const looked = () => walk(startChat(null, cars(), TODAY), { bubbles: ["kids", "kids:baby", "dog"] });
+    const adjusting = () => {
+        const chat = looked();
+        return answer(chat, openAsk(chat)!.id, ["adjust"], cars(), TODAY).chat;
+    };
+
+    it("opens the Adjust panel, asking nothing more until Done", () => {
+        const chat = adjusting();
+
+        expect(chat.adjusting).toBe(true);
+        expect(openAsk(chat)).toBeFalsy();
+        expect(texts(chat).at(-1)).toMatch(/^Let's fix it\. In the Adjust panel/);
+    });
+
+    it("says back what Lens understood now on Done, with the same two choices, edits and all", () => {
+        const edited = setImportance(adjusting(), "bubble-dog", "niceToHave", cars());
+        const done = doneAdjusting(edited, cars());
+
+        expect(done.adjusting).toBe(false);
+        expect(texts(done).at(-1)).toBe("Here's what I understood now:");
+        expect(lastSummary(done).bubbles?.find((bubble) => bubble.id === "dog")?.importance).toBe("niceToHave");
+        expect(openAsk(done)?.step.choices.map((choice) => choice.id)).toEqual(["go", "adjust"]);
+
+        const going = answer(done, openAsk(done)!.id, ["go"], cars(), TODAY);
+        expect(openAsk(going.chat)?.step.id).toBe("keep");
+    });
+
+    it("closes the panel when a line's Change asks its question in the chat, or the answer is taken back", () => {
+        const changing = changeOne(adjusting(), "budget", cars());
+        expect(changing.adjusting).toBe(false);
+        expect(openAsk(changing)?.step.id).toBe("budget");
+
+        const back = rewind(adjusting());
+        expect(back.adjusting).toBe(false);
+        expect(openAsk(back)?.step.id).toBe("confirm");
+    });
+
+    it("does nothing on Done when not adjusting", () => {
+        const chat = looked();
+        expect(doneAdjusting(chat, cars())).toBe(chat);
     });
 });

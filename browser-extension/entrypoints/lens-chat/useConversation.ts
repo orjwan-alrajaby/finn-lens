@@ -12,6 +12,7 @@ import {
     withExchange,
     withLensSaying,
     changeOne as changeOneAnswer,
+    doneAdjusting,
     keepShort as keepResultsShort,
     openedWhy,
     addItem as addBubbleItem,
@@ -387,5 +388,11 @@ export function useConversation(page: PageCars) {
         });
     }, [judge]);
 
-    return { chat, busy, startNew, open, clear, tap, type, whyWinner, change, changeOne, importance, removeItem, addItem, judgeHere, addHere, takeBack, seeWhy, keepShort };
+    /** The Adjust panel's Done: what Lens understood now, said back in the chat. */
+    const finishAdjusting = useCallback(async () => {
+        const current = latest.current;
+        if (current?.adjusting) await commit(doneAdjusting(current, pageRef.current.cars));
+    }, [commit]);
+
+    return { chat, busy, startNew, open, clear, tap, type, whyWinner, change, changeOne, importance, removeItem, addItem, judgeHere, addHere, takeBack, seeWhy, keepShort, finishAdjusting };
 }
