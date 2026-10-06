@@ -2,13 +2,20 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
-import { answer, startChat, stepFor } from "@/lib/chats/flow";
+import { answer, startChat as beginChat, stepFor } from "@/lib/chats/flow";
 import { withBubbles } from "@/lib/lens-chat/bubbles";
 import { EMPTY_UNDERSTANDING } from "@/lib/lens-chat/understanding";
 import type { Chat, ChatMessage } from "@/lib/chats/types";
 import { GARAGE } from "@/lib/reasoning-engine/test-garage";
 
 import { MessageList } from "./Messages";
+
+/** A first chat, past "Got it — let's start": most tests begin at the first question. */
+function startChat(...args: Parameters<typeof beginChat>): ReturnType<typeof beginChat> {
+    const chat = beginChat(...args);
+    const intro = [...chat.messages].reverse().find((message) => message.kind === "ask" && !message.answered && message.step.id === "intro");
+    return intro ? answer(chat, intro.id, ["go"], args[1], args[2]).chat : chat;
+}
 
 /*
  * The bubbles question and "Here's what I understood", rendered as the

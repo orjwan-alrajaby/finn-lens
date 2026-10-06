@@ -475,6 +475,14 @@ export function stepFor(id: StepId, cars: FinnCar[], u: Understanding = EMPTY_UN
                 custom: { kind: "months", label: "Another length", placeholder: "months, e.g. 9", min: 1, max: 48 },
             };
 
+        case "intro":
+            return {
+                id,
+                ask: INTRO,
+                multiple: false,
+                choices: [{ id: "go", label: "Got it — let's start", said: "Got it — let's start." }],
+            };
+
         case "start":
             return {
                 id,
@@ -1058,6 +1066,9 @@ export function askNext(chat: Chat, cars: FinnCar[]): Chat {
 }
 
 /** A brand-new chat, from nothing or from the reader's saved settings. */
+const INTRO =
+    "Here's how it works: tap what fits your life, and answer a few short questions — tap, or say it in your own words. I'll show you what I understood before I judge anything. Then every car on this page gets a chip saying how well it fits you, and my top pick gets a trophy.";
+
 export function startChat(settings: SavedSettings | null, cars: FinnCar[], today = new Date()): Chat {
     const at = today.toISOString();
     const base: Chat = {
@@ -1076,15 +1087,8 @@ export function startChat(settings: SavedSettings | null, cars: FinnCar[], today
     };
 
     if (!settings) {
-        return askNext(
-            touch(base, [
-                lens("Hi, I'm Lens. I help you choose between the cars on finn.com."),
-                lens(
-                    "Here's how it works: tap what fits your life, and answer a few short questions — tap, or say it in your own words. I'll show you what I understood before I judge anything. Then every car on this page gets a chip saying how well it fits you, and my top pick gets a trophy.",
-                ),
-            ]),
-            cars,
-        );
+        /* How it works, then a button: the first question comes once the reader has read it. */
+        return askNext(touch({ ...base, queue: ["intro", ...STEP_ORDER] }, [lens("Hi, I'm Lens. I help you choose between the cars on finn.com.")]), cars);
     }
 
     const understanding = settings.rentalMonths
@@ -1129,7 +1133,7 @@ export function answer(
     if (result.chat === chat || ask?.kind !== "ask") return result;
 
     /* Keeping the answers ends the questions: from a judgement, "Change my answers" is the way back. */
-    if (ask.step.id === "keep" || ask.step.id === "start") return { ...result, chat: { ...result.chat, history: [] } };
+    if (ask.step.id === "keep" || ask.step.id === "start" || ask.step.id === "intro") return { ...result, chat: { ...result.chat, history: [] } };
 
     const said = result.chat.messages[chat.messages.length];
     const before: Rewind = {
@@ -1225,6 +1229,9 @@ function answerStep(
     const tapped = picked.length ? picked.map((choice) => choice.said).join(" ") : "";
     const messages = closeAsks(chat.messages);
     const base: Chat = { ...chat, messages, picks: { ...(chat.picks ?? {}), [step.id]: chosen } };
+
+    /* -- Read how it works: on to the first question --------------------- */
+    if (step.id === "intro") return { chat: askNext(touch(base, [reader(tapped || "Got it — let's start.")]), cars), after: "wait" };
 
     /* -- The start of a chat from saved settings ------------------------- */
     if (step.id === "start") {

@@ -737,7 +737,8 @@ function Ask({
     return (
         <>
             <LensBubble>
-                <p className="font-semibold">{step.ask}</p>
+                {/* How it works is read, not answered: plain text, like Lens's other words. */}
+                <p className={step.id === "intro" ? "" : "font-semibold"}>{step.ask}</p>
                 {live && (step.why ?? step.hint) ? <Why text={(step.why ?? step.hint)!} /> : null}
             </LensBubble>
 

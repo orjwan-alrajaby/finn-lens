@@ -2,8 +2,15 @@ import { describe, expect, it } from "vitest";
 
 import { GARAGE } from "@/lib/reasoning-engine/test-garage";
 
-import { answer, startChat } from "./flow";
+import { answer, startChat as beginChat } from "./flow";
 import { readBack, readTyped } from "./typing";
+
+/** A first chat, past "Got it — let's start": most tests begin at the first question. */
+function startChat(...args: Parameters<typeof beginChat>): ReturnType<typeof beginChat> {
+    const chat = beginChat(...args);
+    const intro = [...chat.messages].reverse().find((message) => message.kind === "ask" && !message.answered && message.step.id === "intro");
+    return intro ? answer(chat, intro.id, ["go"], args[1], args[2]).chat : chat;
+}
 
 /*
  * The reader's own words, read into the same understanding the taps build.

@@ -43,6 +43,8 @@ export type StepId =
     | "budget"
     | "period"
     | "start"
+    /** How a first chat works, with one button to begin: the first question waits for it. */
+    | "intro"
     | "keep"
     /** The summary looked over: the reader says it's right before anything is saved or judged. */
     | "confirm"
