@@ -746,7 +746,12 @@ export function tellFitStory(
 
         if (emissions) lines.unshift(...emissions.lines);
 
-        if (need.notInData) {
+        /*
+         * Only a bubble's own caveat — boot space, for lots to carry. What the
+         * reader of typed words notes Lens can't check stays out of the story:
+         * unasked-for lists of gaps were noise.
+         */
+        if (need.notInData && need.id.startsWith("bubble-")) {
             const related = lines.some((line) => line.tone === "good");
             lines.push({
                 tone: "unknown",

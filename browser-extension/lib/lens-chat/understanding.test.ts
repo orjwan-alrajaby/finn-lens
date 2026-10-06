@@ -314,7 +314,8 @@ describe("explaining a match in the person's terms", () => {
         expect(winner.id).toBe(201);
         expect(readEvidence(winner, "hasBackUSBPorts")).toBe("listed");
         expect(lines).toContain("Rear USB ports — could keep their tablets charged on long drives.");
-        expect(lines.join(" ")).toMatch(/FINN doesn't publish a built-in rear entertainment system, so Lens can't check that part/);
+        /* What it can't check isn't listed unasked — and isn't claimed either. */
+        expect(lines.join(" ")).not.toMatch(/FINN doesn't publish|rear entertainment/);
 
         /* Adaptive cruise control was made less relevant by what the person is confident with. */
         const confidence = story.sections.find((section) => section.key === "confidence")!;

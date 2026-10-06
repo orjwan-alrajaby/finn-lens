@@ -26,11 +26,13 @@ describe("the bubbles, as the spec lists them", () => {
         }
     });
 
-    it("count two or three items at most, and say what they can't check", () => {
+    it("count two or three items at most, and say what they can't check only where it changes how an answer reads", () => {
         for (const item of BUBBLES) {
             expect(item.counts.length, item.id).toBeLessThanOrEqual(3);
             for (const chip of item.chips?.options ?? []) expect((chip.counts ?? []).length, `${item.id}/${chip.id}`).toBeLessThanOrEqual(2);
-            if (item.id !== "budget") expect(item.cantCheck, item.id).not.toBe("");
+            /* Boot space under lots to carry, and nowhere else. */
+            if (item.id === "carry") expect(item.cantCheck).toBe("boot space — FINN's figure doesn't say whether the seats are up or folded");
+            else expect(item.cantCheck, item.id).toBe("");
         }
     });
 

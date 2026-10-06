@@ -200,13 +200,12 @@ describe("what FINN does publish, and Lens used to guess at", () => {
 });
 
 describe("what FINN doesn't publish", () => {
-    it("says so for a rear-facing seat rather than implying Lens checked", () => {
+    it("doesn't imply Lens checked room for a rear-facing seat, nor list what it can't check", () => {
         const { story } = read(scenario("rear-facing-parent"));
-        const section = sectionFor(story, "seats-in")!;
+        const text = sectionFor(story, "seats-in")!.lines.map((line) => line.text).join(" ");
 
-        expect(section.lines.map((line) => line.text).join(" ")).toMatch(
-            /FINN doesn't publish how much room there is behind the front seats/,
-        );
+        expect(text).not.toMatch(/FINN doesn't publish/);
+        expect(text).not.toMatch(/room (there is )?behind the front seats/);
     });
 
     it("quotes FINN's boot figure with the caveat its own field carries", () => {
@@ -591,3 +590,17 @@ describe("a hard limit, and a cost FINN's data can't confirm", () => {
   });
 });
 
+
+describe("the one caveat kept", () => {
+    it("says boot space can't be checked for lots to carry, and nowhere else", async () => {
+        const { withBubbles } = await import("./bubbles");
+        const u = withBubbles(EMPTY_UNDERSTANDING, { carry: ["bulky"], kids: ["baby"] });
+        const translation = toAnswers(base(), u);
+        const run = runLens(cars, translation.answers, "page", "page")!;
+        const story = tellFitStory(run, u, translation.lessRelevant, null);
+        const said = story.sections.flatMap((section) => section.lines.map((line) => `${section.key}: ${line.text}`)).filter((line) => /FINN doesn't publish/.test(line));
+
+        expect(said).toHaveLength(1);
+        expect(said[0]).toMatch(/^bubble-carry: FINN doesn't publish boot space — FINN's figure doesn't say whether the seats are up or folded/);
+    });
+});

@@ -204,13 +204,13 @@ describe("here's what I understood", () => {
     const understood = () =>
         walk(startChat(null, cars(), TODAY), { bubbles: ["kids", "kids:baby", "city", "city:street", "comfort"], budget: ["budget-700"] });
 
-    it("shows each bubble: what it checks, what's standard, what might matter, and what it can't check", () => {
+    it("shows each bubble: what it checks, what's standard and what might matter — and no list of what it can't check", () => {
         const kids = block(understood(), "kids")!;
 
         expect(kids.heading).toBe("You have kids · a baby or toddler seat");
         expect(kids.counts.map((item) => item.label)).toEqual(["Rear doors"]);
         expect(kids.checks.map((item) => item.label)).toEqual(["ISOFIX child seat anchors"]);
-        expect(kids.cantCheck).toMatch(/rear legroom/);
+        expect(kids.cantCheck).toBe("");
         expect(kids).toMatchObject({ importance: "essential", importanceSaid: true });
     });
 

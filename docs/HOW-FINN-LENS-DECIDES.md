@@ -128,7 +128,10 @@ Each bubble (`BUBBLES`, bubbles.ts) carries:
 - **checks** — standard equipment Lens checks for it: a car FINN says lacks it loses a little, and having
   it earns nothing (§5.2);
 - **worth** — suggestions shown as "Might matter" on the summary, counted only if the reader adds them;
-- **cantCheck** — what FINN's data can't tell Lens for this need, said on the summary;
+- **cantCheck** — what FINN's data can't tell Lens, said on the summary and in the drawer **only where it
+  changes how an answer reads**. Today that's one: boot space under "Lots to carry" (FINN's figure doesn't say
+  whether the seats are up or folded). A list of everything Lens can't check under every need was noise nobody
+  asked for, and was removed; gaps the reader of typed words notes aren't shown either;
 - **why** — for each item, why it's there for this need. A link with no honest reason is removed, not
   justified.
 

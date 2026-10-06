@@ -100,7 +100,13 @@ export interface Bubble {
     /** Asks how far they drive, with the limit. */
     distance?: boolean;
     suggests?: string;
-    /** What matters for this life that FINN's data can't tell Lens. */
+    /**
+     * What FINN's data can't tell Lens that changes how an answer should be
+     * read — said on the summary and in the drawer. Only where it does: a
+     * list of everything Lens can't check, under every need, is noise nobody
+     * asked for. Boot space under "lots to carry" is the one kept, since
+     * FINN's figure can't be taken as the boot a reader would load.
+     */
     cantCheck: string;
     /** Why each item is here, for this bubble. */
     why?: Partial<Record<EvidenceId, string>>;
@@ -140,7 +146,7 @@ export const BUBBLES: Bubble[] = [
                 { id: "older", label: "Older kids", detail: "older kids", description: "Children past child seats. I'll suggest 3-zone climate and rear USB ports.", worth: ["hasThreeZoneAutomaticClimateControls", "hasBackUSBPorts"] },
             ],
         },
-        cantCheck: "rear legroom, whether a particular child seat fits, or boot space (FINN's figure doesn't say whether the seats are up or folded)",
+        cantCheck: "",
         why: {
             rearDoors: "so children get in and out without folding a front seat",
             hasElectricTailgate: "so you can open the boot while holding a child",
@@ -175,7 +181,7 @@ export const BUBBLES: Bubble[] = [
                 },
             ],
         },
-        cantCheck: "rear legroom or headroom",
+        cantCheck: "",
         empty: "One adult beside you asks nothing extra of the car.",
         why: {
             rearDoors: "so adults get into the back without climbing past the front",
@@ -193,7 +199,7 @@ export const BUBBLES: Bubble[] = [
         counts: ["hasSplitFoldingRearSeats"],
         checks: [],
         worth: ["hasElectricTailgate", "rearDoors"],
-        cantCheck: "boot size and shape, or how high the boot lip is",
+        cantCheck: "",
         why: {
             hasSplitFoldingRearSeats: "so a crate or a big dog fits",
             hasElectricTailgate: "so the boot opens while you hold the lead",
@@ -223,7 +229,7 @@ export const BUBBLES: Bubble[] = [
                 { id: "driveway", label: "Driveway", detail: "you park on a driveway", description: "Your own driveway. Nothing extra to check." },
             ],
         },
-        cantCheck: "the turning circle, or how well you can see out",
+        cantCheck: "",
         why: {
             compactWidth: "so it fits narrow streets and bays",
             compactLength: "so it fits shorter spaces",
@@ -268,7 +274,7 @@ export const BUBBLES: Bubble[] = [
                 { id: "reversing", label: "Reversing out", detail: "reversing out", description: "I'll check rear cross-traffic alert and a reversing camera.", counts: ["hasRearCrosswalkWarning", "hasOneEightyDegreesReversingCamera"] },
             ],
         },
-        cantCheck: "crash protection — FINN has no crash-test data",
+        cantCheck: "",
         why: {
             hasThreeSixtyDegreesCamera: "so you can check every side before you move",
             compactLength: "a shorter car fits a shorter gap at the kerb",
@@ -290,7 +296,7 @@ export const BUBBLES: Bubble[] = [
         worth: ["hasHeadUpDisplay", "hasMatrixLedHeadlights", "hasRoofRails"],
         often: "long",
         distance: true,
-        cantCheck: "seat comfort over hours, road noise, or how it rides",
+        cantCheck: "",
         why: {
             driverAssistLevel2: "so the car keeps its lane and distance while you supervise",
             hasLumbarSupport: "for your back over hours",
@@ -310,7 +316,7 @@ export const BUBBLES: Bubble[] = [
         worth: ["hasKeylessEntryAndStart", "hasWirelessAppleCarPlaySlashAndroidAuto", "hasWirelessChargingStation"],
         often: "traffic",
         distance: true,
-        cantCheck: "how smooth the gearbox is in traffic",
+        cantCheck: "",
         why: {
             driverAssistLevel2: "so the car keeps its speed, distance and lane together in stop-and-go traffic",
         },
@@ -364,7 +370,7 @@ export const BUBBLES: Bubble[] = [
                 { id: "hot", label: "Hot summers", detail: "hot summers", description: "I'll check ventilated seats, and suggest 3-zone climate.", counts: ["hasSeatCooling"], worth: ["hasThreeZoneAutomaticClimateControls"] },
             ],
         },
-        cantCheck: "how the car handles on snow, or which tyres it will come on",
+        cantCheck: "",
         why: {
             hasHeatedSeats: "to warm you on a cold start, before the cabin is",
             hasHeatedSteeringWheel: "so the wheel is warm to hold on a frozen morning",
@@ -387,7 +393,7 @@ export const BUBBLES: Bubble[] = [
         counts: ["hasMatrixLedHeadlights", "hasCorneringLights"],
         checks: [],
         worth: ["hasHeadlightCleaningSystem", "hasRainSlashLightSensors", "hasFogLights"],
-        cantCheck: "how bright the headlights are, beyond their type",
+        cantCheck: "",
         why: {
             hasMatrixLedHeadlights: "so full beam stays on without dazzling anyone",
             hasCorneringLights: "so you can see into the bend",
@@ -456,7 +462,7 @@ export const BUBBLES: Bubble[] = [
                 { id: "hud", label: "Head-up display", detail: "a head-up display", description: "Your speed and directions shown on the windscreen.", counts: ["hasHeadUpDisplay"] },
             ],
         },
-        cantCheck: "how comfortable the seats are or how quiet the cabin is — and I don't weigh leather seats or ambient lighting, which FINN lists but says nothing useful about",
+        cantCheck: "",
         empty: "Tell me which, and I'll count them.",
     },
     {
@@ -515,7 +521,7 @@ export const BUBBLES: Bubble[] = [
                 },
             ],
         },
-        cantCheck: "emissions over the car's whole life or from making the electricity, or how much of a plug-in hybrid's driving its figure takes to be on electricity",
+        cantCheck: "",
     },
     {
         id: "budget",
