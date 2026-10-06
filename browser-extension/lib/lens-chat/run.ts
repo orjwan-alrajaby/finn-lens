@@ -37,6 +37,12 @@ export interface LensRun {
         setAside: number;
         /** True when every car was ruled out, so the ranking ignored the rule. */
         nothingLeft: boolean;
+        /**
+         * When nothing has them all: for each rule, how many cars would fit
+         * every other one without it — "let go of all-wheel drive and three
+         * cars fit". Empty otherwise.
+         */
+        withoutEach: { id: Rule["id"]; mode: Rule["mode"]; fits: number }[];
     } | null;
     /**
      * Set when no car here stays within the reader's limit: Lens ranked only
@@ -202,7 +208,14 @@ export function runLens(
         answers,
         level: levelWith(recommendation),
         nearestToLimit,
-        ruledOut: ruledOut.length ? { evidence: ruledOut, setAside, nothingLeft } : null,
+        ruledOut: ruledOut.length
+            ? {
+                  evidence: ruledOut,
+                  setAside,
+                  nothingLeft,
+                  withoutEach: nothingLeft ? ruledOut.map((rule) => ({ id: rule.id, mode: rule.mode, fits: allowedByRules(cars, ruledOut.filter((other) => other !== rule)).length })) : [],
+              }
+            : null,
         recommendation,
         narrative: buildAdviceNarrative(
             recommendation.evaluation,

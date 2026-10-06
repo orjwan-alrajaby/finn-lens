@@ -6,8 +6,9 @@ import { EMPTY_UNDERSTANDING, ruledOut } from "@/lib/lens-chat/understanding";
 
 import { fleet } from "@/lib/reasoning-engine/test-data/fleet";
 
-import { chatAnswers, judgementFrom, judgeWith } from "./judge";
+import { chatAnswers, judgementFrom, judgeWith, letGoAsk, resultMessage } from "./judge";
 import { withBubbles } from "@/lib/lens-chat/bubbles";
+import { withDeals } from "@/lib/lens-chat/deals";
 import { addMonths } from "@/lib/reasoning-engine/contract";
 import { CATEGORIES } from "@/lib/reasoning-engine/constants";
 import { activeFollowUp, addItem, allChips, answer, doneAdjusting, followUps, askNext, keepShort, openedWhy, changeAnswers, changeOne, removeItem, rentalMonths, rewind, rewindable, setImportance, startChat as beginChat, startMonth, stepFor, summaryOf } from "./flow";
@@ -873,5 +874,55 @@ describe("“This doesn't look right”", () => {
     it("does nothing on Done when not adjusting", () => {
         const chat = looked();
         expect(doneAdjusting(chat, cars())).toBe(chat);
+    });
+});
+
+describe("letting a deal-breaker go, when no car has them all", () => {
+    const page = () => fleet().sort((a, b) => a.id - b.id).slice(0, 24);
+    const strict = () => {
+        const u = withDeals(withBubbles(EMPTY_UNDERSTANDING, { dog: [] }), ["electric", "automatic", "awd", "doors", "co2"], { electric: "mustNot", automatic: "must", awd: "must", doors: "must", co2: "must" });
+        return { ...startChat(null, page(), TODAY), understanding: u, queue: [], phase: "judged" as const };
+    };
+    const ask = (chat: Chat) => {
+        const judged = judgeWith(chat.understanding, page(), "24 cars")!;
+        const question = letGoAsk(judged.run, "lg1", TODAY.toISOString())!;
+        return { judged, chat: { ...chat, messages: [...chat.messages, question] } };
+    };
+
+    it("asks which matters least, each saying what letting it go opens up, the most first", () => {
+        const { judged, chat } = ask(strict());
+        const step = openAsk(chat)!.step;
+
+        expect(step.ask).toBe("No car here has all of your deal-breakers — so which matters least to you?");
+        expect(step.choices.map((choice) => choice.label)).toEqual(expect.arrayContaining(["Must have all-wheel drive", "Mustn't be electric"]));
+        const fits = step.choices.map((choice) => judged.run.ruledOut!.withoutEach.find((row) => row.id === choice.id)!.fits);
+        expect(fits).toEqual([...fits].sort((a, b) => b - a));
+        expect(step.none).toBe("Keep them all");
+        expect(resultMessage(judged, page(), "24 cars", {}, "r1", TODAY.toISOString()).know).toMatch(/^No car here has all of your deal-breakers, so what to let go of is your call/);
+    });
+
+    it("turns the ones let go into deal-sealers and judges again, and can't be taken back", () => {
+        const { chat } = ask(strict());
+        const { chat: next, after } = answer(chat, openAsk(chat)!.id, ["hasAllWheelDrive"], page(), TODAY);
+
+        expect(after).toBe("judge");
+        expect(ruledOut(next.understanding).map((rule) => rule.id)).not.toContain("hasAllWheelDrive");
+        expect(next.understanding.needs.find((need) => need.id === "sealer-awd")?.importance).toBe("essential");
+        expect(texts(next).at(-1)).toBe("“Must have all-wheel drive” isn't a deal-breaker now, but it still counts as much as anything can. Judging again…");
+        expect(rewindable(next)).toBeNull();
+    });
+
+    it("keeps them all when asked to, and judges nothing again", () => {
+        const { chat } = ask(strict());
+        const { chat: next, after } = answer(chat, openAsk(chat)!.id, [], page(), TODAY);
+
+        expect(after).toBe("wait");
+        expect(ruledOut(next.understanding)).toHaveLength(5);
+        expect(texts(next).at(-1)).toBe("Fine — they all stay. The pick above is the best fit for everything else you told me.");
+    });
+
+    it("isn't asked when some car has them all", () => {
+        const u = withDeals(withBubbles(EMPTY_UNDERSTANDING, { dog: [] }), ["automatic"], { automatic: "must" });
+        expect(letGoAsk(judgeWith(u, page(), "24 cars")!.run, "x", "")).toBeNull();
     });
 });

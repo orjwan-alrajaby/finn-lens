@@ -20,7 +20,7 @@ import {
     setImportance as setNeedImportance,
     type Heard,
 } from "@/lib/chats/flow";
-import { judgementFrom, judgeWith, resultMessage, withJudgement } from "@/lib/chats/judge";
+import { judgementFrom, judgeWith, letGoAsk, resultMessage, withJudgement } from "@/lib/chats/judge";
 import { addedToJudgement, judgedCars, loadedCars } from "@/lib/chats/scope";
 import { loadChat, loadSettings, messageId, saveChat, saveSettings, setActiveChat } from "@/lib/chats/store";
 import type { Chat } from "@/lib/chats/types";
@@ -188,6 +188,8 @@ export function useConversation(page: PageCars) {
                             kind: "text",
                             text: "Every car I judged now has a chip on its card. Tap any chip to see how that car fits you, or the gold one to see why it won.",
                         },
+                        /* No car has every deal-breaker: which to let go of is the reader's call, asked right here. */
+                        ...[letGoAsk(judged.run, messageId(), at)].filter((ask) => ask != null),
                     ],
                 });
                 await setActiveChat(from.id);

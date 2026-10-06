@@ -35,6 +35,7 @@ const MEASURED_UNKNOWN: Partial<Record<EvidenceId, string>> = {
     electricRange: "It isn't electric, so FINN publishes no range for it.",
 };
 import type { LensRun } from "./run";
+import { demandOf } from "./deals";
 import { budgetCeiling } from "./understanding";
 import type { Need, Understanding } from "./understanding";
 
@@ -172,6 +173,9 @@ function bandBasis(run: LensRun): string {
 
 /* "Blind spot warning" → "blind spot warning", but never "I" → "i" or "ISOFIX" → "iSOFIX". */
 const lower = lowerFirst;
+
+/** "a, b and c". */
+const listed = (parts: string[]): string => (parts.length <= 1 ? (parts[0] ?? "") : `${parts.slice(0, -1).join(", ")} and ${parts.at(-1)}`);
 
 const sentence = (value: string) => {
     const trimmed = value.trim().replace(/[.;,]+$/, "");
@@ -548,35 +552,62 @@ export function tellFitStory(
     /* -- What they ruled out --------------------------------------------- */
 
     if (run.ruledOut) {
-        const { evidence: rules, setAside, nothingLeft } = run.ruledOut;
+        const { evidence: rules, setAside, nothingLeft, withoutEach = [] } = run.ruledOut;
         const total = cars.length + (nothingLeft ? 0 : setAside);
         const asked = rules
             .map((rule) => (rule.mode === "without" ? `no ${barePhrase(rule.id)}` : asPhrase(rule.id)))
             .join(" and ");
         const kept = rules.every((rule) => rule.mode === "without");
 
-        sections.push({
-            key: "ruled-out",
-            said: rules.map((rule) => rule.said).filter(Boolean)[0] ?? "",
-            title: nothingLeft
-                ? `Nothing here is ${asked}`
-                : kept
-                  ? withoutSentence(rules.map((rule) => rule.id))
-                  : mustSentence(rules.filter((rule) => rule.mode === "must").map((rule) => rule.id)),
-            short: asked,
-            kind: "budget",
-            importance: "constraint",
-            tone: nothingLeft ? "missing" : "good",
-            lines: [
-                {
-                    tone: nothingLeft ? "missing" : "good",
-                    text: nothingLeft
-                        ? `You asked for ${asked}, and nothing here matches that, so Lens ranked them all and this is the closest.`
-                        : `You asked for ${asked}, so Lens set aside ${setAside} of ${total} cars here before ranking the rest.`,
-                },
-            ],
-            summary: nothingLeft ? `No car here is ${asked}` : asked,
-        });
+        /*
+         * Nothing has them all. That isn't Lens falling short: it's a choice
+         * only the reader can make, so it's put to them — what each one costs
+         * them, and which they'd let go of.
+         */
+        if (nothingLeft) {
+            /* With one, letting it go brings every car back: nothing to weigh up. */
+            const easing = rules.length > 1 ? [...withoutEach].filter((item) => item.fits > 0).sort((a, b) => b.fits - a.fits) : [];
+
+            sections.push({
+                key: "ruled-out",
+                said: rules.map((rule) => rule.said).filter(Boolean)[0] ?? "",
+                title: rules.length === 1 ? `No car here meets “${lowerFirst(demandOf(rules[0]!))}”` : "No car here has all of your deal-breakers",
+                short: `${rules.length} deal-breakers`,
+                kind: "budget",
+                importance: "constraint",
+                tone: "note",
+                lines: [
+                    {
+                        tone: "note",
+                        text:
+                            rules.length === 1
+                                ? `None of the ${cars.length} ${cars.length === 1 ? "car" : "cars"} compared does.`
+                                : `Of the ${cars.length} ${cars.length === 1 ? "car" : "cars"} compared, none meets ${rules.length === 2 ? "both" : `all ${rules.length}`} at once: ${listed(rules.map((rule) => lowerFirst(demandOf(rule))))}.`,
+                    },
+                    ...easing.map((item) => ({
+                        tone: "note" as const,
+                        text: `Let go of “${lowerFirst(demandOf(item))}” and ${item.fits} ${item.fits === 1 ? "car fits" : "cars fit"} everything else.`,
+                    })),
+                    {
+                        tone: "note",
+                        text: `${rules.length === 1 ? "Whether to let it go" : "Which matters least"} is your call — tell me in the chat and I'll judge again. Until then, this is the best fit for everything else you told me.`,
+                    },
+                ],
+                summary: "No car here has them all",
+            });
+        } else {
+            sections.push({
+                key: "ruled-out",
+                said: rules.map((rule) => rule.said).filter(Boolean)[0] ?? "",
+                title: kept ? withoutSentence(rules.map((rule) => rule.id)) : mustSentence(rules.filter((rule) => rule.mode === "must").map((rule) => rule.id)),
+                short: asked,
+                kind: "budget",
+                importance: "constraint",
+                tone: "good",
+                lines: [{ tone: "good", text: `You asked for ${asked}, so Lens set aside ${setAside} of ${total} cars here before ranking the rest.` }],
+                summary: asked,
+            });
+        }
     }
 
     /* -- The rental period ----------------------------------------------- */

@@ -11,7 +11,8 @@ import type { PinnedFinnCar } from "@/lib/types";
 
 import { evidenceMet, measuredDisplay, readEvidence, ruleLabel } from "./evidence";
 import { tellFitStory, type FitStory } from "./fit-story";
-import { runLens } from "./run";
+import { letGo, withDeals } from "./deals";
+import { allowedByRules, runLens } from "./run";
 import { SCENARIOS, type Scenario } from "./scenarios.fixture";
 import { EMPTY_UNDERSTANDING, readUnderstanding, ruledOut, toAnswers, type Translation, type Understanding } from "./understanding";
 
@@ -385,7 +386,7 @@ describe("what someone rules out", () => {
         expect(ruledOut(understanding)).toEqual([]);
     });
 
-    it("ranks everything and says so when no car avoids it", () => {
+    it("ranks everything when no car avoids it, and leaves letting it go to the reader", () => {
         const suvs = cars.filter((car) => /suv/i.test(car.vehicleType));
         const understanding = readUnderstanding(noSuv("essential"), EMPTY_UNDERSTANDING, undefined, "2026-09");
         const translation = toAnswers(base(), understanding);
@@ -393,9 +394,12 @@ describe("what someone rules out", () => {
         const story = tellFitStory(run, understanding, translation.lessRelevant, null);
 
         expect(run.ruledOut?.nothingLeft).toBe(true);
-        expect(story.sections.find((section) => section.key === "ruled-out")?.lines[0]?.text).toMatch(
-            /nothing here matches that, so Lens ranked them all/,
-        );
+        const section = story.sections.find((item) => item.key === "ruled-out")!;
+        expect(section.title).toBe("No car here meets “mustn't be an SUV”");
+        expect(section.lines.map((line) => line.text)).toEqual([
+            `None of the ${suvs.length} cars compared does.`,
+            "Whether to let it go is your call — tell me in the chat and I'll judge again. Until then, this is the best fit for everything else you told me.",
+        ]);
     });
 });
 
@@ -433,14 +437,14 @@ describe("a rule about the car itself", () => {
         );
     });
 
-    it("says so, and ranks everything, when no car here is one", () => {
+    it("says no car here meets it, and ranks everything, when no car here is one", () => {
         const petrol = cars.filter((car) => car.fuelType !== "Electric");
         const understanding = readUnderstanding(wantsElectric, EMPTY_UNDERSTANDING, undefined, "2026-09");
         const run = runLens(petrol, toAnswers(base(), understanding).answers, "page", "page", ruledOut(understanding))!;
 
         expect(run.ruledOut?.nothingLeft).toBe(true);
         expect(tellFitStory(run, understanding, [], null).sections.find((s) => s.key === "ruled-out")?.title).toMatch(
-            /Nothing here is an electric car/,
+            /^No car here meets “must be electric”$/,
         );
     });
 });
@@ -530,5 +534,42 @@ describe("naming a rule in a sentence", () => {
         expect(ruleLabel("rearDoors", "must")).toBe("Must have rear doors");
         expect(ruleLabel("hasIsofix", "must")).toBe("Must have isofix child seat anchors");
         expect(ruleLabel("hasAutomaticTransmission", "must")).toBe("Must be an automatic");
+    });
+});
+
+describe("no car with every deal-breaker", () => {
+    const rules = (u: ReturnType<typeof withDeals>) => ruledOut(u);
+    const page = () => cars.slice(0, 24);
+    const asking = () => withDeals(EMPTY_UNDERSTANDING, ["electric", "automatic", "awd", "doors", "co2"], { electric: "mustNot", automatic: "must", awd: "must", doors: "must", co2: "must" });
+
+    it("says what letting each go would open up, and puts the choice to the reader rather than calling it a failure", () => {
+        const u = asking();
+        const run = runLens(page(), toAnswers(base(), u).answers, "page", "page", rules(u))!;
+        const section = tellFitStory(run, u, [], null).sections.find((item) => item.key === "ruled-out")!;
+        const text = section.lines.map((line) => line.text).join(" ");
+
+        expect(run.ruledOut?.nothingLeft).toBe(true);
+        expect(section.title).toBe("No car here has all of your deal-breakers");
+        expect(section.tone).toBe("note");
+        expect(text).toMatch(/^Of the 24 cars compared, none meets all 5 at once: mustn't be electric, must have an automatic gearbox, must have all-wheel drive, must have rear doors and must be low CO₂ \(class A–C\)\./);
+        expect(text).toMatch(/Which matters least is your call/);
+        expect(text).not.toMatch(/ranked them all|nothing here matches/);
+        for (const item of run.ruledOut!.withoutEach.filter((entry) => entry.fits > 0)) expect(text).toContain(`and ${item.fits} ${item.fits === 1 ? "car fits" : "cars fit"} everything else`);
+    });
+
+    it("counts, for each, the cars that meet every other one", () => {
+        const u = asking();
+        const all = rules(u);
+        const run = runLens(page(), toAnswers(base(), u).answers, "page", "page", all)!;
+
+        for (const item of run.ruledOut!.withoutEach) expect(item.fits).toBe(allowedByRules(page(), all.filter((rule) => rule.id !== item.id)).length);
+    });
+
+    it("turns one let go into a deal-sealer where Lens can weigh it, and simply drops one it can only rule on", () => {
+        const u = letGo(asking(), ["hasAllWheelDrive", "electricCar"]);
+
+        expect(rules(u).map((rule) => rule.id).sort()).toEqual(["hasAutomaticTransmission", "lowCo2", "rearDoors"]);
+        expect(u.needs.find((need) => need.id === "sealer-awd")).toMatchObject({ importance: "essential", evidence: [{ id: "hasAllWheelDrive" }] });
+        expect(u.needs.some((need) => need.id === "sealer-electric")).toBe(false);
     });
 });

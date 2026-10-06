@@ -1,9 +1,9 @@
 import type { CategoryId } from "@/lib/reasoning-engine/types";
 import type { FinnCar } from "@/lib/types";
 
-import { coverage, EVIDENCE, type EvidenceId } from "./evidence";
+import { barePhrase, coverage, EVIDENCE, type EvidenceId } from "./evidence";
 import { applyChoices, explain, guideSteps } from "./guide";
-import type { Need, Understanding } from "./understanding";
+import type { Need, Rule, Understanding } from "./understanding";
 
 /**
  * Deal-breakers and deal-sealers: the few things that decide a car for the
@@ -30,6 +30,8 @@ export interface Deal {
     group: "money" | "energy" | "car";
     /** Behind its "i". */
     description: string;
+    /** The car fact its rule is about: what a "must" or "mustn't" checks. */
+    rule?: EvidenceId;
     /** The rule a "must" sets, by the rules question's id. */
     must?: string;
     /** The rule a "mustn't" sets. */
@@ -50,6 +52,7 @@ export const DEALS: Deal[] = [
     },
     {
         id: "electric",
+        rule: "electricCar",
         phrase: "electric",
         label: "Electric",
         kind: true,
@@ -60,6 +63,7 @@ export const DEALS: Deal[] = [
     },
     {
         id: "co2",
+        rule: "lowCo2",
         phrase: "low CO₂ (class A–C)",
         label: "Low CO₂ (class A–C)",
         kind: true,
@@ -70,6 +74,7 @@ export const DEALS: Deal[] = [
     },
     {
         id: "frugal",
+        rule: "frugal",
         phrase: "frugal for its kind",
         label: "Frugal for its kind",
         kind: true,
@@ -80,6 +85,7 @@ export const DEALS: Deal[] = [
     },
     {
         id: "automatic",
+        rule: "hasAutomaticTransmission",
         phrase: "an automatic gearbox",
         label: "Automatic gearbox",
         kind: false,
@@ -90,6 +96,7 @@ export const DEALS: Deal[] = [
     },
     {
         id: "suv",
+        rule: "suvBody",
         phrase: "an SUV",
         label: "SUV",
         kind: true,
@@ -99,6 +106,7 @@ export const DEALS: Deal[] = [
     },
     {
         id: "doors",
+        rule: "rearDoors",
         phrase: "rear doors",
         label: "Rear doors",
         kind: false,
@@ -109,6 +117,7 @@ export const DEALS: Deal[] = [
     },
     {
         id: "seats",
+        rule: "seatsSixPlus",
         phrase: "six or more seats",
         label: "Six or more seats",
         kind: false,
@@ -119,6 +128,7 @@ export const DEALS: Deal[] = [
     },
     {
         id: "towbar",
+        rule: "hasTowbar",
         phrase: "a towbar",
         label: "Towbar",
         kind: false,
@@ -129,6 +139,7 @@ export const DEALS: Deal[] = [
     },
     {
         id: "awd",
+        rule: "hasAllWheelDrive",
         phrase: "all-wheel drive",
         label: "All-wheel drive",
         kind: false,
@@ -224,4 +235,39 @@ export function withDeals(u: Understanding, offered: string[], states: Record<st
     const mine = new Set(deals.map((deal) => `sealer-${deal.id}`));
 
     return { ...next, needs: [...next.needs.filter((need) => !mine.has(need.id)), ...sealed] };
+}
+
+/** A rule as the deal-breakers question words it: "Must have all-wheel drive", "Mustn't be an SUV". */
+export function demandOf(rule: Pick<Rule, "id" | "mode">): string {
+    const deal = DEALS.find((item) => item.rule === rule.id);
+    const state: DealState = rule.mode === "must" ? "must" : "mustNot";
+
+    return deal ? `${stateLabel(deal, state)} ${deal.phrase}` : `${rule.mode === "must" ? "Must have" : "Mustn't have"} ${barePhrase(rule.id)}`;
+}
+
+/**
+ * Deal-breakers let go of, when no car has them all: each becomes a
+ * deal-sealer where Lens can score it — it still counts as much as anything
+ * can, it just doesn't set cars aside — and is simply no longer a rule
+ * where it can't ("must be electric" is ruled on, never scored). A rule
+ * that came from the reader's own words, with no row of its own, stops
+ * being one too.
+ */
+export function letGo(u: Understanding, rules: EvidenceId[]): Understanding {
+    let next = u;
+
+    for (const id of rules) {
+        const deal = DEALS.find((item) => item.rule === id);
+        if (deal) next = withDeals(next, [deal.id], { [deal.id]: deal.seal ? "seal" : undefined });
+
+        next = {
+            ...next,
+            needs: next.needs.map((need) => ({
+                ...need,
+                evidence: need.evidence.map((entry) => (entry.id === id && (entry.mustHave || entry.unwanted) ? { ...entry, mustHave: false, unwanted: false } : entry)),
+            })),
+        };
+    }
+
+    return next;
 }

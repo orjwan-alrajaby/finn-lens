@@ -39,6 +39,8 @@ export type StepId =
     | "from"
     /** Deal-breakers and deal-sealers: what rules a car out, and what makes it. */
     | "deals"
+    /** No car has every deal-breaker: which would the reader let go of? Asked after the result. */
+    | "letGo"
     | `often-${string}`
     | "budget"
     | "period"

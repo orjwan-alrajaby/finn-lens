@@ -6,6 +6,7 @@ import { assessEnvironment } from "@/lib/reasoning-engine/environmental";
 import { lowerFirst } from "@/lib/reasoning-engine/format";
 import type { NeedImportance } from "@/lib/lens-ai/contract";
 import { bubblesIn } from "@/lib/lens-chat/bubbles";
+import { demandOf } from "@/lib/lens-chat/deals";
 import { FIT_BANDS, type FitLevel } from "@/lib/reasoning-engine/fit";
 import { totalFor } from "@/lib/reasoning-engine/scoring";
 import { asPhrase, EVIDENCE, evidenceMet, measuredDisplay } from "@/lib/lens-chat/evidence";
@@ -245,7 +246,7 @@ export function resultMessage(
     const winner = compareRows(run, 1)[0] ?? null;
 
     const note = run.ruledOut?.nothingLeft
-        ? "Every car here broke one of your rules, so I judged them all as if the rules weren't there."
+        ? `No car here has ${run.ruledOut.evidence.length === 1 ? "what your deal-breaker asks for" : "all of your deal-breakers"}, so what to let go of is your call — I've asked you below. Until then, this is the best fit for everything else you told me.`
         : run.nearestToLimit
           ? `Nothing here fits your budget, so I ranked the cars closest to it — up to about €${run.nearestToLimit.upTo} a month.`
           : summary.note;
@@ -308,5 +309,38 @@ export function judgementFrom(
         pageUrl,
         urls,
         understanding: u,
+    };
+}
+
+/**
+ * When no car has every deal-breaker: which would the reader let go of? Each
+ * with what letting it go opens up — "without it, 3 cars here fit everything
+ * else" — the ones that open up most first. Null when there's no such choice
+ * to make.
+ */
+export function letGoAsk(run: LensRun, id: string, at: string): Extract<ChatMessage, { kind: "ask" }> | null {
+    if (!run.ruledOut?.nothingLeft) return null;
+
+    const rows = [...run.ruledOut.withoutEach].sort((a, b) => b.fits - a.fits);
+
+    return {
+        id,
+        at,
+        from: "lens",
+        kind: "ask",
+        answered: false,
+        step: {
+            id: "letGo",
+            ask: rows.length === 1 ? `No car here meets “${lowerFirst(demandOf(rows[0]!))}” — could you let it go?` : "No car here has all of your deal-breakers — so which matters least to you?",
+            why: "Pick any you could let go of. Each becomes a deal-sealer where I can weigh it: it still counts as much as anything can, it just doesn't rule cars out. I'll judge again straight after.",
+            multiple: true,
+            choices: rows.map((row) => ({
+                id: row.id,
+                label: demandOf(row),
+                said: demandOf(row),
+                description: rows.length === 1 ? "Without it, every car here is back in." : row.fits ? `Without it, ${row.fits} ${row.fits === 1 ? "car" : "cars"} here ${row.fits === 1 ? "fits" : "fit"} everything else.` : "Even without it, no car here fits everything else.",
+            })),
+            none: rows.length === 1 ? "Keep it" : "Keep them all",
+        },
     };
 }

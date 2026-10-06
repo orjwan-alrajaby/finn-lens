@@ -26,7 +26,7 @@ import {
     type OftenId,
 } from "@/lib/lens-chat/bubbles";
 import { asPhrase, barePhrase, EVIDENCE, isKind, type EvidenceId } from "@/lib/lens-chat/evidence";
-import { DEALS, dealForRule, dealsHere, dealStates, stateLabel, withDeals, type DealState } from "@/lib/lens-chat/deals";
+import { DEALS, dealForRule, dealsHere, dealStates, letGo, stateLabel, withDeals, type DealState } from "@/lib/lens-chat/deals";
 import { applyChoices, explain, guideSteps, saidFor, type GuideChoice, type GuideStep } from "@/lib/lens-chat/guide";
 import {
     budgetCeiling,
@@ -1224,7 +1224,8 @@ export function answer(
     if (result.chat === chat || ask?.kind !== "ask") return result;
 
     /* Keeping the answers ends the questions: from a judgement, "Change my answers" is the way back. */
-    if (ask.step.id === "keep" || ask.step.id === "start" || ask.step.id === "intro") return { ...result, chat: { ...result.chat, history: [] } };
+    /* Nor is letting a deal-breaker go: the cars are judged again on it straight away. */
+    if (ask.step.id === "keep" || ask.step.id === "start" || ask.step.id === "intro" || ask.step.id === "letGo") return { ...result, chat: { ...result.chat, history: [] } };
 
     const said = result.chat.messages[chat.messages.length];
     const before: Rewind = {
@@ -1321,6 +1322,35 @@ function answerStep(
     const tapped = picked.length ? picked.map((choice) => choice.said).join(" ") : "";
     const messages = closeAsks(chat.messages);
     const base: Chat = { ...chat, messages, picks: { ...(chat.picks ?? {}), [step.id]: chosen } };
+
+    /* -- No car has every deal-breaker: the ones let go of become sealers, and the cars are judged again -- */
+    if (step.id === "letGo") {
+        if (!picked.length) {
+            return {
+                chat: touch(base, [reader(step.none ? `${step.none}.` : "Keep them all."), lens(`Fine — ${step.choices.length === 1 ? "it stays" : "they all stay"}. The pick above is the best fit for everything else you told me.`)], { phase: "judged" }),
+                after: "wait",
+            };
+        }
+
+        const understanding = syncBubbles(letGo(base.understanding, picked.map((choice) => choice.id as EvidenceId)));
+        /* The first as it reads on its own, the rest lower-case: "“Must have all-wheel drive” and “must have rear doors”". */
+        const sealers = picked.filter((choice) => DEALS.find((deal) => deal.rule === choice.id)?.seal).map((choice, index) => `“${index ? lowerFirst(choice.label) : choice.label}”`);
+        const saved = chat.kept === "settings" ? " That's for this chat — your saved settings stay as they are." : "";
+
+        return {
+            chat: touch(
+                base,
+                [
+                    reader(`I could let go of ${joined(picked.map((choice) => `“${lowerFirst(choice.label)}”`))}.`),
+                    lens(
+                        `${sealers.length ? `${joined(sealers)} ${sealers.length === 1 ? "isn't a deal-breaker now, but it still counts" : "aren't deal-breakers now, but they still count"} as much as anything can. ` : "Done. "}Judging again…${saved}`,
+                    ),
+                ],
+                { understanding, title: titleFor(understanding), phase: "ready" },
+            ),
+            after: "judge",
+        };
+    }
 
     /* -- Read how it works: on to the first question --------------------- */
     if (step.id === "intro") return { chat: askNext(touch(base, [reader(tapped || "Got it — let's start.")]), cars), after: "wait" };
