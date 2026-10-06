@@ -344,6 +344,28 @@ export interface AnswerExtra {
     text?: string;
 }
 
+/**
+ * The question's number in this run of questions: the one after those
+ * answered, so it always agrees with "Answered 2 of 9". Kept on questions
+ * already answered, so scrolling back reads as a numbered list. Nothing for
+ * what isn't one of the questions — how it works, "looks good?".
+ */
+function QuestionNumber({ progress, tone = "light" }: { progress?: { done: number; total: number }; tone?: "light" | "dark" }) {
+    if (!progress) return null;
+
+    return (
+        <span
+            aria-label={`Question ${progress.done + 1}`}
+            className={[
+                "mt-px inline-flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full px-1.5 text-[11px] font-black tabular-nums",
+                tone === "dark" ? "bg-white/20 text-white" : "bg-finn-highlight-navy text-white",
+            ].join(" ")}
+        >
+            {progress.done + 1}
+        </span>
+    );
+}
+
 /** "Answered 2 of 9", with a bar: how far through the questions the reader is. */
 function Progress({ done, total, tone = "light" }: { done: number; total: number; tone?: "light" | "dark" }) {
     return (
@@ -451,7 +473,10 @@ function PinnedQuestion({ message, follow }: { message: Extract<ChatMessage, { k
                 ].join(" ")}
             >
                 <Progress {...message.progress} tone="dark" />
-                <span className="line-clamp-2 text-[12.5px] font-bold leading-snug">{message.step.ask}</span>
+                <span className="flex items-start gap-2">
+                    <QuestionNumber progress={message.progress} tone="dark" />
+                    <span className="line-clamp-2 min-w-0 flex-1 text-[12.5px] font-bold leading-snug">{message.step.ask}</span>
+                </span>
                 {follow ? (
                     <span className="mt-1.5 block space-y-0.5 border-t border-white/15 pt-1.5">
                         {follow.current ? (
@@ -772,8 +797,9 @@ function Deals({ message, live, onAnswer }: { message: Extract<ChatMessage, { ki
         <>
             <LensBubble>
                 {live && message.progress ? <Progress {...message.progress} /> : null}
-                <p data-question={message.id} className="font-semibold">
-                    {step.ask}
+                <p data-question={message.id} className="flex items-start gap-2 font-semibold">
+                    <QuestionNumber progress={message.progress} />
+                    <span className="min-w-0 flex-1">{step.ask}</span>
                 </p>
                 {live && step.why ? <Why text={step.why} /> : null}
                 {live && rows.some((row) => row.suggested) ? <StarKey /> : null}
@@ -970,8 +996,9 @@ function Ask({
             <LensBubble>
                 {/* How it works is read, not answered: plain text, like Lens's other words. */}
                 {live && message.progress ? <Progress {...message.progress} /> : null}
-                <p data-question={message.id} className={step.id === "intro" ? "" : "font-semibold"}>
-                    {step.ask}
+                <p data-question={message.id} className={step.id === "intro" ? "" : "flex items-start gap-2 font-semibold"}>
+                    <QuestionNumber progress={message.progress} />
+                    <span className="min-w-0 flex-1">{step.ask}</span>
                 </p>
                 {live && (step.why ?? step.hint) ? <Why text={(step.why ?? step.hint)!} /> : null}
                 {live && (step.choices.some((choice) => choice.recommended) || Object.values(step.bubbleChips ?? {}).some((chips) => chips.options.some((option) => option.recommended))) ? (

@@ -215,7 +215,7 @@ describe("progress", () => {
         const chat = startChat(null, cars(), TODAY);
         const html = render(chat.messages);
 
-        expect(text(html)).toMatch(/Answered 0 of 9 First, who rides with you\? .*Answered 0 of 9 First, who rides with you\?/);
+        expect(text(html)).toMatch(/Answered 0 of 9 1 First, who rides with you\? .*Answered 0 of 9 1 First, who rides with you\?/);
         /* The pinned copy starts hidden, out of the tab order. */
         expect(html).toMatch(/tabindex="-1" aria-hidden="true"/);
     });
@@ -254,5 +254,17 @@ describe("tooltips", () => {
 
         expect(html).not.toContain('role="note"');
         expect(html).not.toMatch(/ title="/);
+    });
+});
+
+describe("question numbers", () => {
+    it("count up through a chat, kept on the answered ones, and agree with the progress", () => {
+        let chat = startChat(null, cars(), TODAY);
+        for (const picks of [["kids", "kids:baby"], ["city", "city:street"], [], [], ["budget-500"], ["period-12"], [], [], []]) chat = answer(chat, openAsk(chat).id, picks, cars(), TODAY).chat;
+        const html = render(chat.messages);
+        const numbers = [...html.matchAll(/aria-label="Question (\d+)"/g)].map((match) => Number(match[1]));
+
+        /* Four sections, limit, length, from when, fuel, deal-breakers: nine. "How it works" and "looks good?" aren't numbered. */
+        expect(numbers).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9]);
     });
 });
