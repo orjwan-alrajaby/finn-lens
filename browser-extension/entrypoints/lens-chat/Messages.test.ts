@@ -148,8 +148,12 @@ describe("the result", () => {
             ),
         );
 
-        expect(words).toContain("What decided it");
-        expect(words).toContain("Because you said… You have kids — top priority → Practicality");
+        /* Only what it got right: what it has for each thing said, and how that was weighed — no gaps, no trade-offs. */
+        const seeWhy = words.slice(words.indexOf("What it got right"));
+        expect(seeWhy).toMatch(/^What it got right You live in the city → 4\.18 m long, reversing camera You have kids → rear doors Because you said… You have kids — top priority → Practicality/);
+        expect(seeWhy).not.toContain("What you'd give up");
+        expect(seeWhy).not.toContain("What decided it");
+        expect(seeWhy).not.toContain("€44/month more");
         expect(words).toContain("Next closest");
         expect(words).toContain("Keep it short");
     });

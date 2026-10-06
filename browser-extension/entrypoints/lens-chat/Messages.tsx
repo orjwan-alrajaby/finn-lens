@@ -1527,7 +1527,8 @@ function Result({
 }) {
     const { winner } = message;
     const [open, setOpen] = useState(long);
-    const why = message.why ?? [];
+    /* Only what the car has: a thing said that it has nothing for isn't a reason it won. */
+    const why = (message.why ?? []).filter((line) => line.has.length > 0);
     const reasons = message.reasons ?? (message.reason ? [message.reason] : []);
     const tradeoffs = message.tradeoffs ?? [];
     /* One thing to know: a limit note first — it changes what the pick means — else the biggest trade-off. */
@@ -1580,29 +1581,24 @@ function Result({
                     ) : null}
 
                     {open ? (
+                        /*
+                         * Only what the car got right: everything it has for each thing the
+                         * reader said, and how what they said was weighed. What it lacks, and
+                         * what choosing it gives up, is for "The whole case" — not here.
+                         */
                         <div className="mt-3 space-y-3 border-t border-[#f5d78a]/60 pt-3">
-                            {reasons.length || (message.note && message.note !== know) ? (
+                            {why.length ? (
                                 <div>
-                                    <p className="text-[10.5px] font-black uppercase tracking-wide text-finn-iron">What decided it</p>
-                                    {message.note && message.note !== know ? <p className="mt-1 text-[12px] leading-snug text-finn-iron">{message.note}</p> : null}
-                                    <ul className="mt-1 space-y-1">
-                                        {reasons.map((reason) => (
-                                            <li key={reason} className="flex gap-2 text-[12.5px] leading-snug text-finn-black">
-                                                <Check aria-hidden="true" className="mt-0.5 h-3.5 w-3.5 shrink-0 text-finn-fit-good" strokeWidth={3} />
-                                                <span>{reason}</span>
-                                            </li>
-                                        ))}
-                                    </ul>
-                                </div>
-                            ) : null}
-
-                            {tradeoffs.length ? (
-                                <div>
-                                    <p className="text-[10.5px] font-black uppercase tracking-wide text-finn-iron">What you'd give up</p>
+                                    <p className="text-[10.5px] font-black uppercase tracking-wide text-finn-iron">What it got right</p>
                                     <ul className="mt-1 space-y-1.5">
-                                        {tradeoffs.map((tradeoff) => (
-                                            <li key={tradeoff.headline} className="text-[12px] leading-snug text-finn-black">
-                                                <span className="font-bold">{tradeoff.headline}.</span> {tradeoff.text}
+                                        {why.map((line) => (
+                                            <li key={line.said} className="flex gap-2 text-[12.5px] leading-snug text-finn-black">
+                                                <Check aria-hidden="true" className="mt-0.5 h-3.5 w-3.5 shrink-0 text-finn-fit-good" strokeWidth={3} />
+                                                <span>
+                                                    <span className="font-bold">{line.said}</span>
+                                                    <span className="text-finn-iron"> → </span>
+                                                    {line.has.join(", ")}
+                                                </span>
                                             </li>
                                         ))}
                                     </ul>
