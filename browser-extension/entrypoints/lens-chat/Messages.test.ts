@@ -162,8 +162,8 @@ describe("deal-breakers and deal-sealers", () => {
         const words = text(html);
 
         expect(words).toContain("Any deal-breakers or deal-sealers?");
-        expect(words).toContain("Electric Doesn't matter Hard line Not electric Doesn't matter Hard line");
-        expect(words).toContain("Towbar Doesn't matter Flexible Hard line");
+        expect(words).toContain("Electric Doesn't matter Must be Mustn't be");
+        expect(words).toContain("Towbar Doesn't matter Must have Seals it");
         expect(html).toContain('title="A deal-sealer: counts as a top priority, but a car without it can still win');
         expect(html).toContain('title="A deal-breaker: any car without it is set aside before I score anything."');
         expect(html).toContain("aria-label=\"What “Towbar” means\"");

@@ -91,8 +91,6 @@ export interface DealRow {
     options: ("must" | "mustNot" | "seal")[];
     /** Why it's first: "Suggested because you carry a lot." */
     suggested?: string;
-    /** A row that can't be a hard line beside this one: "Electric" and "Not electric". */
-    rival?: string;
 }
 
 /** The chips a bubble opens under itself: "Where do you park most often?". */

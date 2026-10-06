@@ -550,10 +550,10 @@ const RULES: GuideChoice[] = [
     { id: "four-doors", label: "Four doors or more", said: "It needs four doors or more.", rule: { id: "rearDoors", mode: "must", label: "Rear doors" } },
     {
         id: "low-co2",
-        label: "Low CO₂ only (class A–C)",
-        said: "Only cars with low CO₂ — class A to C.",
+        label: "Low CO₂ emissions only",
+        said: "Only cars with low CO₂ emissions.",
         description: "Only cars whose official CO₂ figure puts them in class A, B or C on the German CO₂ label: 115 g/km or less. Every electric car is class A.",
-        rule: { id: "lowCo2", mode: "must", label: "CO₂ class A to C" },
+        rule: { id: "lowCo2", mode: "must", label: "Low CO₂ emissions" },
     },
     {
         id: "frugal",

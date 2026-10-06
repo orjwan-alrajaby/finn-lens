@@ -461,7 +461,7 @@ export const BUBBLES: Bubble[] = [
                     label: "Moderately green",
                     detail: "moderately green",
                     description:
-                        "Low CO₂ on the label: plug-in hybrids are usually here, class A or B, as are the odd very frugal hybrid. I judge each car on its CO₂ class, and suggest “low CO₂ (class A–C)” as a deal-breaker. A plug-in's figure assumes it's charged regularly.",
+                        "Low CO₂ on the label: plug-in hybrids are usually here, class A or B, as are the odd very frugal hybrid. I judge each car on its CO₂ class, and suggest “low CO₂ emissions” (class A to C) as a deal-breaker. A plug-in's figure assumes it's charged regularly.",
                     figures: ["environmental"],
                     suggests: "low-co2",
                 },

@@ -378,7 +378,7 @@ Changed after trying it again (5 October 2026):
 - **One scale for how much something counts** (6 October 2026): *Top priority · Important · Nice to have* (4 · 2 · 1, unchanged) replaces *Must have · Matters · Nice to have* and the CO₂ question's "a big part / as much as the rest / a small part". Each says what it means — Top priority counts twice as much as Important, Important twice as much as Nice to have — and a deal-sealer counts as a top priority. "Must have" now only ever means a deal-breaker, which rules cars out; none of the levels does.
 
 - **How green, not how much** (6 October 2026): the environment asks "How green should the car be?" — *Clean for its fuel type* (judged on consumption against cars on the same fuel, so a frugal petrol scores well; suggests nothing), *Moderately green* (the CO₂ label, where plug-in hybrids usually sit; suggests low CO₂ as a deal-breaker) or *Totally green* (the CO₂ label as a top priority, where electric is 0 g/km on the road; suggests electric as a deal-breaker). How much it counts is the one scale on the summary.
-- **Flexible or Hard line** for every deal row, instead of "Must be / Mustn't be / Seals it": Hard line is a deal-breaker, Flexible a deal-sealer. "Electric" and "Not electric" are separate rows, and can't both be held.
+- **Deal rows keep Must be / Must have / Mustn't be / Seals it** (tried as "Flexible / Hard line" and reverted the same day), each option's meaning on hover; a row Lens can only rule on says it can't seal the deal. "Low CO₂ (class A–C)" is called **Low CO₂ emissions**, with the class in its "i".
 
 Two things the spec promised needed engine or flow changes to be true:
 

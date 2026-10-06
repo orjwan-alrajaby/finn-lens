@@ -8,7 +8,7 @@ import { fleet } from "@/lib/reasoning-engine/test-data/fleet";
 
 import { chatAnswers, judgementFrom, judgeWith, letGoAsk, resultMessage } from "./judge";
 import { withBubbles } from "@/lib/lens-chat/bubbles";
-import { withDeals } from "@/lib/lens-chat/deals";
+import { DEAL_MEANS, withDeals } from "@/lib/lens-chat/deals";
 import { IMPORTANCE, IMPORTANCE_LABEL as LEVEL_LABEL } from "@/lib/lens-chat/importance";
 import { addMonths } from "@/lib/reasoning-engine/contract";
 import { CATEGORIES } from "@/lib/reasoning-engine/constants";
@@ -299,24 +299,23 @@ describe("deal-breakers and deal-sealers", () => {
     it("offers only what each row can do: a rule where it splits the cars, a seal where Lens can score it", () => {
         const chat = toDeals(["dog"]);
 
-        /* Softest first. Electric is two rows, each a want; what Lens can only rule on is a hard line or nothing, and says so. */
-        expect(row(chat, "electric")).toMatchObject({ label: "Electric", options: ["must"], rival: "not-electric" });
-        expect(row(chat, "not-electric")).toMatchObject({ label: "Not electric", options: ["mustNot"], rival: "electric" });
-        expect(row(chat, "suv")).toMatchObject({ label: "Not an SUV", options: ["mustNot"] });
-        expect(row(chat, "suv")?.description).toMatch(/I can only rule on this, not weigh it — so it's a hard line or nothing\.$/);
-        expect(row(chat, "automatic")?.options).toEqual(["seal", "must"]);
-        expect(row(chat, "co2")?.options).toEqual(["seal", "must"]);
+        /* What Lens can only rule on can't seal the deal, and says so. */
+        expect(row(chat, "electric")).toMatchObject({ label: "Electric", options: ["must", "mustNot"] });
+        expect(row(chat, "suv")).toMatchObject({ label: "SUV", options: ["mustNot"] });
+        expect(row(chat, "suv")?.description).toMatch(/I can only rule on this, not weigh it — so it can't seal the deal\.$/);
+        expect(row(chat, "automatic")?.options).toEqual(["must", "seal"]);
+        expect(row(chat, "co2")).toMatchObject({ label: "Low CO₂ emissions", options: ["must", "seal"] });
     });
 
     it("sets cars aside for a deal-breaker, and counts a deal-sealer as a top priority without setting any aside", () => {
         const chat = toDeals(["dog"]);
-        const done = answer(chat, openAsk(chat)!.id, ["not-electric=mustNot", "towbar=seal"], page(), TODAY).chat;
+        const done = answer(chat, openAsk(chat)!.id, ["electric=mustNot", "towbar=seal"], page(), TODAY).chat;
         const said = done.messages.filter((message) => message.kind === "text" && message.from === "reader").at(-1);
 
         expect(ruledOut(done.understanding).map((rule) => [rule.id, rule.mode])).toEqual([["electricCar", "without"]]);
         expect(done.understanding.needs.find((need) => need.id === "sealer-towbar")).toMatchObject({ importance: "essential", evidence: [{ id: "hasTowbar" }] });
         expect(chatAnswers(done.understanding).answers.features.practicality).toContainEqual(expect.objectContaining({ key: "hasTowbar", importance: "high" }));
-        expect(said).toMatchObject({ text: "It mustn't be electric — that's a hard line. I'd like a towbar, but I'm flexible." });
+        expect(said).toMatchObject({ text: "It mustn't be electric. A towbar would seal it." });
         expect(texts(done).at(-2)).toBe("Noted. Before judging, I'll set aside any electric car. A towbar will count as a top priority.");
         expect(lastSummary(done).lines.filter((line) => line.step === "deals").map((line) => line.value)).toEqual(["No electric car", "A towbar"]);
     });
@@ -633,7 +632,7 @@ describe("answers that can't all be true", () => {
 
     it("doesn't suggest a heat pump to someone who won't go electric", () => {
         const page = fleet().sort((a, b) => a.id - b.id).slice(0, 24);
-        const chat = walk(startChat(null, page, TODAY), { bubbles: ["weather", "weather:snow"], deals: ["not-electric=mustNot"] }, page);
+        const chat = walk(startChat(null, page, TODAY), { bubbles: ["weather", "weather:snow"], deals: ["electric=mustNot"] }, page);
         const electric = walk(startChat(null, page, TODAY), { bubbles: ["weather", "weather:snow"] }, page);
 
         expect(block(chat, "weather")!.worth.map((item) => item.id)).not.toContain("hasHeatPump");
@@ -887,7 +886,7 @@ describe("“This doesn't look right”", () => {
 describe("letting a deal-breaker go, when no car has them all", () => {
     const page = () => fleet().sort((a, b) => a.id - b.id).slice(0, 24);
     const strict = () => {
-        const u = withDeals(withBubbles(EMPTY_UNDERSTANDING, { dog: [] }), ["not-electric", "automatic", "awd", "doors", "co2"], { "not-electric": "mustNot", automatic: "must", awd: "must", doors: "must", co2: "must" });
+        const u = withDeals(withBubbles(EMPTY_UNDERSTANDING, { dog: [] }), ["electric", "automatic", "awd", "doors", "co2"], { electric: "mustNot", automatic: "must", awd: "must", doors: "must", co2: "must" });
         return { ...startChat(null, page(), TODAY), understanding: u, queue: [], phase: "judged" as const };
     };
     const ask = (chat: Chat) => {
@@ -955,7 +954,7 @@ describe("one scale for how much something counts", () => {
     });
 });
 
-describe("hard line or flexible", () => {
+describe("must, mustn't, or seals it", () => {
     const page = () => fleet().sort((a, b) => a.id - b.id).slice(0, 24);
 
     it("says each back in the reader's words", () => {
@@ -964,17 +963,19 @@ describe("hard line or flexible", () => {
         const ask = openAsk(chat)!;
         expect(ask.step.id).toBe("deals");
 
-        const done = answer(chat, ask.id, ["automatic=must", "towbar=seal"], page(), TODAY).chat;
+        const done = answer(chat, ask.id, ["automatic=must", "co2=seal"], page(), TODAY).chat;
         const said = done.messages.filter((message) => message.kind === "text" && message.from === "reader").at(-1);
 
-        expect(said).toMatchObject({ text: "It must have an automatic gearbox — that's a hard line. I'd like a towbar, but I'm flexible." });
+        expect(said).toMatchObject({ text: "It must have an automatic gearbox. Low CO₂ emissions would seal it." });
+        expect(lastSummary(walk(done, {}, page())).lines.find((line) => line.label === "Deal-sealers")?.value).toBe("Low CO₂ emissions");
     });
 
-    it("never holds “Electric” and “Not electric” together: the later one stands", () => {
-        let chat = walk(startChat(null, page(), TODAY), { bubbles: ["dog"] }, page());
-        chat = rewind(chat);
-
-        const done = answer(chat, openAsk(chat)!.id, ["electric=must", "not-electric=mustNot"], page(), TODAY).chat;
-        expect(ruledOut(done.understanding).map((rule) => [rule.id, rule.mode])).toEqual([["electricCar", "without"]]);
+    it("says what each option means on hover", () => {
+        expect(DEAL_MEANS).toEqual({
+            must: "A deal-breaker: any car without it is set aside before I score anything.",
+            mustNot: "A deal-breaker: any car that is one is set aside before I score anything.",
+            seal: "A deal-sealer: counts as a top priority, but a car without it can still win if it's clearly better at everything else.",
+        });
     });
 });
+

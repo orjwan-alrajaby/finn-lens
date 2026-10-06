@@ -139,7 +139,7 @@ export const EVIDENCE: Record<EvidenceId, EvidenceDef> = {
      */
     lowCo2: {
         id: "lowCo2",
-        label: "CO₂ class A to C",
+        label: "Low CO₂ emissions",
         explanation:
             "Whether the car's official CO₂ figure puts it in class A, B or C on the German CO₂ label (Pkw-EnVKV): 115 g/km or less. An electric car is class A. A plug-in hybrid's figure assumes it's charged often.",
         scoredIn: null,
@@ -314,7 +314,7 @@ const PHRASES: Partial<Record<EvidenceId, string>> = {
     suvBody: "an SUV",
     seatsSixPlus: "a six-seater or bigger",
     driverAssistLevel2: "Level 2 driver assistance",
-    lowCo2: "in CO₂ class A to C",
+    lowCo2: "low CO₂ emissions",
     frugal: "frugal for its kind",
     hasTowbar: "a towbar",
 };
@@ -327,7 +327,8 @@ export const asPhrase = (id: EvidenceId): string => {
 };
 
 /** Evidence that describes what kind of car it is, rather than what it carries. */
-const KINDS = new Set<EvidenceId>(["electricCar", "suvBody", "seatsSixPlus", "seatsFivePlus", "hasAutomaticTransmission", "lowCo2", "frugal"]);
+/* Low CO₂ emissions are had, not been: "any car without low CO₂ emissions". */
+const KINDS = new Set<EvidenceId>(["electricCar", "suvBody", "seatsSixPlus", "seatsFivePlus", "hasAutomaticTransmission", "frugal"]);
 
 export const isKind = (id: EvidenceId): boolean => KINDS.has(id);
 

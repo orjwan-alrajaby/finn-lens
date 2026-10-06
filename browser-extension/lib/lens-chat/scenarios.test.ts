@@ -540,7 +540,7 @@ describe("naming a rule in a sentence", () => {
 describe("no car with every deal-breaker", () => {
     const rules = (u: ReturnType<typeof withDeals>) => ruledOut(u);
     const page = () => cars.slice(0, 24);
-    const asking = () => withDeals(EMPTY_UNDERSTANDING, ["not-electric", "automatic", "awd", "doors", "co2"], { "not-electric": "mustNot", automatic: "must", awd: "must", doors: "must", co2: "must" });
+    const asking = () => withDeals(EMPTY_UNDERSTANDING, ["electric", "automatic", "awd", "doors", "co2"], { electric: "mustNot", automatic: "must", awd: "must", doors: "must", co2: "must" });
 
     it("says what letting each go would open up, and puts the choice to the reader rather than calling it a failure", () => {
         const u = asking();
@@ -551,7 +551,7 @@ describe("no car with every deal-breaker", () => {
         expect(run.ruledOut?.nothingLeft).toBe(true);
         expect(section.title).toBe("No car here has all of your deal-breakers");
         expect(section.tone).toBe("note");
-        expect(text).toMatch(/^Of the 24 cars compared, none meets all 5 at once: mustn't be electric, must have an automatic gearbox, must have all-wheel drive, must have rear doors and must be low CO₂ \(class A–C\)\./);
+        expect(text).toMatch(/^Of the 24 cars compared, none meets all 5 at once: mustn't be electric, must have an automatic gearbox, must have all-wheel drive, must have rear doors and must have low CO₂ emissions\./);
         expect(text).toMatch(/Which matters least is your call/);
         expect(text).not.toMatch(/ranked them all|nothing here matches/);
         for (const item of run.ruledOut!.withoutEach.filter((entry) => entry.fits > 0)) expect(text).toContain(`and ${item.fits} ${item.fits === 1 ? "car fits" : "cars fit"} everything else`);
