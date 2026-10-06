@@ -63,12 +63,12 @@ describe("the winner's drawer", () => {
         expect(folded(html)).not.toContain("What it costs");
     });
 
-    it("weighs it in the open: what was said, each priority's share, and each raised item's level", () => {
-        const words = text(renderToStaticMarkup(createElement(WinnerView, { value: winner() })));
+    it("weighs it in the reader's terms: what they said, how much each counted, what Lens looked at — no engine categories or percentages", () => {
+        const words = text(renderToStaticMarkup(createElement(WinnerView, { value: winner(), print: true })));
+        const weighed = words.slice(words.indexOf("How I weighed it"));
 
-        expect(words).toContain("You have kids · a baby or toddler seat — top priority");
-        expect(words).toMatch(/Practicality counts \d+%/);
-        expect(words).toMatch(/Rear doors Highly/);
+        expect(weighed).toMatch(/What counted, strongest first\. The bar is each one's part of the decision\. You have kids · a baby or toddler seat Top priority Looked at: Rear doors/);
+        expect(weighed).not.toMatch(/counts \d+%|\b(Highly|Moderately|Somewhat)\b|Practicality|Climate Suitability/);
     });
 
     it("has everything open in the PDF", () => {

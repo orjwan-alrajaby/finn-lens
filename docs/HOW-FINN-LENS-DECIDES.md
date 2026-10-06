@@ -541,6 +541,11 @@ either car, since any could be the deciding one.
   the car has nothing for isn't listed as a reason it won.
 - **The whole case** (the drawer, fit-story.ts): per need, what the car has and lacks, measurements against
   the scale, CO₂ and efficiency, the cost table with its sources, the rental fit.
+- **How I weighed it** (the winner's drawer, `weighingOf`, lib/chats/weighing.ts): in the reader's own terms
+  only — each thing they said, strongest first, with its importance on the one scale, a bar for its part of the
+  decision (its 4 / 2 / 1 weight over all of them; no percentages), and what Lens looked at for it; deal-sealers
+  as top priorities; then what set cars aside, and the money and dates. Not the engine's priority categories,
+  their percentages, or the item-level "Highly / Somewhat" scale.
 - **Chips on finn.com**: each judged car's band; the winner's in gold.
 - **Sources**: every figure or rule that isn't FINN's is named and linked where it's said — in the chat's
   "i" tooltips (which wait a moment before closing so a link can be clicked), under the drawer's story and

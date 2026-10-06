@@ -4,13 +4,12 @@ import { ChevronRight, Scale, Trophy } from "lucide-react";
 import { BandChip, CarPhoto, euros } from "@/components/lens-parts";
 import { configurationName } from "@/lib/car-labels";
 import { IMPORTANCE_LABEL, summaryOf } from "@/lib/chats/flow";
+import { weighingOf, type Weighing } from "@/lib/chats/weighing";
 import { requestOpenDrawer } from "@/lib/chats/bridge";
 
 import { sameJudgement } from "./useJudgedCar";
 import { alternativesWithinLimits } from "@/lib/lens-chat/run";
 import { whyNot } from "@/lib/lens-chat/why-not";
-import { FEATURE_IMPORTANCE, SIGNALS } from "@/lib/reasoning-engine/constants";
-import type { PriorityStanding } from "@/lib/reasoning-engine/narrative/types";
 
 import { Catch, CostTable, Section, StoryList, UsageSection } from "./parts";
 import type { JudgedCar } from "./useJudgedCar";
@@ -28,13 +27,6 @@ import type { JudgedCar } from "./useJudgedCar";
  * without the buttons that only mean something on screen.
  */
 
-const STANDING: Record<PriorityStanding, { label: string; tone: string }> = {
-    leads: { label: "Best here", tone: "bg-finn-fit-good-pale text-finn-fit-good" },
-    levelWithLeader: { label: "Level with the best", tone: "bg-finn-fit-good-pale text-finn-fit-good" },
-    closeToLeader: { label: "Close to the best", tone: "bg-finn-fit-strong-pale text-finn-fit-strong" },
-    behindLeader: { label: "Behind the best here", tone: "bg-finn-fit-partial-pale text-finn-fit-partial" },
-    unsupported: { label: "Not enough data", tone: "bg-finn-cotton text-finn-iron" },
-};
 
 export function WinnerView({ value, print = false }: { value: JudgedCar; print?: boolean }) {
     const { car, judged, judgement, story, cost, chat } = value;
@@ -48,6 +40,7 @@ export function WinnerView({ value, print = false }: { value: JudgedCar; print?:
     );
 
     const told = useMemo(() => summaryOf(judgement.understanding), [judgement.understanding]);
+    const weighing = useMemo(() => weighingOf(judgement.understanding, told), [judgement.understanding, told]);
     const notes = [verdict.budgetNote, verdict.marginNote, verdict.dependsNote].filter((note): note is string => Boolean(note));
 
     return (
@@ -178,68 +171,9 @@ export function WinnerView({ value, print = false }: { value: JudgedCar; print?:
                 </Section>
             ) : null}
 
-            {/* -- How I weighed it: what was said, each priority's share, and what counted more in it -- */}
+            {/* -- How I weighed it: what you said, how much each counted, what set cars aside, money & time -- */}
             <Section title="How I weighed it" folded={!print}>
-                {told.bubbles?.length ? (
-                    <ul className="mb-3 space-y-1">
-                        {told.bubbles.map((bubble) => (
-                            <li key={bubble.id} className="text-[12.5px]">
-                                <span className="font-black text-finn-black">{bubble.heading}</span>
-                                <span className="text-finn-iron"> — {IMPORTANCE_LABEL[bubble.importance].toLowerCase()}</span>
-                            </li>
-                        ))}
-                    </ul>
-                ) : null}
-                {told.needs?.length ? (
-                    <ul className="mb-3 space-y-1">
-                        {told.needs.map((need) => (
-                            <li key={need.id} className="text-[12.5px]">
-                                <span className="font-black text-finn-black">{need.label}</span>
-                                <span className="text-finn-iron"> — {IMPORTANCE_LABEL[need.importance].toLowerCase()}</span>
-                            </li>
-                        ))}
-                    </ul>
-                ) : null}
-                {narrative.priorities.length ? (
-                    <ul className="space-y-2.5">
-                        {narrative.priorities.map((priority) => {
-                            const raised = judged.translation.answers.features[priority.priority] ?? [];
-
-                            return (
-                                <li key={priority.priority} className="rounded-xl p-3 ring-1 ring-finn-cotton">
-                                    <div className="flex items-center gap-2">
-                                        <span className="text-[13px] font-black text-finn-black">{priority.label}</span>
-                                        <span className="text-[11px] font-bold tabular-nums text-finn-iron">counts {priority.weightPercent}%</span>
-                                        <span className={`ml-auto rounded-full px-2 py-0.5 text-[10.5px] font-black ${STANDING[priority.standing].tone}`}>{STANDING[priority.standing].label}</span>
-                                    </div>
-                                    {raised.length ? (
-                                        <p className="mt-1 text-[11.5px] leading-snug text-finn-iron">
-                                            {raised.map((item, index) => (
-                                                <span key={item.key}>
-                                                    {index ? " · " : ""}
-                                                    {SIGNALS[item.key].label} <span className={`font-black ${FEATURE_IMPORTANCE[item.importance].accentTextClass}`}>{FEATURE_IMPORTANCE[item.importance].label}</span>
-                                                </span>
-                                            ))}
-                                        </p>
-                                    ) : null}
-                                    <div className="mt-1.5 space-y-1 text-[12.5px] leading-snug text-finn-black">
-                                        {priority.sentences.map((sentence) => (
-                                            <p key={sentence}>{sentence}</p>
-                                        ))}
-                                    </div>
-                                </li>
-                            );
-                        })}
-                    </ul>
-                ) : null}
-                <dl className="mt-3 space-y-1.5">
-                    {told.lines.map((line) => (
-                        <div key={line.label} className="grid grid-cols-[112px_1fr] gap-3 text-[12.5px]">
-                            <dt className="font-bold text-finn-iron">{line.label}</dt>
-                            <dd className="text-finn-black">{line.value}</dd>
-                        </div>
-                    ))}
-                </dl>
+                <Weighed weighing={weighing} />
             </Section>
 
             <UsageSection value={value} folded={!print} title="Costs of use" />
@@ -259,5 +193,67 @@ export function WinnerView({ value, print = false }: { value: JudgedCar; print?:
                 </p>
             ) : null}
         </article>
+    );
+}
+
+/**
+ * How the pick was weighed, in the reader's terms: each thing they said,
+ * strongest first, with how much it counted, its share of the decision as a
+ * bar, and what Lens looked at for it; then what set cars aside, and the
+ * money and dates. One scale — the one they set — and no percentages.
+ */
+function Weighed({ weighing }: { weighing: Weighing }) {
+    const widest = Math.max(...weighing.needs.map((need) => need.share), 0);
+
+    return (
+        <div className="space-y-4">
+            {weighing.needs.length ? (
+                <div>
+                    <p className="mb-2 text-[12px] leading-snug text-finn-iron">What counted, strongest first. The bar is each one's part of the decision.</p>
+                    <ul className="space-y-2.5">
+                        {weighing.needs.map((need) => (
+                            <li key={need.id}>
+                                <div className="flex items-baseline justify-between gap-2">
+                                    <p className="min-w-0 text-[12.5px] font-bold leading-snug text-finn-black">{need.label}</p>
+                                    <span className="shrink-0 rounded-full bg-finn-pale-blue px-2 py-0.5 text-[10.5px] font-black text-finn-accent-blue">{IMPORTANCE_LABEL[need.importance]}</span>
+                                </div>
+                                <span aria-hidden="true" className="mt-1 block h-1.5 overflow-hidden rounded-full bg-finn-cotton">
+                                    <span className="block h-full rounded-full bg-finn-accent-blue" style={{ width: `${widest ? Math.max(6, (need.share / widest) * 100) : 0}%` }} />
+                                </span>
+                                {need.looksAt.length ? <p className="mt-1 text-[11.5px] leading-snug text-finn-iron">Looked at: {need.looksAt.join(" · ")}</p> : null}
+                            </li>
+                        ))}
+                    </ul>
+                </div>
+            ) : null}
+
+            {weighing.setAside.length ? (
+                <div>
+                    <p className="mb-1 text-[11px] font-black uppercase tracking-wide text-finn-iron">Set aside before weighing</p>
+                    <dl className="space-y-1">
+                        {weighing.setAside.map((line) => (
+                            <div key={line.label} className="grid grid-cols-[112px_1fr] gap-3 text-[12.5px]">
+                                <dt className="font-bold text-finn-iron">{line.label}</dt>
+                                <dd className="text-finn-black">{line.value}</dd>
+                            </div>
+                        ))}
+                    </dl>
+                </div>
+            ) : null}
+
+            {weighing.terms.length ? (
+                <div>
+                    <p className="mb-1 text-[11px] font-black uppercase tracking-wide text-finn-iron">Money & time</p>
+                    <dl className="space-y-1">
+                        {weighing.terms.map((line) => (
+                            <div key={line.label} className="grid grid-cols-[112px_1fr] gap-3 text-[12.5px]">
+                                <dt className="font-bold text-finn-iron">{line.label}</dt>
+                                <dd className="text-finn-black">{line.value}</dd>
+                            </div>
+                        ))}
+                    </dl>
+                </div>
+            ) : null}
+        </div>
     );
 }
