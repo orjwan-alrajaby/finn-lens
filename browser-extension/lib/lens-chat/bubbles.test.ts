@@ -79,9 +79,17 @@ describe("what a bubble counts", () => {
         expect(itemsOf(bubble("weather"), state({ chips: ["snow"] })).worth).toContain("hasAllWheelDrive");
     });
 
-    it("can't be snow and ice and mostly dry at once", () => {
-        const u = withBubbles(EMPTY_UNDERSTANDING, { weather: ["snow", "cold"] });
-        expect(u.bubbles?.weather?.chips).toEqual(["snow"]);
+    it("takes cold winters with rain, and counts the cold for snow without it", () => {
+        const wetAndCold = withBubbles(EMPTY_UNDERSTANDING, { weather: ["wet", "cold"] });
+        expect(wetAndCold.bubbles?.weather?.chips).toEqual(["wet", "cold"]);
+        expect(itemsOf(bubble("weather"), state({ chips: ["wet", "cold"] })).counts).toEqual(
+            expect.arrayContaining(["hasRainSlashLightSensors", "hasFogLights", "hasHeatedSeats", "hasHeatedSteeringWheel"]),
+        );
+
+        /* Snow can't come without cold: its own items cover it. Rain alone counts no warmth. */
+        expect(itemsOf(bubble("weather"), state({ chips: ["snow"] })).counts).toEqual(expect.arrayContaining(["hasHeatedSeats", "hasHeatedSteeringWheel"]));
+        expect(itemsOf(bubble("weather"), state({ chips: ["wet"] })).counts).not.toContain("hasHeatedSeats");
+        expect(bubble("weather").chips!.exclusive).toBeUndefined();
     });
 
     it("a garage makes width count one step more", () => {

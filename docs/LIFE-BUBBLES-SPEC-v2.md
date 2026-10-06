@@ -365,7 +365,7 @@ Changed after trying it (5 October 2026):
 - **A budget:** "A hard limit: nothing over it" (cars over it set aside) or "Some give: a little over is fine" (up to about 15% over still counts — the engine's own soft limit). The limit question is "all costs together", and says what that is.
 - **From when:** after how long — the soonest (next month) and the three after, or later.
 - **Deal-breakers in sections:** from what you told me, money, fuel & emissions, the car itself.
-- **Contradictions ruled out:** mostly dry weather beside rain or snow, "no fixed limit" after "I'm on a budget", a few hundred km a month after long drives every day, an item counted twice, a heat pump suggested to someone who won't go electric.
+- **Contradictions ruled out:** ~~mostly dry weather beside rain or snow~~ (since 7 October 2026 "Cold & dry" is **Cold winters**, wet or dry, and combines with rain; snow counts the cold itself), "no fixed limit" after "I'm on a budget", a few hundred km a month after long drives every day, an item counted twice, a heat pump suggested to someone who won't go electric.
 
 Changed after trying it again (5 October 2026):
 

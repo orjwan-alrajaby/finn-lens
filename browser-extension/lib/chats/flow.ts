@@ -504,8 +504,8 @@ function fromStep(u: Understanding): ChatStep | null {
 
 /**
  * What "Select all" picks under a bubble: every chip that can be true at
- * once, in order — "Cold but mostly dry" can't join snow or rain, so it's
- * left out. Null where it isn't offered: one answer only, a limit on how
+ * once, in order — a chip that can't be true beside an earlier one is left
+ * out. Null where it isn't offered: one answer only, a limit on how
  * many, or too few chips to bother.
  */
 export function allChips(chips: BubbleChips): string[] | null {

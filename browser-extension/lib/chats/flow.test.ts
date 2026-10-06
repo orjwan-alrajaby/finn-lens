@@ -171,19 +171,19 @@ describe("the bubbles", () => {
         const step = bubbles();
 
         expect(step.bubbleChips?.weather).toMatchObject({ ask: "What's it like?", required: true, multiple: true });
-        expect(step.bubbleChips?.weather?.options.map((option) => option.label)).toEqual(["Snow & ice", "Rain & fog", "Cold & dry", "Hot summers"]);
+        expect(step.bubbleChips?.weather?.options.map((option) => option.label)).toEqual(["Snow & ice", "Rain & fog", "Cold winters", "Hot summers"]);
         expect(step.bubbleChips?.city).toMatchObject({ ask: "Where do you park most often?", max: 2, required: false });
         expect(step.choices.find((choice) => choice.id === "help")?.label).toBe("Help driving & parking");
 
         for (const choice of step.choices) expect(choice.said).not.toMatch(/&/);
     });
 
-    it("keep the chips a bubble allows: one child seat, two places parked, never snow and dry together", () => {
+    it("keep the chips a bubble allows: one child seat, two places parked, any weathers together", () => {
         const next = throughBubbles(startChat(null, cars(), TODAY), ["kids", "kids:baby", "kids:older", "city", "city:street", "city:garage", "city:open", "weather", "weather:snow", "weather:cold"]);
 
         expect(next.understanding.bubbles?.kids?.chips).toEqual(["baby"]);
         expect(next.understanding.bubbles?.city?.chips).toEqual(["street", "garage"]);
-        expect(next.understanding.bubbles?.weather?.chips).toEqual(["snow"]);
+        expect(next.understanding.bubbles?.weather?.chips).toEqual(["snow", "cold"]);
     });
 
     it("ask how often only for the bubbles that need it, and let the answer set how much they count", () => {
@@ -585,14 +585,13 @@ describe("see why, remembered", () => {
 describe("answers that can't all be true", () => {
     const understood = (picks: Partial<Record<StepId, string[]>>) => walk(startChat(null, cars(), TODAY), picks);
 
-    it("won't take mostly dry weather beside rain or snow, but takes rain, snow and hot summers together", () => {
+    it("takes every weather together — cold winters beside rain or snow — and selects all four", () => {
         const step = stepFor("bubbles-copes", cars())!;
-        const dry = throughBubbles(startChat(null, cars(), TODAY), ["weather", "weather:wet", "weather:cold"]);
-        const wet = throughBubbles(startChat(null, cars(), TODAY), ["weather", "weather:snow", "weather:wet", "weather:hot"]);
+        const all = throughBubbles(startChat(null, cars(), TODAY), ["weather", "weather:snow", "weather:wet", "weather:cold", "weather:hot"]);
 
-        expect(step.bubbleChips?.weather?.exclusive).toEqual([["snow", "cold"], ["wet", "cold"]]);
-        expect(dry.understanding.bubbles?.weather?.chips).toEqual(["wet"]);
-        expect(wet.understanding.bubbles?.weather?.chips).toEqual(["snow", "wet", "hot"]);
+        expect(step.bubbleChips?.weather?.exclusive).toBeUndefined();
+        expect(allChips(step.bubbleChips!.weather!)).toEqual(["snow", "wet", "cold", "hot"]);
+        expect(all.understanding.bubbles?.weather?.chips).toEqual(["snow", "wet", "cold", "hot"]);
     });
 
     it("doesn't offer “No fixed limit” to someone who said they're on a budget", () => {
@@ -657,7 +656,7 @@ describe("questions in sections, and the changes to them", () => {
         const copes = step("bubbles-copes");
         const matters = step("bubbles-matters");
 
-        expect(allChips(copes.bubbleChips!.weather!)).toEqual(["snow", "wet", "hot"]);
+        expect(allChips(copes.bubbleChips!.weather!)).toEqual(["snow", "wet", "cold", "hot"]);
         expect(allChips(copes.bubbleChips!.carry!)).toEqual(["shopping", "bulky", "bikes", "trailer"]);
         expect(allChips(matters.bubbleChips!.comfort!)?.length).toBe(14);
         /* One child seat; two places parked at most. */

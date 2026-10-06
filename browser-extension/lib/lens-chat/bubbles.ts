@@ -329,25 +329,38 @@ export const BUBBLES: Bubble[] = [
             ask: "What's it like?",
             mode: "required",
             multiple: true,
-            /* "Mostly dry" can't be snowy or rainy; snow and rain, or either and hot summers, are different months. */
-            exclusive: [
-                ["snow", "cold"],
-                ["wet", "cold"],
-            ],
+            /*
+             * How cold, and how wet, are separate answers: rain and fog can be mild
+             * or cold, so cold winters combine with them. Snow and ice can't come
+             * without cold, so snow counts the cold-weather items itself.
+             */
             options: [
                 {
                     id: "snow",
                     label: "Snow & ice",
                     description:
-                        "I'll check heated seats and a heated steering wheel, suggest pre-heating, and recommend all-wheel drive in the deal-breakers — the ADAC finds it gives more grip pulling away on snow, though no help braking.",
+                        "Snow and ice come with cold, so I count heated seats and a heated steering wheel — no need to pick Cold winters too. I suggest pre-heating, and recommend all-wheel drive in the deal-breakers — the ADAC finds it gives more grip pulling away on snow, though no help braking.",
                     detail: "snow and ice",
                     sources: [SOURCES.adacAwd],
                     counts: ["hasHeatedSeats", "hasHeatedSteeringWheel"],
                     suggests: "awd",
                     worth: ["hasAllWheelDrive", "hasAuxiliaryHeater", "hasHeatPump", "hasHeadlightCleaningSystem"],
                 },
-                { id: "wet", label: "Rain & fog", detail: "rain and fog", description: "I'll check rain & light sensors and fog lights.", counts: ["hasRainSlashLightSensors", "hasFogLights"] },
-                { id: "cold", label: "Cold & dry", detail: "cold, mostly dry winters", description: "Cold but mostly dry winters, so not with snow or rain. I'll check heated seats.", counts: ["hasHeatedSeats"] },
+                {
+                    id: "wet",
+                    label: "Rain & fog",
+                    detail: "rain and fog",
+                    description: "I'll check rain & light sensors and fog lights. Rain can be mild or cold — pick Cold winters too if yours are cold.",
+                    counts: ["hasRainSlashLightSensors", "hasFogLights"],
+                },
+                {
+                    id: "cold",
+                    label: "Cold winters",
+                    detail: "cold winters",
+                    description: "Cold winters, wet or dry. I'll check heated seats and a heated steering wheel, and suggest pre-heating.",
+                    counts: ["hasHeatedSeats", "hasHeatedSteeringWheel"],
+                    worth: ["hasAuxiliaryHeater"],
+                },
                 { id: "hot", label: "Hot summers", detail: "hot summers", description: "I'll check ventilated seats, and suggest 3-zone climate.", counts: ["hasSeatCooling"], worth: ["hasThreeZoneAutomaticClimateControls"] },
             ],
         },
