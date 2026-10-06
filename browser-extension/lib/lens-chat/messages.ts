@@ -54,6 +54,8 @@ export type ChatToPage = { token: string } & (
     | { type: "LENS_CHAT_CONTEXT" }
     | { type: "LENS_CHAT_SHOW_CAR"; carId: number }
     | { type: "LENS_CHAT_CLOSE" }
+    /* Wider for the Adjust panel beside the chat, then back to the reader's own size. */
+    | { type: "LENS_CHAT_WIDE"; wide: boolean }
     /* `judgement`: an earlier judgement to read the car out of, by when it was made; the latest when absent. */
     | { type: "LENS_OPEN_DRAWER"; chatId: string; carId: number; judgement?: string }
     | { type: "LENS_CLOSE_DRAWER" }
@@ -63,6 +65,7 @@ export const CHAT_TO_PAGE_TYPES = new Set<string>([
     "LENS_CHAT_CONTEXT",
     "LENS_CHAT_SHOW_CAR",
     "LENS_CHAT_CLOSE",
+    "LENS_CHAT_WIDE",
     "LENS_OPEN_DRAWER",
     "LENS_CLOSE_DRAWER",
 ]);

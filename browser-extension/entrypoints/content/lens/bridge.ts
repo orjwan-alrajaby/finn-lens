@@ -7,7 +7,7 @@ import { CARD_SELECTORS, cardConfigId, cardForCar } from "../page/currentCar";
 import { highlightConfiguration } from "../page/highlight";
 import { currentSearch } from "../search";
 
-import { setChatOpen } from "./bubble";
+import { setChatOpen, setChatWide } from "./bubble";
 import { closeDrawer, openDrawer } from "./drawer";
 import { token } from "./frames";
 
@@ -109,6 +109,9 @@ async function handle(message: ChatToPage): Promise<unknown> {
         case "LENS_CHAT_CLOSE":
             setChatOpen(false);
             return { closed: true };
+
+        case "LENS_CHAT_WIDE":
+            return { wide: setChatWide(message.wide) };
 
         case "LENS_OPEN_DRAWER":
             await openDrawer(message.chatId, message.carId, message.judgement);

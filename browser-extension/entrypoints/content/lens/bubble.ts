@@ -38,7 +38,7 @@ const MIN_SIZE = { width: 360, height: 420 };
 const EDGE = { x: 40, y: 100 };
 
 /* From 640px up the chat is a panel beside the bubble; below it, a sheet that fills the width. */
-const wide = () => window.matchMedia("(min-width: 640px)").matches;
+const isWide = () => window.matchMedia("(min-width: 640px)").matches;
 
 function clampSize(width: number, height: number): { width: number; height: number } {
     return {
@@ -51,7 +51,7 @@ function clampSize(width: number, height: number): { width: number; height: numb
 function applySize(size: { width: number; height: number } | null): void {
     if (!panel) return;
 
-    if (!size || !wide()) {
+    if (!size || !isWide()) {
         panel.style.width = "";
         panel.style.height = "";
         return;
@@ -63,6 +63,32 @@ function applySize(size: { width: number; height: number } | null): void {
 }
 
 let savedSize: { width: number; height: number } | null = null;
+
+/** Wide for the Adjust panel: the chat and the panel side by side. */
+let widened = false;
+
+/** The chat and the Adjust panel side by side, as wide as fits up to this. */
+const WIDE = { width: 900, height: 760 };
+
+/**
+ * Wider while the reader adjusts what Lens understood, so the panel sits
+ * beside the chat rather than over it; back to their own size after. Never
+ * saved as their size. A phone's sheet is full width already, so it's left
+ * be. Returns whether it's wide now.
+ */
+export function setChatWide(wide: boolean): boolean {
+    widened = wide;
+    if (!panel || !isWide()) return false;
+
+    if (!wide) {
+        applySize(savedSize);
+        return false;
+    }
+
+    const box = panel.getBoundingClientRect();
+    applySize({ width: Math.max(box.width, WIDE.width), height: Math.max(box.height, Math.min(WIDE.height, window.innerHeight - EDGE.y)) });
+    return true;
+}
 
 function saveSize(size: { width: number; height: number } | null): void {
     savedSize = size;
@@ -241,7 +267,8 @@ async function mount(): Promise<void> {
         })
         .catch(() => {});
 
-    window.addEventListener("resize", () => applySize(savedSize));
+    /* Kept within the window as it changes — and wide, while the Adjust panel is open. */
+    window.addEventListener("resize", () => (widened ? setChatWide(true) : applySize(savedSize)));
 
     /* Visible from 640px; on a phone the bubble is the mark alone, covering less of FINN's cards. */
     bubbleLabel = el("span", { class: "max-xs:sr-only", text: "Lens" });

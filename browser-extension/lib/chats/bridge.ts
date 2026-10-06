@@ -67,6 +67,9 @@ export const requestShowCar = (carId: number) => send<{ shown: boolean }>({ type
 
 export const requestCloseChat = () => send<{ closed: boolean }>({ type: "LENS_CHAT_CLOSE" });
 
+/** The chat made wider for the Adjust panel beside it, or put back to the size the reader chose. */
+export const requestChatWide = (wide: boolean) => send<{ wide: boolean }>({ type: "LENS_CHAT_WIDE", wide });
+
 /** The drawer for one car: of the latest judgement, or of an earlier one named by when it was made. */
 export const requestOpenDrawer = (chatId: string, carId: number, judgement?: string) =>
     send<{ opened: boolean }>({ type: "LENS_OPEN_DRAWER", chatId, carId, judgement });
