@@ -67,6 +67,8 @@ The shortlist: pinning from the drawers, judging the pinned cars against each ot
 Pinning cars, the pinned-cars page, Settings, the Compare/recommendation page, the setup flow, and Lens AI with a Gemini key. The engine and the chat's understanding came from there, and so did the reasoning behind most of it. The playground's `docs/FINN-LENS-HANDOFF.md` is the long version.
 
 
+How Lens decides — every mechanism, number and source, and the decisions behind them — is written up in [`docs/HOW-FINN-LENS-DECIDES.md`](../docs/HOW-FINN-LENS-DECIDES.md).
+
 ## Figures that aren't FINN's
 
 Lens says where every figure it didn't get from FINN comes from, links it, and says what it can't tell you.
