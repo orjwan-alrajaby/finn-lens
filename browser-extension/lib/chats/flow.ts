@@ -406,7 +406,7 @@ const FUELS: { id: EvidenceId; fuel: FinnCar["fuelType"]; label: string; descrip
         fuel: "Plug-in Hybrid",
         label: "Plug-in hybrid",
         description:
-            "Cars FINN lists as plug-in hybrids. FINN gives each one combined fuel figure and no electricity figure, so I price the fuel and add an allowance for the electricity — my own assumption, not FINN's.",
+            "Cars FINN lists as plug-in hybrids. FINN gives only their official fuel figure, so for the electricity I use the EU's official figure for the same car, from its registration data — where I can match it, and I say when I can't. Both figures assume the EU test's mix of electric and fuel driving; yours depends on how you drive and charge.",
     },
     { id: "petrolCar", fuel: "Petrol", label: "Petrol", description: "Cars FINN lists as petrol. I price each on the fuel use FINN lists for it." },
     { id: "dieselCar", fuel: "Diesel", label: "Diesel", description: "Cars FINN lists as diesel. I price each on the fuel use FINN lists for it." },

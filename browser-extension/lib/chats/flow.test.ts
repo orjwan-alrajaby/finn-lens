@@ -983,20 +983,25 @@ describe("must, mustn't, or seals it", () => {
 
 describe("a hard limit a car can't be confirmed within", () => {
     it("rules it out, saying exactly what FINN's data is missing", () => {
-        const field = fleet().filter((car) => car.fuelType === "Plug-in Hybrid" || car.fuelType === "Petrol").sort((a, b) => a.id - b.id).slice(0, 40);
+        /* A plug-in FINN's figures match nothing for in the EU data: its electricity can't be priced. */
+        const plugIn = fleet().find((car) => car.fuelType === "Plug-in Hybrid" && car.model === "CX-60")!;
+        const petrol = fleet().filter((car) => car.fuelType === "Petrol").sort((a, b) => a.id - b.id).slice(0, 20);
+        const field = [plugIn, ...petrol];
         const base = withBubbles(EMPTY_UNDERSTANDING, { dog: [] });
         const probe = judgeWith(base, field, "cars")!.run.recommendation.context.costs;
-        const plugIn = field.find((car) => car.fuelType === "Plug-in Hybrid" && probe[car.id]?.ceilingMonthly != null && field.some((other) => other.fuelType === "Petrol" && probe[other.id]!.totalMonthly < probe[car.id]!.ceilingMonthly! - 2 && Math.max(probe[other.id]!.totalMonthly, probe[car.id]!.totalMonthly) + 1 < probe[car.id]!.ceilingMonthly!))!;
-        const petrol = field.find((car) => car.fuelType === "Petrol" && Math.max(probe[car.id]!.totalMonthly, probe[plugIn.id]!.totalMonthly) + 1 < probe[plugIn.id]!.ceilingMonthly!)!;
-        const limit = Math.ceil(Math.max(probe[petrol.id]!.totalMonthly, probe[plugIn.id]!.totalMonthly)) + 1;
+        const limit = Math.ceil(Math.max(probe[plugIn.id]!.totalMonthly, Math.min(...petrol.map((car) => probe[car.id]!.totalMonthly)))) + 1;
         const u = { ...base, budget: { monthly: limit, kind: "hardMax" as const, firm: true, said: "", stretchTo: null } };
         const judged = judgeWith(u, field, "cars")!;
         const verdict = judgementFrom(judged, field, u, "", "", {}, "").verdicts[plugIn.id]!;
 
+        expect(judged.run.overLimit?.unconfirmed).toContain(plugIn.id);
         expect(verdict).toMatchObject({ label: "Ruled out", rank: null });
-        expect(verdict.setAside).toMatch(/^Can't be confirmed within your €[\d,]+ limit, which you said to keep to — missing how much electricity this plug-in hybrid uses — FINN lists only a combined fuel figure/);
+        expect(verdict.setAside).toMatch(
+            /^Can't be confirmed within your €[\d,]+ limit, which you said to keep to — missing how much electricity this plug-in hybrid uses — FINN lists only its fuel figure \(3\.8 L\/100km\), and its figures don't match a car in the EU's registration data$/,
+        );
     });
 });
+
 
 describe("what it can run on", () => {
     const page = () => fleet().sort((a, b) => a.id - b.id).slice(0, 60);
@@ -1018,7 +1023,7 @@ describe("what it can run on", () => {
         expect(step.multiple).toBe(true);
         expect(step.none).toBe("Any of them");
         expect(step.choices.length).toBe(here.size);
-        expect(step.choices.find((choice) => choice.id === "fuel-plugInHybrid")?.description).toMatch(/FINN gives each one combined fuel figure and no electricity figure, so I price the fuel and add an allowance for the electricity — my own assumption, not FINN's\./);
+        expect(step.choices.find((choice) => choice.id === "fuel-plugInHybrid")?.description).toMatch(/FINN gives only their official fuel figure, so for the electricity I use the EU's official figure for the same car, from its registration data — where I can match it, and I say when I can't\./);
         expect(stepFor("fuel", page().filter((car) => car.fuelType === "Petrol"))).toBeNull();
     });
 

@@ -879,7 +879,7 @@ export function assessEfficiency(
 function caveatsFor(vehicle: FinnCar): string[] {
   if (vehicle.fuelType === "Electric") {
     return [
-      "Zero here means zero from the car. Making the electricity it charges on isn't free of emissions, and FINN's data doesn't say where yours would come from.",
+      "Zero here means zero from the car: the official figure covers driving only, not making the electricity it charges on, and FINN's data doesn't say where yours would come from.",
     ];
   }
 

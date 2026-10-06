@@ -100,7 +100,7 @@ const UNKNOWN_LABEL: Record<string, string> = {
   missingConsumption: "the fuel or electricity it uses",
   missingEnergyPrice: "the energy price to apply",
   missingExtraKmPrice: "the price of kilometres beyond FINN's mileage packages",
-  plugInElectricityExcluded: "the electricity a plug-in hybrid charges on",
+  plugInElectricityExcluded: "the electricity of a plug-in hybrid whose figures match none in the EU's registration data",
 };
 
 /** Splits the total into the parts it's actually made of. */

@@ -1191,15 +1191,6 @@ export const DEFAULT_PRIORITIES: CategoryId[] = [
  */
 export const FINN_INCLUDED_MONTHLY_KM = 500;
 
-/**
- * The allowance Lens makes for a plug-in hybrid's electricity, for bounding
- * what FINN's data leaves out. FINN gives a plug-in hybrid one combined
- * litres figure and no electricity figure, so its energy cost can't be
- * estimated, only bounded: as if every kilometre were driven on electricity
- * at this. It is Lens's own assumption, not a FINN figure, and is said as
- * one wherever it's used.
- */
-export const PLUG_IN_MAX_KWH_PER_100KM = 30;
 
 /**
  * No budget, until the reader sets one.

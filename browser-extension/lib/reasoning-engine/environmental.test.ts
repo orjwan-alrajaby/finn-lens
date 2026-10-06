@@ -300,7 +300,7 @@ describe("the assessment as a whole", () => {
 
     /* The distinction a zero invites somebody to miss, said on the car. */
     expect(ev?.caveats.join(" ")).toMatch(/zero from the car/i);
-    expect(ev?.caveats.join(" ")).toMatch(/isn't free of emissions/i);
+    expect(ev?.caveats.join(" ")).toMatch(/covers driving only, not making the electricity it charges on/i);
 
     /*
      * The lifecycle limit is stated in the method notes rather than on every

@@ -1,4 +1,6 @@
 import { extractMileagePackages } from "@/lib/helpers";
+import { EU_ELECTRICITY_SOURCE } from "./eu-electricity";
+import { fleet } from "./test-data/fleet";
 import { describe, expect, it } from "vitest";
 
 import { buildCostAnalysis, calculateCost, partitionByBudget } from "./cost";
@@ -351,32 +353,44 @@ describe("mileage, the way FINN sells it", () => {
   });
 });
 
-describe("a plug-in hybrid's left-out electricity", () => {
-  const plugIn = () => makeCar({ id: 7, customerMonthly: 357, consumption: 1.7, fuelType: "Plug-in Hybrid" } as never);
+describe("a plug-in hybrid's electricity, from the EU's figures", () => {
+  const plugIns = () => fleet().filter((car) => car.fuelType === "Plug-in Hybrid");
 
-  it("is bounded, as if every kilometre were electric at Lens's own allowance, and said as one", () => {
-    const analysis = buildCostAnalysis(plugIn(), prefs({ monthlyKm: 1000, monthlyBudget: 800 }));
-    const { breakdown } = analysis;
-    const energy = analysis.lines.find((line) => line.id === "energy")!;
+  it("prices a matched one on both official figures, says where the electricity figure comes from, and its limits", () => {
+    const tucson = plugIns().find((car) => car.model === "Tucson" && car.co2.value === 62)!;
+    const analysis = buildCostAnalysis(tucson, prefs({ monthlyKm: 1000, monthlyBudget: 900 }));
+    const { energy } = analysis.breakdown;
+    const line = analysis.lines.find((item) => item.id === "energy")!;
 
-    expect(breakdown.energy.ceilingExtra).toBeCloseTo((1000 / 100) * 30 * breakdown.energy.ceilingExtra! / ((1000 / 100) * 30), 5);
-    expect(breakdown.ceilingMonthly).toBeCloseTo(breakdown.totalMonthly + breakdown.energy.ceilingExtra!, 5);
-    expect(energy.explanation).toMatch(/FINN lists one combined fuel figure for plug-in hybrids and no electricity figure.*even if all 1,000 km were driven on electricity, at 30 kWh\/100 km — Lens's own allowance, since FINN gives no figure/);
-    /* Within even at the most: it fits, and says why. */
-    expect(breakdown.budgetStatus).toBe("within");
-    expect(analysis.budgetSentence).toMatch(/even with the most the electricity could add, about €\d+ — within your budget\.$/);
+    expect(energy.plugIn?.kWhPer100Km).toBe(10.8);
+    expect(energy.isFloor).toBe(false);
+    expect(analysis.breakdown.complete).toBe(true);
+    expect(energy.amount).toBeCloseTo((1000 / 100) * (tucson.consumption.combined * energy.energyPrice! + 10.8 * energy.plugIn!.price), 5);
+    expect(line.label).toBe("Estimated fuel & electricity");
+    expect(line.facts).toContainEqual({ label: "Electricity use (EU official figure)", value: "10.8 kWh/100km", source: "eu" });
+    expect(line.sources).toEqual([{ name: EU_ELECTRICITY_SOURCE.name, url: EU_ELECTRICITY_SOURCE.url }]);
+    expect(line.explanation).toMatch(/is the EU's official figure for this car, from its registration data\. Both figures assume the mix of electric and fuel driving set by the EU's test rules; how much of each you'd really use depends on how you drive and charge\./);
   });
 
-  it("names what's missing when it might be over", () => {
-    const tight = buildCostAnalysis(plugIn(), prefs({ monthlyKm: 1000, monthlyBudget: 1 }));
-    const { breakdown } = tight;
-    const budget = Math.round(breakdown.totalMonthly + 1);
-    const between = buildCostAnalysis(plugIn(), prefs({ monthlyKm: 1000, monthlyBudget: budget }));
+  it("says when FINN's figures fit more than one version, and uses the highest", () => {
+    const glc = plugIns().find((car) => car.model === "GLC")!;
+    const { energy } = buildCostAnalysis(glc, prefs({ monthlyKm: 1000 })).breakdown;
 
-    expect(between.breakdown.budgetStatus).toBe("unknown");
-    expect(between.budgetSentence).toMatch(
-      /can't confirm the car fits: missing is how much electricity this plug-in hybrid uses — FINN lists only a combined fuel figure \(1\.7 L\/100km\), no kWh per 100 km\. At most it could come to about €\d+, over your budget\.$/,
+    expect(energy.plugIn?.range).not.toBeNull();
+    expect(energy.plugIn?.kWhPer100Km).toBe(energy.plugIn!.range![1]);
+    expect(energy.caveat).toMatch(/fit more than one version there, so this is the highest of their electricity figures/);
+  });
+
+  it("names exactly what's missing for one that matches nothing, and can't confirm a budget", () => {
+    const unmatched = plugIns().find((car) => car.model === "CX-60")!;
+    const analysis = buildCostAnalysis(unmatched, prefs({ monthlyKm: 1000, monthlyBudget: 5000 }));
+
+    expect(analysis.breakdown.energy.plugIn).toBeNull();
+    expect(analysis.breakdown.budgetStatus).toBe("unknown");
+    expect(analysis.budgetSentence).toMatch(
+      /can't confirm the car fits: missing is how much electricity this plug-in hybrid uses — FINN lists only its fuel figure \(3\.8 L\/100km\), and its figures don't match a car in the EU's registration data\.$/,
     );
-    expect(between.budgetSentence).not.toMatch(/part of the estimate/);
+    expect(analysis.lines.find((item) => item.id === "energy")!.sources).toBeUndefined();
   });
 });
+

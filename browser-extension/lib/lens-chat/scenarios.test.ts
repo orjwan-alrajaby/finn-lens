@@ -397,7 +397,7 @@ describe("what someone rules out", () => {
         const section = story.sections.find((item) => item.key === "ruled-out")!;
         expect(section.title).toBe("No car here meets “mustn't be an SUV”");
         expect(section.lines.map((line) => line.text)).toEqual([
-            `None of the ${suvs.length} cars compared does.`,
+            `None of the ${run.recommendation.context.vehicles.length} cars compared does.`,
             "Whether to let it go is your call — tell me in the chat and I'll judge again. Until then, this is the best fit for everything else you told me.",
         ]);
     });
@@ -575,20 +575,19 @@ describe("no car with every deal-breaker", () => {
 });
 
 describe("a hard limit, and a cost FINN's data can't confirm", () => {
-  it("sets aside a car that might be over it, naming what's missing", () => {
-    const plugIns = cars.filter((car) => car.fuelType === "Plug-in Hybrid").slice(0, 3);
-    const others = cars.filter((car) => car.fuelType === "Petrol").slice(0, 6);
-    const field = [...plugIns, ...others];
+  it("sets aside a car that might be over it", () => {
+    const unmatched = fleet().find((car) => car.fuelType === "Plug-in Hybrid" && car.model === "CX-60")!;
+    const petrol = fleet().filter((car) => car.fuelType === "Petrol").slice(0, 12);
+    const field = [unmatched, ...petrol];
     const understanding = { ...EMPTY_UNDERSTANDING, budget: { monthly: 0, kind: "hardMax" as const, firm: true, said: "", stretchTo: null } };
-    /* A limit some petrol car fits for certain, above one plug-in's fuel-only cost but below the most it could be. */
     const probe = runLens(field, toAnswers(base(), { ...understanding, budget: null }).answers, "page", "page")!;
     const costs = probe.recommendation.context.costs;
-    const pairs = plugIns.flatMap((plugIn) => others.map((petrol) => ({ plugIn, limit: Math.ceil(Math.max(costs[petrol.id]!.totalMonthly, costs[plugIn.id]!.totalMonthly)) + 1 })));
-    const { plugIn: target, limit } = pairs.find(({ plugIn, limit }) => costs[plugIn.id]!.ceilingMonthly != null && limit < costs[plugIn.id]!.ceilingMonthly!)!;
+    const limit = Math.ceil(Math.max(costs[unmatched.id]!.totalMonthly, Math.min(...petrol.map((car) => costs[car.id]!.totalMonthly)))) + 1;
     const u = { ...understanding, budget: { ...understanding.budget, monthly: limit } };
     const run = runLens(field, toAnswers(base(), u).answers, "page", "page", [], true)!;
 
-    expect(run.overLimit?.unconfirmed).toContain(target.id);
-    expect(run.recommendation.winner.id).not.toBe(target.id);
+    expect(run.overLimit?.unconfirmed).toContain(unmatched.id);
+    expect(run.recommendation.winner.id).not.toBe(unmatched.id);
   });
 });
+

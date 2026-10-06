@@ -463,11 +463,11 @@ export interface EnergyCost extends CostComponent {
    */
   isFloor: boolean;
   /**
-   * For a floor: the most the left-out part could add a month — a plug-in
-   * hybrid's electricity, as if every kilometre were driven on it at
-   * PLUG_IN_MAX_KWH_PER_100KM. Null when it can't be bounded.
+   * A plug-in hybrid's electricity, priced on the EU's official figure for
+   * the car where FINN's figures match one in the EU's registration data.
+   * Null for any other car, or a plug-in with no match.
    */
-  ceilingExtra: number | null;
+  plugIn: { kWhPer100Km: number; range: [number, number] | null; price: number; amount: number } | null;
 }
 
 export interface ExcessMileageCost extends CostComponent {
@@ -505,12 +505,6 @@ export interface CostBreakdown {
 
   /** Sum of the components that could actually be calculated. */
   totalMonthly: number;
-  /**
-   * The most it could cost, when the only gap is one Lens can bound (a
-   * plug-in hybrid's electricity): within the budget at this, it fits for
-   * certain. Null when the total is complete, or a gap can't be bounded.
-   */
-  ceilingMonthly: number | null;
   /** True only when every component was calculable. */
   complete: boolean;
   missing: CostUnavailableReason[];
@@ -530,7 +524,13 @@ export interface CostBreakdown {
  * UI can keep FINN's facts, the user's assumptions and Lens's estimates
  * visually distinct.
  */
-export type CostFactSource = "finn" | "user" | "estimate";
+export type CostFactSource = "finn" | "user" | "estimate" | "eu";
+
+/** Where a figure Lens didn't get from FINN comes from: named, and linked. */
+export interface CostSource {
+  name: string;
+  url: string;
+}
 
 export interface CostLine {
   id: "subscription" | "energy" | "excessMileage";
@@ -542,6 +542,8 @@ export interface CostLine {
   explanation: string;
   /** The inputs behind the line, each tagged by origin. */
   facts: CostFact[];
+  /** Sources for any figure on the line that isn't FINN's: the EU's, for a plug-in's electricity. */
+  sources?: CostSource[];
 }
 
 export interface CostFact {

@@ -170,6 +170,15 @@ export function CostTable({ cost }: { cost: CostAnalysis }) {
                         <dt className="min-w-0">
                             <span className="block text-[12.5px] font-bold text-finn-black">{line.label}</span>
                             <span className="block text-[11px] leading-snug text-finn-iron">{line.explanation}</span>
+                            {/* Any figure that isn't FINN's says where it's from, with a link to check it. */}
+                            {line.sources?.map((source) => (
+                                <span key={source.url} className="mt-1 block text-[11px] leading-snug text-finn-iron">
+                                    Source:{" "}
+                                    <a href={source.url} target="_blank" rel="noreferrer" className="font-bold text-finn-accent-blue underline decoration-finn-accent-blue/40 underline-offset-2 hover:decoration-finn-accent-blue">
+                                        {source.name}
+                                    </a>
+                                </span>
+                            ))}
                         </dt>
                         <dd className="shrink-0 text-[13px] font-black tabular-nums text-finn-black">
                             {line.available && line.amount != null ? euros(line.amount) : "—"}

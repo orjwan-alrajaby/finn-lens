@@ -14,7 +14,8 @@ import type {
   SubscriptionCost,
 } from "./types";
 
-import { FINN_INCLUDED_MONTHLY_KM, PLUG_IN_MAX_KWH_PER_100KM } from "./constants";
+import { FINN_INCLUDED_MONTHLY_KM } from "./constants";
+import { EU_ELECTRICITY_SOURCE, euElectricityFor } from "./eu-electricity";
 import {
   describeRentalProblem,
   fitContract,
@@ -154,22 +155,28 @@ function energyComponent(
 
   const isPlugIn = vehicle.fuelType === "Plug-in Hybrid";
   const monthlyKm = Math.max(0, preferences.monthlyKm);
-  const electricity = isPositive(preferences.electricityPrice) ? preferences.electricityPrice : null;
+  const electricityPrice = isPositive(preferences.electricityPrice) ? preferences.electricityPrice : null;
 
   /*
-   * What the left-out electricity could cost at most: as if every kilometre
-   * were electric, at Lens's own allowance. The fuel is counted too, so this
-   * over-counts — which is the point of a ceiling.
+   * A plug-in hybrid's electricity: FINN lists the fuel half of the official
+   * test and not this one, so it's the EU's figure for the same car, from
+   * its registration data — or nothing, where FINN's figures match no car
+   * there. Both figures assume the EU test's set mix of electric and fuel
+   * driving, and say so.
    */
-  const ceilingExtra = isPlugIn && electricity != null ? (monthlyKm / 100) * PLUG_IN_MAX_KWH_PER_100KM * electricity : null;
+  const eu = isPlugIn ? euElectricityFor(vehicle) : null;
+  const plugIn =
+    eu && electricityPrice != null
+      ? { kWhPer100Km: eu.kWhPer100Km, range: eu.range, price: electricityPrice, amount: (monthlyKm / 100) * eu.kWhPer100Km * electricityPrice }
+      : null;
 
-  const caveat = isPlugIn
-    ? `FINN lists one combined fuel figure for plug-in hybrids and no electricity figure, so this prices the fuel and leaves out the electricity it charges on.${
-        ceilingExtra != null
-          ? ` That can't add more than about ${formatEUR(ceilingExtra)} a month: even if all ${formatKm(monthlyKm)} were driven on electricity, at ${PLUG_IN_MAX_KWH_PER_100KM} kWh/100 km — Lens's own allowance, since FINN gives no figure — and an assumed €${electricity!.toFixed(2)} per kWh.`
-          : ""
-      }`
-    : null;
+  const caveat = !isPlugIn
+    ? null
+    : plugIn
+      ? `FINN lists only the fuel half of a plug-in hybrid's official figures, so the electricity half — ${formatNumber(plugIn.kWhPer100Km)} kWh/100 km, at an assumed €${plugIn.price.toFixed(2)} per kWh — is the EU's official figure for this car, from its registration data.${
+          plugIn.range ? " FINN's figures fit more than one version there, so this is the highest of their electricity figures." : ""
+        } Both figures assume the mix of electric and fuel driving set by the EU's test rules; how much of each you'd really use depends on how you drive and charge.`
+      : "FINN lists only the fuel half of a plug-in hybrid's official figures, and this car's don't match one in the EU's registration data, so its electricity isn't priced.";
 
   const base = {
     consumption,
@@ -177,13 +184,9 @@ function energyComponent(
     energyPrice: price,
     energyLabel: label,
     caveat,
-    /*
-     * A plug-in hybrid's combined litres figure assumes part of the driving is
-     * electric, and that electricity isn't in it — so the fuel it prices is a
-     * floor, never an estimate of the whole.
-     */
-    isFloor: isPlugIn,
-    ceilingExtra,
+    /* Unmatched, a plug-in's fuel is a floor: the electricity it charges on isn't in it. */
+    isFloor: isPlugIn && !plugIn,
+    plugIn,
   } as const;
 
   if (consumption == null) {
@@ -206,7 +209,8 @@ function energyComponent(
     };
   }
 
-  const costPer100Km = consumption * price;
+  /* A matched plug-in: its fuel and its electricity, per 100 km, both official figures. */
+  const costPer100Km = consumption * price + (plugIn ? plugIn.kWhPer100Km * plugIn.price : 0);
 
   return {
     ...base,
@@ -342,10 +346,6 @@ export function calculateCost(
     : null;
 
   const complete = missing.length === 0;
-  /* Bounded only when the plug-in's electricity is all that's missing. */
-  const ceilingMonthly =
-    !complete && missing.every((reason) => reason === "plugInElectricityExcluded") && energy.ceilingExtra != null ? totalMonthly + energy.ceilingExtra : null;
-
   return {
     vehicleId: vehicle.id,
     currency: "€",
@@ -356,12 +356,11 @@ export function calculateCost(
     energy,
     excessMileage,
     totalMonthly,
-    ceilingMonthly,
     complete,
     missing,
     budget,
     budgetDifference: budget == null ? null : totalMonthly - budget,
-    budgetStatus: resolveBudgetStatus(totalMonthly, budget, complete, ceilingMonthly),
+    budgetStatus: resolveBudgetStatus(totalMonthly, budget, complete),
     contract,
   };
 }
@@ -384,13 +383,10 @@ function resolveBudgetStatus(
   totalMonthly: number,
   budget: number | null,
   complete: boolean,
-  /* The most it could cost, where the gap can be bounded: within at that, within for certain. */
-  ceilingMonthly: number | null = null,
 ): BudgetStatus {
   if (budget == null) return "within";
   if (totalMonthly > budget) return "over";
-  if (complete) return "within";
-  return ceilingMonthly != null && ceilingMonthly <= budget ? "within" : "unknown";
+  return complete ? "within" : "unknown";
 }
 
 /**
@@ -523,6 +519,14 @@ function energyLine(breakdown: CostBreakdown): CostLine {
     });
   }
 
+  /* A plug-in's electricity: the EU's figure, not FINN's, and tagged so. */
+  if (energy.plugIn) {
+    facts.push(
+      { label: "Electricity use (EU official figure)", value: `${formatNumber(energy.plugIn.kWhPer100Km)} kWh/100km`, source: "eu" },
+      { label: "Electricity price", value: `${formatPrice(energy.plugIn.price)}/kWh`, source: "user" },
+    );
+  }
+
   if (energy.costPer100Km != null) {
     facts.push({
       label: "Cost per 100 km",
@@ -533,7 +537,11 @@ function energyLine(breakdown: CostBreakdown): CostLine {
 
   let explanation: string;
 
-  if (energy.available && energy.costPer100Km != null) {
+  if (energy.available && energy.costPer100Km != null && energy.plugIn) {
+    explanation =
+      `At ${formatKm(monthlyKm)}/month: FINN's ${formatNumber(energy.consumption ?? 0)} L/100km of fuel at an assumed €${(energy.energyPrice ?? 0).toFixed(2)} per litre, ` +
+      `and ${formatNumber(energy.plugIn.kWhPer100Km)} kWh/100km of electricity, about ${formatEUR(energy.costPer100Km)} per 100 km in all.`;
+  } else if (energy.available && energy.costPer100Km != null) {
     explanation =
       `At ${formatKm(monthlyKm)}/month and ${formatNumber(energy.consumption ?? 0)} ` +
       `${energy.consumptionUnit}, that's about ${formatEUR(energy.costPer100Km)} per 100 km ` +
@@ -561,12 +569,14 @@ function energyLine(breakdown: CostBreakdown): CostLine {
 
   return {
     id: "energy",
-    label: `Estimated ${energy.energyLabel}`,
+    label: energy.plugIn ? "Estimated fuel & electricity" : `Estimated ${energy.energyLabel}`,
     amount: energy.amount,
     available: energy.available,
     source: "estimate",
     explanation,
     facts,
+    /* The EU's figure, named and linked: Lens says where every number it didn't get from FINN comes from. */
+    ...(energy.plugIn ? { sources: [{ name: EU_ELECTRICITY_SOURCE.name, url: EU_ELECTRICITY_SOURCE.url }] } : {}),
   };
 }
 
@@ -660,7 +670,7 @@ export function missingPiece(reason: CostUnavailableReason, breakdown: CostBreak
 
   switch (reason) {
     case "plugInElectricityExcluded":
-      return `how much electricity this plug-in hybrid uses — FINN lists only a combined fuel figure${energy.consumption != null ? ` (${formatNumber(energy.consumption)} ${energy.consumptionUnit})` : ""}, no kWh per 100 km`;
+      return `how much electricity this plug-in hybrid uses — FINN lists only its fuel figure${energy.consumption != null ? ` (${formatNumber(energy.consumption)} ${energy.consumptionUnit})` : ""}, and its figures don't match a car in the EU's registration data`;
     case "missingSubscriptionPrice":
       return `FINN's ${CONTRACT_LABEL[contractType]} monthly price${contract.term ? ` for the ${contract.term.months}-month term` : ""} — it doesn't list one for this car`;
     case "missingConsumption":
@@ -704,9 +714,7 @@ export function buildCostAnalysis(
 
   const headline = breakdown.complete
     ? `We estimate this car will cost you around ${formatEUR(breakdown.totalMonthly)}/month.`
-    : `Based on what we could calculate, this car costs at least ${formatEUR(breakdown.totalMonthly)}/month${
-        breakdown.ceilingMonthly != null ? `, and at most about ${formatEUR(breakdown.ceilingMonthly)}` : ""
-      }. Missing: ${breakdown.missing.map((reason) => missingPiece(reason, breakdown)).join("; and ")}.`;
+    : `Based on what we could calculate, this car costs at least ${formatEUR(breakdown.totalMonthly)}/month. Missing: ${breakdown.missing.map((reason) => missingPiece(reason, breakdown)).join("; and ")}.`;
 
   return {
     vehicleId: vehicle.id,
@@ -761,16 +769,8 @@ function budgetSentence(breakdown: CostBreakdown): string | null {
 
   if (budgetStatus === "unknown") {
     const pieces = breakdown.missing.map((reason) => missingPiece(reason, breakdown));
-    const ceiling = breakdown.ceilingMonthly;
 
-    return `Your budget is ${formatEUR(budget)}/month. What Lens can price comes to ${formatEUR(totalMonthly)}/month, but it can't confirm the car fits: missing is ${pieces.join("; and ")}.${
-      ceiling != null ? ` At most it could come to about ${formatEUR(ceiling)}, over your budget.` : ""
-    }`;
-  }
-
-  /* Within for certain, though not every euro is known: say so, and why it still fits. */
-  if (!breakdown.complete && breakdown.ceilingMonthly != null) {
-    return `Your budget is ${formatEUR(budget)}/month. The fuel comes to ${formatEUR(totalMonthly)}/month, and even with the most the electricity could add, about ${formatEUR(breakdown.ceilingMonthly)} — within your budget.`;
+    return `Your budget is ${formatEUR(budget)}/month. What Lens can price comes to ${formatEUR(totalMonthly)}/month, but it can't confirm the car fits: missing is ${pieces.join("; and ")}.`;
   }
 
   const headroom = Math.abs(budgetDifference);

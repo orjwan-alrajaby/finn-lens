@@ -55,11 +55,11 @@ export type UsageReading =
     };
 
 const UNGRADABLE =
-  "FINN publishes one combined figure for plug-in hybrids, covering both the " +
-  "petrol it burns and the electricity it charges on, over an assumed pattern " +
-  "of charging. There is no petrol car or electric car it can fairly be " +
+  "FINN publishes a plug-in hybrid's official fuel figure, which the EU's test " +
+  "rules work out over a set mix of electric and fuel driving, and not the " +
+  "electricity half. There is no petrol car or electric car it can fairly be " +
   "measured against, so we would rather say that than invent a comparison. " +
-  "What a plug-in hybrid actually costs you comes down to how often you plug it in.";
+  "What it actually uses depends on how you drive and charge it, which no official figure can know.";
 
 const UNPUBLISHED =
   "FINN doesn't publish a consumption figure for this car, so there is " +
