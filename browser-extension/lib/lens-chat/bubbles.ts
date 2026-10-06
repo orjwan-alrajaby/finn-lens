@@ -338,9 +338,12 @@ export const BUBBLES: Bubble[] = [
                 {
                     id: "snow",
                     label: "Snow & ice",
-                    description: "I'll check heated seats and a heated steering wheel, and suggest all-wheel drive and pre-heating.",
+                    description:
+                        "I'll check heated seats and a heated steering wheel, suggest pre-heating, and recommend all-wheel drive in the deal-breakers — the ADAC finds it gives more grip pulling away on snow, though no help braking.",
                     detail: "snow and ice",
+                    sources: [SOURCES.adacAwd],
                     counts: ["hasHeatedSeats", "hasHeatedSteeringWheel"],
+                    suggests: "awd",
                     worth: ["hasAllWheelDrive", "hasAuxiliaryHeater", "hasHeatPump", "hasHeadlightCleaningSystem"],
                 },
                 { id: "wet", label: "Rain & fog", detail: "rain and fog", description: "I'll check rain & light sensors and fog lights.", counts: ["hasRainSlashLightSensors", "hasFogLights"] },
@@ -772,6 +775,22 @@ export function suggestedRules(bubble: Bubble, state: BubbleState): string[] {
     const own = picked.some((chip) => chip.suggests !== undefined) ? undefined : bubble.suggests;
 
     return unique([own, ...picked.map((chip) => chip.suggests)].filter((id): id is string => Boolean(id)));
+}
+
+/**
+ * Each deal-breaker a bubble's answers point to, with the answer that does:
+ * "you said snow and ice" for the chip that suggests it, "you carry a lot"
+ * for the bubble's own.
+ */
+export function suggestedBecause(bubble: Bubble, state: BubbleState): [rule: string, because: string][] {
+    const picked = pickedChips(bubble, state);
+    const own = picked.some((chip) => chip.suggests !== undefined) ? undefined : bubble.suggests;
+    const pairs: [string, string][] = [
+        ...picked.filter((chip) => chip.suggests).map((chip): [string, string] => [chip.suggests!, `you said ${chip.detail}`]),
+        ...(own ? [[own, bubble.you.replace(/^./, (c) => c.toLowerCase())] as [string, string]] : []),
+    ];
+
+    return pairs.filter(([rule], index) => pairs.findIndex(([other]) => other === rule) === index);
 }
 
 /** "You have kids · a baby or toddler seat". */

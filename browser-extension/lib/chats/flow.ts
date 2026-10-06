@@ -15,6 +15,7 @@ import {
     figuresOf,
     OFTEN,
     recommendedBecause,
+    suggestedBecause,
     suggestedRules,
     syncBubbles,
     withBubbles,
@@ -361,9 +362,9 @@ function bubblesStep(group?: (typeof BUBBLE_GROUPS)[number], u: Understanding = 
 function dealsStep(u: Understanding, cars: FinnCar[]): ChatStep | null {
     const because = new Map<string, string>();
     for (const { bubble, state } of bubblesIn(u)) {
-        for (const rule of suggestedRules(bubble, state)) {
+        for (const [rule, reason] of suggestedBecause(bubble, state)) {
             const deal = dealForRule(rule);
-            if (deal && !because.has(deal.id)) because.set(deal.id, lower(bubble.you));
+            if (deal && !because.has(deal.id)) because.set(deal.id, reason);
         }
     }
 
@@ -377,7 +378,7 @@ function dealsStep(u: Understanding, cars: FinnCar[]): ChatStep | null {
         /* A row that can't seal the deal says why, so the missing "Seals it" isn't a puzzle. */
         description: options.includes("seal") ? deal.description : `${deal.description} I can only rule on this, not weigh it — so it can't seal the deal.`,
         options,
-        ...(because.has(deal.id) ? { suggested: `Suggested because ${because.get(deal.id)}.` } : {}),
+        ...(because.has(deal.id) ? { suggested: `Recommended because ${because.get(deal.id)}.` } : {}),
     }));
     const groups = RULE_GROUPS.filter((group) => rows.some((row) => row.group === group.id));
 

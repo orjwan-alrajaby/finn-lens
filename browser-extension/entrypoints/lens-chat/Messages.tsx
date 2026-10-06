@@ -789,6 +789,7 @@ function Deals({ message, live, onAnswer }: { message: Extract<ChatMessage, { ki
                     {step.ask}
                 </p>
                 {live && step.why ? <Why text={step.why} /> : null}
+                {live && rows.some((row) => row.suggested) ? <StarKey /> : null}
                 {live ? <DealKey rows={rows} /> : null}
             </LensBubble>
 
@@ -802,11 +803,12 @@ function Deals({ message, live, onAnswer }: { message: Extract<ChatMessage, { ki
                                     /* The name on its own line, its options spread evenly under it: room to read and to tap. */
                                     <li key={row.id} className="space-y-2 px-3.5 py-3">
                                         <span className="inline-flex items-center gap-0.5 text-[13px] font-bold text-finn-black">
+                                            {row.suggested ? <Star role="img" aria-label="Recommended" className="mr-1 h-3.5 w-3.5 fill-current text-finn-accent-blue" /> : null}
                                             {row.label}
                                             <InfoTip label={row.label}>
                                                 <p className="font-black">{row.label}</p>
                                                 <p>{row.description}</p>
-                                                {row.suggested ? <p className="text-white/75">{row.suggested}</p> : null}
+                                                {row.suggested ? <p className="font-bold text-[#ffd76a]">{row.suggested}</p> : null}
                                                 <TipSources sources={row.sources} />
                                             </InfoTip>
                                         </span>

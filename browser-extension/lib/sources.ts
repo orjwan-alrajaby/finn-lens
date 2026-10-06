@@ -24,6 +24,11 @@ export const SOURCES = {
         name: "European Commission — real-world CO₂ emissions gap report, SWD(2024) 59",
         url: "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=celex%3A52024SC0059",
     },
+    /** All-wheel drive: more grip pulling away on snow, no help braking, no substitute for winter tyres. */
+    adacAwd: {
+        name: "ADAC — “Mit Allradantrieb braucht man keine Winterreifen” (the 13 biggest car myths)",
+        url: "https://www.adac.de/der-adac/regionalclubs/suedbayern/auto-mythen/",
+    },
     /** New cars that burn fuel, about 134–137 g/km, 2021–2024: the 136 g/km comparison point. */
     icctFleet: {
         name: "ICCT — CO₂ emissions from new passenger cars in Europe, 2024 (from EEA data)",

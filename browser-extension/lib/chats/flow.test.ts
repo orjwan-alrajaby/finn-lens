@@ -10,6 +10,7 @@ import { chatAnswers, judgementFrom, judgeWith, letGoAsk, resultMessage } from "
 import { withBubbles } from "@/lib/lens-chat/bubbles";
 import { DEAL_MEANS, demandOf, letGo, withDeals } from "@/lib/lens-chat/deals";
 import { IMPORTANCE, IMPORTANCE_LABEL as LEVEL_LABEL } from "@/lib/lens-chat/importance";
+import { SOURCES } from "@/lib/sources";
 import { addMonths } from "@/lib/reasoning-engine/contract";
 import { CATEGORIES } from "@/lib/reasoning-engine/constants";
 import { activeFollowUp, addItem, allChips, answer, doneAdjusting, followUps, askNext, keepShort, openedWhy, changeAnswers, changeOne, removeItem, rentalMonths, rewind, rewindable, setImportance, startChat as beginChat, startMonth, stepFor, summaryOf } from "./flow";
@@ -292,7 +293,7 @@ describe("deal-breakers and deal-sealers", () => {
         expect(step.ask).toBe("Any deal-breakers or deal-sealers?");
         expect(step.groups?.map((group) => group.title)).toEqual(["From what you told me", "Fuel & emissions", "The car itself"]);
         expect(yours.map((item) => item.id).sort()).toEqual(["co2", "towbar"]);
-        expect(yours.find((item) => item.id === "towbar")?.suggested).toBe("Suggested because you carry a lot.");
+        expect(yours.find((item) => item.id === "towbar")?.suggested).toBe("Recommended because you said a trailer or caravan.");
         expect(step.deals!.slice(0, 2).map((item) => item.group)).toEqual(["yours", "yours"]);
     });
 
@@ -1088,5 +1089,33 @@ describe("fuels, said only as FINN's data has them", () => {
 
         expect(plugIn.recommended).toMatch(/^Recommended because you said moderately green: \d+ of the \d+ plug-in hybrid cars here have low CO₂ emissions \(class A to C\)\.$/);
         expect(diesel.recommended).toBeUndefined();
+    });
+});
+
+describe("all-wheel drive for snow and ice", () => {
+    const page = () => fleet().sort((a, b) => a.id - b.id).slice(0, 60);
+    const toDeals = (bubbles: string[]) => {
+        let chat = startChat(null, page(), TODAY);
+        for (let guard = 0; guard < 20 && openAsk(chat)?.step.id !== "deals"; guard += 1) {
+            const ask = openAsk(chat)!;
+            const own = new Set(ask.step.choices.map((choice) => choice.id));
+            chat = answer(chat, ask.id, ask.step.id.startsWith("bubbles-") ? bubbles.filter((id) => own.has(id.split(":")[0]!)) : [], page(), TODAY).chat;
+        }
+        return openAsk(chat)!.step;
+    };
+
+    it("is recommended, first, saying which answer recommended it, and what the ADAC found — both ways — with its source", () => {
+        const step = toDeals(["weather", "weather:snow"]);
+        const awd = step.deals!.find((row) => row.id === "awd")!;
+
+        expect(awd).toMatchObject({ group: "yours", suggested: "Recommended because you said snow and ice." });
+        expect(step.deals![0]!.id).toBe("awd");
+        expect(awd.description).toMatch(/more grip pulling away and accelerating on snow — but no help braking in the cold or on snow, and no substitute for winter tyres\.$/);
+        expect(awd.sources).toEqual([SOURCES.adacAwd]);
+    });
+
+    it("isn't recommended for rain, or for cold and dry", () => {
+        expect(toDeals(["weather", "weather:wet"]).deals!.find((row) => row.id === "awd")?.suggested).toBeUndefined();
+        expect(toDeals(["weather", "weather:cold"]).deals!.find((row) => row.id === "awd")?.suggested).toBeUndefined();
     });
 });
