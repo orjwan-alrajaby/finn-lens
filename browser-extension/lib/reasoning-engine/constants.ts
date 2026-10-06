@@ -406,7 +406,7 @@ export const FEATURES = {
     article: "a",
     label: "Parking assistant",
     explanation:
-      "Finds a space and steers the car into it while you control the brake and accelerator.",
+      "A parking assistant, as FINN lists it (\"Parkassistent\"). FINN doesn't say how much it does — whether it steers, or which kinds of space it can park in.",
   },
   hasParkingSensors: {
     label: "Parking sensors",

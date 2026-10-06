@@ -393,7 +393,8 @@ const PLAIN: Partial<Record<EvidenceId, string>> = {
         "Cameras around the car combine into a view from above, so you can see the space on every side while parking.",
     hasOneEightyDegreesReversingCamera: "Shows the area behind the car on a screen while you reverse.",
     hasParkingSensors: "Sensors that beep faster as you get closer to something you can't see.",
-    hasParkingAssistant: "Steers the car into a parking space itself while you control the pedals.",
+    /* FINN's "Parkassistent" says a parking assistant is fitted, not what it does: whether it steers, or which spaces it handles. */
+    hasParkingAssistant: "A parking assistant, as FINN lists it. FINN doesn't say how much it does — whether it steers, or which kinds of space it can park in.",
     hasMatrixLedHeadlights:
         "Headlights split into sections that switch off individually, keeping more of the road lit without dazzling oncoming drivers.",
     hasCorneringLights: "Extra lights that come on as you turn, lighting the bend rather than straight ahead.",

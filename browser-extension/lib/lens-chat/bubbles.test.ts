@@ -224,3 +224,20 @@ describe("how green", () => {
         expect(suggestedRules(none.bubble, none.state)).toEqual(["low-co2"]);
     });
 });
+
+describe("parallel parking", () => {
+    it("counts a shorter car and a 360° camera, and checks the parking aids nearly every car has", () => {
+        const items = itemsOf(bubble("help"), state({ chips: ["parallel"] }));
+
+        expect(items.counts).toEqual(expect.arrayContaining(["compactLength", "hasThreeSixtyDegreesCamera"]));
+        expect(items.checks).toEqual(expect.arrayContaining(["hasParkingAssistant", "hasParkingSensors"]));
+        expect(bubble("help").chips!.options.map((option) => option.label)).toEqual(["Parking", "Parallel parking", "Traffic & lane changes", "Reversing out"]);
+    });
+
+    it("claims nothing about the parking assistant FINN doesn't say", () => {
+        const parallel = bubble("help").chips!.options.find((option) => option.id === "parallel")!;
+
+        expect(parallel.description).toMatch(/FINN doesn't say which kinds of space a car's parking assistant can handle\.$/);
+        expect(parallel.description).not.toMatch(/steers|parks itself|automatically/i);
+    });
+});

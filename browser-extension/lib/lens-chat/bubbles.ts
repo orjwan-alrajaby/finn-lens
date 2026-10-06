@@ -250,6 +250,20 @@ export const BUBBLES: Bubble[] = [
             suggestOthers: true,
             options: [
                 { id: "parking", label: "Parking", detail: "parking", description: "I'll check a 360° camera and parking sensors.", counts: ["hasThreeSixtyDegreesCamera"], checks: ["hasParkingSensors"] },
+                /*
+                 * The kerbside gap: a shorter car needs a shorter one — FINN measures every car's
+                 * length — and a 360° camera shows both ends. A parking assistant and sensors are
+                 * on nearly every car here, so they're checked, not rewarded.
+                 */
+                {
+                    id: "parallel",
+                    label: "Parallel parking",
+                    detail: "parallel parking",
+                    description:
+                        "I'll count a shorter car — it needs a shorter gap, from the length FINN lists — and a 360° camera, and check a parking assistant and parking sensors. FINN doesn't say which kinds of space a car's parking assistant can handle.",
+                    counts: ["compactLength", "hasThreeSixtyDegreesCamera"],
+                    checks: ["hasParkingAssistant", "hasParkingSensors"],
+                },
                 { id: "traffic", label: "Traffic & lane changes", detail: "busy traffic", description: "I'll check blind spot warning and lane keeping assist.", counts: ["hasBlindSpotAssist"], checks: ["hasLaneKeepingAssist"] },
                 { id: "reversing", label: "Reversing out", detail: "reversing out", description: "I'll check rear cross-traffic alert and a reversing camera.", counts: ["hasRearCrosswalkWarning", "hasOneEightyDegreesReversingCamera"] },
             ],
@@ -257,6 +271,8 @@ export const BUBBLES: Bubble[] = [
         cantCheck: "crash protection — FINN has no crash-test data",
         why: {
             hasThreeSixtyDegreesCamera: "so you can check every side before you move",
+            compactLength: "a shorter car fits a shorter gap at the kerb",
+            hasParkingAssistant: "a parking assistant, as FINN lists it — FINN doesn't say which spaces it handles",
             hasBlindSpotAssist: "for the cars you can't see when changing lanes",
             hasRearCrosswalkWarning: "for reversing out between parked cars, where you can't see traffic coming",
             hasOneEightyDegreesReversingCamera: "so you aren't reversing on mirrors alone",
