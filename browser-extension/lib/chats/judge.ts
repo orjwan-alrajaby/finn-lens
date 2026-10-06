@@ -332,7 +332,7 @@ export function letGoAsk(run: LensRun, id: string, at: string): Extract<ChatMess
         step: {
             id: "letGo",
             ask: rows.length === 1 ? `No car here meets “${lowerFirst(demandOf(rows[0]!))}” — could you let it go?` : "No car here has all of your deal-breakers — so which matters least to you?",
-            why: "Pick any you could let go of. Each becomes a deal-sealer where I can weigh it: it still counts as much as anything can, it just doesn't rule cars out. I'll judge again straight after.",
+            why: "Pick any you could let go of. Each becomes a deal-sealer where I can weigh it: it still counts as a top priority, it just doesn't rule cars out. I'll judge again straight after.",
             multiple: true,
             choices: rows.map((row) => ({
                 id: row.id,

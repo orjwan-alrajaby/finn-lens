@@ -66,7 +66,7 @@ describe("the winner's drawer", () => {
     it("weighs it in the open: what was said, each priority's share, and each raised item's level", () => {
         const words = text(renderToStaticMarkup(createElement(WinnerView, { value: winner() })));
 
-        expect(words).toContain("You have kids · a baby or toddler seat — must have");
+        expect(words).toContain("You have kids · a baby or toddler seat — top priority");
         expect(words).toMatch(/Practicality counts \d+%/);
         expect(words).toMatch(/Rear doors Highly/);
     });

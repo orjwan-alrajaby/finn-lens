@@ -26,6 +26,7 @@ import {
     type OftenId,
 } from "@/lib/lens-chat/bubbles";
 import { asPhrase, barePhrase, EVIDENCE, isKind, type EvidenceId } from "@/lib/lens-chat/evidence";
+import { IMPORTANCE, IMPORTANCE_LABEL } from "@/lib/lens-chat/importance";
 import { DEALS, dealForRule, dealsHere, dealStates, letGo, stateLabel, withDeals, type DealState } from "@/lib/lens-chat/deals";
 import { applyChoices, explain, guideSteps, saidFor, type GuideChoice, type GuideStep } from "@/lib/lens-chat/guide";
 import {
@@ -170,11 +171,7 @@ const PERIODS: { months: number; label: string; said: string }[] = [
 ];
 
 /** How much a need counts, in the reader's words. */
-export const IMPORTANCE_LABEL: Record<NeedImportance, string> = {
-    essential: "Must have",
-    important: "Matters",
-    niceToHave: "Nice to have",
-};
+export { IMPORTANCE, IMPORTANCE_LABEL, SCALE_EXPLAINED } from "@/lib/lens-chat/importance";
 
 /** The month a new rental would start: next month, since FINN delivers in weeks, not days. */
 export function startMonth(today = new Date()): MonthString {
@@ -206,7 +203,7 @@ const checked = (need: Understanding["needs"][number], u: Understanding): Eviden
 
 const WHY: Record<string, string> = {
     rules: "Each one takes cars out before I score anything, so only pick what you'd truly refuse.",
-    deals: "A deal-breaker sets cars aside before I score anything, so only pick what you'd truly refuse. A deal-sealer counts as much as anything can — but a car without it can still win, if it's better at everything else.",
+    deals: "A deal-breaker sets cars aside before I score anything, so only pick what you'd truly refuse. A deal-sealer counts as a top priority — the most anything can — but a car without it can still win, if it's clearly better at everything else.",
     budget: `All costs together: FINN's monthly price (VAT included), plus what I estimate you'd spend on fuel or charging, plus the mileage package your driving needs — FINN's price includes ${FINN_INCLUDED_MONTHLY_KM.toLocaleString("en-GB")} km a month. Parking and tolls aren't in it.`,
     from: "FINN delivers in weeks, so the soonest is next month. Not every car can be delivered by every date, and each is priced on the term that covers yours.",
     period: "FINN prices each car by how long you subscribe, and not every car is offered for every length — so this changes both the price and which cars fit.",
@@ -755,7 +752,7 @@ export function acknowledge(step: ChatStep, u: Understanding, chosen: string[] =
 
         if (!bubble || !state) return "Got it.";
 
-        return `${lower(bubble.need).replace(/^./, (c) => c.toUpperCase())} will count as ${lower(IMPORTANCE_LABEL[importanceOf(bubble, state)])}${importanceOf(bubble, state) === "important" ? " to you" : ""}.`;
+        return `${lower(bubble.need).replace(/^./, (c) => c.toUpperCase())} will count as ${IMPORTANCE[importanceOf(bubble, state)].as}.`;
     }
 
     if (step.id === "deals") {
@@ -764,7 +761,7 @@ export function acknowledge(step: ChatStep, u: Understanding, chosen: string[] =
 
         if (!breakers && !sealers.length) return "Good — nothing's off the table, and nothing seals it.";
 
-        return [breakers, sealers.length ? `${joined(sealers).replace(/^./, (c) => c.toUpperCase())} will count as much as anything can.` : ""].filter(Boolean).join(" ");
+        return [breakers, sealers.length ? `${joined(sealers).replace(/^./, (c) => c.toUpperCase())} will count as a top priority.` : ""].filter(Boolean).join(" ");
     }
 
     switch (step.id) {
@@ -1343,7 +1340,7 @@ function answerStep(
                 [
                     reader(`I could let go of ${joined(picked.map((choice) => `“${lowerFirst(choice.label)}”`))}.`),
                     lens(
-                        `${sealers.length ? `${joined(sealers)} ${sealers.length === 1 ? "isn't a deal-breaker now, but it still counts" : "aren't deal-breakers now, but they still count"} as much as anything can. ` : "Done. "}Judging again…${saved}`,
+                        `${sealers.length ? `${joined(sealers)} ${sealers.length === 1 ? "isn't a deal-breaker now, but it still counts" : "aren't deal-breakers now, but they still count"} as a top priority. ` : "Done. "}Judging again…${saved}`,
                     ),
                 ],
                 { understanding, title: titleFor(understanding), phase: "ready" },

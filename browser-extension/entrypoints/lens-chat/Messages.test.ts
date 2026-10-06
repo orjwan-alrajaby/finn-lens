@@ -76,7 +76,7 @@ describe("here's what you told me, and what I understood", () => {
         const words = text(render(understood().messages));
 
         expect(words).toContain("Here's what you told me, and what I understood:");
-        expect(words).toMatch(/What you told me You have kids · a baby or toddler seat Must have I'll check: Rear doors/);
+        expect(words).toMatch(/What you told me You have kids · a baby or toddler seat Top priority I'll check: Rear doors/);
         expect(words).toMatch(/Money & time Monthly limit €500 all in .* Deal-breakers & sealers Deal-breakers None Deal-sealers None/);
         expect(words).toContain("Does that look right?");
         expect(words).toMatch(/Looks good to me — continue This doesn't look right/);
@@ -97,7 +97,11 @@ describe("here's what you told me, and what I understood", () => {
         expect(html.match(/<li class="space-y-3 rounded-2xl p-3\.5 ring-1 bg-finn-snow/g)).toHaveLength(1);
         expect(words).toContain("I'll check — tap × to take one out Rear doors On nearly every car ISOFIX child seat anchors Might matter — tap + to add");
         expect(words).toContain("I can't check rear legroom");
-        expect(words).toContain("My guess — tap to change");
+        expect(words).toContain("My guess — tap to change. Counts fully, alongside everything else you've said is important.");
+        /* The scale said once, and each level's meaning on the picker. */
+        expect(words).toContain("How much it counts: Top priority counts twice as much as Important, and Important twice as much as Nice to have. None of them rules a car out — that's what deal-breakers are for.");
+        expect(words).toMatch(/How much it counts Top priority Important Nice to have Counts the most — twice as much as Important/);
+        expect(html).toContain('title="Counts half as much as Important: enough to settle a close call, not to decide on its own."');
         expect(words).toMatch(/Money & time Monthly limit €500 all in Change/);
         expect(words).toMatch(/Done $/);
         expect(words).not.toMatch(/\d+%/);
@@ -145,7 +149,7 @@ describe("the result", () => {
         );
 
         expect(words).toContain("What decided it");
-        expect(words).toContain("Because you said… You have kids — must have → Practicality");
+        expect(words).toContain("Because you said… You have kids — top priority → Practicality");
         expect(words).toContain("Next closest");
         expect(words).toContain("Keep it short");
     });

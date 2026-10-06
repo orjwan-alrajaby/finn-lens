@@ -1,4 +1,5 @@
 import type { NeedImportance } from "@/lib/lens-ai/contract";
+import { IMPORTANCE } from "./importance";
 import type { CategoryId, FeatureImportance } from "@/lib/reasoning-engine/types";
 import type { FinnCar } from "@/lib/types";
 
@@ -14,7 +15,7 @@ import { ruledOut, type BubbleState, type Need, type Understanding } from "./und
  * suggests the rest as "worth a look", and says what FINN's data can't tell
  * Lens about it. The reader sees all of it on the summary and corrects it
  * there. How much a bubble counts comes from something they said — a chip,
- * how often — or starts at "Matters", shown with one tap to change.
+ * how often — or starts at "Important", shown with one tap to change.
  *
  * Each bubble becomes one need (`bubble-kids`…), so everything past this
  * point — the engine's answers, the story, why not that one — is what a
@@ -122,7 +123,7 @@ export const BUBBLES: Bubble[] = [
                 {
                     id: "baby",
                     label: "Baby or toddler seat",
-                    description: "A rear-facing or toddler seat. It makes this a must have, and suggests an electric tailgate.",
+                    description: "A rear-facing or toddler seat. It makes kids a top priority, and suggests an electric tailgate.",
                     detail: "a baby or toddler seat",
                     importance: "essential",
                     worth: ["hasElectricTailgate"],
@@ -430,13 +431,14 @@ export const BUBBLES: Bubble[] = [
         worth: [],
         figures: ["environmental"],
         chips: {
-            ask: "How big a part should CO₂ play in my pick?",
+            ask: "How much should CO₂ count?",
             mode: "optional",
             multiple: false,
             options: [
-                { id: "decides", label: "A big part", detail: "a big part of the pick", description: "CO₂ counts as a must have.", importance: "essential" },
-                { id: "matters", label: "As much as the rest", detail: "as much as your other needs", description: "CO₂ counts like your other needs.", importance: "important" },
-                { id: "bonus", label: "A small part", detail: "a small part of the pick", description: "CO₂ counts a little.", importance: "niceToHave" },
+                /* The one scale, as everywhere else: same words, same meanings. */
+                { id: "decides", label: IMPORTANCE.essential.label, detail: "a top priority", description: IMPORTANCE.essential.means, importance: "essential" },
+                { id: "matters", label: IMPORTANCE.important.label, detail: "important", description: IMPORTANCE.important.means, importance: "important" },
+                { id: "bonus", label: IMPORTANCE.niceToHave.label, detail: "nice to have", description: IMPORTANCE.niceToHave.means, importance: "niceToHave" },
             ],
         },
         suggests: "low-co2",
@@ -598,7 +600,7 @@ export type OftenId = "long" | "traffic";
 export const OFTEN: Record<OftenId, { ask: string; why: string; choices: { id: string; label: string; said: string; importance: NeedImportance }[] }> = {
     long: {
         ask: "How often do you drive long distances?",
-        why: "It decides how much long-distance comfort counts: every week is a must have, a few times a year a nice to have.",
+        why: "It decides how much long-distance comfort counts: every week makes it a top priority, a few times a year nice to have.",
         choices: [
             { id: "daily", label: "Every day", said: "Every day.", importance: "essential" },
             { id: "weekly", label: "Every week", said: "Every week, or most weekends.", importance: "essential" },
@@ -637,7 +639,7 @@ function pickedChips(bubble: Bubble, state: BubbleState): BubbleChip[] {
     return !picked.length && bubble.chips?.mode === "required" ? options : picked;
 }
 
-/** How much a bubble counts: the reader's own say, else what a chip or how often said, else "Matters". */
+/** How much a bubble counts: the reader's own say, else what a chip or how often said, else "Important". */
 export function importanceOf(bubble: Bubble, state: BubbleState): NeedImportance {
     if (state.importance) return state.importance;
 

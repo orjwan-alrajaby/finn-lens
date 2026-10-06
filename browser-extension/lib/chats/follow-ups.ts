@@ -57,7 +57,7 @@ export const FOLLOW_UPS: Record<string, FollowUp> = {
                 said: "The youngest is in a baby or toddler seat.",
                 importance: "essential",
                 add: [{ id: "hasElectricTailgate", why: "so you can open the boot while holding a child or a pram" }],
-                reply: "Then travelling with children is a must-have. I'll also count an electric tailgate, which opens the boot at the press of a button while you're holding a child or a pram.",
+                reply: "Then travelling with children is a top priority. I'll also count an electric tailgate, which opens the boot at the press of a button while you're holding a child or a pram.",
             },
             {
                 id: "boosters",
@@ -86,8 +86,8 @@ export const FOLLOW_UPS: Record<string, FollowUp> = {
              * every week weigh the same — both make these drives a must-have
              * — but a daily driver shouldn't have to call it weekly.
              */
-            { id: "daily", label: "Every day", said: "Every day.", importance: "essential", reply: "Every day: I'll treat long motorway drives as a must-have." },
-            { id: "weekly", label: "Every week, or most weekends", said: "Every week, or most weekends.", importance: "essential", reply: "Every week: I'll treat long motorway drives as a must-have." },
+            { id: "daily", label: "Every day", said: "Every day.", importance: "essential", reply: "Every day: I'll treat long motorway drives as a top priority." },
+            { id: "weekly", label: "Every week, or most weekends", said: "Every week, or most weekends.", importance: "essential", reply: "Every week: I'll treat long motorway drives as a top priority." },
             { id: "monthly", label: "About once a month", said: "About once a month.", importance: "important", reply: "Once a month: I'll count long motorway drives as important." },
             { id: "rarely", label: "A few times a year", said: "Only a few times a year.", importance: "niceToHave", reply: "A few times a year: I'll count long motorway drives as nice to have, so they won't decide the ranking on their own." },
         ],
@@ -99,7 +99,7 @@ export const FOLLOW_UPS: Record<string, FollowUp> = {
         choices: [
             { id: "short", label: "Under 20 minutes", said: "Under 20 minutes.", importance: "niceToHave", reply: "Under 20 minutes: I'll count your commute as nice to have." },
             { id: "medium", label: "20–45 minutes", said: "Between 20 and 45 minutes.", importance: "important", reply: "20–45 minutes: I'll count your commute as important." },
-            { id: "long", label: "Over 45 minutes", said: "Over 45 minutes.", importance: "essential", reply: "Over 45 minutes: I'll treat your commute as a must-have." },
+            { id: "long", label: "Over 45 minutes", said: "Over 45 minutes.", importance: "essential", reply: "Over 45 minutes: I'll treat your commute as a top priority." },
         ],
     },
     winter: {
@@ -118,7 +118,7 @@ export const FOLLOW_UPS: Record<string, FollowUp> = {
                     { id: "hasRainSlashLightSensors", why: "so you aren't reaching for switches in snow and early winter darkness" },
                     { id: "hasFogLights", why: "for heavy snowfall, when the road edge disappears" },
                 ],
-                reply: "Snow and ice: cold winters are a must-have. I'll also count all-wheel drive, an auxiliary heater, rain and light sensors, and fog lights.",
+                reply: "Snow and ice: cold winters are a top priority. I'll also count all-wheel drive, an auxiliary heater, rain and light sensors, and fog lights.",
             },
             /* Cold without snow is often grey and wet instead: what it needs is to see and be seen. */
             {

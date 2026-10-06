@@ -9,6 +9,7 @@ import { fleet } from "@/lib/reasoning-engine/test-data/fleet";
 import { chatAnswers, judgementFrom, judgeWith, letGoAsk, resultMessage } from "./judge";
 import { withBubbles } from "@/lib/lens-chat/bubbles";
 import { withDeals } from "@/lib/lens-chat/deals";
+import { IMPORTANCE, IMPORTANCE_LABEL as LEVEL_LABEL } from "@/lib/lens-chat/importance";
 import { addMonths } from "@/lib/reasoning-engine/contract";
 import { CATEGORIES } from "@/lib/reasoning-engine/constants";
 import { activeFollowUp, addItem, allChips, answer, doneAdjusting, followUps, askNext, keepShort, openedWhy, changeAnswers, changeOne, removeItem, rentalMonths, rewind, rewindable, setImportance, startChat as beginChat, startMonth, stepFor, summaryOf } from "./flow";
@@ -304,7 +305,7 @@ describe("deal-breakers and deal-sealers", () => {
         expect(row(chat, "co2")?.options).toEqual(["must", "seal"]);
     });
 
-    it("sets cars aside for a deal-breaker, and counts a deal-sealer as a must have without setting any aside", () => {
+    it("sets cars aside for a deal-breaker, and counts a deal-sealer as a top priority without setting any aside", () => {
         const chat = toDeals(["dog"]);
         const done = answer(chat, openAsk(chat)!.id, ["electric=mustNot", "towbar=seal"], page(), TODAY).chat;
         const said = done.messages.filter((message) => message.kind === "text" && message.from === "reader").at(-1);
@@ -313,7 +314,7 @@ describe("deal-breakers and deal-sealers", () => {
         expect(done.understanding.needs.find((need) => need.id === "sealer-towbar")).toMatchObject({ importance: "essential", evidence: [{ id: "hasTowbar" }] });
         expect(chatAnswers(done.understanding).answers.features.practicality).toContainEqual(expect.objectContaining({ key: "hasTowbar", importance: "high" }));
         expect(said).toMatchObject({ text: "It mustn't be electric. Towbar would seal it." });
-        expect(texts(done).at(-2)).toBe("Noted. Before judging, I'll set aside any electric car. A towbar will count as much as anything can.");
+        expect(texts(done).at(-2)).toBe("Noted. Before judging, I'll set aside any electric car. A towbar will count as a top priority.");
         expect(lastSummary(done).lines.filter((line) => line.step === "deals").map((line) => line.value)).toEqual(["No electric car", "A towbar"]);
     });
 
@@ -613,7 +614,7 @@ describe("answers that can't all be true", () => {
         const next = setImportance(chat, "bubble-environment", "niceToHave", cars());
 
         expect(next.understanding.bubbles?.environment).toMatchObject({ chips: ["bonus"], importance: null });
-        expect(block(next, "environment")).toMatchObject({ heading: "You care about the environment · a small part of the pick", importance: "niceToHave" });
+        expect(block(next, "environment")).toMatchObject({ heading: "You care about the environment · nice to have", importance: "niceToHave" });
     });
 
     it("shows each item once, and takes it out of every bubble that counts it", () => {
@@ -678,11 +679,12 @@ describe("questions in sections, and the changes to them", () => {
         for (const option of comfort.chips!.options) expect(option.description.length, option.id).toBeGreaterThan(12);
     });
 
-    it("asks how big a part CO₂ plays, in plain words", () => {
+    it("asks how much CO₂ counts on the one scale, each saying what it means", () => {
         const environment = step("bubbles-matters").bubbleChips!.environment!;
 
-        expect(environment.ask).toBe("How big a part should CO₂ play in my pick?");
-        expect(environment.options.map((option) => option.label)).toEqual(["A big part", "As much as the rest", "A small part"]);
+        expect(environment.ask).toBe("How much should CO₂ count?");
+        expect(environment.options.map((option) => option.label)).toEqual(["Top priority", "Important", "Nice to have"]);
+        expect(environment.options.map((option) => option.description)).toEqual([IMPORTANCE.essential.means, IMPORTANCE.important.means, IMPORTANCE.niceToHave.means]);
     });
 
     it("asks the limit as all costs together, and says what that covers", () => {
@@ -819,7 +821,7 @@ describe("the follow-up the reader is on", () => {
     it("is the environment's once it's opened under an answered “Which comforts?”, not the comforts'", () => {
         const picked = ["comfort", "comfort:warm", "comfort:wheel", "environment"];
 
-        expect(activeFollowUp(step(), picked, "environment")).toEqual({ bubble: "environment", ask: "How big a part should CO₂ play in my pick?", answered: false });
+        expect(activeFollowUp(step(), picked, "environment")).toEqual({ bubble: "environment", ask: "How much should CO₂ count?", answered: false });
         expect(followUps(step(), picked).map((item) => [item.bubble, item.answered])).toEqual([
             ["comfort", true],
             ["environment", false],
@@ -908,7 +910,7 @@ describe("letting a deal-breaker go, when no car has them all", () => {
         expect(after).toBe("judge");
         expect(ruledOut(next.understanding).map((rule) => rule.id)).not.toContain("hasAllWheelDrive");
         expect(next.understanding.needs.find((need) => need.id === "sealer-awd")?.importance).toBe("essential");
-        expect(texts(next).at(-1)).toBe("“Must have all-wheel drive” isn't a deal-breaker now, but it still counts as much as anything can. Judging again…");
+        expect(texts(next).at(-1)).toBe("“Must have all-wheel drive” isn't a deal-breaker now, but it still counts as a top priority. Judging again…");
         expect(rewindable(next)).toBeNull();
     });
 
@@ -924,5 +926,26 @@ describe("letting a deal-breaker go, when no car has them all", () => {
     it("isn't asked when some car has them all", () => {
         const u = withDeals(withBubbles(EMPTY_UNDERSTANDING, { dog: [] }), ["automatic"], { automatic: "must" });
         expect(letGoAsk(judgeWith(u, page(), "24 cars")!.run, "x", "")).toBeNull();
+    });
+});
+
+describe("one scale for how much something counts", () => {
+    it("is Top priority · Important · Nice to have, each twice the next, and none of them a rule", () => {
+        expect(Object.values(LEVEL_LABEL)).toEqual(["Top priority", "Important", "Nice to have"]);
+        expect(IMPORTANCE.essential.means).toMatch(/twice as much as Important/);
+        expect(IMPORTANCE.niceToHave.means).toMatch(/half as much as Important/);
+        /* "Must have" is a deal-breaker's word only. */
+        for (const level of Object.values(IMPORTANCE)) expect(`${level.label} ${level.means}`).not.toMatch(/must have|matters\b|a big part|a small part/i);
+    });
+
+    it("is what how often says back, in a sentence", () => {
+        let chat = startChat(null, cars(), TODAY);
+        chat = answer(chat, openAsk(chat)!.id, [], cars(), TODAY).chat;
+        chat = answer(chat, openAsk(chat)!.id, ["long"], cars(), TODAY).chat;
+        const weekly = answer(chat, openAsk(chat)!.id, ["weekly"], cars(), TODAY).chat;
+        const monthly = answer(chat, openAsk(chat)!.id, ["monthly"], cars(), TODAY).chat;
+
+        expect(texts(weekly).at(-1)).toBe("Long distances will count as a top priority.");
+        expect(texts(monthly).at(-1)).toBe("Long distances will count as important.");
     });
 });

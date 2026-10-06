@@ -3,6 +3,7 @@ import { Check, ChevronDown, ChevronRight, Info, PencilLine, Plus, Star, X } fro
 
 import { BandChip, BrandMark, CarPhoto, euros, WinnerChip } from "@/components/lens-parts";
 import { activeFollowUp, allChips, coveredBy, followUps, IMPORTANCE_LABEL } from "@/lib/chats/flow";
+import { IMPORTANCE, IMPORTANCE_LEVELS, SCALE_EXPLAINED } from "@/lib/lens-chat/importance";
 import type { BubbleChips, CarSnapshot, ChatMessage, Choice, CustomAnswer, DealRow, StepId, SummaryBubble } from "@/lib/chats/types";
 import type { NeedImportance } from "@/lib/lens-ai/contract";
 import { lowerFirst } from "@/lib/reasoning-engine/format";
@@ -993,27 +994,36 @@ function Ask({
 /* What Lens will judge by                                                    */
 /* -------------------------------------------------------------------------- */
 
-const LEVELS: NeedImportance[] = ["essential", "important", "niceToHave"];
-
-/** How much something counts, as three taps: Must have · Matters · Nice to have. */
-function ImportancePicker({ label, value, onPick }: { label: string; value: NeedImportance; onPick: (level: NeedImportance) => void }) {
+/**
+ * How much something counts, as three taps — Top priority · Important · Nice
+ * to have, the one scale everywhere — with what the one picked means to
+ * Lens said underneath, and each one's meaning on hover.
+ */
+function ImportancePicker({ label, value, onPick, guess = false }: { label: string; value: NeedImportance; onPick: (level: NeedImportance) => void; guess?: boolean }) {
     return (
-        <span role="radiogroup" aria-label={`How much ${label} counts`} className="inline-flex rounded-full bg-finn-snow p-0.5 ring-1 ring-finn-cotton">
-            {LEVELS.map((level) => (
-                <button
-                    key={level}
-                    type="button"
-                    role="radio"
-                    aria-checked={value === level}
-                    onClick={() => onPick(level)}
-                    className={[
-                        "rounded-full px-2.5 py-1 text-[11px] font-black transition-colors",
-                        value === level ? "bg-finn-accent-blue text-white shadow-sm" : "text-finn-iron hover:text-finn-black",
-                    ].join(" ")}
-                >
-                    {IMPORTANCE_LABEL[level]}
-                </button>
-            ))}
+        <span className="block space-y-1">
+            <span role="radiogroup" aria-label={`How much ${label} counts`} className="inline-flex rounded-full bg-finn-snow p-0.5 ring-1 ring-finn-cotton">
+                {IMPORTANCE_LEVELS.map((level) => (
+                    <button
+                        key={level}
+                        type="button"
+                        role="radio"
+                        aria-checked={value === level}
+                        title={IMPORTANCE[level].means}
+                        onClick={() => onPick(level)}
+                        className={[
+                            "rounded-full px-2.5 py-1 text-[11px] font-black transition-colors",
+                            value === level ? "bg-finn-accent-blue text-white shadow-sm" : "text-finn-iron hover:text-finn-black",
+                        ].join(" ")}
+                    >
+                        {IMPORTANCE[level].label}
+                    </button>
+                ))}
+            </span>
+            <span className="block text-[11px] leading-snug text-finn-iron">
+                {guess ? <span className="font-bold italic">My guess — tap to change. </span> : null}
+                {IMPORTANCE[value].means}
+            </span>
         </span>
     );
 }
@@ -1096,10 +1106,9 @@ function UnderstoodBubble({
                     ) : null}
                 </div>
                 {bubble.counting !== false && live ? (
-                    <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                        <span className="text-[11px] font-bold text-finn-iron">Counts as</span>
-                        <ImportancePicker label={bubble.heading.toLowerCase()} value={bubble.importance} onPick={onImportance} />
-                        {!bubble.importanceSaid ? <span className="text-[11px] italic text-finn-iron">My guess — tap to change</span> : null}
+                    <div>
+                        <span className="mb-1 block text-[11px] font-bold text-finn-iron">How much it counts</span>
+                        <ImportancePicker label={bubble.heading.toLowerCase()} value={bubble.importance} onPick={onImportance} guess={!bubble.importanceSaid} />
                     </div>
                 ) : null}
             </div>
@@ -1266,6 +1275,10 @@ export function AdjustPanel({
                 <p className="mt-0.5 text-[12px] leading-snug text-finn-iron">
                     Take out what's wrong, add what's missing, and set how much each counts. “Change” answers a question again, in the chat.
                 </p>
+                <p className="mt-2 rounded-xl bg-finn-pale-blue/60 px-2.5 py-2 text-[11.5px] leading-snug text-finn-highlight-navy">
+                    <span className="font-black">How much it counts: </span>
+                    {SCALE_EXPLAINED}
+                </p>
             </div>
             <div className="min-h-0 flex-1 overflow-y-auto bg-finn-snow px-3 py-3.5">
                 <Summary message={message} live={!busy} onImportance={onImportance} onChange={onChange} onRemove={onRemove} onAdd={onAdd} />
@@ -1346,23 +1359,7 @@ function Summary({
                                 <div className={live ? "space-y-1" : "flex items-center justify-between gap-2"}>
                                     <span className="block text-[13px] font-black text-finn-black">{need.label}</span>
                                     {live ? (
-                                        <span role="radiogroup" aria-label={`How much ${need.label.toLowerCase()} matters`} className="inline-flex rounded-full bg-finn-snow p-0.5 ring-1 ring-finn-cotton">
-                                            {LEVELS.map((level) => (
-                                                <button
-                                                    key={level}
-                                                    type="button"
-                                                    role="radio"
-                                                    aria-checked={need.importance === level}
-                                                    onClick={() => onImportance(need.id, level)}
-                                                    className={[
-                                                        "rounded-full px-2.5 py-1 text-[11px] font-black transition-colors",
-                                                        need.importance === level ? "bg-finn-accent-blue text-white shadow-sm" : "text-finn-iron hover:text-finn-black",
-                                                    ].join(" ")}
-                                                >
-                                                    {IMPORTANCE_LABEL[level]}
-                                                </button>
-                                            ))}
-                                        </span>
+                                        <ImportancePicker label={need.label.toLowerCase()} value={need.importance} onPick={(level) => onImportance(need.id, level)} />
                                     ) : (
                                         <span className="shrink-0 rounded-full bg-finn-pale-blue px-2 py-0.5 text-[10.5px] font-black text-finn-accent-blue">{IMPORTANCE_LABEL[need.importance]}</span>
                                     )}

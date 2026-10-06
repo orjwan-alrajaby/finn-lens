@@ -7,6 +7,7 @@ import {
     MAX_PRIORITIES,
     MIN_PRIORITIES,
 } from "@/lib/reasoning-engine/constants";
+import { IMPORTANCE_LABEL } from "./importance";
 import { isMonthString, MAX_RENTAL_MONTHS, monthsInclusive } from "@/lib/reasoning-engine/contract";
 import { priorityWeights } from "@/lib/reasoning-engine";
 import type { CategoryId, FeatureImportance, SignalId } from "@/lib/reasoning-engine/types";
@@ -1109,11 +1110,7 @@ export function diffUnderstanding(before: Understanding, after: Understanding): 
         lines.push({ label: "Rental period", from: period(before.rental), to: period(after.rental) });
     }
 
-    const importanceText: Record<NeedImportance, string> = {
-        essential: "Must have",
-        important: "Important",
-        niceToHave: "Nice to have",
-    };
+    const importanceText = IMPORTANCE_LABEL;
 
     for (const need of after.needs) {
         const was = before.needs.find((item) => item.id === need.id);
