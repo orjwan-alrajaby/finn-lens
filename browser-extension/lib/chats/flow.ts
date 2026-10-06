@@ -997,6 +997,47 @@ const NO_NEEDS: ChatStep = {
  * Asks the next question still worth asking, or — when there are none —
  * says back what Lens understood and waits for the reader to say it's right.
  */
+/** A question in the run the reader is counted through — not "how it works", "keep this?" or "what would you like to do?". */
+const isQuestion = (id: StepId) => isBubbleStep(id) || id.startsWith("often-") || ["budget", "period", "from", "distance", "deals", "rules"].includes(id);
+
+/** The questions in `queue` that would be asked, as things stand: what askNext would skip, skipped. */
+function stillToAsk(queue: StepId[], chat: Chat, cars: FinnCar[]): number {
+    const preselect = chat.revising;
+    const u = chat.understanding;
+    const ids = queue.flatMap((id) => (id === "bubbles" ? BUBBLE_STEPS : [id]));
+
+    const unique = [...new Set(ids)];
+
+    return unique.filter(
+        (id) =>
+            isQuestion(id) &&
+            !(id === "distance" && !preselect && !needsDistance(u)) &&
+            !(!preselect && answered(id, u)) &&
+            /* "From when?" needs a length: counted ahead while "how long?" is still to come, so the total doesn't jump. */
+            (stepFor(id, cars, u) != null || (id === "from" && unique.includes("period"))),
+    ).length;
+}
+
+/**
+ * The questions answered since this run began — since the last summary, or
+ * the last ask that isn't one of them. Each once: a question asked again
+ * after the reader typed something instead isn't two. Never the one about
+ * to be asked.
+ */
+function answeredInRun(messages: ChatMessage[], asking: StepId): number {
+    const done = new Set<StepId>();
+
+    for (let index = messages.length - 1; index >= 0; index -= 1) {
+        const message = messages[index]!;
+        if (message.kind === "summary") break;
+        if (message.kind !== "ask") continue;
+        if (!isQuestion(message.step.id)) break;
+        if (message.answered && message.step.id !== asking) done.add(message.step.id);
+    }
+
+    return done.size;
+}
+
 export function askNext(chat: Chat, cars: FinnCar[]): Chat {
     const preselect = chat.revising;
     const u = chat.understanding;
@@ -1023,6 +1064,7 @@ export function askNext(chat: Chat, cars: FinnCar[]): Chat {
         const step = stepFor(id, cars, u);
         if (!step) continue;
 
+        const done = isQuestion(id) ? answeredInRun(closeAsks(chat.messages), id) : 0;
         const ask: ChatMessage = {
             id: messageId(),
             at: now(),
@@ -1031,6 +1073,7 @@ export function askNext(chat: Chat, cars: FinnCar[]): Chat {
             /* What's already been said — typed earlier, or kept from last time — shows as picked, so answering doesn't undo it. */
             step: preselect || isBubbleStep(id) || id === "from" || id === "deals" ? { ...step, selected: selectedFor(step, u, chat.picks) } : step,
             answered: false,
+            ...(isQuestion(id) ? { progress: { done, total: done + 1 + stillToAsk(queue, { ...chat, queue }, cars) } } : {}),
         };
 
         return touch({ ...chat, messages: closeAsks(chat.messages) }, [ask], { queue, phase: "asking" });

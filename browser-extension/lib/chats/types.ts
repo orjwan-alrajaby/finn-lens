@@ -247,7 +247,20 @@ export interface Judgement {
 export type ChatMessage =
     | { id: string; at: string; from: "lens"; kind: "text"; text: string }
     | { id: string; at: string; from: "reader"; kind: "text"; text: string }
-    | { id: string; at: string; from: "lens"; kind: "ask"; step: ChatStep; answered: boolean }
+    | {
+          id: string;
+          at: string;
+          from: "lens";
+          kind: "ask";
+          step: ChatStep;
+          answered: boolean;
+          /**
+           * How far through this run of questions the reader is: answered so
+           * far, and how many there are as things stand. The total can grow
+           * — tapping "long distances" adds "how often?".
+           */
+          progress?: { done: number; total: number };
+      }
     | {
           id: string;
           at: string;

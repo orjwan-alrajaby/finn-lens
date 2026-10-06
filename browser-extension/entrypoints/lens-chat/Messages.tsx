@@ -306,6 +306,86 @@ export interface AnswerExtra {
     text?: string;
 }
 
+/** "Answered 2 of 9", with a bar: how far through the questions the reader is. */
+function Progress({ done, total, tone = "light" }: { done: number; total: number; tone?: "light" | "dark" }) {
+    return (
+        <div className="mb-1.5 flex items-center gap-2" aria-label={`Answered ${done} of ${total} questions`}>
+            <span className={`shrink-0 text-[10.5px] font-black uppercase tracking-wide ${tone === "dark" ? "text-white/75" : "text-finn-iron"}`}>
+                Answered {done} of {total}
+            </span>
+            <span aria-hidden="true" className={`block h-1 flex-1 overflow-hidden rounded-full ${tone === "dark" ? "bg-white/20" : "bg-finn-cotton"}`}>
+                <span className={`block h-full rounded-full transition-[width] ${tone === "dark" ? "bg-white" : "bg-finn-accent-blue"}`} style={{ width: `${(done / Math.max(1, total)) * 100}%` }} />
+            </span>
+        </div>
+    );
+}
+
+/** The nearest ancestor that scrolls: the chat's own scroller, in the panel. */
+function scrollParent(element: HTMLElement | null): HTMLElement | null {
+    for (let node = element?.parentElement ?? null; node; node = node.parentElement) {
+        if (/(auto|scroll)/.test(getComputedStyle(node).overflowY)) return node;
+    }
+    return null;
+}
+
+/**
+ * The open question, pinned to the top of the chat once it has scrolled up
+ * out of view — while the reader works through a long row of chips — with
+ * how far through they are. Tapping it brings the question back.
+ */
+function PinnedQuestion({ message }: { message: Extract<ChatMessage, { kind: "ask" }> | null }) {
+    const [pinned, setPinned] = useState(false);
+
+    useEffect(() => {
+        setPinned(false);
+        if (!message?.progress) return;
+
+        const check = () => {
+            const question = document.querySelector<HTMLElement>(`[data-question="${message.id}"]`);
+            const scroller = scrollParent(question);
+            if (!question || !scroller) return setPinned(false);
+
+            setPinned(question.getBoundingClientRect().bottom < scroller.getBoundingClientRect().top + 4);
+        };
+
+        check();
+        document.addEventListener("scroll", check, true);
+        window.addEventListener("resize", check);
+        return () => {
+            document.removeEventListener("scroll", check, true);
+            window.removeEventListener("resize", check);
+        };
+    }, [message]);
+
+    if (!message?.progress) return null;
+
+    /*
+     * No height of its own, so pinning it never moves the chat under it.
+     * -top-4 and -mx-3 undo the scroller's padding (py-4 px-3 in App), so it
+     * meets the top and both edges of the chat.
+     */
+    return (
+        <div className="sticky -top-4 z-30 -mx-3 h-0">
+            <button
+                type="button"
+                tabIndex={pinned ? 0 : -1}
+                aria-hidden={!pinned}
+                onClick={() =>
+                    document.querySelector(`[data-question="${message.id}"]`)?.scrollIntoView({ behavior: reducedMotion() ? "auto" : "smooth", block: "start" })
+                }
+                className={[
+                    "absolute inset-x-0 top-0 block bg-finn-highlight-navy/95 px-4 pt-2 pb-2.5 text-left text-white shadow-md backdrop-blur transition-[opacity,transform] duration-200",
+                    "focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-white",
+                    pinned ? "translate-y-0 opacity-100" : "pointer-events-none -translate-y-2 opacity-0",
+                ].join(" ")}
+            >
+                <Progress {...message.progress} tone="dark" />
+                <span className="line-clamp-2 text-[12.5px] font-bold leading-snug">{message.step.ask}</span>
+            </button>
+        </div>
+    );
+}
+
 /**
  * What the star means, said once under "Why I'm asking" — before the reader
  * meets a starred choice — on any question that has one.
@@ -576,7 +656,10 @@ function Deals({ message, live, onAnswer }: { message: Extract<ChatMessage, { ki
     return (
         <>
             <LensBubble>
-                <p className="font-semibold">{step.ask}</p>
+                {live && message.progress ? <Progress {...message.progress} /> : null}
+                <p data-question={message.id} className="font-semibold">
+                    {step.ask}
+                </p>
                 {live && step.why ? <Why text={step.why} /> : null}
             </LensBubble>
 
@@ -740,7 +823,10 @@ function Ask({
         <>
             <LensBubble>
                 {/* How it works is read, not answered: plain text, like Lens's other words. */}
-                <p className={step.id === "intro" ? "" : "font-semibold"}>{step.ask}</p>
+                {live && message.progress ? <Progress {...message.progress} /> : null}
+                <p data-question={message.id} className={step.id === "intro" ? "" : "font-semibold"}>
+                    {step.ask}
+                </p>
                 {live && (step.why ?? step.hint) ? <Why text={(step.why ?? step.hint)!} /> : null}
                 {live && Object.values(step.bubbleChips ?? {}).some((chips) => chips.options.some((option) => option.recommended)) ? <StarKey /> : null}
             </LensBubble>
@@ -1491,8 +1577,11 @@ export function MessageList({
         );
     });
 
+    const open = messages.find((message) => message.id === liveAsk);
+
     return (
         <div className="space-y-2" aria-live="polite">
+            <PinnedQuestion message={open?.kind === "ask" && settled ? open : null} />
             {rows}
             {typing ? <Typing /> : null}
         </div>

@@ -765,3 +765,37 @@ describe("the intro", () => {
         expect(openAsk(beginChat(saved, cars(), TODAY))?.step.id).toBe("start");
     });
 });
+
+describe("progress through the questions", () => {
+    const progress = (chat: Chat) => (openAsk(chat) as Ask & { progress?: { done: number; total: number } }).progress;
+
+    it("counts each question answered against how many there are, the total growing only when an answer adds one", () => {
+        let chat = startChat(null, cars(), TODAY);
+        /* Four sections, the limit, how long, from when, deal-breakers. */
+        expect(progress(chat)).toEqual({ done: 0, total: 8 });
+
+        chat = answer(chat, openAsk(chat)!.id, [], cars(), TODAY).chat;
+        expect(progress(chat)).toEqual({ done: 1, total: 8 });
+
+        /* Long distances asks how often, and makes how far you drive matter: two more. */
+        chat = answer(chat, openAsk(chat)!.id, ["long"], cars(), TODAY).chat;
+        expect(openAsk(chat)?.step.id).toBe("often-long");
+        expect(progress(chat)).toEqual({ done: 2, total: 10 });
+    });
+
+    it("ends on the last question, and starts again for a change of some answers", () => {
+        const chat = walk(startChat(null, cars(), TODAY), { bubbles: ["dog"] });
+        const asks = chat.messages.filter((message): message is Ask & { progress?: { done: number; total: number } } => message.kind === "ask" && message.step.id === "deals");
+        /* "Not sure yet" for how long: no "from when?", so seven, not eight. */
+        expect(asks.at(-1)?.progress).toEqual({ done: 6, total: 7 });
+
+        const go = answer(chat, openAsk(chat)!.id, ["go"], cars(), TODAY).chat;
+        const changing = changeOne(go, "budget", cars());
+        expect(progress(changing)).toEqual({ done: 0, total: 1 });
+    });
+
+    it("isn't shown on “how it works”, the summary's “looks good” or “what would you like to do?”", () => {
+        expect(progress(beginChat(null, cars(), TODAY))).toBeUndefined();
+        expect(progress(walk(startChat(null, cars(), TODAY), { bubbles: ["dog"] }))).toBeUndefined();
+    });
+});

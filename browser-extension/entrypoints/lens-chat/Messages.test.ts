@@ -179,3 +179,14 @@ describe("recommended comforts", () => {
         expect(html).toContain('aria-label="Recommended"');
     });
 });
+
+describe("progress", () => {
+    it("shows how far through the reader is on the open question, and a pinned copy waiting for it to scroll away", () => {
+        const chat = startChat(null, cars(), TODAY);
+        const html = render(chat.messages);
+
+        expect(text(html)).toMatch(/Answered 0 of 8 First, who rides with you\? .*Answered 0 of 8 First, who rides with you\?/);
+        /* The pinned copy starts hidden, out of the tab order. */
+        expect(html).toMatch(/tabindex="-1" aria-hidden="true"/);
+    });
+});
