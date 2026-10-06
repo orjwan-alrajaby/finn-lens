@@ -461,14 +461,14 @@ function DealKey({ rows }: { rows: DealRow[] }) {
         .filter(Boolean)
         .join(" / ");
     const entries: { label: string; tone: string; means: string }[] = [
-        { label: "Doesn't matter", tone: "bg-white text-finn-black ring-1 ring-black/10", means: "Not part of the judgement." },
+        { label: "Doesn't matter", tone: "bg-finn-snow text-finn-black ring-1 ring-finn-iron/40", means: "Not part of the judgement." },
         ...(offered.has("must") ? [{ label: must, tone: DEAL_TONE.must, means: DEAL_MEANS.must }] : []),
         ...(offered.has("mustNot") ? [{ label: mustNot, tone: DEAL_TONE.mustNot, means: DEAL_MEANS.mustNot }] : []),
         ...(offered.has("seal") ? [{ label: "Seals it", tone: DEAL_TONE.seal, means: DEAL_MEANS.seal }] : []),
     ];
 
     return (
-        <dl className="mt-2 space-y-1.5 text-[12px] leading-snug">
+        <dl className="mt-3 space-y-2 border-t border-black/5 pt-2.5 text-[12px] leading-snug">
             {entries.map((entry) => (
                 <div key={entry.label} className="flex items-start gap-2">
                     <dt className={`mt-px shrink-0 rounded-full px-2 py-0.5 text-[10.5px] font-black ${entry.tone}`}>{entry.label}</dt>
@@ -710,10 +710,11 @@ function BubbleChipRow({
 const DEAL_LABEL = (row: DealRow, state: DealRow["options"][number]): string =>
     state === "seal" ? "Seals it" : state === "must" ? (row.kind ? "Must be" : "Must have") : row.kind ? "Mustn't be" : "Mustn't have";
 
+/* Soft fills, with the text and border in the darker shade: picked reads clearly without shouting. */
 const DEAL_TONE: Record<DealRow["options"][number], string> = {
-    must: "bg-finn-highlight-navy text-white shadow-sm",
-    mustNot: "bg-finn-fit-limited text-white shadow-sm",
-    seal: "bg-finn-fit-good text-white shadow-sm",
+    must: "bg-finn-pale-blue text-finn-highlight-navy ring-1 ring-finn-highlight-navy/45",
+    mustNot: "bg-finn-fit-limited-pale text-finn-fit-limited ring-1 ring-finn-fit-limited/45",
+    seal: "bg-finn-fit-good-pale text-finn-fit-good ring-1 ring-finn-fit-good/45",
 };
 
 /**
@@ -744,14 +745,15 @@ function Deals({ message, live, onAnswer }: { message: Extract<ChatMessage, { ki
             </LensBubble>
 
             {live ? (
-                <div className="space-y-2.5 pt-0.5">
+                <div className="space-y-4 pt-1">
                     {groups.map((group) => (
                         <div key={group.id}>
-                            {group.title ? <p className="mb-1 px-1 text-[10.5px] font-black uppercase tracking-wide text-finn-iron">{group.title}</p> : null}
+                            {group.title ? <p className="mb-1.5 px-1 text-[10.5px] font-black uppercase tracking-wide text-finn-iron">{group.title}</p> : null}
                             <ul className="divide-y divide-finn-cotton overflow-hidden rounded-2xl bg-white ring-1 ring-black/5">
                                 {group.rows.map((row) => (
-                                    <li key={row.id} className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1.5 px-3 py-2">
-                                        <span className="inline-flex items-center gap-0.5 text-[12.5px] font-bold text-finn-black">
+                                    /* The name on its own line, its options spread evenly under it: room to read and to tap. */
+                                    <li key={row.id} className="space-y-2 px-3.5 py-3">
+                                        <span className="inline-flex items-center gap-0.5 text-[13px] font-bold text-finn-black">
                                             {row.label}
                                             <InfoTip label={row.label}>
                                                 <p className="font-black">{row.label}</p>
@@ -759,7 +761,12 @@ function Deals({ message, live, onAnswer }: { message: Extract<ChatMessage, { ki
                                                 {row.suggested ? <p className="text-white/75">{row.suggested}</p> : null}
                                             </InfoTip>
                                         </span>
-                                        <span role="radiogroup" aria-label={row.label} className="inline-flex rounded-full bg-finn-snow p-0.5 ring-1 ring-finn-cotton">
+                                        <span
+                                            role="radiogroup"
+                                            aria-label={row.label}
+                                            className="grid gap-1.5"
+                                            style={{ gridTemplateColumns: `repeat(${row.options.length + 1}, minmax(0, 1fr))` }}
+                                        >
                                             {([undefined, ...row.options] as (DealRow["options"][number] | undefined)[]).map((option) => {
                                                 const on = states[row.id] === option;
 
@@ -771,8 +778,13 @@ function Deals({ message, live, onAnswer }: { message: Extract<ChatMessage, { ki
                                                         aria-checked={on}
                                                         onClick={() => setStates((current) => ({ ...current, [row.id]: option }))}
                                                         className={[
-                                                            "rounded-full px-2.5 py-1 text-[11px] font-black transition-colors",
-                                                            on ? (option ? DEAL_TONE[option] : "bg-white text-finn-black shadow-sm ring-1 ring-black/10") : "text-finn-iron hover:text-finn-black",
+                                                            "rounded-full px-2 py-1.5 text-center text-[11.5px] font-black leading-tight transition-colors",
+                                                            "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-finn-accent-blue",
+                                                            on
+                                                                ? option
+                                                                    ? DEAL_TONE[option]
+                                                                    : "bg-finn-snow text-finn-black ring-1 ring-finn-iron/40"
+                                                                : "bg-white text-finn-iron ring-1 ring-finn-cotton hover:text-finn-black hover:ring-finn-iron/30",
                                                         ].join(" ")}
                                                     >
                                                         {option ? DEAL_LABEL(row, option) : "Doesn't matter"}
