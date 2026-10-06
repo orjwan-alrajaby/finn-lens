@@ -391,6 +391,12 @@ export interface Chat {
      */
     beforeChange?: Chat;
     /**
+     * Deal-breakers the reader chose to keep when no car had them all
+     * ("Keep them all"), by `rulesSignature`: judging on these again shows
+     * the result rather than asking again. Different rules can ask again.
+     */
+    keptRules?: string;
+    /**
      * The reader said the summary doesn't look right, and is adjusting it:
      * the Adjust panel is open beside the chat until they tap Done.
      */

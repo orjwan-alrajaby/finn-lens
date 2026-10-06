@@ -398,7 +398,7 @@ describe("what someone rules out", () => {
         expect(section.title).toBe("No car here meets “mustn't be an SUV”");
         expect(section.lines.map((line) => line.text)).toEqual([
             `None of the ${run.recommendation.context.vehicles.length} cars compared does.`,
-            "Whether to let it go is your call — tell me in the chat and I'll judge again. Until then, this is the best fit for everything else you told me.",
+            "You kept it, so this is the best fit for everything else you told me. To let it go, change your deal-breakers and I'll judge again.",
         ]);
     });
 });
@@ -552,7 +552,7 @@ describe("no car with every deal-breaker", () => {
         expect(section.title).toBe("No car here has all of your deal-breakers");
         expect(section.tone).toBe("note");
         expect(text).toMatch(/^Of the 24 cars compared, none meets all 5 at once: mustn't be electric, must have an automatic gearbox, must have all-wheel drive, must have rear doors and must have low CO₂ emissions\./);
-        expect(text).toMatch(/Which matters least is your call/);
+        expect(text).toMatch(/You kept them all, so this is the best fit for everything else you told me\. To let one go, change your deal-breakers and I'll judge again\.$/);
         expect(text).not.toMatch(/ranked them all|nothing here matches/);
         for (const item of run.ruledOut!.withoutEach.filter((entry) => entry.fits > 0)) expect(text).toContain(`and ${item.fits} ${item.fits === 1 ? "car fits" : "cars fit"} everything else`);
     });

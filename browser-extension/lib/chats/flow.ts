@@ -46,7 +46,7 @@ import {
 import type { FinnCar } from "@/lib/types";
 
 import { applyFollowUp, offerReason } from "./follow-ups";
-import { BASE_ANSWERS } from "./judge";
+import { BASE_ANSWERS, rulesSignature } from "./judge";
 import { messageId, newChatId } from "./store";
 import type { BubbleChips, Chat, ChatMessage, ChatStep, DealRow, Rewind, SavedSettings, StepId, SummaryBubble } from "./types";
 
@@ -1446,10 +1446,15 @@ function answerStep(
 
     /* -- No car has every deal-breaker: the ones let go of become sealers, and the cars are judged again -- */
     if (step.id === "letGo") {
+        /* Kept: now the result, on these rules — and these rules won't ask again. */
         if (!picked.length) {
             return {
-                chat: touch(base, [reader(step.none ? `${step.none}.` : "Keep them all."), lens(`Fine — ${step.choices.length === 1 ? "it stays" : "they all stay"}. The pick above is the best fit for everything else you told me.`)], { phase: "judged" }),
-                after: "wait",
+                chat: touch(
+                    base,
+                    [reader(step.none ? `${step.none}.` : "Keep them all."), lens(`Fine — ${step.choices.length === 1 ? "it stays" : "they all stay"}. Here's the best fit for everything else you told me.`)],
+                    { phase: "ready", keptRules: rulesSignature(base.understanding) },
+                ),
+                after: "judge",
             };
         }
 

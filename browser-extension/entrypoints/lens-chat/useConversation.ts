@@ -21,7 +21,7 @@ import {
     setImportance as setNeedImportance,
     type Heard,
 } from "@/lib/chats/flow";
-import { judgementFrom, judgeWith, letGoAsk, resultMessage, withJudgement } from "@/lib/chats/judge";
+import { askBeforeResult, judgementFrom, judgeWith, resultMessage, withJudgement } from "@/lib/chats/judge";
 import { addedToJudgement, judgedCars, loadedCars } from "@/lib/chats/scope";
 import { loadChat, loadSettings, messageId, saveChat, saveSettings, setActiveChat } from "@/lib/chats/store";
 import type { Chat } from "@/lib/chats/types";
@@ -172,6 +172,19 @@ export function useConversation(page: PageCars) {
                 if (!judged) throw new Error("the engine returned nothing");
 
                 const at = new Date().toISOString();
+
+                /*
+                 * No car has every deal-breaker: which to let go of is the
+                 * reader's to say before there's a pick to show. The result —
+                 * and the chips on the page — come after they answer.
+                 */
+                const first = askBeforeResult(from, judged.run, messageId(), at);
+                if (first) {
+                    const asking = withLensSaying({ ...from, phase: "ready" }, "Before I show you a pick, one question.");
+                    await commit({ ...asking, messages: [...asking.messages, first] });
+                    return;
+                }
+
                 const result = resultMessage(judged, cars, headline, urls, messageId(), at, from.understanding);
                 const judgement = judgementFrom(judged, cars, from.understanding, headline, url, urls, at);
 
@@ -189,8 +202,6 @@ export function useConversation(page: PageCars) {
                             kind: "text",
                             text: "Every car I judged now has a chip on its card. Tap any chip to see how that car fits you, or the gold one to see why it won.",
                         },
-                        /* No car has every deal-breaker: which to let go of is the reader's call, asked right here. */
-                        ...[letGoAsk(judged.run, messageId(), at)].filter((ask) => ask != null),
                     ],
                 });
                 await setActiveChat(from.id);

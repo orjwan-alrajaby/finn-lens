@@ -6,7 +6,7 @@ import { EMPTY_UNDERSTANDING, ruledOut } from "@/lib/lens-chat/understanding";
 
 import { fleet } from "@/lib/reasoning-engine/test-data/fleet";
 
-import { chatAnswers, judgementFrom, judgeWith, letGoAsk, resultMessage } from "./judge";
+import { askBeforeResult, chatAnswers, judgementFrom, judgeWith, letGoAsk, resultMessage, rulesSignature } from "./judge";
 import { withBubbles } from "@/lib/lens-chat/bubbles";
 import { DEAL_MEANS, demandOf, letGo, withDeals } from "@/lib/lens-chat/deals";
 import { IMPORTANCE, IMPORTANCE_LABEL as LEVEL_LABEL } from "@/lib/lens-chat/importance";
@@ -908,7 +908,9 @@ describe("letting a deal-breaker go, when no car has them all", () => {
         const fits = step.choices.map((choice) => judged.run.ruledOut!.withoutEach.find((row) => row.id === choice.id)!.fits);
         expect(fits).toEqual([...fits].sort((a, b) => b - a));
         expect(step.none).toBe("Keep them all");
-        expect(resultMessage(judged, page(), "24 cars", {}, "r1", TODAY.toISOString()).know).toMatch(/^No car here has all of your deal-breakers, so what to let go of is your call/);
+        expect(resultMessage(judged, page(), "24 cars", {}, "r1", TODAY.toISOString()).know).toBe(
+            "No car here has all of your deal-breakers, and you kept them all — so this is the best fit for everything else you told me.",
+        );
     });
 
     it("turns the ones let go into deal-sealers and judges again, and can't be taken back", () => {
@@ -922,13 +924,24 @@ describe("letting a deal-breaker go, when no car has them all", () => {
         expect(rewindable(next)).toBeNull();
     });
 
-    it("keeps them all when asked to, and judges nothing again", () => {
-        const { chat } = ask(strict());
+    it("keeps them all when asked to, then shows the result — and won't ask again on these rules", () => {
+        const { judged, chat } = ask(strict());
         const { chat: next, after } = answer(chat, openAsk(chat)!.id, [], page(), TODAY);
 
-        expect(after).toBe("wait");
+        expect(after).toBe("judge");
         expect(ruledOut(next.understanding)).toHaveLength(5);
-        expect(texts(next).at(-1)).toBe("Fine — they all stay. The pick above is the best fit for everything else you told me.");
+        expect(texts(next).at(-1)).toBe("Fine — they all stay. Here's the best fit for everything else you told me.");
+        expect(next.keptRules).toBe(rulesSignature(next.understanding));
+        expect(askBeforeResult(next, judged.run, "x", "")).toBeNull();
+    });
+
+    it("is asked before the result, not after it — and again when the rules change", () => {
+        const { judged, chat } = ask(strict());
+
+        expect(askBeforeResult(strict(), judged.run, "x", "")?.step.id).toBe("letGo");
+        /* Kept on one set of rules, a different set asks again. */
+        const kept = { ...chat, keptRules: "must:hasTowbar" };
+        expect(askBeforeResult(kept, judged.run, "x", "")?.step.id).toBe("letGo");
     });
 
     it("isn't asked when some car has them all", () => {

@@ -595,7 +595,8 @@ export function tellFitStory(
                     })),
                     {
                         tone: "note",
-                        text: `${rules.length === 1 ? "Whether to let it go" : "Which matters least"} is your call — tell me in the chat and I'll judge again. Until then, this is the best fit for everything else you told me.`,
+                        /* By the time there's a pick to show, the reader has said to keep them. */
+                        text: `You kept ${rules.length === 1 ? "it" : "them all"}, so this is the best fit for everything else you told me. To let ${rules.length === 1 ? "it" : "one"} go, change your deal-breakers and I'll judge again.`,
                     },
                 ],
                 summary: "No car here has them all",

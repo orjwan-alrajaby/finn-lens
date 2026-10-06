@@ -419,12 +419,14 @@ car aside. Rows recommended by earlier answers: snow & ice → all-wheel drive (
 
 ### 9.3 When no car has every deal-breaker
 
-All cars come back and are ranked as if the rules weren't there, and Lens **puts the choice to the reader**
-rather than calling it a failure (`letGoAsk`, judge.ts; fit story): "No car here has all of your
+Lens **puts the choice to the reader before showing any pick** (`askBeforeResult`, `letGoAsk`, judge.ts) —
+the result and the chips on the page come only after they answer: "No car here has all of your
 deal-breakers — so which matters least to you?", each with what letting it go opens up ("Let go of ‘must
 have all-wheel drive’ and 3 cars fit everything else"), most first. Each one let go becomes a deal-sealer
 where Lens can weigh it, or simply stops being a rule where it can only rule on it; then the cars are judged
-again. Not something to take back, since the judgement follows straight away.
+again (and asked again if still nothing has them all). **Keep them all** shows the result, every car ranked as
+if the rules weren't there, and is remembered for those exact rules (`keptRules`) so it isn't asked again
+until the deal-breakers change. Not something to take back, since the judgement follows straight away.
 
 ### 9.4 The limit
 

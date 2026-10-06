@@ -255,7 +255,7 @@ export function resultMessage(
     const winner = compareRows(run, 1)[0] ?? null;
 
     const note = run.ruledOut?.nothingLeft
-        ? `No car here has ${run.ruledOut.evidence.length === 1 ? "what your deal-breaker asks for" : "all of your deal-breakers"}, so what to let go of is your call — I've asked you below. Until then, this is the best fit for everything else you told me.`
+        ? `No car here has ${run.ruledOut.evidence.length === 1 ? "what your deal-breaker asks for" : "all of your deal-breakers"}, and you kept ${run.ruledOut.evidence.length === 1 ? "it" : "them all"} — so this is the best fit for everything else you told me.`
         : run.nearestToLimit
           ? `Nothing here fits your budget, so I ranked the cars closest to it — up to about €${run.nearestToLimit.upTo} a month.`
           : summary.note;
@@ -327,6 +327,25 @@ export function judgementFrom(
  * else" — the ones that open up most first. Null when there's no such choice
  * to make.
  */
+/** The reader's deal-breakers, as one string: the same rules, the same signature. */
+export function rulesSignature(u: Understanding): string {
+    return ruledOut(u)
+        .map((rule) => `${rule.mode}:${rule.id}`)
+        .sort()
+        .join(",");
+}
+
+/**
+ * Asked before the result, not after it: when no car has every deal-breaker,
+ * which to let go of is the reader's to say before Lens shows a pick — unless
+ * they've already said to keep these very rules. Null when there's nothing
+ * to ask.
+ */
+export function askBeforeResult(from: Chat, run: LensRun, id: string, at: string): Extract<ChatMessage, { kind: "ask" }> | null {
+    if (from.keptRules && from.keptRules === rulesSignature(from.understanding)) return null;
+    return letGoAsk(run, id, at);
+}
+
 export function letGoAsk(run: LensRun, id: string, at: string): Extract<ChatMessage, { kind: "ask" }> | null {
     if (!run.ruledOut?.nothingLeft) return null;
 
