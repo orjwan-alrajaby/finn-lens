@@ -10,7 +10,7 @@ import { chatAnswers, judgementFrom, judgeWith } from "./judge";
 import { withBubbles } from "@/lib/lens-chat/bubbles";
 import { addMonths } from "@/lib/reasoning-engine/contract";
 import { CATEGORIES } from "@/lib/reasoning-engine/constants";
-import { addItem, allChips, answer, askNext, keepShort, openedWhy, changeAnswers, changeOne, removeItem, rentalMonths, rewind, rewindable, setImportance, startChat as beginChat, startMonth, stepFor, summaryOf } from "./flow";
+import { addItem, allChips, answer, followUps, askNext, keepShort, openedWhy, changeAnswers, changeOne, removeItem, rentalMonths, rewind, rewindable, setImportance, startChat as beginChat, startMonth, stepFor, summaryOf } from "./flow";
 import type { Chat, ChatMessage, SavedSettings, StepId } from "./types";
 
 /** A first chat, past "Got it — let's start": most tests begin at the first question. */
@@ -797,5 +797,17 @@ describe("progress through the questions", () => {
     it("isn't shown on “how it works”, the summary's “looks good” or “what would you like to do?”", () => {
         expect(progress(beginChat(null, cars(), TODAY))).toBeUndefined();
         expect(progress(walk(startChat(null, cars(), TODAY), { bubbles: ["dog"] }))).toBeUndefined();
+    });
+});
+
+describe("follow-ups in a section", () => {
+    it("lists the chip rows the tapped bubbles opened, in order, and which have an answer", () => {
+        const step = stepFor("bubbles-copes", cars())!;
+
+        expect(followUps(step, [])).toEqual([]);
+        expect(followUps(step, ["weather", "carry", "carry:shopping"])).toEqual([
+            { bubble: "weather", ask: "What's it like?", answered: false },
+            { bubble: "carry", ask: "What do you carry?", answered: true },
+        ]);
     });
 });

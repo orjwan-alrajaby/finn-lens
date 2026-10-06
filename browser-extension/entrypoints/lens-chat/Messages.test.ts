@@ -190,3 +190,20 @@ describe("progress", () => {
         expect(html).toMatch(/tabindex="-1" aria-hidden="true"/);
     });
 });
+
+describe("follow-ups", () => {
+    it("ticks each one answered, and counts them above Continue", () => {
+        const step = stepFor("bubbles-copes", cars())!;
+        const html = render([{ id: "c1", at: "", from: "lens", kind: "ask", answered: false, progress: { done: 2, total: 8 }, step: { ...step, selected: ["weather", "carry", "carry:bulky"] } }]);
+        const words = text(html);
+
+        expect(words).toContain("Follow-ups answered: 1 of 2");
+        expect(html.match(/aria-label="Answered"/g)).toHaveLength(1);
+        expect(html).toContain('data-followup="What do you carry?"');
+    });
+
+    it("aren't counted on a section with none open", () => {
+        const step = stepFor("bubbles-people", cars())!;
+        expect(text(render([{ id: "p1", at: "", from: "lens", kind: "ask", answered: false, step }]))).not.toContain("Follow-ups");
+    });
+});

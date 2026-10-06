@@ -1,8 +1,8 @@
-import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Check, ChevronDown, ChevronRight, Info, PencilLine, Plus, Star, X } from "lucide-react";
 
 import { BandChip, BrandMark, CarPhoto, euros, WinnerChip } from "@/components/lens-parts";
-import { allChips, coveredBy, IMPORTANCE_LABEL } from "@/lib/chats/flow";
+import { allChips, coveredBy, followUps, IMPORTANCE_LABEL } from "@/lib/chats/flow";
 import type { BubbleChips, CarSnapshot, ChatMessage, Choice, CustomAnswer, DealRow, StepId, SummaryBubble } from "@/lib/chats/types";
 import type { NeedImportance } from "@/lib/lens-ai/contract";
 import { lowerFirst } from "@/lib/reasoning-engine/format";
@@ -320,6 +320,24 @@ function Progress({ done, total, tone = "light" }: { done: number; total: number
     );
 }
 
+/** "Follow-ups answered: 1 of 3": the chip rows a section's bubbles opened, and how many have an answer. */
+function FollowUpCount({ done, total, tone = "light" }: { done: number; total: number; tone?: "light" | "dark" }) {
+    return (
+        <p className={`flex items-center gap-1.5 text-[11px] font-bold ${tone === "dark" ? "text-white/80" : "px-1 text-finn-iron"}`}>
+            <span className="inline-flex gap-0.5" aria-hidden="true">
+                {Array.from({ length: total }, (_, index) => (
+                    <span key={index} className={`h-1.5 w-1.5 rounded-full ${index < done ? (tone === "dark" ? "bg-white" : "bg-finn-fit-good") : tone === "dark" ? "bg-white/25" : "bg-finn-cotton"}`} />
+                ))}
+            </span>
+            Follow-ups answered: {done} of {total}
+        </p>
+    );
+}
+
+/** How an open question tells the pinned bar its follow-ups: answered of opened, or null for none. */
+type FollowUps = { done: number; total: number } | null;
+const FollowUpsReport = createContext<(askId: string, value: FollowUps) => void>(() => {});
+
 /** The nearest ancestor that scrolls: the chat's own scroller, in the panel. */
 function scrollParent(element: HTMLElement | null): HTMLElement | null {
     for (let node = element?.parentElement ?? null; node; node = node.parentElement) {
@@ -333,11 +351,14 @@ function scrollParent(element: HTMLElement | null): HTMLElement | null {
  * out of view — while the reader works through a long row of chips — with
  * how far through they are. Tapping it brings the question back.
  */
-function PinnedQuestion({ message }: { message: Extract<ChatMessage, { kind: "ask" }> | null }) {
+function PinnedQuestion({ message, follow }: { message: Extract<ChatMessage, { kind: "ask" }> | null; follow: FollowUps }) {
     const [pinned, setPinned] = useState(false);
+    /* The follow-up being worked through: its question scrolled away, its chips still on screen. */
+    const [current, setCurrent] = useState<string | null>(null);
 
     useEffect(() => {
         setPinned(false);
+        setCurrent(null);
         if (!message?.progress) return;
 
         const check = () => {
@@ -345,7 +366,15 @@ function PinnedQuestion({ message }: { message: Extract<ChatMessage, { kind: "as
             const scroller = scrollParent(question);
             if (!question || !scroller) return setPinned(false);
 
-            setPinned(question.getBoundingClientRect().bottom < scroller.getBoundingClientRect().top + 4);
+            const top = scroller.getBoundingClientRect().top;
+            setPinned(question.getBoundingClientRect().bottom < top + 4);
+
+            const rows = [...(question.closest("[data-ask]")?.querySelectorAll<HTMLElement>("[data-followup]") ?? [])];
+            const row = rows.find((item) => {
+                const box = item.getBoundingClientRect();
+                return box.top < top + 4 && box.bottom > top + 48;
+            });
+            setCurrent(row?.dataset.followup ?? null);
         };
 
         check();
@@ -381,6 +410,12 @@ function PinnedQuestion({ message }: { message: Extract<ChatMessage, { kind: "as
             >
                 <Progress {...message.progress} tone="dark" />
                 <span className="line-clamp-2 text-[12.5px] font-bold leading-snug">{message.step.ask}</span>
+                {follow ? (
+                    <span className="mt-1.5 block space-y-0.5 border-t border-white/15 pt-1.5">
+                        {current ? <span className="block text-[12px] font-semibold leading-snug">↳ {current}</span> : null}
+                        <FollowUpCount {...follow} tone="dark" />
+                    </span>
+                ) : null}
             </button>
         </div>
     );
@@ -567,9 +602,10 @@ function BubbleChipRow({
     const allPicked = all.every((id) => picked.includes(id));
 
     return (
-        <div className="basis-full rounded-2xl bg-finn-pale-blue/60 px-3 py-2 ring-1 ring-finn-accent-blue/15">
+        <div data-followup={chips.ask} className="basis-full rounded-2xl bg-finn-pale-blue/60 px-3 py-2 ring-1 ring-finn-accent-blue/15">
             <div className="flex items-baseline justify-between gap-2">
                 <p className="text-[11.5px] font-bold text-finn-highlight-navy">
+                    {picked.length ? <Check aria-label="Answered" className="mr-1 inline h-3 w-3 text-finn-fit-good" strokeWidth={3.5} /> : null}
                     {chips.ask}
                     {chips.max ? <span className="font-semibold text-finn-iron"> Up to {chips.max}.</span> : null}
                 </p>
@@ -779,6 +815,14 @@ function Ask({
 
             return rules.max && mine.length - dropped.size >= rules.max ? current : [...kept, id];
         });
+    /* The follow-ups this section has opened, and how many have an answer: for the count, and the pinned bar. */
+    const follow = followUps(step, picked);
+    const followDone = follow.filter((item) => item.answered).length;
+    const report = useContext(FollowUpsReport);
+    useEffect(() => {
+        report(message.id, live && follow.length ? { done: followDone, total: follow.length } : null);
+    }, [report, message.id, live, follow.length, followDone]);
+
     /* Bubbles that need a chip before the answer means anything: "the weather is tough", but what's it like? */
     const unfinished = Object.entries(step.bubbleChips ?? {})
         .filter(([bubble, rules]) => rules.required && picked.includes(bubble) && !picked.some((item) => item.startsWith(`${bubble}:`)))
@@ -906,6 +950,8 @@ function Ask({
                     ) : null}
 
                     {step.multiple && !step.bubbleChips ? <Picked choices={chosen.filter((choice) => choice.description || choice.looksFor?.length)} /> : null}
+
+                    {follow.length ? <FollowUpCount done={followDone} total={follow.length} /> : null}
 
                     {step.multiple && ready ? (
                         <button
@@ -1515,6 +1561,12 @@ export function MessageList({
 
     const settled = !typing && !busy;
 
+    /* Each open question's follow-ups, as it reports them, for the pinned bar. */
+    const [follow, setFollow] = useState<Record<string, FollowUps>>({});
+    const report = useCallback((askId: string, value: FollowUps) => {
+        setFollow((current) => (JSON.stringify(current[askId] ?? null) === JSON.stringify(value) ? current : { ...current, [askId]: value }));
+    }, []);
+
     const rows: React.ReactNode[] = [];
 
     messages.forEach((message, index) => {
@@ -1571,7 +1623,7 @@ export function MessageList({
         }
 
         rows.push(
-            <div key={message.id} className={startsRun ? "pt-2" : ""}>
+            <div key={message.id} data-ask={message.kind === "ask" ? message.id : undefined} className={startsRun ? "pt-2" : ""}>
                 <LensRow avatar={avatar}>{body}</LensRow>
             </div>,
         );
@@ -1580,10 +1632,12 @@ export function MessageList({
     const open = messages.find((message) => message.id === liveAsk);
 
     return (
-        <div className="space-y-2" aria-live="polite">
-            <PinnedQuestion message={open?.kind === "ask" && settled ? open : null} />
-            {rows}
-            {typing ? <Typing /> : null}
-        </div>
+        <FollowUpsReport.Provider value={report}>
+            <div className="space-y-2" aria-live="polite">
+                <PinnedQuestion message={open?.kind === "ask" && settled ? open : null} follow={liveAsk ? (follow[liveAsk] ?? null) : null} />
+                {rows}
+                {typing ? <Typing /> : null}
+            </div>
+        </FollowUpsReport.Provider>
     );
 }

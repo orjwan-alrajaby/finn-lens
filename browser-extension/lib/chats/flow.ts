@@ -426,6 +426,17 @@ export function allChips(chips: BubbleChips): string[] | null {
     }, []);
 }
 
+/**
+ * The follow-ups a section has opened: the chip row under each bubble
+ * tapped, in order, and whether it has an answer yet — "Which comforts?",
+ * answered. How far through a section the reader is.
+ */
+export function followUps(step: ChatStep, picked: string[]): { bubble: string; ask: string; answered: boolean }[] {
+    return step.choices
+        .filter((choice) => step.bubbleChips?.[choice.id] && picked.includes(choice.id))
+        .map((choice) => ({ bubble: choice.id, ask: step.bubbleChips![choice.id]!.ask, answered: picked.some((item) => item.startsWith(`${choice.id}${CHIP}`)) }));
+}
+
 /** The bubbles and chips a bubbles answer picked. */
 function bubblePicks(chosen: string[]): Partial<Record<BubbleId, string[]>> {
     const picks: Partial<Record<BubbleId, string[]>> = {};
@@ -1013,8 +1024,14 @@ function stillToAsk(queue: StepId[], chat: Chat, cars: FinnCar[]): number {
             isQuestion(id) &&
             !(id === "distance" && !preselect && !needsDistance(u)) &&
             !(!preselect && answered(id, u)) &&
-            /* "From when?" needs a length: counted ahead while "how long?" is still to come, so the total doesn't jump. */
-            (stepFor(id, cars, u) != null || (id === "from" && unique.includes("period"))),
+            /*
+             * "From when?" needs a length: counted ahead while "how long?" is
+             * still to come, so the total doesn't jump. How far and the
+             * deal-breakers are counted without being built — each reads
+             * every car, a fifth of a second over FINN's whole inventory —
+             * since they're nearly always asked.
+             */
+            (id === "distance" || id === "deals" || stepFor(id, cars, u) != null || (id === "from" && unique.includes("period"))),
     ).length;
 }
 
