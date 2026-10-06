@@ -1259,7 +1259,7 @@ export function askNext(chat: Chat, cars: FinnCar[]): Chat {
             summaryOf(u, messageId(), cars),
             { id: messageId(), at: now(), from: "lens", kind: "ask", step: CONFIRM, answered: false },
         ],
-        { queue: [], phase: "keep", revising: false, adjusting: false },
+        { queue: [], phase: "keep", revising: false, adjusting: false, beforeChange: undefined },
     );
 }
 
@@ -1329,6 +1329,9 @@ export function answer(
     const ask = chat.messages.find((message) => message.id === askId);
 
     if (result.chat === chat || ask?.kind !== "ask") return result;
+
+    /* "Never mind" put the chat back as it was before the change: its own history with it, nothing added. */
+    if (chat.beforeChange && (ask.step.id === "changeHow" || ask.step.id === "changeWhich") && !chosen.length) return result;
 
     /* Keeping the answers ends the questions: from a judgement, "Change my answers" is the way back. */
     /* Nor is letting a deal-breaker go: the cars are judged again on it straight away. */
@@ -1501,7 +1504,8 @@ function answerStep(
         const said = step.multiple ? (picked.length ? `I'd like to change: ${joined(picked.map((choice, index) => (index ? lowerFirst(choice.label) : choice.label)))}.` : "Never mind.") : tapped || "Never mind.";
 
         if (!picked.length) {
-            /* Nothing to change: back to where the chat was. */
+            /* Nothing to change: back to exactly where the chat was, where Lens kept it; else as it is now. */
+            if (chat.beforeChange) return { chat: neverMind(chat), after: "wait" };
             return { chat: touch(base, [reader(said), lens("Fine — I'll keep everything as it is.")], { queue: [], phase: chat.judgement ? "judged" : "ready" }), after: "wait" };
         }
 
@@ -1690,8 +1694,11 @@ function answerStep(
 }
 
 /** The reader wants to change what they said: all of it, or which parts is asked next. */
+/** The chat before a change, kept once — the first change of a run is the one "never mind" goes back to. */
+const keepBefore = (chat: Chat): Chat => chat.beforeChange ?? { ...chat, beforeChange: undefined };
+
 export function changeAnswers(chat: Chat, cars: FinnCar[]): Chat {
-    const next = touch({ ...chat, messages: closeAsks(chat.messages) }, [reader("I'd like to change my answers.")], { queue: ["changeHow"] });
+    const next = touch({ ...chat, messages: closeAsks(chat.messages), beforeChange: keepBefore(chat) }, [reader("I'd like to change my answers.")], { queue: ["changeHow"] });
 
     return askNext(next, cars);
 }
@@ -1707,9 +1714,23 @@ const CHANGE_WHAT: Partial<Record<StepId, string>> = {
 /** One answer, changed from the summary: that question again, then back to the summary. */
 export function changeOne(chat: Chat, step: StepId, cars: FinnCar[]): Chat {
     const queue: StepId[] = [step];
-    const next = touch({ ...chat, messages: closeAsks(chat.messages) }, [reader(`I'd like to change ${CHANGE_WHAT[step] ?? "that"}.`)], { queue, kept: null, revising: true, adjusting: false });
+    const next = touch({ ...chat, messages: closeAsks(chat.messages), beforeChange: keepBefore(chat) }, [reader(`I'd like to change ${CHANGE_WHAT[step] ?? "that"}.`)], {
+        queue,
+        kept: null,
+        revising: true,
+        adjusting: false,
+    });
 
     return askNext(next, cars);
+}
+
+/**
+ * "Never mind — keep my answers": the chat exactly as it was before the
+ * reader chose to change something — clicked by mistake, or thought better
+ * of. Nothing they'd answered since is kept.
+ */
+export function neverMind(chat: Chat): Chat {
+    return chat.beforeChange ? { ...chat.beforeChange, beforeChange: undefined, updatedAt: now() } : chat;
 }
 
 /**

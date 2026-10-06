@@ -284,3 +284,14 @@ describe("sources in a tooltip", () => {
         expect(text(two).trim()).toBe("Source 1 Source 2");
     });
 });
+
+describe("never mind", () => {
+    it("is offered on the open question while changing answers, and not where “Never mind” is already an answer", () => {
+        const chat = startChat(null, cars(), TODAY);
+        const withIt = renderToStaticMarkup(createElement(MessageList, { messages: chat.messages, typing: false, busy: false, onAnswer: noop, onOpenCar: noop, onNeverMind: noop }));
+        const without = render(chat.messages);
+
+        expect(text(withIt)).toContain("Never mind — keep my answers");
+        expect(text(without)).not.toContain("Never mind — keep my answers");
+    });
+});

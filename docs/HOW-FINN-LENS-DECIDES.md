@@ -221,6 +221,10 @@ recommended it.
 Lens will check; then money & time and deal-breakers & sealers. **Looks good to me — continue** goes on;
 **This doesn't look right** opens the Adjust panel (beside the chat, which widens for it) with every
 editable card: take an item out, add a suggestion, set how much each counts, or change an answer.
+"Change" on a single line asks that question again; on "Your life" it first asks whether to go through all the
+questions again or pick which. Every question asked because the reader chose to change something offers
+**Never mind — keep my answers**, which puts the chat back exactly as it was before the first change
+(`neverMind`, flow.ts) — summary, open question, Adjust panel and all.
 
 ---
 

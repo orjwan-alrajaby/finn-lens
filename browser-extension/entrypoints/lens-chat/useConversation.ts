@@ -13,6 +13,7 @@ import {
     withLensSaying,
     changeOne as changeOneAnswer,
     doneAdjusting,
+    neverMind,
     keepShort as keepResultsShort,
     openedWhy,
     addItem as addBubbleItem,
@@ -391,10 +392,16 @@ export function useConversation(page: PageCars) {
     }, [judge]);
 
     /** The Adjust panel's Done: what Lens understood now, said back in the chat. */
+    /** "Never mind — keep my answers": the chat as it was before the reader chose to change something. */
+    const keepAnswers = useCallback(async () => {
+        const current = latest.current;
+        if (current?.beforeChange && !busy) await commit(neverMind(current));
+    }, [busy, commit]);
+
     const finishAdjusting = useCallback(async () => {
         const current = latest.current;
         if (current?.adjusting) await commit(doneAdjusting(current, pageRef.current.cars));
     }, [commit]);
 
-    return { chat, busy, startNew, open, clear, tap, type, whyWinner, change, changeOne, importance, removeItem, addItem, judgeHere, addHere, takeBack, seeWhy, keepShort, finishAdjusting };
+    return { chat, busy, startNew, open, clear, tap, type, whyWinner, change, changeOne, importance, removeItem, addItem, judgeHere, addHere, takeBack, seeWhy, keepShort, finishAdjusting, keepAnswers };
 }

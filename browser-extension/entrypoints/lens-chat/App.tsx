@@ -210,6 +210,7 @@ export function App() {
                                 editable={rewindable(chat)}
                                 onEdit={() => void conversation.takeBack()}
                                 onOpenCar={(id, judgement) => chat && void requestOpenDrawer(chat.id, id, judgement)}
+                                onNeverMind={chat.beforeChange ? () => void conversation.keepAnswers() : undefined}
                             />
                         ) : null}
                     </div>
@@ -255,7 +256,7 @@ export function App() {
                             onImportance={(needId, level) => void conversation.importance(needId, level)}
                             onRemove={(bubble, item) => void conversation.removeItem(bubble, item)}
                             onAdd={(bubble, item) => void conversation.addItem(bubble, item)}
-                            onChange={(step) => void conversation.changeOne(step)}
+                            onChange={(step) => void (step === "changeHow" ? conversation.change() : conversation.changeOne(step))}
                             onDone={() => void conversation.finishAdjusting()}
                         />
                     </div>

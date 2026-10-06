@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { ArrowUpRight, Check, ChevronDown, ChevronRight, Info, PencilLine, Plus, Star, X } from "lucide-react";
+import { ArrowUpRight, Check, ChevronDown, ChevronRight, Info, PencilLine, Plus, Star, Undo2, X } from "lucide-react";
 
 import { BandChip, BrandMark, CarPhoto, euros, WinnerChip } from "@/components/lens-parts";
 import { activeFollowUp, allChips, coveredBy, followUps, IMPORTANCE_LABEL } from "@/lib/chats/flow";
@@ -230,7 +230,7 @@ export function TipSources({ sources }: { sources?: Source[] }) {
     if (!sources?.length) return null;
 
     return (
-        <p className="flex flex-wrap gap-x-3 border-t border-white/15 pt-1">
+        <p className="flex flex-wrap gap-x-3 border-t border-white/10 pt-1 text-[10.5px]">
             {sources.map((source, index) => (
                 <a
                     key={source.url}
@@ -238,7 +238,7 @@ export function TipSources({ sources }: { sources?: Source[] }) {
                     target="_blank"
                     rel="noreferrer"
                     aria-label={`Source: ${source.name} (opens in a new tab)`}
-                    className="inline-flex items-center gap-0.5 font-bold text-white underline decoration-white/40 underline-offset-2 hover:decoration-white"
+                    className="inline-flex items-center gap-0.5 font-semibold text-white/50 underline decoration-white/20 underline-offset-2 hover:text-white/80 hover:decoration-white/50"
                 >
                     {sources.length > 1 ? `Source ${index + 1}` : "Source"}
                     <ArrowUpRight aria-hidden="true" className="h-3 w-3" strokeWidth={2.6} />
@@ -371,6 +371,24 @@ function QuestionNumber({ progress, tone = "light" }: { progress?: { done: numbe
         >
             {progress.done + 1}
         </span>
+    );
+}
+
+/**
+ * "Never mind — keep my answers", on a question asked only because the
+ * reader chose to change something: one tap puts everything back as it was,
+ * so a "Change" tapped by mistake costs nothing.
+ */
+function NeverMind({ onClick }: { onClick: () => void }) {
+    return (
+        <button
+            type="button"
+            onClick={onClick}
+            className="inline-flex items-center gap-1.5 rounded-full px-3 py-2 text-[12px] font-bold text-finn-iron ring-1 ring-finn-iron/25 transition-colors hover:bg-white hover:text-finn-black focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-finn-accent-blue"
+        >
+            <Undo2 aria-hidden="true" className="h-3.5 w-3.5" />
+            Never mind — keep my answers
+        </button>
     );
 }
 
@@ -790,7 +808,17 @@ const DEAL_TONE: Record<DealRow["options"][number], string> = {
  * (must, mustn't) or a seal — only the ones that row can be here. Sent
  * together, as `row=state`.
  */
-function Deals({ message, live, onAnswer }: { message: Extract<ChatMessage, { kind: "ask" }>; live: boolean; onAnswer: (chosen: string[], extra?: AnswerExtra) => void }) {
+function Deals({
+    message,
+    live,
+    onAnswer,
+    onNeverMind,
+}: {
+    message: Extract<ChatMessage, { kind: "ask" }>;
+    live: boolean;
+    onAnswer: (chosen: string[], extra?: AnswerExtra) => void;
+    onNeverMind?: () => void;
+}) {
     const { step } = message;
     const rows = step.deals ?? [];
     const [states, setStates] = useState<Record<string, DealRow["options"][number] | undefined>>(() =>
@@ -887,6 +915,7 @@ function Deals({ message, live, onAnswer }: { message: Extract<ChatMessage, { ki
                             ) : (
                                 <Chip label={step.none ?? "Nothing's off the table"} muted onClick={() => onAnswer([])} />
                             )}
+                            {onNeverMind ? <NeverMind onClick={onNeverMind} /> : null}
                         </div>
                     )}
                 </div>
@@ -899,10 +928,13 @@ function Ask({
     message,
     live,
     onAnswer,
+    onNeverMind,
 }: {
     message: Extract<ChatMessage, { kind: "ask" }>;
     live: boolean;
     onAnswer: (chosen: string[], extra?: AnswerExtra) => void;
+    /** Asked because the reader chose to change an answer: a way back, unchanged. */
+    onNeverMind?: () => void;
 }) {
     const { step } = message;
     const [picked, setPicked] = useState<string[]>(step.selected ?? []);
@@ -1072,6 +1104,7 @@ function Ask({
                         ) : null}
                         {step.custom && !own && added == null ? <Chip label={step.custom.label} muted icon={<PencilLine aria-hidden="true" className="h-3.5 w-3.5" />} onClick={() => setOwn(true)} /> : null}
                         {step.none && !(step.multiple && ready) && !own ? <Chip label={step.none} muted onClick={() => onAnswer([])} /> : null}
+                        {onNeverMind && !own ? <NeverMind onClick={onNeverMind} /> : null}
                     </div>
 
                     {own && step.custom ? (
@@ -1441,7 +1474,7 @@ function Summary({
                     <div className="mb-2.5 flex items-baseline justify-between gap-2 px-0.5">
                         <p className="text-[11.5px] font-black uppercase tracking-wide text-finn-highlight-navy">Your life</p>
                         {live ? (
-                            <button type="button" onClick={() => onChange("bubbles")} className="text-[11.5px] font-bold text-finn-accent-blue hover:underline">
+                            <button type="button" onClick={() => onChange("changeHow")} className="text-[11.5px] font-bold text-finn-accent-blue hover:underline">
                                 Change
                             </button>
                         ) : null}
@@ -1467,7 +1500,7 @@ function Summary({
                     <div className="flex items-baseline justify-between gap-2">
                         <p className="text-[11px] font-black uppercase tracking-wide text-finn-iron">{message.bubbles?.length ? "In your own words" : "What matters to you"}</p>
                         {live ? (
-                            <button type="button" onClick={() => onChange("bubbles")} className="text-[11.5px] font-bold text-finn-accent-blue hover:underline">
+                            <button type="button" onClick={() => onChange("changeHow")} className="text-[11.5px] font-bold text-finn-accent-blue hover:underline">
                                 Change
                             </button>
                         ) : null}
@@ -1765,6 +1798,7 @@ export function MessageList({
     longResults = false,
     onSeeWhy = () => {},
     onKeepShort = () => {},
+    onNeverMind,
 }: {
     messages: ChatMessage[];
     typing: boolean;
@@ -1776,6 +1810,8 @@ export function MessageList({
     longResults?: boolean;
     onSeeWhy?: (resultId: string) => void;
     onKeepShort?: () => void;
+    /** While changing answers: puts the chat back as it was. Shown on the open question, but not where "Never mind" is already an answer. */
+    onNeverMind?: () => void;
     /** The reader message whose answer can be taken back, if any. */
     editable?: string | null;
     onEdit?: () => void;
@@ -1820,14 +1856,22 @@ export function MessageList({
                 body = <LensBubble>{message.text}</LensBubble>;
                 break;
             case "ask":
+                const neverMind = message.id === liveAsk && message.step.id !== "changeHow" && message.step.id !== "changeWhich" ? onNeverMind : undefined;
                 body = message.step.deals ? (
-                    <Deals key={message.id} message={message} live={message.id === liveAsk && settled} onAnswer={(chosen, extra) => onAnswer(message.id, chosen, extra)} />
+                    <Deals
+                        key={message.id}
+                        message={message}
+                        live={message.id === liveAsk && settled}
+                        onAnswer={(chosen, extra) => onAnswer(message.id, chosen, extra)}
+                        onNeverMind={neverMind}
+                    />
                 ) : (
                     <Ask
                         key={message.id}
                         message={message}
                         live={message.id === liveAsk && settled}
                         onAnswer={(chosen, extra) => onAnswer(message.id, chosen, extra)}
+                        onNeverMind={neverMind}
                     />
                 );
                 break;

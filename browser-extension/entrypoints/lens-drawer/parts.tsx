@@ -114,12 +114,12 @@ export function StoryRow({ section, value }: { section: StorySection; value?: Ju
                         <span className={line.tone === "note" ? "text-finn-iron" : ""}>
                             {line.text}
                             {line.sources?.length ? (
-                                <span className="mt-0.5 block text-[11px] text-finn-iron">
+                                <span className="mt-0.5 block text-[10.5px] text-finn-iron/70">
                                     Source{line.sources.length > 1 ? "s" : ""}:{" "}
                                     {line.sources.map((source, index) => (
                                         <span key={source.url}>
                                             {index ? " · " : ""}
-                                            <a href={source.url} target="_blank" rel="noreferrer" className="font-bold text-finn-accent-blue underline decoration-finn-accent-blue/40 underline-offset-2 hover:decoration-finn-accent-blue">
+                                            <a href={source.url} target="_blank" rel="noreferrer" className="text-finn-iron/80 underline decoration-finn-iron/30 underline-offset-2 hover:text-finn-accent-blue hover:decoration-finn-accent-blue/50">
                                                 {source.name}
                                             </a>
                                         </span>
@@ -187,9 +187,9 @@ export function CostTable({ cost }: { cost: CostAnalysis }) {
                             <span className="block text-[11px] leading-snug text-finn-iron">{line.explanation}</span>
                             {/* Any figure that isn't FINN's says where it's from, with a link to check it. */}
                             {line.sources?.map((source) => (
-                                <span key={source.url} className="mt-1 block text-[11px] leading-snug text-finn-iron">
+                                <span key={source.url} className="mt-1 block text-[10.5px] leading-snug text-finn-iron/70">
                                     Source:{" "}
-                                    <a href={source.url} target="_blank" rel="noreferrer" className="font-bold text-finn-accent-blue underline decoration-finn-accent-blue/40 underline-offset-2 hover:decoration-finn-accent-blue">
+                                    <a href={source.url} target="_blank" rel="noreferrer" className="text-finn-iron/80 underline decoration-finn-iron/30 underline-offset-2 hover:text-finn-accent-blue hover:decoration-finn-accent-blue/50">
                                         {source.name}
                                     </a>
                                 </span>

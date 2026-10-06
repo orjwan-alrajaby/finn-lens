@@ -151,7 +151,7 @@ export const DEALS: Deal[] = [
         must: "awd",
         seal: { evidence: "hasAllWheelDrive", need: "All-wheel drive" },
         description:
-            "Power to all four wheels, as FINN lists it. The ADAC's verdict: more grip pulling away and accelerating on snow — but no help braking in the cold or on snow, and no substitute for winter tyres.",
+            "Power to all four wheels, with more grip pulling away and accelerating on snow. However, no help braking in the cold or on snow, and no substitute for winter tyres.",
         sources: [SOURCES.adacAwd],
     },
 ];

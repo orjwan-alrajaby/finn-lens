@@ -339,7 +339,7 @@ export const BUBBLES: Bubble[] = [
                     id: "snow",
                     label: "Snow & ice",
                     description:
-                        "Snow and ice come with cold, so I count heated seats and a heated steering wheel — no need to pick Cold winters too. I suggest pre-heating, and recommend all-wheel drive in the deal-breakers — the ADAC finds it gives more grip pulling away on snow, though no help braking.",
+                        "Snow and ice come with cold, so I count heated seats and a heated steering wheel — no need to pick Cold winters too. I suggest pre-heating, and recommend all-wheel drive in the deal-breakers: more grip pulling away on snow, though no help braking.",
                     detail: "snow and ice",
                     sources: [SOURCES.adacAwd],
                     counts: ["hasHeatedSeats", "hasHeatedSteeringWheel"],

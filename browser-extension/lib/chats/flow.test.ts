@@ -13,7 +13,7 @@ import { IMPORTANCE, IMPORTANCE_LABEL as LEVEL_LABEL } from "@/lib/lens-chat/imp
 import { SOURCES } from "@/lib/sources";
 import { addMonths } from "@/lib/reasoning-engine/contract";
 import { CATEGORIES } from "@/lib/reasoning-engine/constants";
-import { activeFollowUp, addItem, allChips, answer, doneAdjusting, followUps, askNext, keepShort, openedWhy, changeAnswers, changeOne, removeItem, rentalMonths, rewind, rewindable, setImportance, startChat as beginChat, startMonth, stepFor, summaryOf } from "./flow";
+import { activeFollowUp, addItem, allChips, answer, doneAdjusting, followUps, neverMind, askNext, keepShort, openedWhy, changeAnswers, changeOne, removeItem, rentalMonths, rewind, rewindable, setImportance, startChat as beginChat, startMonth, stepFor, summaryOf } from "./flow";
 import type { Chat, ChatMessage, SavedSettings, StepId } from "./types";
 
 /** A first chat, past "Got it — let's start": most tests begin at the first question. */
@@ -454,12 +454,15 @@ describe("after a judgement", () => {
         expect(done.understanding.bubbles?.kids).toBeDefined();
     });
 
-    it("keeps everything when the reader changes their mind", () => {
-        const changed = changeAnswers(judged(), cars());
+    it("keeps everything when the reader changes their mind — exactly as it was", () => {
+        const before = judged();
+        const changed = changeAnswers(before, cars());
         const never = answer(changed, openAsk(changed)!.id, [], cars(), TODAY).chat;
 
-        expect(openAsk(never)).toBeNull();
+        expect(never.messages).toEqual(before.messages);
         expect(never.phase).toBe("judged");
+        expect(never.beforeChange).toBeUndefined();
+        expect(never.history ?? []).toEqual(before.history ?? []);
     });
 });
 
@@ -1109,12 +1112,53 @@ describe("all-wheel drive for snow and ice", () => {
 
         expect(awd).toMatchObject({ group: "yours", suggested: "Recommended because you said snow and ice." });
         expect(step.deals![0]!.id).toBe("awd");
-        expect(awd.description).toMatch(/more grip pulling away and accelerating on snow — but no help braking in the cold or on snow, and no substitute for winter tyres\.$/);
+        /* Said plainly; the link carries who found it. */
+        expect(awd.description).toBe("Power to all four wheels, with more grip pulling away and accelerating on snow. However, no help braking in the cold or on snow, and no substitute for winter tyres.");
+        expect(awd.description).not.toMatch(/ADAC/);
         expect(awd.sources).toEqual([SOURCES.adacAwd]);
     });
 
     it("isn't recommended for rain, or for cold and dry", () => {
         expect(toDeals(["weather", "weather:wet"]).deals!.find((row) => row.id === "awd")?.suggested).toBeUndefined();
         expect(toDeals(["weather", "weather:cold"]).deals!.find((row) => row.id === "awd")?.suggested).toBeUndefined();
+    });
+});
+
+describe("never mind — keep my answers", () => {
+    const looked = () => walk(startChat(null, cars(), TODAY), { bubbles: ["kids", "kids:baby", "dog"], budget: ["budget-500"] });
+
+    it("puts everything back after a Change tapped by mistake, Adjust panel and all", () => {
+        const before = { ...looked(), adjusting: true };
+        const changing = changeOne(before, "budget", cars());
+
+        expect(changing.beforeChange).toBeDefined();
+        expect(openAsk(changing)?.step.id).toBe("budget");
+
+        const back = neverMind(changing);
+        expect(back.messages).toEqual(before.messages);
+        expect(back.understanding).toEqual(before.understanding);
+        expect(back.adjusting).toBe(true);
+        expect(back.beforeChange).toBeUndefined();
+    });
+
+    it("goes back to before the first change, however many questions in", () => {
+        const before = looked();
+        const changing = changeAnswers(before, cars());
+        const some = answer(changing, openAsk(changing)!.id, ["some"], cars(), TODAY).chat;
+        const which = answer(some, openAsk(some)!.id, ["budget", "period"], cars(), TODAY).chat;
+        const budget = answer(which, openAsk(which)!.id, ["budget-700"], cars(), TODAY).chat;
+
+        expect(budget.understanding.budget?.monthly).toBe(700);
+        expect(neverMind(budget).understanding.budget?.monthly).toBe(500);
+        expect(neverMind(budget).messages).toEqual(before.messages);
+    });
+
+    it("isn't offered once the changed questions are done", () => {
+        const changing = changeOne(looked(), "budget", cars());
+        const done = answer(changing, openAsk(changing)!.id, ["budget-700"], cars(), TODAY).chat;
+
+        expect(openAsk(done)?.step.id).toBe("confirm");
+        expect(done.beforeChange).toBeUndefined();
+        expect(neverMind(done)).toBe(done);
     });
 });

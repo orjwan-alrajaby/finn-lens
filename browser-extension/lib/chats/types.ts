@@ -375,6 +375,13 @@ export interface Chat {
      */
     history?: Rewind[];
     /**
+     * The chat as it stood before the reader chose to change an answer, so
+     * "Never mind — keep my answers" can put it back exactly — summary, open
+     * question, Adjust panel and all. Dropped once the changed questions are
+     * done and the summary is said again.
+     */
+    beforeChange?: Chat;
+    /**
      * The reader said the summary doesn't look right, and is adjusting it:
      * the Adjust panel is open beside the chat until they tap Done.
      */
