@@ -14,7 +14,7 @@ import type {
   SubscriptionCost,
 } from "./types";
 
-import { FINN_INCLUDED_MONTHLY_KM } from "./constants";
+import { FINN_INCLUDED_MONTHLY_KM, PLUG_IN_MAX_KWH_PER_100KM } from "./constants";
 import {
   describeRentalProblem,
   fitContract,
@@ -153,9 +153,22 @@ function energyComponent(
   const consumption = isPositive(raw) ? raw : null;
 
   const isPlugIn = vehicle.fuelType === "Plug-in Hybrid";
+  const monthlyKm = Math.max(0, preferences.monthlyKm);
+  const electricity = isPositive(preferences.electricityPrice) ? preferences.electricityPrice : null;
+
+  /*
+   * What the left-out electricity could cost at most: as if every kilometre
+   * were electric, at more than any plug-in's official figure. The fuel is
+   * counted too, so this over-counts — which is the point of a ceiling.
+   */
+  const ceilingExtra = isPlugIn && electricity != null ? (monthlyKm / 100) * PLUG_IN_MAX_KWH_PER_100KM * electricity : null;
 
   const caveat = isPlugIn
-    ? "FINN reports one combined consumption figure for plug-in hybrids, so this prices it as fuel and leaves out the electricity the car charges on. The real energy cost is higher, by an amount that depends on how much of your driving is done on electricity."
+    ? `FINN lists one combined fuel figure for plug-in hybrids and no electricity figure, so this prices the fuel and leaves out the electricity it charges on.${
+        ceilingExtra != null
+          ? ` That can't add more than about ${formatEUR(ceilingExtra)} a month: even if all ${formatKm(monthlyKm)} were driven on electricity, at a generous ${PLUG_IN_MAX_KWH_PER_100KM} kWh/100 km and an assumed €${electricity!.toFixed(2)} per kWh.`
+          : ""
+      }`
     : null;
 
   const base = {
@@ -170,6 +183,7 @@ function energyComponent(
      * floor, never an estimate of the whole.
      */
     isFloor: isPlugIn,
+    ceilingExtra,
   } as const;
 
   if (consumption == null) {
@@ -193,7 +207,6 @@ function energyComponent(
   }
 
   const costPer100Km = consumption * price;
-  const monthlyKm = Math.max(0, preferences.monthlyKm);
 
   return {
     ...base,
@@ -329,6 +342,9 @@ export function calculateCost(
     : null;
 
   const complete = missing.length === 0;
+  /* Bounded only when the plug-in's electricity is all that's missing. */
+  const ceilingMonthly =
+    !complete && missing.every((reason) => reason === "plugInElectricityExcluded") && energy.ceilingExtra != null ? totalMonthly + energy.ceilingExtra : null;
 
   return {
     vehicleId: vehicle.id,
@@ -340,11 +356,12 @@ export function calculateCost(
     energy,
     excessMileage,
     totalMonthly,
+    ceilingMonthly,
     complete,
     missing,
     budget,
     budgetDifference: budget == null ? null : totalMonthly - budget,
-    budgetStatus: resolveBudgetStatus(totalMonthly, budget, complete),
+    budgetStatus: resolveBudgetStatus(totalMonthly, budget, complete, ceilingMonthly),
     contract,
   };
 }
@@ -367,10 +384,13 @@ function resolveBudgetStatus(
   totalMonthly: number,
   budget: number | null,
   complete: boolean,
+  /* The most it could cost, where the gap can be bounded: within at that, within for certain. */
+  ceilingMonthly: number | null = null,
 ): BudgetStatus {
   if (budget == null) return "within";
   if (totalMonthly > budget) return "over";
-  return complete ? "within" : "unknown";
+  if (complete) return "within";
+  return ceilingMonthly != null && ceilingMonthly <= budget ? "within" : "unknown";
 }
 
 /**
@@ -630,18 +650,35 @@ function excessMileageLine(breakdown: CostBreakdown): CostLine {
   };
 }
 
-const MISSING_CAVEAT: Record<CostUnavailableReason, string> = {
-  plugInElectricityExcluded:
-    "The energy line leaves out the electricity a plug-in hybrid charges on, so the real cost is higher and Lens can't confirm it fits a budget.",
-  missingSubscriptionPrice:
-    "We couldn't include the subscription price because FINN hasn't supplied one for this contract type.",
-  missingConsumption:
-    "We couldn't estimate the running cost because consumption data wasn't available.",
-  missingEnergyPrice:
-    "We couldn't estimate the running cost because no usable fuel or electricity price is set in your driving settings.",
-  missingExtraKmPrice:
-    "We couldn't estimate the excess-mileage cost because the extra-kilometre price wasn't available.",
-};
+/**
+ * Exactly what's missing, by name — never "part of the estimate". Each says
+ * what FINN's data has and what it doesn't, so the reader knows what they'd
+ * have to find out.
+ */
+export function missingPiece(reason: CostUnavailableReason, breakdown: CostBreakdown): string {
+  const { energy, contract, contractType, excessMileage } = breakdown;
+
+  switch (reason) {
+    case "plugInElectricityExcluded":
+      return `how much electricity this plug-in hybrid uses — FINN lists only a combined fuel figure${energy.consumption != null ? ` (${formatNumber(energy.consumption)} ${energy.consumptionUnit})` : ""}, no kWh per 100 km`;
+    case "missingSubscriptionPrice":
+      return `FINN's ${CONTRACT_LABEL[contractType]} monthly price${contract.term ? ` for the ${contract.term.months}-month term` : ""} — it doesn't list one for this car`;
+    case "missingConsumption":
+      return `this car's ${energy.energyLabel === "electricity" ? "electricity" : "fuel"} consumption — FINN doesn't list one`;
+    case "missingEnergyPrice":
+      return `a ${energy.energyLabel === "electricity" ? "electricity" : "fuel"} price to cost it at`;
+    case "missingExtraKmPrice":
+      return `FINN's price per kilometre beyond ${formatKm(excessMileage.includedMonthlyKm)} a month — it doesn't list one for this car`;
+  }
+}
+
+function missingCaveat(reason: CostUnavailableReason, breakdown: CostBreakdown): string {
+  const piece = missingPiece(reason, breakdown);
+
+  return reason === "plugInElectricityExcluded"
+    ? `Missing: ${piece}. So the total is what the fuel costs, and the electricity comes on top.`
+    : `Missing: ${piece}. That line is left out of the total rather than counted as €0.`;
+}
 
 /**
  * Turns a cost breakdown into the facts a UI needs to explain the number.
@@ -662,14 +699,14 @@ export function buildCostAnalysis(
 
   const caveats = [
     ...rentalCaveats(breakdown.contract),
-    ...breakdown.missing.map((reason) => MISSING_CAVEAT[reason]),
+    ...breakdown.missing.map((reason) => missingCaveat(reason, breakdown)),
   ];
 
   const headline = breakdown.complete
     ? `We estimate this car will cost you around ${formatEUR(breakdown.totalMonthly)}/month.`
-    : `Based on what we could calculate, this car costs at least ${formatEUR(
-        breakdown.totalMonthly,
-      )}/month. Some parts of the estimate are missing, so the real figure is higher.`;
+    : `Based on what we could calculate, this car costs at least ${formatEUR(breakdown.totalMonthly)}/month${
+        breakdown.ceilingMonthly != null ? `, and at most about ${formatEUR(breakdown.ceilingMonthly)}` : ""
+      }. Missing: ${breakdown.missing.map((reason) => missingPiece(reason, breakdown)).join("; and ")}.`;
 
   return {
     vehicleId: vehicle.id,
@@ -723,9 +760,17 @@ function budgetSentence(breakdown: CostBreakdown): string | null {
   }
 
   if (budgetStatus === "unknown") {
-    return `Your budget is ${formatEUR(budget)}/month. What we could calculate comes to ${formatEUR(
-      totalMonthly,
-    )}/month, but because part of the estimate is missing we can't confirm this car fits.`;
+    const pieces = breakdown.missing.map((reason) => missingPiece(reason, breakdown));
+    const ceiling = breakdown.ceilingMonthly;
+
+    return `Your budget is ${formatEUR(budget)}/month. What Lens can price comes to ${formatEUR(totalMonthly)}/month, but it can't confirm the car fits: missing is ${pieces.join("; and ")}.${
+      ceiling != null ? ` At most it could come to about ${formatEUR(ceiling)}, over your budget.` : ""
+    }`;
+  }
+
+  /* Within for certain, though not every euro is known: say so, and why it still fits. */
+  if (!breakdown.complete && breakdown.ceilingMonthly != null) {
+    return `Your budget is ${formatEUR(budget)}/month. The fuel comes to ${formatEUR(totalMonthly)}/month, and even with the most the electricity could add, about ${formatEUR(breakdown.ceilingMonthly)} — within your budget.`;
   }
 
   const headroom = Math.abs(budgetDifference);

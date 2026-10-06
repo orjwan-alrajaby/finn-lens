@@ -979,3 +979,20 @@ describe("must, mustn't, or seals it", () => {
     });
 });
 
+
+describe("a hard limit a car can't be confirmed within", () => {
+    it("rules it out, saying exactly what FINN's data is missing", () => {
+        const field = fleet().filter((car) => car.fuelType === "Plug-in Hybrid" || car.fuelType === "Petrol").sort((a, b) => a.id - b.id).slice(0, 40);
+        const base = withBubbles(EMPTY_UNDERSTANDING, { dog: [] });
+        const probe = judgeWith(base, field, "cars")!.run.recommendation.context.costs;
+        const plugIn = field.find((car) => car.fuelType === "Plug-in Hybrid" && probe[car.id]?.ceilingMonthly != null && field.some((other) => other.fuelType === "Petrol" && probe[other.id]!.totalMonthly < probe[car.id]!.ceilingMonthly! - 2 && Math.max(probe[other.id]!.totalMonthly, probe[car.id]!.totalMonthly) + 1 < probe[car.id]!.ceilingMonthly!))!;
+        const petrol = field.find((car) => car.fuelType === "Petrol" && Math.max(probe[car.id]!.totalMonthly, probe[plugIn.id]!.totalMonthly) + 1 < probe[plugIn.id]!.ceilingMonthly!)!;
+        const limit = Math.ceil(Math.max(probe[petrol.id]!.totalMonthly, probe[plugIn.id]!.totalMonthly)) + 1;
+        const u = { ...base, budget: { monthly: limit, kind: "hardMax" as const, firm: true, said: "", stretchTo: null } };
+        const judged = judgeWith(u, field, "cars")!;
+        const verdict = judgementFrom(judged, field, u, "", "", {}, "").verdicts[plugIn.id]!;
+
+        expect(verdict).toMatchObject({ label: "Ruled out", rank: null });
+        expect(verdict.setAside).toMatch(/^Can't be confirmed within your €[\d,]+ limit, which you said to keep to — missing how much electricity this plug-in hybrid uses — FINN lists only a combined fuel figure/);
+    });
+});

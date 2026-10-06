@@ -644,12 +644,18 @@ describe("price never touches fit", () => {
     expect(after.scores.map((score) => score.fit)).toEqual(before.scores.map((score) => score.fit));
   });
 
-  it("marks a plug-in hybrid's energy as a floor, so its cost can't confirm a fit", () => {
-    const recommendation = buildRecommendation([GARAGE.plugIn()], BALANCED, prefs({ monthlyBudget: 5000 }))!;
-    const cost = recommendation.context.costs[GARAGE.plugIn().id]!;
+  it("marks a plug-in hybrid's energy as a floor, and confirms a fit only where even its most electricity fits", () => {
+    const cost = (monthlyBudget: number) => buildRecommendation([GARAGE.plugIn()], BALANCED, prefs({ monthlyBudget }))!.context.costs[GARAGE.plugIn().id]!;
+    const roomy = cost(5000);
 
-    expect(cost.energy.isFloor).toBe(true);
-    expect(cost.budgetStatus).toBe("unknown");
+    expect(roomy.energy.isFloor).toBe(true);
+    expect(roomy.ceilingMonthly).toBeGreaterThan(roomy.totalMonthly);
+    expect(roomy.budgetStatus).toBe("within");
+
+    /* Between what's known and the most it could be: it might be over, so it can't be confirmed. */
+    const between = Math.round((roomy.totalMonthly + roomy.ceilingMonthly!) / 2);
+    expect(cost(between).budgetStatus).toBe("unknown");
+    expect(cost(Math.floor(roomy.totalMonthly) - 1).budgetStatus).toBe("over");
   });
 });
 

@@ -1192,6 +1192,17 @@ export const DEFAULT_PRIORITIES: CategoryId[] = [
 export const FINN_INCLUDED_MONTHLY_KM = 500;
 
 /**
+ * The most electricity Lens allows a plug-in hybrid to use, for bounding what
+ * FINN's data leaves out. FINN gives a plug-in hybrid one combined litres
+ * figure and no electricity figure — none of the 44 it lists has one — so
+ * its energy cost can't be estimated, only bounded: as if every kilometre
+ * were driven on electricity, at more than any plug-in's official figure
+ * (the large ones are around 25). An assumption, and said as one wherever
+ * it's used.
+ */
+export const PLUG_IN_MAX_KWH_PER_100KM = 30;
+
+/**
  * No budget, until the reader sets one.
  *
  * Zero is how this product has always said "no limit" — `calculateCost` reads

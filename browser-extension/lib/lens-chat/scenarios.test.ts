@@ -573,3 +573,22 @@ describe("no car with every deal-breaker", () => {
         expect(u.needs.some((need) => need.id === "sealer-electric")).toBe(false);
     });
 });
+
+describe("a hard limit, and a cost FINN's data can't confirm", () => {
+  it("sets aside a car that might be over it, naming what's missing", () => {
+    const plugIns = cars.filter((car) => car.fuelType === "Plug-in Hybrid").slice(0, 3);
+    const others = cars.filter((car) => car.fuelType === "Petrol").slice(0, 6);
+    const field = [...plugIns, ...others];
+    const understanding = { ...EMPTY_UNDERSTANDING, budget: { monthly: 0, kind: "hardMax" as const, firm: true, said: "", stretchTo: null } };
+    /* A limit some petrol car fits for certain, above one plug-in's fuel-only cost but below the most it could be. */
+    const probe = runLens(field, toAnswers(base(), { ...understanding, budget: null }).answers, "page", "page")!;
+    const costs = probe.recommendation.context.costs;
+    const pairs = plugIns.flatMap((plugIn) => others.map((petrol) => ({ plugIn, limit: Math.ceil(Math.max(costs[petrol.id]!.totalMonthly, costs[plugIn.id]!.totalMonthly)) + 1 })));
+    const { plugIn: target, limit } = pairs.find(({ plugIn, limit }) => costs[plugIn.id]!.ceilingMonthly != null && limit < costs[plugIn.id]!.ceilingMonthly!)!;
+    const u = { ...understanding, budget: { ...understanding.budget, monthly: limit } };
+    const run = runLens(field, toAnswers(base(), u).answers, "page", "page", [], true)!;
+
+    expect(run.overLimit?.unconfirmed).toContain(target.id);
+    expect(run.recommendation.winner.id).not.toBe(target.id);
+  });
+});

@@ -1,4 +1,5 @@
 import { buildRecommendation } from "@/lib/reasoning-engine";
+import { calculateCost, missingPiece } from "@/lib/reasoning-engine/cost";
 import type { Answers } from "@/lib/reasoning-engine/answers";
 import { bandForScore } from "@/lib/reasoning-engine/bands";
 import { CATEGORIES, DEFAULT_CATEGORY_FEATURES, DEFAULT_PREFERENCES, DEFAULT_PRIORITIES } from "@/lib/reasoning-engine/constants";
@@ -125,13 +126,20 @@ export function verdictsFor(judged: Judged, cars: PinnedFinnCar[]): Record<numbe
 
     /* Over a limit the reader made a rule: set aside like a rule's cars, not graded. */
     for (const id of run.overLimit?.ids ?? []) {
+        const limit = `€${run.overLimit!.limit.toLocaleString("en-GB")}`;
+        const car = cars.find((item) => item.id === id);
+        /* Not confirmed within it: say exactly what FINN's data is missing for this car. */
+        const breakdown = run.overLimit!.unconfirmed.includes(id) && car ? calculateCost(car, run.answers.preferences) : null;
+
         verdicts[id] = {
             band: "unknown",
             label: "Ruled out",
             rank: null,
             winner: false,
             over: "budget",
-            setAside: `Over your €${run.overLimit!.limit.toLocaleString("en-GB")} limit, which you said to keep to`,
+            setAside: breakdown
+                ? `Can't be confirmed within your ${limit} limit, which you said to keep to — missing ${breakdown.missing.map((reason) => missingPiece(reason, breakdown)).join("; and ")}`
+                : `Over your ${limit} limit, which you said to keep to`,
         };
     }
 

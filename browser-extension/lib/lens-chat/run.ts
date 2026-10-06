@@ -62,7 +62,12 @@ export interface LensRun {
      * not ranked, and said why. Null when the limit isn't one, or nothing
      * was over it, or everything was — then the nearest are ranked instead.
      */
-    overLimit: { ids: number[]; limit: number } | null;
+    /**
+     * Cars set aside by a firm limit: over it, and — since a hard limit
+     * can't be met by a guess — those whose cost FINN's data can't confirm
+     * within it (`unconfirmed`, a subset of `ids`).
+     */
+    overLimit: { ids: number[]; limit: number; unconfirmed: number[] } | null;
     /** "Comparing 12 cars on this page". */
     scopeHeadline: string;
     answers: Answers;
@@ -140,7 +145,9 @@ export function runLens(
 
     if (firmBudget && limit > 0) {
         const { costs } = recommendation.context;
-        const over = pool.filter((car) => costs[car.id]?.budgetStatus === "over");
+        /* Over it, or not confirmed within it: a hard limit isn't met by a car that might be over. */
+        const over = pool.filter((car) => costs[car.id]?.budgetStatus !== "within");
+        const unconfirmed = over.filter((car) => costs[car.id]?.budgetStatus !== "over").map((car) => car.id);
 
         if (over.length && over.length < pool.length) {
             const within = pool.filter((car) => !over.includes(car));
@@ -148,7 +155,7 @@ export function runLens(
 
             if (narrowed) {
                 recommendation = narrowed;
-                overLimit = { ids: over.map((car) => car.id), limit };
+                overLimit = { ids: over.map((car) => car.id), limit, unconfirmed };
             }
         }
     }
