@@ -5,7 +5,7 @@ import { CATEGORIES, DEFAULT_CATEGORY_FEATURES, DEFAULT_PREFERENCES, DEFAULT_PRI
 import { assessEnvironment } from "@/lib/reasoning-engine/environmental";
 import { lowerFirst } from "@/lib/reasoning-engine/format";
 import type { NeedImportance } from "@/lib/lens-ai/contract";
-import { bubblesIn } from "@/lib/lens-chat/bubbles";
+import { bubblesIn, figuresOf } from "@/lib/lens-chat/bubbles";
 import { demandOf } from "@/lib/lens-chat/deals";
 import { FIT_BANDS, type FitLevel } from "@/lib/reasoning-engine/fit";
 import { totalFor } from "@/lib/reasoning-engine/scoring";
@@ -208,14 +208,15 @@ export function whyLines(car: PinnedFinnCar, u: Understanding): { said: string; 
     const environment = assessEnvironment(car);
 
     return bubblesIn(u)
-        .map(({ bubble }) => ({ bubble, need: u.needs.find((need) => need.id === `bubble-${bubble.id}` && need.status === "active") }))
-        .filter((item): item is { bubble: (typeof item)["bubble"]; need: NonNullable<(typeof item)["need"]> } => item.need != null)
+        .map(({ bubble, state }) => ({ bubble, state, need: u.needs.find((need) => need.id === `bubble-${bubble.id}` && need.status === "active") }))
+        .filter((item): item is typeof item & { need: NonNullable<(typeof item)["need"]> } => item.need != null)
         .sort((a, b) => RANK[a.need.importance] - RANK[b.need.importance])
-        .map(({ bubble, need }) => {
+        .map(({ bubble, state, need }) => {
+            const judgedOn = figuresOf(bubble, state);
             const has = need.evidence.filter((entry) => evidenceMet(car, entry.id) === true).map((entry) => measuredDisplay(car, entry.id) ?? lowerFirst(EVIDENCE[entry.id].label));
             const figures = [
-                bubble.figures?.includes("environmental") && environment?.co2 ? environment.co2.display : null,
-                bubble.figures?.includes("efficiency") && environment?.efficiency ? `${lowerFirst(environment.efficiency.label)} (${environment.efficiency.display})` : null,
+                judgedOn.includes("environmental") && environment?.co2 ? environment.co2.display : null,
+                judgedOn.includes("efficiency") && environment?.efficiency ? `${lowerFirst(environment.efficiency.label)} (${environment.efficiency.display})` : null,
             ].filter((item): item is string => item != null);
 
             return { said: bubble.you, has: [...has, ...figures] };

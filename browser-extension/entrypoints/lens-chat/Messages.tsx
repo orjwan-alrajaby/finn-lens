@@ -4,6 +4,7 @@ import { Check, ChevronDown, ChevronRight, Info, PencilLine, Plus, Star, X } fro
 import { BandChip, BrandMark, CarPhoto, euros, WinnerChip } from "@/components/lens-parts";
 import { activeFollowUp, allChips, coveredBy, followUps, IMPORTANCE_LABEL } from "@/lib/chats/flow";
 import { IMPORTANCE, IMPORTANCE_LEVELS, SCALE_EXPLAINED } from "@/lib/lens-chat/importance";
+import { HARDNESS } from "@/lib/lens-chat/deals";
 import type { BubbleChips, CarSnapshot, ChatMessage, Choice, CustomAnswer, DealRow, StepId, SummaryBubble } from "@/lib/chats/types";
 import type { NeedImportance } from "@/lib/lens-ai/contract";
 import { lowerFirst } from "@/lib/reasoning-engine/format";
@@ -675,13 +676,11 @@ function BubbleChipRow({
     );
 }
 
-const DEAL_LABEL = (row: DealRow, state: DealRow["options"][number]): string =>
-    state === "seal" ? "Seals it" : state === "must" ? (row.kind ? "Must be" : "Must have") : row.kind ? "Mustn't be" : "Mustn't have";
-
+/* Flexible is a deal-sealer, Hard line a deal-breaker: the same two words on every row. */
 const DEAL_TONE: Record<DealRow["options"][number], string> = {
+    seal: "bg-finn-accent-blue text-white shadow-sm",
     must: "bg-finn-highlight-navy text-white shadow-sm",
-    mustNot: "bg-finn-fit-limited text-white shadow-sm",
-    seal: "bg-finn-fit-good text-white shadow-sm",
+    mustNot: "bg-finn-highlight-navy text-white shadow-sm",
 };
 
 /**
@@ -736,13 +735,21 @@ function Deals({ message, live, onAnswer }: { message: Extract<ChatMessage, { ki
                                                         type="button"
                                                         role="radio"
                                                         aria-checked={on}
-                                                        onClick={() => setStates((current) => ({ ...current, [row.id]: option }))}
+                                                        title={option ? HARDNESS[option].means : "Not part of the judgement."}
+                                                        onClick={() =>
+                                                            setStates((current) => ({
+                                                                ...current,
+                                                                [row.id]: option,
+                                                                /* "Electric" and "Not electric" can't both be held. */
+                                                                ...(option && row.rival && current[row.rival] ? { [row.rival]: undefined } : {}),
+                                                            }))
+                                                        }
                                                         className={[
                                                             "rounded-full px-2.5 py-1 text-[11px] font-black transition-colors",
                                                             on ? (option ? DEAL_TONE[option] : "bg-white text-finn-black shadow-sm ring-1 ring-black/10") : "text-finn-iron hover:text-finn-black",
                                                         ].join(" ")}
                                                     >
-                                                        {option ? DEAL_LABEL(row, option) : "Doesn't matter"}
+                                                        {option ? HARDNESS[option].label : "Doesn't matter"}
                                                     </button>
                                                 );
                                             })}

@@ -78,7 +78,8 @@ const AS_BUBBLE: Record<string, (text: string) => { bubble: BubbleId; chips: str
     "room-to-carry": () => ({ bubble: "carry", chips: ["bulky"] }),
     "dark-roads": () => ({ bubble: "night", chips: [] }),
     "long-drives": () => ({ bubble: "long", chips: [] }),
-    clean: () => ({ bubble: "environment", chips: ["matters"] }),
+    /* "Eco-friendly" doesn't say how green: the bubble alone, judged on the CO₂ label. */
+    clean: () => ({ bubble: "environment", chips: [] }),
     winter: (text) => ({ bubble: "weather", chips: [/snow|\bice\b|icy/i.test(text) ? "snow" : "cold"] }),
     safety: () => ({ bubble: "help", chips: [] }),
 };

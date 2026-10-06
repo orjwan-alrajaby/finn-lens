@@ -202,3 +202,24 @@ describe("recommended, from what the reader said", () => {
         expect(recommendedBecause("hasHeatedSeats", said({ weather: ["snow"] }), "weather")).toBeNull();
     });
 });
+
+describe("how green", () => {
+    const env = (chips: string[]) => ({ bubble: bubble("environment"), state: state({ chips }) });
+
+    it("judges each answer on its own figure, and suggests its own deal-breaker", () => {
+        const clean = env(["clean"]);
+        const moderate = env(["moderate"]);
+        const zero = env(["zero"]);
+        const none = env([]);
+
+        expect(needOf(clean.bubble, clean.state)?.priorities).toEqual(["efficiency"]);
+        expect(suggestedRules(clean.bubble, clean.state)).toEqual([]);
+        expect(needOf(moderate.bubble, moderate.state)?.priorities).toEqual(["environmental"]);
+        expect(suggestedRules(moderate.bubble, moderate.state)).toEqual(["low-co2"]);
+        expect(needOf(zero.bubble, zero.state)).toMatchObject({ priorities: ["environmental"], importance: "essential" });
+        expect(suggestedRules(zero.bubble, zero.state)).toEqual(["electric-only"]);
+        /* Nothing picked: the CO₂ label, low CO₂ suggested, as before. */
+        expect(needOf(none.bubble, none.state)?.priorities).toEqual(["environmental"]);
+        expect(suggestedRules(none.bubble, none.state)).toEqual(["low-co2"]);
+    });
+});

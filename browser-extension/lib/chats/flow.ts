@@ -12,6 +12,7 @@ import {
     importanceOf,
     importanceSaid,
     itemsOf,
+    figuresOf,
     OFTEN,
     recommendedBecause,
     suggestedRules,
@@ -203,7 +204,7 @@ const checked = (need: Understanding["needs"][number], u: Understanding): Eviden
 
 const WHY: Record<string, string> = {
     rules: "Each one takes cars out before I score anything, so only pick what you'd truly refuse.",
-    deals: "A deal-breaker sets cars aside before I score anything, so only pick what you'd truly refuse. A deal-sealer counts as a top priority — the most anything can — but a car without it can still win, if it's clearly better at everything else.",
+    deals: "For each, how hard a line? Hard line is a deal-breaker: cars without it are set aside before I score anything, so keep it for what you'd truly refuse. Flexible is a deal-sealer: it counts as a top priority, but a car without it can still win if it's clearly better at everything else.",
     budget: `All costs together: FINN's monthly price (VAT included), plus what I estimate you'd spend on fuel or charging, plus the mileage package your driving needs — FINN's price includes ${FINN_INCLUDED_MONTHLY_KM.toLocaleString("en-GB")} km a month. Parking and tolls aren't in it.`,
     from: "FINN delivers in weeks, so the soonest is next month. Not every car can be delivered by every date, and each is priced on the term that covers yours.",
     period: "FINN prices each car by how long you subscribe, and not every car is offered for every length — so this changes both the price and which cars fit.",
@@ -366,8 +367,10 @@ function dealsStep(u: Understanding, cars: FinnCar[]): ChatStep | null {
         label: deal.label,
         kind: deal.kind,
         group: because.has(deal.id) ? "yours" : deal.group,
-        description: deal.description,
+        /* A row that can only be a hard line says why, so its missing "Flexible" isn't a puzzle. */
+        description: options.includes("seal") ? deal.description : `${deal.description} I can only rule on this, not weigh it — so it's a hard line or nothing.`,
         options,
+        ...(deal.rival ? { rival: deal.rival } : {}),
         ...(because.has(deal.id) ? { suggested: `Suggested because ${because.get(deal.id)}.` } : {}),
     }));
     const groups = RULE_GROUPS.filter((group) => rows.some((row) => row.group === group.id));
@@ -798,10 +801,10 @@ function sealersText(u: Understanding): string {
 function dealSaid(row: DealRow, state: DealState): string {
     const deal = DEALS.find((item) => item.id === row.id)!;
 
-    if (deal.id === "limit") return "Nothing over my limit.";
-    if (state === "seal") return `${row.label} would seal it.`;
+    if (deal.id === "limit") return "Nothing over my limit — that's a hard line.";
+    if (state === "seal") return `I'd like ${deal.phrase}, but I'm flexible.`;
 
-    return `It ${stateLabel(deal, state).toLowerCase()} ${deal.phrase}.`;
+    return `It ${stateLabel(deal, state).toLowerCase()} ${deal.phrase} — that's a hard line.`;
 }
 
 /** What Lens sets aside, in a sentence: "Before judging, I'll set aside any SUV, and any car over €700 a month." Empty when nothing. */
@@ -870,7 +873,7 @@ function summaryBubbles(u: Understanding, cars: FinnCar[]): SummaryBubble[] {
 
     return tapped.map(({ bubble, state }) => {
         const items = itemsOf(bubble, state);
-        const figure = bubble.figures?.map((id) => FIGURE[id]).find(Boolean);
+        const figure = figuresOf(bubble, state).map((id) => FIGURE[id]).find(Boolean);
         const settledHere = items.counts.filter((id) => settled.has(id));
         const live = items.counts.filter((id) => !settled.has(id));
         const own = live.filter((id) => !shown.has(id));
@@ -1481,11 +1484,13 @@ function answerStep(
         understanding = withBubbles(understanding, picks);
         said = [bubblesSaid(chosen), typed].filter(Boolean).join(" ");
     } else if (step.deals) {
-        const states = Object.fromEntries(
+        const states: Record<string, DealState> = Object.fromEntries(
             chosen
                 .map((item) => item.split("=") as [string, DealState])
                 .filter(([id, state]) => step.deals!.some((row) => row.id === id && row.options.includes(state))),
         );
+        /* "Electric" and "Not electric" can't both be held: the later one stands, as on the page. */
+        for (const row of step.deals) if (row.rival && states[row.id] && states[row.rival]) delete states[chosen.findIndex((item) => item.startsWith(`${row.id}=`)) < chosen.findIndex((item) => item.startsWith(`${row.rival}=`)) ? row.id : row.rival];
 
         understanding = syncBubbles(withDeals(understanding, step.deals.map((row) => row.id), states));
         said = [

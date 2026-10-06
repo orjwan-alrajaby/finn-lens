@@ -1,5 +1,4 @@
 import type { NeedImportance } from "@/lib/lens-ai/contract";
-import { IMPORTANCE } from "./importance";
 import type { CategoryId, FeatureImportance } from "@/lib/reasoning-engine/types";
 import type { FinnCar } from "@/lib/types";
 
@@ -52,8 +51,14 @@ export interface BubbleChip {
     stronger?: EvidenceId[];
     /** How much the bubble counts, when this chip says so. */
     importance?: NeedImportance;
-    /** A deal-breaker this suggests, by the rules question's own id. */
-    suggests?: string;
+    /**
+     * A deal-breaker this suggests, by the rules question's own id. Null:
+     * none — not even the bubble's own ("clean for its fuel type" is no
+     * reason to suggest low CO₂).
+     */
+    suggests?: string | null;
+    /** The figure this answer judges on, in place of the bubble's own: "clean for its fuel type" is consumption, not CO₂. */
+    figures?: CategoryId[];
 }
 
 export interface Bubble {
@@ -423,26 +428,56 @@ export const BUBBLES: Bubble[] = [
         id: "environment",
         label: "The environment",
         you: "You care about the environment",
-        need: "CO₂ emissions",
+        need: "A greener car",
         said: "I care about the environment.",
-        means: "Each car's own CO₂ figure, on the EU's A to G scale.",
+        means: "How green the car is, from FINN's own figures: what it uses for its kind, or its CO₂ on the A to G label. How green is picked next to it.",
         counts: [],
         checks: [],
         worth: [],
+        /* With no answer picked — "eco-friendly", typed — the CO₂ label, and low CO₂ suggested, as before. */
         figures: ["environmental"],
+        suggests: "low-co2",
         chips: {
-            ask: "How much should CO₂ count?",
+            ask: "How green should the car be?",
             mode: "optional",
             multiple: false,
+            /*
+             * How green, not how much it counts — that's the one scale on the
+             * summary. Each judges on a figure FINN gives for every car, and
+             * the greenest suggests the deal-breaker that goes with it.
+             */
             options: [
-                /* The one scale, as everywhere else: same words, same meanings. */
-                { id: "decides", label: IMPORTANCE.essential.label, detail: "a top priority", description: IMPORTANCE.essential.means, importance: "essential" },
-                { id: "matters", label: IMPORTANCE.important.label, detail: "important", description: IMPORTANCE.important.means, importance: "important" },
-                { id: "bonus", label: IMPORTANCE.niceToHave.label, detail: "nice to have", description: IMPORTANCE.niceToHave.means, importance: "niceToHave" },
+                {
+                    id: "clean",
+                    label: "Clean for its fuel type",
+                    detail: "clean for its fuel type",
+                    description:
+                        "Any fuel — petrol and diesel too — as long as it uses little for its kind. I compare each car's fuel or electricity use with others that run on the same thing, so a frugal petrol scores well.",
+                    figures: ["efficiency"],
+                    suggests: null,
+                },
+                {
+                    id: "moderate",
+                    label: "Moderately green",
+                    detail: "moderately green",
+                    description:
+                        "Low CO₂ on the label: plug-in hybrids are usually here, class A or B, as are the odd very frugal hybrid. I judge each car on its CO₂ class, and suggest “low CO₂ (class A–C)” as a deal-breaker. A plug-in's figure assumes it's charged regularly.",
+                    figures: ["environmental"],
+                    suggests: "low-co2",
+                },
+                {
+                    id: "zero",
+                    label: "Totally green",
+                    detail: "totally green",
+                    description:
+                        "Electric: 0 g/km of CO₂ on the road, the best class there is. CO₂ becomes a top priority, and I suggest “electric” as a deal-breaker. Making the electricity isn't counted — FINN's figure is for driving.",
+                    figures: ["environmental"],
+                    importance: "essential",
+                    suggests: "electric-only",
+                },
             ],
         },
-        suggests: "low-co2",
-        cantCheck: "emissions over the car's whole life. A plug-in hybrid's figure also assumes it's charged regularly",
+        cantCheck: "emissions over the car's whole life, or making the electricity. A plug-in hybrid's figure also assumes it's charged regularly",
     },
     {
         id: "budget",
@@ -702,9 +737,20 @@ export function itemsOf(bubble: Bubble, state: BubbleState): BubbleItems {
     };
 }
 
+/** The figures a bubble judges on: what its picked answer says, else its own. */
+export function figuresOf(bubble: Bubble, state: BubbleState): CategoryId[] {
+    const picked = pickedChips(bubble, state).flatMap((chip) => chip.figures ?? []);
+    return picked.length ? unique(picked) : (bubble.figures ?? []);
+}
+
 /** The deal-breakers a bubble's answers point to, by the rules question's ids. */
-export const suggestedRules = (bubble: Bubble, state: BubbleState): string[] =>
-    unique([bubble.suggests, ...pickedChips(bubble, state).map((chip) => chip.suggests)].filter((id): id is string => Boolean(id)));
+export function suggestedRules(bubble: Bubble, state: BubbleState): string[] {
+    const picked = pickedChips(bubble, state);
+    /* An answer that says what to suggest speaks for the bubble; one that doesn't adds to it. */
+    const own = picked.some((chip) => chip.suggests !== undefined) ? undefined : bubble.suggests;
+
+    return unique([own, ...picked.map((chip) => chip.suggests)].filter((id): id is string => Boolean(id)));
+}
 
 /** "You have kids · a baby or toddler seat". */
 export function bubbleHeading(bubble: Bubble, state: BubbleState): string {
@@ -718,14 +764,16 @@ export function needOf(bubble: Bubble, state: BubbleState): Need | null {
     const items = itemsOf(bubble, state);
     const importance = importanceOf(bubble, state);
 
-    if (!items.counts.length && !bubble.figures?.length) return null;
+    const figures = figuresOf(bubble, state);
+
+    if (!items.counts.length && !figures.length) return null;
 
     return {
         id: `bubble-${bubble.id}`,
         label: bubble.need,
         importance,
         said: bubble.said,
-        priorities: unique([...(bubble.figures ?? []), ...items.counts.map((id) => EVIDENCE[id]?.scoredIn).filter((id): id is CategoryId => id != null)]),
+        priorities: unique([...figures, ...items.counts.map((id) => EVIDENCE[id]?.scoredIn).filter((id): id is CategoryId => id != null)]),
         evidence: items.counts.map((id) => ({
             id,
             use: explain(id, bubble.why?.[id]),

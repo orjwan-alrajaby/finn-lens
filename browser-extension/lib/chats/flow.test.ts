@@ -299,21 +299,24 @@ describe("deal-breakers and deal-sealers", () => {
     it("offers only what each row can do: a rule where it splits the cars, a seal where Lens can score it", () => {
         const chat = toDeals(["dog"]);
 
-        expect(row(chat, "electric")?.options).toEqual(["must", "mustNot"]);
-        expect(row(chat, "suv")?.options).toEqual(["mustNot"]);
-        expect(row(chat, "automatic")?.options).toContain("seal");
-        expect(row(chat, "co2")?.options).toEqual(["must", "seal"]);
+        /* Softest first. Electric is two rows, each a want; what Lens can only rule on is a hard line or nothing, and says so. */
+        expect(row(chat, "electric")).toMatchObject({ label: "Electric", options: ["must"], rival: "not-electric" });
+        expect(row(chat, "not-electric")).toMatchObject({ label: "Not electric", options: ["mustNot"], rival: "electric" });
+        expect(row(chat, "suv")).toMatchObject({ label: "Not an SUV", options: ["mustNot"] });
+        expect(row(chat, "suv")?.description).toMatch(/I can only rule on this, not weigh it — so it's a hard line or nothing\.$/);
+        expect(row(chat, "automatic")?.options).toEqual(["seal", "must"]);
+        expect(row(chat, "co2")?.options).toEqual(["seal", "must"]);
     });
 
     it("sets cars aside for a deal-breaker, and counts a deal-sealer as a top priority without setting any aside", () => {
         const chat = toDeals(["dog"]);
-        const done = answer(chat, openAsk(chat)!.id, ["electric=mustNot", "towbar=seal"], page(), TODAY).chat;
+        const done = answer(chat, openAsk(chat)!.id, ["not-electric=mustNot", "towbar=seal"], page(), TODAY).chat;
         const said = done.messages.filter((message) => message.kind === "text" && message.from === "reader").at(-1);
 
         expect(ruledOut(done.understanding).map((rule) => [rule.id, rule.mode])).toEqual([["electricCar", "without"]]);
         expect(done.understanding.needs.find((need) => need.id === "sealer-towbar")).toMatchObject({ importance: "essential", evidence: [{ id: "hasTowbar" }] });
         expect(chatAnswers(done.understanding).answers.features.practicality).toContainEqual(expect.objectContaining({ key: "hasTowbar", importance: "high" }));
-        expect(said).toMatchObject({ text: "It mustn't be electric. Towbar would seal it." });
+        expect(said).toMatchObject({ text: "It mustn't be electric — that's a hard line. I'd like a towbar, but I'm flexible." });
         expect(texts(done).at(-2)).toBe("Noted. Before judging, I'll set aside any electric car. A towbar will count as a top priority.");
         expect(lastSummary(done).lines.filter((line) => line.step === "deals").map((line) => line.value)).toEqual(["No electric car", "A towbar"]);
     });
@@ -609,12 +612,12 @@ describe("answers that can't all be true", () => {
         expect(distance("weekly").choices.map((choice) => choice.id)).toContain("km-500");
     });
 
-    it("moves the environment's own answer with how much it counts, so the two never disagree", () => {
-        const chat = understood({ bubbles: ["environment", "environment:decides"] });
+    it("keeps how green apart from how much it counts: setting one leaves the other", () => {
+        const chat = understood({ bubbles: ["environment", "environment:zero"] });
         const next = setImportance(chat, "bubble-environment", "niceToHave", cars());
 
-        expect(next.understanding.bubbles?.environment).toMatchObject({ chips: ["bonus"], importance: null });
-        expect(block(next, "environment")).toMatchObject({ heading: "You care about the environment · nice to have", importance: "niceToHave" });
+        expect(next.understanding.bubbles?.environment).toMatchObject({ chips: ["zero"], importance: "niceToHave" });
+        expect(block(next, "environment")).toMatchObject({ heading: "You care about the environment · totally green", importance: "niceToHave" });
     });
 
     it("shows each item once, and takes it out of every bubble that counts it", () => {
@@ -630,7 +633,7 @@ describe("answers that can't all be true", () => {
 
     it("doesn't suggest a heat pump to someone who won't go electric", () => {
         const page = fleet().sort((a, b) => a.id - b.id).slice(0, 24);
-        const chat = walk(startChat(null, page, TODAY), { bubbles: ["weather", "weather:snow"], deals: ["electric=mustNot"] }, page);
+        const chat = walk(startChat(null, page, TODAY), { bubbles: ["weather", "weather:snow"], deals: ["not-electric=mustNot"] }, page);
         const electric = walk(startChat(null, page, TODAY), { bubbles: ["weather", "weather:snow"] }, page);
 
         expect(block(chat, "weather")!.worth.map((item) => item.id)).not.toContain("hasHeatPump");
@@ -679,12 +682,14 @@ describe("questions in sections, and the changes to them", () => {
         for (const option of comfort.chips!.options) expect(option.description.length, option.id).toBeGreaterThan(12);
     });
 
-    it("asks how much CO₂ counts on the one scale, each saying what it means", () => {
+    it("asks how green, each answer saying what Lens will judge on and suggest", () => {
         const environment = step("bubbles-matters").bubbleChips!.environment!;
 
-        expect(environment.ask).toBe("How much should CO₂ count?");
-        expect(environment.options.map((option) => option.label)).toEqual(["Top priority", "Important", "Nice to have"]);
-        expect(environment.options.map((option) => option.description)).toEqual([IMPORTANCE.essential.means, IMPORTANCE.important.means, IMPORTANCE.niceToHave.means]);
+        expect(environment.ask).toBe("How green should the car be?");
+        expect(environment.options.map((option) => option.label)).toEqual(["Clean for its fuel type", "Moderately green", "Totally green"]);
+        expect(environment.options[0]!.description).toMatch(/petrol and diesel too.*others that run on the same thing/);
+        expect(environment.options[1]!.description).toMatch(/plug-in hybrids are usually here/);
+        expect(environment.options[2]!.description).toMatch(/^Electric: 0 g\/km of CO₂ on the road.*Making the electricity isn't counted/);
     });
 
     it("asks the limit as all costs together, and says what that covers", () => {
@@ -821,7 +826,7 @@ describe("the follow-up the reader is on", () => {
     it("is the environment's once it's opened under an answered “Which comforts?”, not the comforts'", () => {
         const picked = ["comfort", "comfort:warm", "comfort:wheel", "environment"];
 
-        expect(activeFollowUp(step(), picked, "environment")).toEqual({ bubble: "environment", ask: "How much should CO₂ count?", answered: false });
+        expect(activeFollowUp(step(), picked, "environment")).toEqual({ bubble: "environment", ask: "How green should the car be?", answered: false });
         expect(followUps(step(), picked).map((item) => [item.bubble, item.answered])).toEqual([
             ["comfort", true],
             ["environment", false],
@@ -882,7 +887,7 @@ describe("“This doesn't look right”", () => {
 describe("letting a deal-breaker go, when no car has them all", () => {
     const page = () => fleet().sort((a, b) => a.id - b.id).slice(0, 24);
     const strict = () => {
-        const u = withDeals(withBubbles(EMPTY_UNDERSTANDING, { dog: [] }), ["electric", "automatic", "awd", "doors", "co2"], { electric: "mustNot", automatic: "must", awd: "must", doors: "must", co2: "must" });
+        const u = withDeals(withBubbles(EMPTY_UNDERSTANDING, { dog: [] }), ["not-electric", "automatic", "awd", "doors", "co2"], { "not-electric": "mustNot", automatic: "must", awd: "must", doors: "must", co2: "must" });
         return { ...startChat(null, page(), TODAY), understanding: u, queue: [], phase: "judged" as const };
     };
     const ask = (chat: Chat) => {
@@ -947,5 +952,29 @@ describe("one scale for how much something counts", () => {
 
         expect(texts(weekly).at(-1)).toBe("Long distances will count as a top priority.");
         expect(texts(monthly).at(-1)).toBe("Long distances will count as important.");
+    });
+});
+
+describe("hard line or flexible", () => {
+    const page = () => fleet().sort((a, b) => a.id - b.id).slice(0, 24);
+
+    it("says each back in the reader's words", () => {
+        let chat = walk(startChat(null, page(), TODAY), { bubbles: ["dog"] }, page());
+        chat = rewind(chat);
+        const ask = openAsk(chat)!;
+        expect(ask.step.id).toBe("deals");
+
+        const done = answer(chat, ask.id, ["automatic=must", "towbar=seal"], page(), TODAY).chat;
+        const said = done.messages.filter((message) => message.kind === "text" && message.from === "reader").at(-1);
+
+        expect(said).toMatchObject({ text: "It must have an automatic gearbox — that's a hard line. I'd like a towbar, but I'm flexible." });
+    });
+
+    it("never holds “Electric” and “Not electric” together: the later one stands", () => {
+        let chat = walk(startChat(null, page(), TODAY), { bubbles: ["dog"] }, page());
+        chat = rewind(chat);
+
+        const done = answer(chat, openAsk(chat)!.id, ["electric=must", "not-electric=mustNot"], page(), TODAY).chat;
+        expect(ruledOut(done.understanding).map((rule) => [rule.id, rule.mode])).toEqual([["electricCar", "without"]]);
     });
 });

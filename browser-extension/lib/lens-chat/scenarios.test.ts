@@ -540,7 +540,7 @@ describe("naming a rule in a sentence", () => {
 describe("no car with every deal-breaker", () => {
     const rules = (u: ReturnType<typeof withDeals>) => ruledOut(u);
     const page = () => cars.slice(0, 24);
-    const asking = () => withDeals(EMPTY_UNDERSTANDING, ["electric", "automatic", "awd", "doors", "co2"], { electric: "mustNot", automatic: "must", awd: "must", doors: "must", co2: "must" });
+    const asking = () => withDeals(EMPTY_UNDERSTANDING, ["not-electric", "automatic", "awd", "doors", "co2"], { "not-electric": "mustNot", automatic: "must", awd: "must", doors: "must", co2: "must" });
 
     it("says what letting each go would open up, and puts the choice to the reader rather than calling it a failure", () => {
         const u = asking();

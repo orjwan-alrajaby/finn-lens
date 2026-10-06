@@ -30,6 +30,8 @@ export interface Deal {
     group: "money" | "energy" | "car";
     /** Behind its "i". */
     description: string;
+    /** A row that can't be a hard line beside this one: "Electric" and "Not electric". */
+    rival?: string;
     /** The car fact its rule is about: what a "must" or "mustn't" checks. */
     rule?: EvidenceId;
     /** The rule a "must" sets, by the rules question's id. */
@@ -44,11 +46,11 @@ export const DEALS: Deal[] = [
     {
         id: "limit",
         phrase: "over my limit",
-        label: "Over my limit",
+        label: "Within my limit",
         kind: true,
         group: "money",
         mustNot: "firm-budget",
-        description: "Cars over your monthly limit, all costs together, are set aside rather than ranked lower.",
+        description: "Nothing over your monthly limit, all costs together: cars over it are set aside rather than ranked lower.",
     },
     {
         id: "electric",
@@ -58,8 +60,19 @@ export const DEALS: Deal[] = [
         kind: true,
         group: "energy",
         must: "electric-only",
+        rival: "not-electric",
+        description: "Only electric cars: 0 g/km of CO₂ on the road.",
+    },
+    {
+        id: "not-electric",
+        rule: "electricCar",
+        phrase: "electric",
+        label: "Not electric",
+        kind: true,
+        group: "energy",
         mustNot: "not-electric",
-        description: "Only electric cars, or none of them.",
+        rival: "electric",
+        description: "Petrol, diesel or hybrid only — no fully electric cars.",
     },
     {
         id: "co2",
@@ -98,11 +111,11 @@ export const DEALS: Deal[] = [
         id: "suv",
         rule: "suvBody",
         phrase: "an SUV",
-        label: "SUV",
+        label: "Not an SUV",
         kind: true,
         group: "car",
         mustNot: "no-suv",
-        description: "A taller, boxier body, as FINN lists it.",
+        description: "No SUVs — the taller, boxier body FINN lists as one.",
     },
     {
         id: "doors",
@@ -153,7 +166,18 @@ export const DEALS: Deal[] = [
 /** The deal a rules-question id belongs to, for suggestions made in rules' terms. */
 export const dealForRule = (rule: string): Deal | undefined => DEALS.find((deal) => deal.must === rule || deal.mustNot === rule);
 
-/** How a state reads on the row: "Must be", "Mustn't have", "Seals it". */
+/**
+ * How hard a line the reader draws, as the row offers it: Flexible — a
+ * deal-sealer, counted as a top priority — or Hard line — a deal-breaker,
+ * cars without it set aside.
+ */
+export const HARDNESS: Record<DealState, { label: string; means: string }> = {
+    seal: { label: "Flexible", means: "A deal-sealer: counts as a top priority, but a car without it can still win if it's clearly better at everything else." },
+    must: { label: "Hard line", means: "A deal-breaker: any car without it is set aside before I score anything." },
+    mustNot: { label: "Hard line", means: "A deal-breaker: any car that is one is set aside before I score anything." },
+};
+
+/** How a state reads in a sentence: "Must be", "Mustn't have", "Seals it". */
 export const stateLabel = (deal: Pick<Deal, "kind">, state: DealState): string =>
     state === "seal" ? "Seals it" : state === "must" ? (deal.kind ? "Must be" : "Must have") : deal.kind ? "Mustn't be" : "Mustn't have";
 
@@ -176,7 +200,8 @@ export function dealsHere(u: Understanding, cars: FinnCar[]): { deal: Deal; opti
 
     return DEALS.map((deal) => ({
         deal,
-        options: [ruleHere(deal.must) ? ("must" as const) : null, ruleHere(deal.mustNot) ? ("mustNot" as const) : null, sealHere(deal) ? ("seal" as const) : null].filter(
+        /* Softest first: Flexible, then the hard line. */
+        options: [sealHere(deal) ? ("seal" as const) : null, ruleHere(deal.must) ? ("must" as const) : null, ruleHere(deal.mustNot) ? ("mustNot" as const) : null].filter(
             (state): state is DealState => state != null,
         ),
     })).filter((row) => row.options.length > 0);
@@ -239,8 +264,8 @@ export function withDeals(u: Understanding, offered: string[], states: Record<st
 
 /** A rule as the deal-breakers question words it: "Must have all-wheel drive", "Mustn't be an SUV". */
 export function demandOf(rule: Pick<Rule, "id" | "mode">): string {
-    const deal = DEALS.find((item) => item.rule === rule.id);
     const state: DealState = rule.mode === "must" ? "must" : "mustNot";
+    const deal = DEALS.find((item) => item.rule === rule.id && (state === "must" ? item.must : item.mustNot));
 
     return deal ? `${stateLabel(deal, state)} ${deal.phrase}` : `${rule.mode === "must" ? "Must have" : "Mustn't have"} ${barePhrase(rule.id)}`;
 }
@@ -257,8 +282,8 @@ export function letGo(u: Understanding, rules: EvidenceId[]): Understanding {
     let next = u;
 
     for (const id of rules) {
-        const deal = DEALS.find((item) => item.rule === id);
-        if (deal) next = withDeals(next, [deal.id], { [deal.id]: deal.seal ? "seal" : undefined });
+        /* Every row about it — "Electric" and "Not electric" — so no rule of either kind is left behind. */
+        for (const deal of DEALS.filter((item) => item.rule === id)) next = withDeals(next, [deal.id], { [deal.id]: deal.seal ? "seal" : undefined });
 
         next = {
             ...next,

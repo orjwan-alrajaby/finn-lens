@@ -103,8 +103,9 @@ describe("words about CO₂ and consumption", () => {
         const green = await readTyped(start, "I'd like something eco-friendly", cars(), null);
         const frugal = await readTyped(start, "it shouldn't guzzle fuel, low fuel consumption", cars(), null);
 
-        expect(green.understanding.bubbles?.environment?.chips).toEqual(["matters"]);
-        expect(green.heardAs).toEqual(["CO₂ emissions"]);
+        /* "Eco-friendly" doesn't say how green: the bubble alone, judged on the CO₂ label. */
+        expect(green.understanding.bubbles?.environment?.chips).toEqual([]);
+        expect(green.heardAs).toEqual(["a greener car"]);
         expect(frugal.understanding.needs.map((need) => need.id)).toEqual(["life-efficiency-matters"]);
         expect(Object.keys(frugal.understanding.bubbles ?? {})).toEqual([]);
     });
