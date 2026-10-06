@@ -419,7 +419,13 @@ function FollowUpCount({ done, total, tone = "light" }: { done: number; total: n
         <span className={`flex items-center gap-1.5 text-[11px] font-bold ${tone === "dark" ? "text-white/80" : "px-1 text-finn-iron"}`}>
             <span className="inline-flex gap-0.5" aria-hidden="true">
                 {Array.from({ length: total }, (_, index) => (
-                    <span key={index} className={`h-1.5 w-1.5 rounded-full ${index < done ? (tone === "dark" ? "bg-white" : "bg-finn-fit-good") : tone === "dark" ? "bg-white/25" : "bg-finn-cotton"}`} />
+                    <span key={index} className={`h-2 w-2 rounded-full ${index < done
+                                ? tone === "dark"
+                                    ? "bg-white"
+                                    : "bg-finn-fit-good"
+                                : tone === "dark"
+                                  ? "bg-white/15 ring-1 ring-inset ring-white/60"
+                                  : "bg-finn-fit-good-pale ring-1 ring-inset ring-finn-fit-good/50"}`} />
                 ))}
             </span>
             Follow-ups answered: {done} of {total}

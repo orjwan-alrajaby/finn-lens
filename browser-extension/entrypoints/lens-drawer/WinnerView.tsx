@@ -264,7 +264,10 @@ function Pips({ percent }: { percent: number }) {
     return (
         <span aria-hidden="true" className="inline-flex gap-0.5">
             {Array.from({ length: 10 }, (_, index) => (
-                <span key={index} className={`h-2 w-3 rounded-[3px] ${index < lit ? "bg-finn-accent-blue" : "bg-finn-cotton"}`} />
+                <span
+                    key={index}
+                    className={`h-2 w-3 rounded-[3px] ${index < lit ? "bg-finn-accent-blue" : "bg-finn-pale-blue ring-1 ring-inset ring-finn-accent-blue/35"}`}
+                />
             ))}
         </span>
     );
