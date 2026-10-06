@@ -165,13 +165,17 @@ describe("the “i”", () => {
 });
 
 describe("recommended comforts", () => {
-    it("are starred, first, and listed under the row with where to find why", () => {
+    it("are starred, with what the star means said under the question's why", () => {
         const u = withBubbles(EMPTY_UNDERSTANDING, { weather: ["cold"] });
         const step = stepFor("bubbles-matters", cars(), u)!;
         const html = render([{ id: "m1", at: "", from: "lens", kind: "ask", answered: false, step: { ...step, selected: ["comfort"] } }]);
         const words = text(html);
 
-        expect(words).toContain("Recommended from what you told me: heated seats, heated wheel, pre-heating. The “i” on each says why.");
+        /* The key comes under "Why I'm asking", before the chips; the chips no longer list them again. */
+        expect(words).toMatch(/Why I'm asking: .* Starred = recommended from your earlier answers\. The “i” on each says why\. Help driving & parking/);
+        expect(words).not.toContain("Recommended from what you told me");
+        /* Not on a question with nothing starred. */
+        expect(text(render([{ id: "p1", at: "", from: "lens", kind: "ask", answered: false, step: stepFor("bubbles-people", cars())! }]))).not.toContain("Starred");
         expect(html).toContain('aria-label="Recommended"');
     });
 });

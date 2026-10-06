@@ -306,6 +306,21 @@ export interface AnswerExtra {
     text?: string;
 }
 
+/**
+ * What the star means, said once under "Why I'm asking" — before the reader
+ * meets a starred choice — on any question that has one.
+ */
+function StarKey() {
+    return (
+        <p className="mt-1.5 flex gap-1.5 text-[12px] leading-snug text-finn-iron">
+            <Star aria-hidden="true" className="mt-px h-3.5 w-3.5 shrink-0 fill-current text-finn-accent-blue" />
+            <span>
+                <span className="font-bold text-finn-accent-blue">Starred = recommended</span> from your earlier answers. The “i” on each says why.
+            </span>
+        </p>
+    );
+}
+
 function Why({ text }: { text: string }) {
     return (
         <p className="mt-1.5 flex gap-1.5 text-[12px] leading-snug text-finn-iron">
@@ -528,19 +543,6 @@ function BubbleChipRow({
                     );
                 })}
             </div>
-            {chips.options.some((option) => option.recommended) ? (
-                <p className="mt-1 flex items-start gap-1 text-[11px] leading-snug text-finn-iron">
-                    <Star aria-hidden="true" className="mt-px h-3 w-3 shrink-0 fill-current text-finn-accent-blue" />
-                    <span>
-                        Recommended from what you told me:{" "}
-                        {chips.options
-                            .filter((option) => option.recommended)
-                            .map((option) => lowerFirst(option.label))
-                            .join(", ")}
-                        . The “i” on each says why.
-                    </span>
-                </p>
-            ) : null}
             {missing ? <p className="mt-1 text-[11px] text-finn-iron">Pick at least one, so I know what to check.</p> : null}
         </div>
     );
@@ -740,6 +742,7 @@ function Ask({
                 {/* How it works is read, not answered: plain text, like Lens's other words. */}
                 <p className={step.id === "intro" ? "" : "font-semibold"}>{step.ask}</p>
                 {live && (step.why ?? step.hint) ? <Why text={(step.why ?? step.hint)!} /> : null}
+                {live && Object.values(step.bubbleChips ?? {}).some((chips) => chips.options.some((option) => option.recommended)) ? <StarKey /> : null}
             </LensBubble>
 
             {live ? (
