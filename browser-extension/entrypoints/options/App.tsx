@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useState } from "react";
 import { Database, MessageCircle, ShieldCheck, Trash2 } from "lucide-react";
 
+import { ImportanceBadge, ImportanceKey } from "@/components/ImportanceKey";
 import { BetaTag } from "@/components/lens-parts";
 import { BRAND_IDLE_SPIN } from "@/lib/brand-spinner";
 import { FINN_BASE_URL } from "@/lib/constants";
 import { clearGroups, DATA_GROUPS, summarise, type DataGroupId, type DataSummary } from "@/lib/chats/data";
-import { IMPORTANCE_LABEL, summaryOf } from "@/lib/chats/flow";
+import { summaryOf } from "@/lib/chats/flow";
 import { loadSettings, setActiveChat } from "@/lib/chats/store";
 import type { SavedSettings } from "@/lib/chats/types";
 
@@ -101,9 +102,7 @@ export function App() {
                                             <p className="flex items-baseline gap-2 text-[13.5px] font-black">
                                                 {bubble.heading}
                                                 {/* How much it counts means nothing for a bubble that checks nothing, as the chat's summary has it. */}
-                                                {bubble.counting !== false ? (
-                                                    <span className="rounded-full bg-finn-pale-blue px-2 py-0.5 text-[11px] font-black text-finn-accent-blue">{IMPORTANCE_LABEL[bubble.importance]}</span>
-                                                ) : null}
+                                                {bubble.counting !== false ? <ImportanceBadge importance={bubble.importance} guess={!bubble.importanceSaid} /> : null}
                                             </p>
                                             {bubble.figure || bubble.counts.length || bubble.shared?.length ? (
                                                 <p className="text-[12px] text-finn-iron">
@@ -122,12 +121,17 @@ export function App() {
                                         <li key={need.id}>
                                             <p className="flex items-baseline gap-2 text-[13.5px] font-black">
                                                 {need.label}
-                                                <span className="rounded-full bg-finn-pale-blue px-2 py-0.5 text-[11px] font-black text-finn-accent-blue">{IMPORTANCE_LABEL[need.importance]}</span>
+                                                <ImportanceBadge importance={need.importance} />
                                             </p>
                                             {need.looksFor.length ? <p className="text-[12px] text-finn-iron">Lens looks for: {need.looksFor.join(" · ")}</p> : null}
                                         </li>
                                     ))}
                                 </ul>
+                            ) : null}
+                            {told.bubbles?.some((bubble) => bubble.counting !== false) || told.needs?.length ? (
+                                <div className="mb-3">
+                                    <ImportanceKey guesses={Boolean(told.bubbles?.some((bubble) => bubble.counting !== false && !bubble.importanceSaid))} />
+                                </div>
                             ) : null}
                             <dl className="divide-y divide-finn-cotton overflow-hidden rounded-2xl ring-1 ring-finn-cotton">
                                 {told.lines.map((line) => (

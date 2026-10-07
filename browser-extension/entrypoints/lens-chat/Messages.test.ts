@@ -2,7 +2,7 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
-import { answer, startChat as beginChat, stepFor } from "@/lib/chats/flow";
+import { answer, startChat as beginChat, stepFor, summaryOf } from "@/lib/chats/flow";
 import { withBubbles } from "@/lib/lens-chat/bubbles";
 import { EMPTY_UNDERSTANDING } from "@/lib/lens-chat/understanding";
 import type { Chat, ChatMessage } from "@/lib/chats/types";
@@ -452,5 +452,22 @@ describe("answers of the reader's own", () => {
         const step = { ...stepFor("bubbles-people", cars())!, custom: { kind: "text", label: "Something else…", placeholder: "" } as never };
 
         expect(text(render([{ id: "o1", at: "", from: "lens", kind: "ask", answered: false, step }]))).not.toContain("Something else");
+    });
+});
+
+describe("what Lens understood: how much each counts", () => {
+    it("says what Top priority, Important and Nice to have mean, and marks a level that's only Lens's guess", () => {
+        const summary = summaryOf(withBubbles(EMPTY_UNDERSTANDING, { kids: ["baby"], night: [] }), "s1", cars());
+        const html = render([summary]);
+        const words = text(html);
+
+        expect(words).toContain("How much each counts");
+        expect(words).toMatch(/Top priority Counts the most — twice as much as Important\./);
+        expect(words).toMatch(/Important Counts fully, alongside everything else you've said is important\./);
+        expect(words).toMatch(/Nice to have Counts half as much as Important/);
+        expect(words).toContain("None of them rules a car out — that's what deal-breakers are for.");
+        /* Kids with a baby seat is a top priority the reader said; driving at night is Important only because Lens guessed. */
+        expect(words).toContain("A dashed outline is my guess, where you didn't say how much it counts.");
+        expect(html.match(/outline-dashed/g)?.length).toBe(1);
     });
 });

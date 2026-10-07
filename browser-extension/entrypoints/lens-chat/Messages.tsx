@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { ArrowUpRight, Check, ChevronDown, ChevronRight, Info, PencilLine, Plus, Star, Undo2, X } from "lucide-react";
 
+import { ImportanceBadge, ImportanceKey } from "@/components/ImportanceKey";
 import { BandChip, BrandMark, CarPhoto, euros, WinnerChip } from "@/components/lens-parts";
 import { activeFollowUp, allChips, followUps, IMPORTANCE_LABEL } from "@/lib/chats/flow";
 import { IMPORTANCE, IMPORTANCE_LEVELS, SCALE_EXPLAINED } from "@/lib/lens-chat/importance";
@@ -1531,13 +1532,16 @@ function StaticSummary({ message }: { message: Extract<ChatMessage, { kind: "sum
             id: bubble.id,
             heading: bubble.heading,
             importance: bubble.counting === false ? null : bubble.importance,
+            /* Lens's guess, where the reader never said how much it counts. */
+            guess: !bubble.importanceSaid,
             checks: [...(bubble.figure ? [bubble.figure] : []), ...bubble.counts.map((item) => item.label), ...(bubble.shared ?? []).map((item) => item.label)],
             /* Standard equipment it calls for: said, so air conditioning for hot summers doesn't look forgotten. */
             standard: bubble.checks.map((item) => item.label),
             note: bubble.settled ?? bubble.empty ?? null,
         })),
-        ...(message.needs ?? []).map((need) => ({ id: need.id, heading: need.label, importance: need.importance, checks: need.looksFor, standard: [] as string[], note: null })),
+        ...(message.needs ?? []).map((need) => ({ id: need.id, heading: need.label, importance: need.importance, guess: false, checks: need.looksFor, standard: [] as string[], note: null })),
     ];
+    const counted = said.filter((item) => item.importance);
 
     return (
         <div className="overflow-hidden rounded-2xl bg-white ring-1 ring-black/5 shadow-[0_1px_2px_rgba(0,0,0,0.06)]">
@@ -1549,9 +1553,7 @@ function StaticSummary({ message }: { message: Extract<ChatMessage, { kind: "sum
                             <li key={item.id} className="py-2">
                                 <div className="flex items-start justify-between gap-2">
                                     <p className="text-[12.5px] font-black leading-snug text-finn-black">{item.heading}</p>
-                                    {item.importance ? (
-                                        <span className="shrink-0 rounded-full bg-finn-pale-blue px-2 py-0.5 text-[10.5px] font-black text-finn-accent-blue">{IMPORTANCE_LABEL[item.importance]}</span>
-                                    ) : null}
+                                    {item.importance ? <ImportanceBadge importance={item.importance} guess={item.guess} /> : null}
                                 </div>
                                 {item.checks.length ? (
                                     <p className="mt-0.5 text-[11.5px] leading-snug text-finn-iron">I'll check: {item.checks.join(" · ")}</p>
@@ -1564,6 +1566,12 @@ function StaticSummary({ message }: { message: Extract<ChatMessage, { kind: "sum
                             </li>
                         ))}
                     </ul>
+                    {/* What the badges above mean, said where they're read. */}
+                    {counted.length ? (
+                        <div className="pt-1 pb-2.5">
+                            <ImportanceKey guesses={counted.some((item) => item.guess)} />
+                        </div>
+                    ) : null}
                 </section>
             ) : null}
 
