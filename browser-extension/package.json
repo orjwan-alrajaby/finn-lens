@@ -14,7 +14,9 @@
     "compile": "tsc --noEmit",
     "postinstall": "wxt prepare",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "verify": "tsc --noEmit && vitest run",
+    "release": "npm run verify && wxt zip"
   },
   "dependencies": {
     "@tailwindcss/postcss": "^4.3.3",

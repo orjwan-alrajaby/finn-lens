@@ -46,6 +46,10 @@ A browser extension that helps you choose between FINN car subscriptions by chat
 - `finnLensOpenBubble`: a one-off request to open the bubble.
 - `loadedCarsFromFinnApi`: FINN's cars, as the page loaded them.
 
+## Beta
+
+This is the **0.9.0 beta** ([`CHANGELOG.md`](CHANGELOG.md)), for FINN's team to try; [`docs/BETA.md`](../docs/BETA.md) is the note that goes with the build. The beta is frozen: only fixes go in until it's been tried. `npm run release` checks the types, runs the tests and zips the build into `.output/`.
+
 ## Developing
 
 ```sh
