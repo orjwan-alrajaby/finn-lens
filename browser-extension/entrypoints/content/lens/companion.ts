@@ -1,4 +1,5 @@
 import type { TipClosed, TipContent } from "@/lib/lens-chat/messages";
+import { TIP_CARD, TIP_DOT, TIP_HEADING, type TipTone } from "@/lib/lens-chat/tip-style";
 
 import { el } from "../page/dom";
 
@@ -38,8 +39,9 @@ let watching: ResizeObserver | null = null;
 /* Lucide's paths, inline: the content script carries no icon library. */
 const ICONS = {
     info: '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>',
-    check: '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>',
-    star: '<svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>',
+    check: '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>',
+    dotStar: '<svg viewBox="0 0 24 24" width="10" height="10" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>',
+    dotInfo: '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>',
     close: '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>',
     out: '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7M7 7h10v10"/></svg>',
 };
@@ -50,7 +52,13 @@ function icon(markup: string, className: string): HTMLElement {
     return span;
 }
 
-/** The same layout as the panel inside the chat: why it's starred, what it means, what's checked, then a quiet line and the sources. */
+/** The small coloured disc on each line, as the drawer has them. */
+function dot(tone: TipTone): HTMLElement {
+    const markup = tone === "star" ? ICONS.dotStar : tone === "note" ? ICONS.dotInfo : ICONS.check;
+    return icon(markup, `mt-px inline-flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full ${TIP_DOT[tone]}`);
+}
+
+/** The same layout as the panel inside the chat (`TipPanel`): soft cards, a coloured disc on each line. */
 function contents(tip: TipContent): HTMLElement[] {
     const body = (tip.body ?? []).filter((paragraph): paragraph is string => Boolean(paragraph));
     const lists = (tip.lists ?? []).filter((list) => list.items.length);
@@ -58,26 +66,22 @@ function contents(tip: TipContent): HTMLElement[] {
 
     return [
         ...(tip.recommended
-            ? [
-                  el("p", { class: "flex gap-1.5 rounded-lg bg-[#fff6d6] px-2.5 py-2 text-[12.5px] font-semibold leading-snug text-[#7a4f00]" }, [
-                      icon(ICONS.star, "mt-0.5 shrink-0"),
-                      el("span", { text: tip.recommended }),
-                  ]),
-              ]
+            ? [el("div", { class: `${TIP_CARD} flex gap-2` }, [dot("star"), el("p", { class: "text-[12.5px] font-semibold leading-snug text-[#7a4f00]", text: tip.recommended })])]
             : []),
-        ...body.map((paragraph) => el("p", { text: paragraph })),
-        ...lists.map((list) =>
-            el("div", {}, [
-                el("p", { class: "text-[12px] font-bold text-finn-highlight-navy", text: list.label }),
+        ...body.map((paragraph) => el("p", { class: "px-0.5", text: paragraph })),
+        ...lists.map((list) => {
+            const tone = list.tone ?? "check";
+            return el("div", { class: TIP_CARD }, [
+                el("p", { class: `text-[12.5px] font-black ${TIP_HEADING[tone]}`, text: list.label }),
+                list.hint ? el("p", { class: "text-[11.5px] leading-snug text-finn-iron", text: list.hint }) : null,
                 el(
                     "ul",
-                    { class: "mt-1 space-y-1" },
-                    list.items.map((item) => el("li", { class: "flex gap-2" }, [icon(ICONS.check, "mt-[4px] shrink-0 text-finn-accent-blue"), el("span", { text: item })])),
+                    { class: "mt-1.5 space-y-1.5" },
+                    list.items.map((item) => el("li", { class: "flex items-start gap-2" }, [dot(tone), el("span", { class: "leading-snug", text: item })])),
                 ),
-                list.hint ? el("p", { class: "mt-1 text-[12px] leading-snug text-finn-iron", text: list.hint }) : null,
-            ]),
-        ),
-        ...(tip.note ? [el("p", { class: "border-t border-finn-cotton pt-2.5 text-[12px] leading-snug text-finn-iron", text: tip.note })] : []),
+            ]);
+        }),
+        ...(tip.note ? [el("div", { class: "flex items-start gap-2 px-0.5" }, [dot("note"), el("p", { class: "text-[12px] leading-snug text-finn-iron", text: tip.note })])] : []),
         ...(sources.length
             ? [
                   el(
@@ -169,7 +173,7 @@ export function showTip(tip: TipContent, y: number): boolean {
                 el("p", { class: "min-w-0 flex-1 text-[14.5px] font-black leading-snug text-finn-black", text: tip.title }),
                 close,
             ]),
-            el("div", { class: "min-h-0 flex-1 space-y-3 overflow-y-auto px-4 pt-3 pb-4 text-[13px] leading-[1.55] text-finn-black" }, contents(tip)),
+            el("div", { class: "min-h-0 flex-1 space-y-2.5 overflow-y-auto px-3.5 pt-3 pb-3.5 text-[13px] leading-[1.55] text-finn-black" }, contents(tip)),
         ],
     );
     box.style.width = `${WIDTH}px`;

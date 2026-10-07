@@ -75,7 +75,8 @@ export interface TipContent {
     /** A short paragraph each. */
     body?: (string | null | undefined)[];
     /** "I'll check": one item a line, rather than a run of "·". */
-    lists?: { label: string; items: string[]; hint?: string }[];
+    /** One item a line. `tone`: what Lens counts ("check", the default), or what it also checks on nearly every car ("standard"). */
+    lists?: { label: string; items: string[]; hint?: string; tone?: "check" | "standard" }[];
     /** Said last and quieter: how it's scored, what tapping does. */
     note?: string;
     sources?: Source[];

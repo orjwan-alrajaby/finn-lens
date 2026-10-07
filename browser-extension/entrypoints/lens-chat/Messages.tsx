@@ -7,6 +7,7 @@ import { IMPORTANCE, IMPORTANCE_LEVELS, SCALE_EXPLAINED } from "@/lib/lens-chat/
 import { DEAL_MEANS } from "@/lib/lens-chat/deals";
 import type { Source } from "@/lib/sources";
 import type { TipContent } from "@/lib/lens-chat/messages";
+import { TIP_CARD, TIP_DOT, TIP_HEADING, type TipTone } from "@/lib/lens-chat/tip-style";
 import type { BubbleChips, CarSnapshot, ChatMessage, Choice, CustomAnswer, DealRow, StepId, SummaryBubble } from "@/lib/chats/types";
 import type { NeedImportance } from "@/lib/lens-ai/contract";
 import { lowerFirst } from "@/lib/reasoning-engine/format";
@@ -363,7 +364,7 @@ export function TipPanel({ tip, onClose }: { tip: TipContent; onClose?: () => vo
     const lists = (tip.lists ?? []).filter((list) => list.items.length);
 
     return (
-        <div className="relative max-h-[min(70vh,440px)] overflow-y-auto text-[13px] leading-[1.55] text-finn-black">
+        <div className="relative max-h-[min(70vh,460px)] overflow-y-auto text-[13px] leading-[1.55] text-finn-black">
             <div className="flex items-center gap-2 border-b border-finn-cotton px-3 py-2.5">
                 <span aria-hidden="true" className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-finn-accent-blue text-white">
                     <Info className="h-3.5 w-3.5" strokeWidth={2.6} />
@@ -381,38 +382,63 @@ export function TipPanel({ tip, onClose }: { tip: TipContent; onClose?: () => vo
                 ) : null}
             </div>
 
-            <div className="space-y-2.5 px-3 pt-2.5 pb-3">
+            <div className="space-y-2.5 px-3 pt-3 pb-3">
                 {tip.recommended ? (
-                    <p className="flex gap-1.5 rounded-lg bg-[#fff6d6] px-2.5 py-2 text-[12.5px] font-semibold leading-snug text-[#7a4f00]">
-                        <Star aria-hidden="true" className="mt-0.5 h-3 w-3 shrink-0 fill-current" />
-                        <span>{tip.recommended}</span>
-                    </p>
+                    <div className={`${TIP_CARD} flex gap-2`}>
+                        <TipDot tone="star" />
+                        <p className="text-[12.5px] font-semibold leading-snug text-[#7a4f00]">{tip.recommended}</p>
+                    </div>
                 ) : null}
 
                 {body.map((paragraph) => (
-                    <p key={paragraph}>{paragraph}</p>
+                    <p key={paragraph} className="px-0.5">
+                        {paragraph}
+                    </p>
                 ))}
 
-                {lists.map((list) => (
-                    <div key={list.label}>
-                        <p className="text-[12px] font-bold text-finn-highlight-navy">{list.label}</p>
-                        <ul className="mt-1 space-y-1">
-                            {list.items.map((item) => (
-                                <li key={item} className="flex gap-2">
-                                    <Check aria-hidden="true" className="mt-[4px] h-3 w-3 shrink-0 text-finn-accent-blue" strokeWidth={3} />
-                                    <span>{item}</span>
-                                </li>
-                            ))}
-                        </ul>
-                        {list.hint ? <p className="mt-1 text-[12px] leading-snug text-finn-iron">{list.hint}</p> : null}
+                {lists.map((list) => {
+                    const tone = list.tone ?? "check";
+                    return (
+                        <div key={list.label} className={TIP_CARD}>
+                            <p className={`text-[12.5px] font-black ${TIP_HEADING[tone]}`}>{list.label}</p>
+                            {list.hint ? <p className="text-[11.5px] leading-snug text-finn-iron">{list.hint}</p> : null}
+                            <ul className="mt-1.5 space-y-1.5">
+                                {list.items.map((item) => (
+                                    <li key={item} className="flex items-start gap-2">
+                                        <TipDot tone={tone} />
+                                        <span className="leading-snug">{item}</span>
+                                    </li>
+                                ))}
+                            </ul>
+                        </div>
+                    );
+                })}
+
+                {tip.note ? (
+                    <div className="flex items-start gap-2 px-0.5">
+                        <TipDot tone="note" />
+                        <p className="text-[12px] leading-snug text-finn-iron">{tip.note}</p>
                     </div>
-                ))}
-
-                {tip.note ? <p className="border-t border-finn-cotton pt-2.5 text-[12px] leading-snug text-finn-iron">{tip.note}</p> : null}
+                ) : null}
 
                 <TipSources sources={tip.sources} />
             </div>
         </div>
+    );
+}
+
+/** The small coloured disc on each line of the "i" panel, as the drawer has them. */
+function TipDot({ tone }: { tone: TipTone }) {
+    return (
+        <span aria-hidden="true" className={`mt-px inline-flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full ${TIP_DOT[tone]}`}>
+            {tone === "star" ? (
+                <Star className="h-2.5 w-2.5 fill-current" />
+            ) : tone === "note" ? (
+                <Info className="h-3 w-3" strokeWidth={2.6} />
+            ) : (
+                <Check className="h-3 w-3" strokeWidth={3} />
+            )}
+        </span>
     );
 }
 
@@ -444,9 +470,6 @@ export function TipSources({ sources }: { sources?: Source[] }) {
 }
 
 /** What a choice means, for its "i": its name, why it's starred, what it is, and what Lens checks for it. */
-/** "A, b and c". */
-const andJoined = (parts: string[]): string => (parts.length <= 1 ? (parts[0] ?? "") : `${parts.slice(0, -1).join(", ")} and ${parts.at(-1)}`);
-
 function tipFor(choice: Choice): TipContent | null {
     const body = choice.means ?? choice.description;
     if (!body && !choice.looksFor?.length && !choice.recommended && !choice.standard) return null;
@@ -455,9 +478,11 @@ function tipFor(choice: Choice): TipContent | null {
         title: choice.label,
         recommended: choice.recommended,
         body: [body, choice.means && choice.description !== choice.means ? choice.description : null],
-        lists: [{ label: "I'll check", items: choice.looksFor ?? [] }],
-        /* Standard equipment, said in one quiet line rather than a list of its own: it barely moves anything. */
-        note: choice.standard ? `Also checked: ${andJoined(choice.standard.labels.map((label, index) => (index ? lowerFirst(label) : label)))}. ${choice.standard.short ?? choice.standard.hint}` : undefined,
+        lists: [
+            { label: "I'll check", items: choice.looksFor ?? [], tone: "check" },
+            /* Standard equipment, listed the same way in its own green: what it is at a glance, how little it weighs in a line. */
+            ...(choice.standard ? [{ label: "Also checked", items: choice.standard.labels, hint: choice.standard.short ?? choice.standard.hint, tone: "standard" as const }] : []),
+        ],
         sources: choice.sources,
     };
 }
