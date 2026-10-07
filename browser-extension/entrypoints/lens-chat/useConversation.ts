@@ -19,7 +19,6 @@ import {
     addItem as addBubbleItem,
     removeItem as removeBubbleItem,
     setImportance as setNeedImportance,
-    type Heard,
 } from "@/lib/chats/flow";
 import { askBeforeResult, judgementFrom, judgeWith, resultMessage, withJudgement } from "@/lib/chats/judge";
 import { addedToJudgement, judgedCars, loadedCars, theHeadline } from "@/lib/chats/scope";
@@ -218,45 +217,12 @@ export function useConversation(page: PageCars) {
     /* -- Tapping an answer -------------------------------------------------- */
 
     const tap = useCallback(
-        async (askId: string, chosen: string[], extra: { amount?: number; text?: string } = {}) => {
+        async (askId: string, chosen: string[], extra: { amount?: number } = {}) => {
             const current = latest.current;
             if (!current || busy) return;
 
             const ask = current.messages.find((message) => message.id === askId);
-
-            /*
-             * Their own words, read in the question's context before the taps
-             * are applied on top — so "I also drive home after night shifts"
-             * joins "kids in the back" rather than replacing it.
-             */
-            let heard: Heard | undefined;
-
-            if (extra.text) {
-                setBusy(true);
-
-                try {
-                    const read = await readTyped(current, extra.text, pageRef.current.cars, null);
-
-                    heard = {
-                        text: extra.text,
-                        understanding: read.understanding,
-                        /*
-                         * On the needs and rules questions Lens says how it
-                         * read the words — "as children and pets" — so a word
-                         * it couldn't place is missing from the list, not
-                         * silently gone. Elsewhere its reader's reply does.
-                         */
-                        reply:
-                            (ask?.kind === "ask" && (ask.step.id.startsWith("bubbles") || ask.step.id === "rules" || ask.step.id === "deals")) || !read.changes.length
-                                ? readBack(extra.text, read, chosen.length > 0)
-                                : read.reply || "Got it.",
-                    };
-                } finally {
-                    setBusy(false);
-                }
-            }
-
-            const { chat: next, after } = answer(current, askId, chosen, pageRef.current.cars, new Date(), { amount: extra.amount, heard });
+            const { chat: next, after } = answer(current, askId, chosen, pageRef.current.cars, new Date(), { amount: extra.amount });
 
             if (next === current) return;
 

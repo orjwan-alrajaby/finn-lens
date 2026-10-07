@@ -167,10 +167,14 @@ export interface SummaryBubble {
     settled?: string;
 }
 
-/** An answer of the reader's own, where the pre-made ones don't fit. */
+/**
+ * A number of the reader's own, where the pre-made ones don't fit: another
+ * amount, length or distance. Words aren't an answer here — "Something
+ * else…" is gone — though a chat saved before may still hold one, which the
+ * page leaves out.
+ */
 export interface CustomAnswer {
-    /** Words, read by Lens's reader, or a number with a unit. */
-    kind: "text" | "amount" | "months" | "km";
+    kind: "amount" | "months" | "km";
     /** On the chip that opens it. */
     label: string;
     placeholder: string;

@@ -8,7 +8,7 @@ import { DEAL_MEANS } from "@/lib/lens-chat/deals";
 import type { Source } from "@/lib/sources";
 import { tipItem, type TipContent, type TipItem } from "@/lib/lens-chat/messages";
 import { TIP_CARD, TIP_DOT, TIP_HEADING, type TipTone } from "@/lib/lens-chat/tip-style";
-import type { BubbleChips, CarSnapshot, ChatMessage, Choice, CustomAnswer, DealRow, StepId, SummaryBubble } from "@/lib/chats/types";
+import type { BubbleChips, CarSnapshot, ChatMessage, ChatStep, Choice, CustomAnswer, DealRow, StepId, SummaryBubble } from "@/lib/chats/types";
 import type { NeedImportance } from "@/lib/lens-ai/contract";
 import { lowerFirst } from "@/lib/reasoning-engine/format";
 
@@ -601,7 +601,6 @@ function Chip({
 /** What the reader can add to a question beyond the pre-made answers. */
 export interface AnswerExtra {
     amount?: number;
-    text?: string;
 }
 
 /**
@@ -868,36 +867,15 @@ function Picked({ choices }: { choices: Choice[] }) {
     );
 }
 
-/** The reader's own answer: words, or a number with its unit. */
-function OwnAnswer({
-    custom,
-    onSubmit,
-    onText,
-    onAdd,
-    initial = "",
-    inline,
-}: {
-    custom: CustomAnswer;
-    onSubmit: (extra: AnswerExtra) => void;
-    /** On a question with several answers, the words go in with the taps on "Continue". */
-    onText?: (text: string) => void;
-    /** On a question with several answers: the ✓ adds the words beside the taps, as a chip of their own. */
-    onAdd?: (text: string) => void;
-    initial?: string;
-    inline: boolean;
-}) {
-    const [value, setValue] = useState(initial);
+/** A number of the reader's own, with its unit: another amount, length or distance. */
+function OwnAnswer({ custom, onSubmit }: { custom: CustomAnswer; onSubmit: (extra: AnswerExtra) => void }) {
+    const [value, setValue] = useState("");
     const number = Number(value.replace(/[^\d.]/g, ""));
-    const unit = custom.kind === "amount" ? "€ a month" : custom.kind === "months" ? "months" : custom.kind === "km" ? "km a month" : null;
-    const valid = custom.kind === "text" ? value.trim().length > 1 : Number.isFinite(number) && number >= (custom.min ?? 1) && number <= (custom.max ?? Infinity);
+    const unit = custom.kind === "amount" ? "€ a month" : custom.kind === "months" ? "months" : "km a month";
+    const valid = value.trim() !== "" && Number.isFinite(number) && number >= (custom.min ?? 1) && number <= (custom.max ?? Infinity);
 
     const submit = () => {
-        if (!valid) return;
-        onSubmit(custom.kind === "text" ? { text: value.trim() } : { amount: number });
-    };
-
-    const add = () => {
-        if (valid) onAdd?.(value.trim());
+        if (valid) onSubmit({ amount: number });
     };
 
     return (
@@ -906,67 +884,30 @@ function OwnAnswer({
             <input
                 autoFocus
                 value={value}
-                inputMode={custom.kind === "text" ? "text" : "numeric"}
-                onChange={(event) => {
-                    setValue(event.target.value);
-                    onText?.(event.target.value);
-                }}
+                inputMode="numeric"
+                onChange={(event) => setValue(event.target.value)}
                 onKeyDown={(event) => {
-                    if (event.key === "Enter") (inline ? add : submit)();
+                    if (event.key === "Enter") submit();
                 }}
                 placeholder={custom.placeholder}
                 aria-label={custom.label}
                 className="min-w-0 flex-1 bg-transparent text-[13px] text-finn-black outline-none placeholder:text-finn-iron/70"
             />
-            {unit ? <span className="shrink-0 text-[12px] text-finn-iron">{unit}</span> : null}
-            {inline ? (
-                valid && onAdd ? (
-                    <button
-                        type="button"
-                        onClick={add}
-                        aria-label="Add this"
-                        className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-finn-accent-blue text-white hover:bg-finn-highlight-navy focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-finn-accent-blue"
-                    >
-                        <Check aria-hidden="true" className="h-4 w-4" strokeWidth={3} />
-                    </button>
-                ) : null
-            ) : (
-                <button
-                    type="button"
-                    onClick={submit}
-                    disabled={!valid}
-                    className="shrink-0 rounded-full bg-finn-accent-blue px-3 py-1.5 text-[12px] font-black text-white disabled:bg-finn-cotton disabled:text-finn-iron"
-                >
-                    {custom.kind === "text" ? "Send" : "Use this"}
-                </button>
-            )}
+            <span className="shrink-0 text-[12px] text-finn-iron">{unit}</span>
+            <button
+                type="button"
+                onClick={submit}
+                disabled={!valid}
+                className="shrink-0 rounded-full bg-finn-accent-blue px-3 py-1.5 text-[12px] font-black text-white disabled:bg-finn-cotton disabled:text-finn-iron"
+            >
+                Use this
+            </button>
         </div>
     );
 }
 
-/** The reader's own words, added beside the taps: tap them to edit, × to take them back. */
-function AddedWords({ text, onEdit, onRemove }: { text: string; onEdit: () => void; onRemove: () => void }) {
-    return (
-        <span className="inline-flex max-w-full items-center rounded-full bg-finn-accent-blue text-white shadow-sm">
-            <button
-                type="button"
-                onClick={onEdit}
-                className="inline-flex min-w-0 items-center gap-1.5 py-2 pr-1 pl-3.5 text-[12.5px] font-bold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-finn-accent-blue"
-            >
-                <Check aria-hidden="true" className="h-3.5 w-3.5 shrink-0" strokeWidth={3} />
-                <span className="truncate">“{text}”</span>
-            </button>
-            <button
-                type="button"
-                onClick={onRemove}
-                aria-label={`Remove “${text}”`}
-                className="mr-1.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full hover:bg-white/20 focus-visible:outline-2 focus-visible:outline-white"
-            >
-                <X aria-hidden="true" className="h-3 w-3" strokeWidth={3} />
-            </button>
-        </span>
-    );
-}
+/** A question's own-number answer — never words: a chat saved before "Something else…" went may still hold one. */
+const numberAnswer = (step: ChatStep): CustomAnswer | undefined => (step.custom && ["amount", "months", "km"].includes(step.custom.kind) ? step.custom : undefined);
 
 /**
  * The chips a tapped bubble opens under itself: "Where do you park most
@@ -1087,7 +1028,6 @@ function Deals({
     const [states, setStates] = useState<Record<string, DealRow["options"][number] | undefined>>(() =>
         Object.fromEntries((step.selected ?? []).map((item) => item.split("=") as [string, DealRow["options"][number]])),
     );
-    const [own, setOwn] = useState(false);
     const set = Object.entries(states).filter((entry): entry is [string, DealRow["options"][number]] => entry[1] != null);
     const chosen = set.map(([id, state]) => `${id}=${state}`);
     const groups = (step.groups ?? [{ id: "", title: "" }]).map((group) => ({ ...group, rows: rows.filter((row) => !group.id || row.group === group.id) }));
@@ -1156,26 +1096,21 @@ function Deals({
                         </div>
                     ))}
 
-                    {own && step.custom ? (
-                        <OwnAnswer custom={step.custom} inline={false} onSubmit={(extra) => onAnswer(chosen, extra)} />
-                    ) : (
-                        <div className="flex flex-wrap gap-1.5">
-                            {step.custom ? <Chip label={step.custom.label} muted icon={<PencilLine aria-hidden="true" className="h-3.5 w-3.5" />} onClick={() => setOwn(true)} /> : null}
-                            {set.length ? (
-                                <button
-                                    type="button"
-                                    onClick={() => onAnswer(chosen)}
-                                    className="inline-flex items-center gap-1 rounded-full bg-finn-highlight-navy px-4 py-2 text-[12.5px] font-black text-white shadow-sm transition-colors hover:bg-finn-accent-blue focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-finn-accent-blue"
-                                >
-                                    Continue
-                                    <ChevronRight aria-hidden="true" className="h-4 w-4" />
-                                </button>
-                            ) : (
-                                <Chip label={step.none ?? "Nothing's off the table"} muted onClick={() => onAnswer([])} />
-                            )}
-                            {onNeverMind ? <NeverMind onClick={onNeverMind} /> : null}
-                        </div>
-                    )}
+                    <div className="flex flex-wrap gap-1.5">
+                        {set.length ? (
+                            <button
+                                type="button"
+                                onClick={() => onAnswer(chosen)}
+                                className="inline-flex items-center gap-1 rounded-full bg-finn-highlight-navy px-4 py-2 text-[12.5px] font-black text-white shadow-sm transition-colors hover:bg-finn-accent-blue focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-finn-accent-blue"
+                            >
+                                Continue
+                                <ChevronRight aria-hidden="true" className="h-4 w-4" />
+                            </button>
+                        ) : (
+                            <Chip label={step.none ?? "Nothing's off the table"} muted onClick={() => onAnswer([])} />
+                        )}
+                        {onNeverMind ? <NeverMind onClick={onNeverMind} /> : null}
+                    </div>
                 </div>
             ) : null}
         </>
@@ -1198,10 +1133,9 @@ function Ask({
     const [picked, setPicked] = useState<string[]>(step.selected ?? []);
     /* The bubble whose follow-up the reader last touched: the one they're on. */
     const [touched, setTouched] = useState<string | null>(null);
+    /* Their own number — another amount, length or distance — being typed. */
     const [own, setOwn] = useState(false);
-    const [ownText, setOwnText] = useState("");
-    /* Words the reader added with the ✓, shown as a chip of their own until "Continue". */
-    const [added, setAdded] = useState<string | null>(null);
+    const custom = numberAnswer(step);
 
     /*
      * Up to the question's own limit: past it the other chips rest, and
@@ -1254,10 +1188,7 @@ function Ask({
         .map(([bubble]) => bubble);
 
     const chosen = step.choices.filter((choice) => picked.includes(choice.id));
-    const typing = own && ownText.trim().length > 1;
-    const ready = picked.length > 0 || added != null || typing;
-    /* Words still in the box go in too: Continue never drops what was typed. */
-    const words = typing ? ownText.trim() : added;
+    const ready = picked.length > 0;
 
     const chip = (choice: Choice) => (
         <Chip
@@ -1333,35 +1264,12 @@ function Ask({
                     )}
 
                     <div className="flex flex-wrap gap-1.5">
-                        {added != null && !own ? (
-                            <AddedWords
-                                text={added}
-                                onEdit={() => {
-                                    setOwnText(added);
-                                    setOwn(true);
-                                }}
-                                onRemove={() => setAdded(null)}
-                            />
-                        ) : null}
-                        {step.custom && !own && added == null ? <Chip label={step.custom.label} muted icon={<PencilLine aria-hidden="true" className="h-3.5 w-3.5" />} onClick={() => setOwn(true)} /> : null}
+                        {custom && !own ? <Chip label={custom.label} muted icon={<PencilLine aria-hidden="true" className="h-3.5 w-3.5" />} onClick={() => setOwn(true)} /> : null}
                         {step.none && !(step.multiple && ready) && !own ? <Chip label={step.none} muted onClick={() => onAnswer([])} /> : null}
                         {onNeverMind && !own ? <NeverMind onClick={onNeverMind} /> : null}
                     </div>
 
-                    {own && step.custom ? (
-                        <OwnAnswer
-                            custom={step.custom}
-                            inline={step.multiple}
-                            initial={added ?? ""}
-                            onText={setOwnText}
-                            onAdd={(text) => {
-                                setAdded(text);
-                                setOwnText("");
-                                setOwn(false);
-                            }}
-                            onSubmit={(extra) => onAnswer(picked, extra)}
-                        />
-                    ) : null}
+                    {own && custom ? <OwnAnswer custom={custom} onSubmit={(extra) => onAnswer(picked, extra)} /> : null}
 
                     {step.multiple && !step.bubbleChips ? <Picked choices={chosen.filter((choice) => choice.description || choice.looksFor?.length)} /> : null}
 
@@ -1371,7 +1279,7 @@ function Ask({
                         <button
                             type="button"
                             disabled={unfinished.length > 0}
-                            onClick={() => onAnswer(picked, words ? { text: words } : undefined)}
+                            onClick={() => onAnswer(picked)}
                             className="inline-flex items-center gap-1 rounded-full bg-finn-highlight-navy px-4 py-2 text-[12.5px] font-black text-white shadow-sm transition-colors hover:bg-finn-accent-blue focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-finn-accent-blue disabled:cursor-default disabled:bg-finn-cotton disabled:text-finn-iron disabled:shadow-none"
                         >
                             Continue

@@ -432,3 +432,21 @@ describe("the pick's gold chip", () => {
         expect(words).not.toContain("Best for you");
     });
 });
+
+describe("answers of the reader's own", () => {
+    it("are numbers only: no “Something else…” on the bubbles, the deal-breakers or “tell me something”", () => {
+        const words = text(render([{ id: "b1", at: "", from: "lens", kind: "ask", answered: false, step: stepFor("bubbles-people", cars())! }]));
+        const deals = text(render([{ id: "d1", at: "", from: "lens", kind: "ask", answered: false, step: stepFor("deals", cars())! }]));
+        const budget = text(render([{ id: "m1", at: "", from: "lens", kind: "ask", answered: false, step: stepFor("budget", cars())! }]));
+
+        expect(words).not.toContain("Something else");
+        expect(deals).not.toContain("Something else");
+        expect(budget).toContain("Another amount");
+    });
+
+    it("leave out a words answer a chat saved before still holds", () => {
+        const step = { ...stepFor("bubbles-people", cars())!, custom: { kind: "text", label: "Something else…", placeholder: "" } as never };
+
+        expect(text(render([{ id: "o1", at: "", from: "lens", kind: "ask", answered: false, step }]))).not.toContain("Something else");
+    });
+});

@@ -67,8 +67,10 @@ import type { BubbleChips, Chat, ChatMessage, ChatStep, DealRow, Rewind, SavedSe
  *    chips under themselves. Then up to two "how often" questions, the
  *    monthly limit, how long, how far (only where it matters), and anything
  *    that's a deal-breaker — four to six questions in all.
- * 3. Every question says why it's asked, has answers to tap, and takes the
- *    reader's own words too. Anything already said isn't asked again.
+ * 3. Every question says why it's asked and has answers to tap — and, where
+ *    a number fits (an amount, a length, a distance), the reader's own.
+ *    Anything already said, tapped or typed in the message box, isn't asked
+ *    again.
  * 4. "Here's what I understood": what Lens will check for each bubble, what
  *    might matter too, what it can't check, and how much each counts — for
  *    the reader to correct. Then whether to keep it as their settings.
@@ -377,7 +379,6 @@ function bubblesStep(group?: (typeof BUBBLE_GROUPS)[number], u: Understanding = 
                 ]),
         ),
         none: group?.none ?? "None of these",
-        custom: { kind: "text", label: "Something else…", placeholder: group?.placeholder ?? "e.g. “home late after night shifts”" },
     };
 }
 
@@ -421,7 +422,6 @@ function dealsStep(u: Understanding, cars: FinnCar[]): ChatStep | null {
         deals: groups.flatMap((group) => rows.filter((row) => row.group === group.id)),
         groups,
         none: "Nothing's off the table",
-        custom: { kind: "text", label: "Something else…", placeholder: "e.g. “no seven-seaters”" },
     };
 }
 
@@ -744,7 +744,6 @@ export function stepFor(id: StepId, cars: FinnCar[], u: Understanding = EMPTY_UN
             groups,
             /* Electric only and not electric together would rule out every car. */
             exclusive: [["electric-only", "not-electric"]],
-            custom: { kind: "text", label: "Something else…", placeholder: "e.g. “no seven-seaters”" },
         };
     }
 
@@ -1238,7 +1237,6 @@ const NO_NEEDS: ChatStep = {
     why: "Everything I judge comes from what you tell me: the equipment it points me at, or a car's CO₂. Without one of those, I have nothing to judge fit on.",
     multiple: false,
     choices: [{ id: "add", label: "Pick something", said: "Let me pick something." }],
-    custom: { kind: "text", label: "Say it in my own words…", placeholder: "e.g. “long drives with two kids”" },
 };
 
 /**
