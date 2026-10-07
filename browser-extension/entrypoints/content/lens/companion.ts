@@ -1,6 +1,6 @@
 import type { TipClosed, TipContent } from "@/lib/lens-chat/messages";
 
-import { brandMark, el } from "../page/dom";
+import { el } from "../page/dom";
 
 import { chatLayer, chatPanel } from "./bubble";
 import { token } from "./frames";
@@ -8,8 +8,12 @@ import { token } from "./frames";
 /**
  * The "i"'s companion panel: what an answer means, in a small panel of its
  * own beside the chat, on its left — separate from the chat, so it never
- * covers the chips it explains, and joined to it by a hinge level with the
- * "i" that opened it.
+ * covers the chips it explains.
+ *
+ * It's held up like a sign on a post: a stick comes out from behind the
+ * chat, from its bottom middle, runs left beneath the chat's edge, and turns
+ * up to carry the panel from below. The panel sits as near the "i" that
+ * opened it as the post allows, and that "i" shows it's pressed.
  *
  * The chat can't draw outside its own frame, so it hands the content here
  * and this draws it. Where there's no room on the chat's left — a phone's
@@ -17,24 +21,26 @@ import { token } from "./frames";
  * the panel inside itself instead.
  */
 
-const WIDTH = 264;
-/** The space between the companion and the chat, which the hinge spans. */
-const GAP = 14;
+const WIDTH = 280;
+/** The space between the companion and the chat. */
+const GAP = 22;
 /** At least this much of finn.com shows beside the companion. */
 const EDGE = 8;
-/** The hinge: a short clip across the gap, reaching this far onto each panel. */
-const HINGE_REACH = 7;
-const HINGE_HEIGHT = 8;
+/** The post: how thick, how far above the chat's bottom edge it runs, and the least of it showing under the panel. */
+const POST = 6;
+const POST_LEVEL = 40;
+const POST_SHOWING = 44;
 
 let box: HTMLElement | null = null;
-let hinge: HTMLElement | null = null;
+let post: HTMLElement | null = null;
 let watching: ResizeObserver | null = null;
 
 /* Lucide's paths, inline: the content script carries no icon library. */
 const ICONS = {
-    check: '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>',
-    star: '<svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>',
-    close: '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>',
+    info: '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>',
+    check: '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>',
+    star: '<svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>',
+    close: '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>',
     out: '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7M7 7h10v10"/></svg>',
 };
 
@@ -44,7 +50,7 @@ function icon(markup: string, className: string): HTMLElement {
     return span;
 }
 
-/** The same layout as the panel inside the chat: title, why it's starred, what it means, what's checked, a quiet note, sources. */
+/** The same layout as the panel inside the chat: why it's starred, what it means, what's checked, then a quiet line and the sources. */
 function contents(tip: TipContent): HTMLElement[] {
     const body = (tip.body ?? []).filter((paragraph): paragraph is string => Boolean(paragraph));
     const lists = (tip.lists ?? []).filter((list) => list.items.length);
@@ -53,30 +59,30 @@ function contents(tip: TipContent): HTMLElement[] {
     return [
         ...(tip.recommended
             ? [
-                  el("p", { class: "flex gap-1.5 rounded-lg bg-[#fff6d6] px-2.5 py-2 text-[12px] font-semibold leading-snug text-[#8a5a00]" }, [
+                  el("p", { class: "flex gap-1.5 rounded-lg bg-[#fff6d6] px-2.5 py-2 text-[12.5px] font-semibold leading-snug text-[#7a4f00]" }, [
                       icon(ICONS.star, "mt-0.5 shrink-0"),
                       el("span", { text: tip.recommended }),
                   ]),
               ]
             : []),
-        ...body.map((paragraph) => el("p", { class: "text-finn-black/85", text: paragraph })),
+        ...body.map((paragraph) => el("p", { text: paragraph })),
         ...lists.map((list) =>
             el("div", {}, [
-                el("p", { class: "text-[10px] font-black uppercase tracking-wide text-finn-iron", text: list.label }),
+                el("p", { class: "text-[12px] font-bold text-finn-highlight-navy", text: list.label }),
                 el(
                     "ul",
                     { class: "mt-1 space-y-1" },
-                    list.items.map((item) => el("li", { class: "flex gap-1.5" }, [icon(ICONS.check, "mt-[3px] shrink-0 text-finn-accent-blue"), el("span", { text: item })])),
+                    list.items.map((item) => el("li", { class: "flex gap-2" }, [icon(ICONS.check, "mt-[4px] shrink-0 text-finn-accent-blue"), el("span", { text: item })])),
                 ),
-                list.hint ? el("p", { class: "mt-1 text-[11.5px] leading-snug text-finn-iron", text: list.hint }) : null,
+                list.hint ? el("p", { class: "mt-1 text-[12px] leading-snug text-finn-iron", text: list.hint }) : null,
             ]),
         ),
-        ...(tip.note ? [el("p", { class: "text-[11.5px] leading-snug text-finn-iron", text: tip.note })] : []),
+        ...(tip.note ? [el("p", { class: "border-t border-finn-cotton pt-2.5 text-[12px] leading-snug text-finn-iron", text: tip.note })] : []),
         ...(sources.length
             ? [
                   el(
                       "p",
-                      { class: "flex flex-wrap gap-x-3 border-t border-finn-cotton pt-2 text-[11px]" },
+                      { class: "flex flex-wrap gap-x-3 text-[12px]" },
                       sources.map((source, index) =>
                           el(
                               "a",
@@ -99,30 +105,42 @@ function notifyClosed(): void {
     void browser.runtime.sendMessage({ type: "LENS_TIP_CLOSED", token } satisfies TipClosed).catch(() => {});
 }
 
-/** Puts the companion level with the "i" at `y` in the chat frame. False when the "i" is out of the chat's sight. */
+/**
+ * Puts the companion as near the "i" at `y` in the chat frame as its post
+ * allows, and the post under it. False when the "i" is out of the chat's
+ * sight.
+ */
 function place(y: number): boolean {
     const panel = chatPanel();
-    if (!panel || !box || !hinge) return false;
+    if (!panel || !box || !post) return false;
 
     const chat = panel.getBoundingClientRect();
     if (y < 0 || y > chat.height) return false;
 
-    const level = chat.top + y;
+    /* Where the post runs, behind the chat near its bottom; the panel stays above it, with some of the post showing. */
+    const level = chat.bottom - POST_LEVEL;
+    const lowest = level - POST_SHOWING;
 
-    /* Never taller than the chat it belongs to, and kept within its span: a booth beside it, not a sheet over the page. */
-    box.style.maxHeight = `${Math.round(chat.height)}px`;
+    box.style.maxHeight = `${Math.round(lowest - chat.top)}px`;
     const height = box.getBoundingClientRect().height;
-    const top = Math.min(Math.max(chat.top, level - 32), chat.bottom - height);
+    const top = Math.min(Math.max(chat.top, chat.top + y - 36), lowest - height);
+    const left = chat.left - GAP - WIDTH;
 
-    box.style.left = `${Math.round(chat.left - GAP - WIDTH)}px`;
+    box.style.left = `${Math.round(left)}px`;
     box.style.top = `${Math.round(top)}px`;
-    hinge.style.left = `${Math.round(chat.left - GAP - HINGE_REACH)}px`;
-    hinge.style.top = `${Math.round(Math.min(Math.max(level, top + 20), top + height - 20) - HINGE_HEIGHT / 2)}px`;
+
+    /* One element drawn as an L: up from under the panel's middle, round the corner, and right to the chat's middle, behind it. */
+    const postLeft = left + WIDTH / 2 - POST / 2;
+    const postTop = top + height - 8;
+    post.style.left = `${Math.round(postLeft)}px`;
+    post.style.top = `${Math.round(postTop)}px`;
+    post.style.width = `${Math.round(chat.left + chat.width / 2 - postLeft)}px`;
+    post.style.height = `${Math.round(level + POST / 2 - postTop)}px`;
 
     return true;
 }
 
-/** Shows `tip` beside the chat, level with its "i". False where there's no room, and the chat shows it itself. */
+/** Shows `tip` beside the chat. False where there's no room, and the chat shows it itself. */
 export function showTip(tip: TipContent, y: number): boolean {
     const panel = chatPanel();
     const layer = chatLayer();
@@ -146,32 +164,28 @@ export function showTip(tip: TipContent, y: number): boolean {
             attrs: { role: "dialog", "aria-label": tip.title },
         },
         [
-            el("div", { class: "flex shrink-0 items-center gap-2 border-b border-finn-cotton bg-finn-snow/60 px-3.5 py-2.5" }, [
-                brandMark(22),
-                el("p", { class: "min-w-0 flex-1 text-[13.5px] font-black leading-snug text-finn-black", text: tip.title }),
+            el("div", { class: "flex shrink-0 items-center gap-2.5 border-b border-finn-cotton px-4 py-3" }, [
+                icon(ICONS.info, "inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-finn-accent-blue text-white"),
+                el("p", { class: "min-w-0 flex-1 text-[14.5px] font-black leading-snug text-finn-black", text: tip.title }),
                 close,
             ]),
-            el("div", { class: "min-h-0 flex-1 space-y-2.5 overflow-y-auto px-3.5 pt-3 pb-3.5 text-[12.5px] leading-relaxed text-finn-black" }, contents(tip)),
+            el("div", { class: "min-h-0 flex-1 space-y-3 overflow-y-auto px-4 pt-3 pb-4 text-[13px] leading-[1.55] text-finn-black" }, contents(tip)),
         ],
     );
     box.style.width = `${WIDTH}px`;
 
-    /* The hinge: a short bridge across the gap, level with the "i", that says this panel belongs to the chat. */
-    hinge = el("div", {
-        class: "fixed rounded-full bg-finn-accent-blue shadow-sm ring-2 ring-white",
-        attrs: { "aria-hidden": "true" },
-    });
-    hinge.style.width = `${GAP + HINGE_REACH * 2}px`;
-    hinge.style.height = `${HINGE_HEIGHT}px`;
+    post = el("div", { class: "fixed rounded-bl-[18px] border-b-[6px] border-l-[6px] border-finn-accent-blue", attrs: { "aria-hidden": "true" } });
 
-    layer.append(box, hinge);
+    /* The post first, so the chat — and the panel — are drawn over its ends. */
+    layer.prepend(post);
+    layer.append(box);
 
     if (!place(y)) {
         hideTip(false);
         return false;
     }
 
-    /* The chat resized — dragged, or widened for the Adjust panel — and the "i" moved with it: close rather than point at nothing. */
+    /* The chat resized — dragged, or widened for the Adjust panel: close rather than hang in the wrong place. */
     let first = true;
     watching = new ResizeObserver(() => {
         if (first) {
@@ -185,7 +199,7 @@ export function showTip(tip: TipContent, y: number): boolean {
     return true;
 }
 
-/** The chat scrolled: follow its "i", or go once it's out of sight. */
+/** The chat scrolled: keep near its "i", or go once it's out of sight. */
 export function moveTip(y: number): boolean {
     if (!box) return false;
     if (place(y)) return true;
@@ -201,9 +215,9 @@ export function hideTip(notify: boolean): void {
     watching?.disconnect();
     watching = null;
     box.remove();
-    hinge?.remove();
+    post?.remove();
     box = null;
-    hinge = null;
+    post = null;
 
     if (notify) notifyClosed();
 }

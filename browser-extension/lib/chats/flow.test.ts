@@ -1364,6 +1364,12 @@ describe("letting go of a fuel", () => {
 });
 
 describe("standard equipment, said where it's asked for", () => {
+    it("has a short form too, for one quiet line under the “i”", () => {
+        const weather = stepFor("bubbles-copes", cars())!.choices.find((choice) => choice.id === "weather")!;
+
+        expect(weather.standard?.short).toMatch(/^On (every car here\.|nearly every car here; one without it loses a little\.)$/);
+    });
+
     it("names what each answer makes sure of, with a hint from the cars here that it won't set them apart", () => {
         const page = fleet().sort((a, b) => a.id - b.id).slice(0, 40);
         const copes = stepFor("bubbles-copes", page)!;

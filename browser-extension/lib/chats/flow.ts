@@ -318,6 +318,19 @@ function standardHint(ids: EvidenceId[], cars: FinnCar[]): string {
     return `${where.charAt(0).toUpperCase()}${where.slice(1)} has ${one ? "it" : "these"}, so ${one ? "it won't" : "they won't"} set the cars apart${everyCar ? "" : ` — but a car without ${one ? "it" : "them"} would lose out`}.`;
 }
 
+/** The same in a few words, for the one quiet line under the "i"'s panel: "On nearly every car here; one without it loses a little." */
+function standardShort(ids: EvidenceId[], cars: FinnCar[]): string {
+    const one = ids.length === 1;
+    const everyCar = cars.length > 0 && ids.every((id) => {
+        const count = coverage(cars, id);
+        return count.notListed === 0 && count.unknown === 0;
+    });
+
+    return everyCar
+        ? "On every car here."
+        : `On nearly every ${cars.length ? "car here" : "car FINN lists"}; one without ${one ? "it" : "them"} loses a little.`;
+}
+
 function bubblesStep(group?: (typeof BUBBLE_GROUPS)[number], u: Understanding = EMPTY_UNDERSTANDING, cars: FinnCar[] = []): ChatStep {
     const bubbles = group ? BUBBLES.filter((bubble) => group.bubbles.includes(bubble.id)) : BUBBLES;
 
@@ -333,7 +346,7 @@ function bubblesStep(group?: (typeof BUBBLE_GROUPS)[number], u: Understanding = 
             means: bubble.means,
             looksFor: bubble.counts.length ? labelsOf(bubble.counts) : undefined,
             features: bubble.counts.map((id) => ({ label: EVIDENCE[id].label, does: explain(id, bubble.why?.[id]) })),
-            ...(bubble.checks.length ? { standard: { labels: labelsOf(bubble.checks), hint: standardHint(bubble.checks, cars) } } : {}),
+            ...(bubble.checks.length ? { standard: { labels: labelsOf(bubble.checks), hint: standardHint(bubble.checks, cars), short: standardShort(bubble.checks, cars) } } : {}),
         })),
         bubbleChips: Object.fromEntries(
             bubbles

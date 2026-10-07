@@ -164,7 +164,7 @@ const setOutsideTip = (id: string | null) => {
 export const companionClosed = () => setOutsideTip(null);
 
 /** The panel's width, and the gap it keeps from the "i" and from the edges. */
-const TIP_WIDTH = 236;
+const TIP_WIDTH = 260;
 const TIP_GAP = 8;
 
 /**
@@ -317,10 +317,11 @@ export function InfoTip({ label, tone = "idle", tip }: { label: string; tone?: "
                 className={[
                     "inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full transition-colors",
                     "focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-finn-accent-blue",
+                    /* Pressed: a solid disc, so which "i" the panel belongs to is plain at a glance. */
                     open || outside
                         ? tone === "on"
-                            ? "bg-white/25 text-white"
-                            : "bg-finn-pale-blue text-finn-accent-blue"
+                            ? "bg-white text-finn-accent-blue shadow-sm ring-2 ring-white/50"
+                            : "bg-finn-accent-blue text-white shadow-sm ring-2 ring-finn-accent-blue/30"
                         : tone === "on"
                           ? "text-white/80 hover:bg-white/20 hover:text-white"
                           : "text-finn-accent-blue/70 hover:bg-finn-pale-blue hover:text-finn-accent-blue",
@@ -362,52 +363,55 @@ export function TipPanel({ tip, onClose }: { tip: TipContent; onClose?: () => vo
     const lists = (tip.lists ?? []).filter((list) => list.items.length);
 
     return (
-        <div className="relative max-h-[min(70vh,440px)] overflow-y-auto px-3 pt-2.5 pb-3 text-[12px] leading-relaxed text-finn-black">
-            <div className="flex items-start justify-between gap-2">
-                <p className="pt-px text-[12.5px] font-black leading-snug">{tip.title}</p>
+        <div className="relative max-h-[min(70vh,440px)] overflow-y-auto text-[13px] leading-[1.55] text-finn-black">
+            <div className="flex items-center gap-2 border-b border-finn-cotton px-3 py-2.5">
+                <span aria-hidden="true" className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-finn-accent-blue text-white">
+                    <Info className="h-3.5 w-3.5" strokeWidth={2.6} />
+                </span>
+                <p className="min-w-0 flex-1 text-[13.5px] font-black leading-snug">{tip.title}</p>
                 {onClose ? (
                     <button
                         type="button"
                         onClick={onClose}
                         aria-label="Close"
-                        className="-mt-0.5 -mr-1 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-finn-iron hover:bg-finn-snow hover:text-finn-black focus-visible:outline-2 focus-visible:outline-finn-accent-blue"
+                        className="-mr-1 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-finn-iron hover:bg-finn-snow hover:text-finn-black focus-visible:outline-2 focus-visible:outline-finn-accent-blue"
                     >
-                        <X aria-hidden="true" className="h-3 w-3" strokeWidth={2.6} />
+                        <X aria-hidden="true" className="h-3.5 w-3.5" strokeWidth={2.6} />
                     </button>
                 ) : null}
             </div>
 
-            {tip.recommended ? (
-                <p className="mt-1.5 flex gap-1.5 rounded-lg bg-[#fff6d6] px-2 py-1.5 text-[11.5px] font-semibold leading-snug text-[#8a5a00]">
-                    <Star aria-hidden="true" className="mt-0.5 h-3 w-3 shrink-0 fill-current" />
-                    <span>{tip.recommended}</span>
-                </p>
-            ) : null}
+            <div className="space-y-2.5 px-3 pt-2.5 pb-3">
+                {tip.recommended ? (
+                    <p className="flex gap-1.5 rounded-lg bg-[#fff6d6] px-2.5 py-2 text-[12.5px] font-semibold leading-snug text-[#7a4f00]">
+                        <Star aria-hidden="true" className="mt-0.5 h-3 w-3 shrink-0 fill-current" />
+                        <span>{tip.recommended}</span>
+                    </p>
+                ) : null}
 
-            {body.map((paragraph) => (
-                <p key={paragraph} className="mt-1.5 text-finn-black/85">
-                    {paragraph}
-                </p>
-            ))}
+                {body.map((paragraph) => (
+                    <p key={paragraph}>{paragraph}</p>
+                ))}
 
-            {lists.map((list) => (
-                <div key={list.label} className="mt-2">
-                    <p className="text-[10px] font-black uppercase tracking-wide text-finn-iron">{list.label}</p>
-                    <ul className="mt-0.5 space-y-0.5">
-                        {list.items.map((item) => (
-                            <li key={item} className="flex gap-1.5">
-                                <Check aria-hidden="true" className="mt-[3px] h-3 w-3 shrink-0 text-finn-accent-blue" strokeWidth={3} />
-                                <span>{item}</span>
-                            </li>
-                        ))}
-                    </ul>
-                    {list.hint ? <p className="mt-0.5 text-[11px] leading-snug text-finn-iron">{list.hint}</p> : null}
-                </div>
-            ))}
+                {lists.map((list) => (
+                    <div key={list.label}>
+                        <p className="text-[12px] font-bold text-finn-highlight-navy">{list.label}</p>
+                        <ul className="mt-1 space-y-1">
+                            {list.items.map((item) => (
+                                <li key={item} className="flex gap-2">
+                                    <Check aria-hidden="true" className="mt-[4px] h-3 w-3 shrink-0 text-finn-accent-blue" strokeWidth={3} />
+                                    <span>{item}</span>
+                                </li>
+                            ))}
+                        </ul>
+                        {list.hint ? <p className="mt-1 text-[12px] leading-snug text-finn-iron">{list.hint}</p> : null}
+                    </div>
+                ))}
 
-            {tip.note ? <p className="mt-2 text-[11px] leading-snug text-finn-iron">{tip.note}</p> : null}
+                {tip.note ? <p className="border-t border-finn-cotton pt-2.5 text-[12px] leading-snug text-finn-iron">{tip.note}</p> : null}
 
-            <TipSources sources={tip.sources} />
+                <TipSources sources={tip.sources} />
+            </div>
         </div>
     );
 }
@@ -421,7 +425,7 @@ export function TipSources({ sources }: { sources?: Source[] }) {
     if (!sources?.length) return null;
 
     return (
-        <p className="mt-2 flex flex-wrap gap-x-3 border-t border-finn-cotton pt-1.5 text-[10.5px]">
+        <p className="flex flex-wrap gap-x-3 text-[12px]">
             {sources.map((source, index) => (
                 <a
                     key={source.url}
@@ -440,6 +444,9 @@ export function TipSources({ sources }: { sources?: Source[] }) {
 }
 
 /** What a choice means, for its "i": its name, why it's starred, what it is, and what Lens checks for it. */
+/** "A, b and c". */
+const andJoined = (parts: string[]): string => (parts.length <= 1 ? (parts[0] ?? "") : `${parts.slice(0, -1).join(", ")} and ${parts.at(-1)}`);
+
 function tipFor(choice: Choice): TipContent | null {
     const body = choice.means ?? choice.description;
     if (!body && !choice.looksFor?.length && !choice.recommended && !choice.standard) return null;
@@ -448,10 +455,9 @@ function tipFor(choice: Choice): TipContent | null {
         title: choice.label,
         recommended: choice.recommended,
         body: [body, choice.means && choice.description !== choice.means ? choice.description : null],
-        lists: [
-            { label: "I'll check", items: choice.looksFor ?? [] },
-            ...(choice.standard ? [{ label: "Also making sure it has", items: choice.standard.labels, hint: choice.standard.hint }] : []),
-        ],
+        lists: [{ label: "I'll check", items: choice.looksFor ?? [] }],
+        /* Standard equipment, said in one quiet line rather than a list of its own: it barely moves anything. */
+        note: choice.standard ? `Also checked: ${andJoined(choice.standard.labels.map((label, index) => (index ? lowerFirst(label) : label)))}. ${choice.standard.short ?? choice.standard.hint}` : undefined,
         sources: choice.sources,
     };
 }
