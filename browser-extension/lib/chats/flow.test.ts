@@ -1341,3 +1341,17 @@ describe("sealing a figure", () => {
         expect(rows.find((row) => row.id === "co2")?.options).toContain("seal");
     });
 });
+
+describe("letting go of a fuel", () => {
+    it("says the row came from what it can run on, so “Not diesel” isn't a puzzle to someone who tapped Electric", () => {
+        const page = fleet().slice(0, 24);
+        const u = withDeals(walk(startChat(null, page, TODAY), { bubbles: ["carry", "carry:trailer"], fuel: ["fuel-electricCar"] }, page).understanding, ["towbar"], { towbar: "must" });
+        const question = letGoAsk(judgeWith(u, page, "24 cars")!.run, "x", "")!;
+        const diesel = question.step.choices.find((choice) => choice.id === "dieselCar")!;
+        const towbar = question.step.choices.find((choice) => choice.id === "hasTowbar")!;
+
+        expect(diesel.label).toBe("Not diesel");
+        expect(diesel.description).toMatch(/It's one you set aside when I asked what it can run on\.$/);
+        expect(towbar.description).not.toMatch(/what it can run on/);
+    });
+});

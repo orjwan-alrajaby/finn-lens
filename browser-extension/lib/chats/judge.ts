@@ -414,6 +414,9 @@ export function askBeforeResult(from: Chat, run: LensRun, id: string, at: string
     return letGoAsk(run, id, at);
 }
 
+/** The fuels, as "What can it run on?" sets them aside. */
+const FUEL_RULES = new Set(["electricCar", "petrolCar", "dieselCar", "plugInHybrid"]);
+
 export function letGoAsk(run: LensRun, id: string, at: string): Extract<ChatMessage, { kind: "ask" }> | null {
     if (!run.ruledOut?.nothingLeft) return null;
 
@@ -434,7 +437,13 @@ export function letGoAsk(run: LensRun, id: string, at: string): Extract<ChatMess
                 id: row.id,
                 label: demandOf(row),
                 said: demandOf(row),
-                description: rows.length === 1 ? "Without it, every car here is back in." : row.fits ? `Without it, ${row.fits} ${row.fits === 1 ? "car" : "cars"} here ${row.fits === 1 ? "fits" : "fit"} everything else.` : "Even without it, no car here fits everything else.",
+                description: [
+                    rows.length === 1 ? "Without it, every car here is back in." : row.fits ? `Without it, ${row.fits} ${row.fits === 1 ? "car" : "cars"} here ${row.fits === 1 ? "fits" : "fit"} everything else.` : "Even without it, no car here fits everything else.",
+                    /* "Not diesel" to someone who tapped only "Electric": say where it came from. */
+                    FUEL_RULES.has(row.id) && row.mode === "without" ? "It's one you set aside when I asked what it can run on." : "",
+                ]
+                    .filter(Boolean)
+                    .join(" "),
             })),
             none: rows.length === 1 ? "Keep it" : "Keep them all",
         },

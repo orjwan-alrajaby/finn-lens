@@ -393,7 +393,7 @@ function dealsStep(u: Understanding, cars: FinnCar[]): ChatStep | null {
         label: deal.label,
         kind: deal.kind,
         group: because.has(deal.id) ? "yours" : deal.group,
-        /* A row that can only be a hard line says why, so its missing "Flexible" isn't a puzzle. */
+        /* Where its "i" says anything that isn't FINN's, the source. */
         ...(deal.sources ? { sources: deal.sources } : {}),
         /* A row that can't seal the deal says why, so the missing "Seals it" isn't a puzzle. */
         description: options.includes("seal") ? deal.description : `${deal.description} I can only rule on this, not weigh it — so it can't seal the deal.`,
