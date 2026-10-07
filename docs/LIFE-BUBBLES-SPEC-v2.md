@@ -188,7 +188,8 @@ Everything under Counts, Checked and Worth a look exists in the engine today
 - **Worth a look:**
   - With snow & ice: All-wheel drive ("grip pulling away and climbing — it doesn't shorten braking"), Auxiliary heater, Heat pump (electric cars), Headlight washers
   - With hot summers: 3-zone climate control
-- **Can't check:** how the car handles on snow; which tyres it will come on
+- **Can't check:** how the car handles on snow
+- **Shown, not scored:** which tyres FINN fits — all-season, winter, or a summer and a winter set (see As built)
 
 ### 4.9 "I drive at night a lot"
 
@@ -382,6 +383,7 @@ Changed after trying it again (5 October 2026):
 
 - **What it runs on, and plug-in hybrids** (6 October 2026): "What can it run on?" — electric, plug-in hybrid, petrol, diesel, any or all — is asked before deal-breakers, and replaces the Electric deal row. FINN lists every plug-in hybrid (44 of 728) with one combined litres figure and no electricity figure, so its electricity is the EU's official figure for the same car, from the EEA's registration data, matched on make, model, CO₂ and fuel figure, with the source linked and the caveat that both figures assume the EU test's mix of driving. Where nothing matches, it's named as missing — and under a hard limit, a car that can't be confirmed is set aside, saying exactly what's missing.
 - **"See why" is what the car got right**: everything it has for each thing said, and how it was weighed. Gaps and trade-offs are in "The whole case".
+- **Checked against FINN's raw responses** (7 October 2026): six pages of `/api/cars` as finn.com sent them, 127 cars. Tyres are FINN's own field, so §4.8 no longer lists them as something Lens can't check: FINN fits all-season tyres (110 of the 127), winter tyres (13) or a summer and a winter set (4), and the drawer says which — winter tyres had been read as "FINN doesn't say". An early-booking car is quoted at the discounted price from FINN's price list rather than the price before the discount (5 cars, €10 a month each). An electric car's range, which FINN sends as text, now reaches everything that reads it. FINN's data-audit notes ("Audit override: hasLeatherSeats") are taken out of the equipment text before the model reads it. The details are in [How FINN Lens decides §2.1](HOW-FINN-LENS-DECIDES.md#21-reading-finns-data).
 
 Two things the spec promised needed engine or flow changes to be true:
 
@@ -509,7 +511,7 @@ Boot space isn't scored: FINN's figure sometimes means seats up and sometimes fo
 
 ### A.9 Cost (every car, always)
 
-- **FINN's monthly price** on the term that covers the reader's period (or FINN's default term).
+- **FINN's monthly price** on the term that covers the reader's period (or FINN's default term), with nothing paid upfront, as FINN's current price list gives it — on an early-booking offer, the discounted price.
 - **Fuel or charging** at an assumed price: petrol €1.75/L, diesel €1.70/L, electricity €0.32/kWh. This is labelled as an assumption, not a quote.
 - **The FINN mileage package** the stated distance needs. FINN's price includes 500 km a month; if the reader doesn't say, Lens assumes 1,000 km and says so.
 - **Nothing else:** parking and tolls aren't included.
@@ -529,7 +531,7 @@ Shown in the drawer or used only for rules:
   - Electric parking brake
   - Alloy wheels
   - Hill start assist
-  - All-season or winter tyres
+  - Which tyres FINN fits: all-season, winter, or a summer and a winter set
 - **Figures:** boot space (ambiguous), electric range as a figure
 - **Used only by rules:** electric (fuel type), SUV (body), CO₂ class A–C, frugal for its kind
 

@@ -5,8 +5,8 @@
 > rests on — FINN's own data, arithmetic on it, a published European source, or Lens's own labelled
 > assumption. Written for anyone changing the engine, reviewing it, or checking a claim it makes.
 >
-> **State described:** branch `life-bubbles` at `6211b25` (7 October 2026). `npx tsc --noEmit` clean,
-> `npx vitest run` green (914 tests).
+> **State described:** branch `life-bubbles` at `af08559` (7 October 2026). `npx tsc --noEmit` clean,
+> `npx vitest run` green (993 tests).
 >
 > **Related documents.** [`FINN-LENS-EMISSIONS-SCORING.md`](FINN-LENS-EMISSIONS-SCORING.md) is the long
 > form of the CO₂ and efficiency scoring (§7 here summarises it).
@@ -19,7 +19,7 @@
 ## Contents
 
 1. [The rule behind everything: where a claim may come from](#1-the-rule-behind-everything-where-a-claim-may-come-from)
-2. [The pipeline, end to end](#2-the-pipeline-end-to-end)
+2. [The pipeline, end to end](#2-the-pipeline-end-to-end) — and [reading FINN's data](#21-reading-finns-data)
 3. [What the reader is asked, and what each answer does](#3-what-the-reader-is-asked-and-what-each-answer-does)
 4. [From answers to engine settings](#4-from-answers-to-engine-settings)
 5. [Scoring one car in one priority](#5-scoring-one-car-in-one-priority)
@@ -45,7 +45,7 @@ cost must come from one of four places — and the reader must be able to see wh
 
 | Source | What counts | How it's shown |
 |---|---|---|
-| **FINN's data** | What FINN's API returns for a car: equipment flags, fuel type, consumption, CO₂ figure and class, dimensions, electric range, prices per term, mileage packages, delivery windows. | As the car's own fact. "Listed" and "not listed" are facts; only an absent field is unknown. |
+| **FINN's data** | What FINN's API returns for a car: equipment flags, fuel type, consumption, CO₂ figure and class, dimensions, electric range, prices per term, mileage packages, delivery windows, tyre setup. | As the car's own fact. "Listed" and "not listed" are facts; only an absent field is unknown. |
 | **Arithmetic on FINN's data** | Anything derived from FINN's figures: a shorter car needs a shorter gap; consumption × price; how many cars on this page are low CO₂. | As Lens's working, with the inputs named. |
 | **Published European sources** | EU regulations and data (EEA registrations, Regulation (EU) 2019/631), German law (Pkw-EnVKV), the European Commission's reports, studies and tests by the ICCT and the ADAC. | Named **and linked** where the claim is made, with the caveat that it's that source's figure or finding, and what it can't tell the reader. Each figure was checked in the actual document before use (§13). |
 | **Lens's own assumptions** | A number Lens has to pick with no source to take it from: a fuel price, a band threshold. | Labelled as an assumption every time ("an assumed fuel price of €1.75"). Listed in §14. |
@@ -105,6 +105,28 @@ Two separations run through it:
   it (`scoreVehicle`, scoring.ts). Viewing one car alone and the same car in a comparison give the same
   score; adding a car never reorders the others. The exceptions are explicit and said: efficiency is read
   against cars on the same fuel (§7.2), and "N of the cars here" counts are about the page.
+
+### 2.1 Reading FINN's data
+
+Every car enters Lens through one mapper: `mapFinnConfig` (`entrypoints/content/manipulateApiData.ts`),
+with the field readers in `lib/helpers.ts` and FINN's shape in `FinnApiConfig` (`lib/types.ts`). The
+readings below were checked on 7 October 2026 against six pages of `/api/cars` exactly as finn.com sent
+them — 127 of the 151 cars FINN listed that day — and against the fleet snapshot (§17).
+
+| FINN sends | Lens reads | Why |
+|---|---|---|
+| `price.b2c_12`, `b2b_12`, … — the monthly price per term, nothing upfront | The term's price from `price.available_price_list` first, the top level where the list leaves a term out (`extractContract`) | On an early-booking offer ("Frühbucherangebot") the top level still holds the price before the discount — the list's `b2c_12_old` — and only the list holds what FINN charges now: 5 of the 127 cars, €10 a month each. Everywhere else the two agree. |
+| `downpayment_prices` — the same prices after a €1,500 down payment | Only its list price (`msrp`) and per-km price | Its monthly prices are lower by exactly €1,500 spread over the term; quoting them without the €1,500 made every car look cheaper. |
+| `available_terms`, `default_term` | The terms on offer, and the one to quote when the reader gives no period | The price object can carry terms that aren't on offer, so prices are read through `available_terms`. |
+| `availability_by_term` — per term: first delivery, last, the weeks it may slip, and the delivery batches | Each term's window, dates cut to the day | Dates arrive as midnight UTC, so cutting doesn't move the day. The slip belongs to the earliest batch. The car's headline window is the priced term's: FINN's `default_downpayment_term` differs from it on 14 cars. |
+| `extra_500` … `extra_5000`, `extra_km_price` | Mileage packages, and the per-km price beyond the largest (§10.1) | `extra_1000_old` and the like are struck-through prices and are skipped. |
+| `ev_range` as text — `"571"` | A number of kilometres | It's text on every electric car. The facts handed to the model only accepted a number, so the model had no electric car's range until this was read. |
+| `Batteriekapazität` as text — `"77.03 kWh"` | A number of kWh | Listed for some petrol and diesel mild hybrids too; read for electric cars only. |
+| `tires`: `all_season` (110), `winter` (13), `summer_winter` (4) | All-season, winter, or a summer and a winter set: shown under Climate Suitability, never scored | Winter tyres were read as "FINN doesn't say" until 7 October 2026. |
+| `co2emission`: `null` on all 25 electric cars; `consumption` and `co2_class` absent on one petrol car | An electric car's CO₂ as 0 g/km, since it has no tailpipe (`assessEnvironment`, §7); any other missing figure as unknown, never 0 | §1: only an absent field is unknown. The petrol car with neither figure gets no environmental reading. |
+| `closed_features_list` — flags, and text for figures (`"1500 kg"`, `"28 Min."`, `"Level 2"`) | `true` is listed, `false` is a real no, absent is unknown (§5) | Wireless CarPlay is answered `"Ja (Kabellos)"` or `false`. Keyless entry & start counts when FINN lists it as one entry or as both halves; on 19 of the 127 the one entry says yes while a half says no, and the one entry is taken. |
+| `config_drive` — six spellings: Frontantrieb, Heckantrieb, Allrad, FWD, RWD, AWD | Front-, rear- or all-wheel drive | |
+| `equipment`, `equipment_packages` — FINN's German prose | Carried verbatim for the model, packages first, without FINN's data-audit notes | 97 of the 127 cars carry notes like "Audit override: hasLeatherSeats" or "Audit override: dcChargeTime10To80 = 0.37" (hours, beside FINN's "22 Min."). They say which field someone corrected, not what the car has; on 18 cars a whole group was nothing else. Items are split on FINN's `equipment_delimiter` (", "); a comma inside an item is written "٫". |
 
 ---
 
@@ -485,7 +507,7 @@ opinion on fit or winning.
 
 | Line | From | Notes |
 |---|---|---|
-| **FINN subscription** | FINN's monthly price for the shortest term that covers the reader's period (§10.4), private, nothing upfront | VAT included for private prices (FINN advertises them so). Business pricing's VAT isn't in the data, so it's shown as supplied and said. |
+| **FINN subscription** | FINN's monthly price for the shortest term that covers the reader's period (§10.4), private, nothing upfront, from FINN's current price list — so an early-booking discount is in it (§2.1) | VAT included for private prices (FINN advertises them so). Business pricing's VAT isn't in the data, so it's shown as supplied and said. |
 | **Fuel / electricity** | FINN's consumption × an assumed price (§14) × the reader's distance | A plug-in hybrid adds the EU's electricity figure (§10.3). |
 | **Mileage package** | FINN's own packages: the cheapest that covers the reader's distance, plus FINN's per-km price beyond its largest | FINN's price includes 500 km/month. The old model charged every km past 500 at the per-km price — €125 for 1,000 km where FINN's package costs €9; fixed against FINN's raw data. |
 
@@ -593,7 +615,8 @@ either car, since any could be the deciding one.
 | [ADAC — "Durch den Winter? Aber sicher!"](https://presse.adac.de/regionalclubs/wuerttemberg/files/adac-infobroschuere-durch-den-winter.pdf) (2015), p. 19 | "in punkto Wintertauglichkeit gibt es zwischen Front- und Heckantrieb keinen eindeutigen Sieger"; with ESP (standard on new cars since 2014) stability and traction problems are largely past | Why Lens doesn't ask about front- vs rear-wheel drive (§15) — not shown to readers | Read in full |
 
 FINN's own API is the source for everything else: `https://www.finn.com/api/cars` (snapshot in
-`lib/reasoning-engine/test-data/finn-fleet-snapshot.json`, taken 2026-09-15).
+`lib/reasoning-engine/test-data/finn-fleet-snapshot.json`, taken 2026-10-07, 701 cars). §2.1 says how
+each of its fields is read.
 
 ---
 
@@ -643,6 +666,9 @@ Numbers with no source to take them from. Each is labelled where it's shown.
   BMW 330e and two X5 and two Tucson entries).
 - **Band thresholds** are provisional (§8).
 - **Boot space** waits on a seats-up source (§5.3).
+- **The fleet snapshot predates the price list.** It was taken before `scripts/snapshot-finn-fleet.mjs` kept
+  `price.available_price_list`, so the fleet tests price an early-booking car before its discount (§2.1)
+  until the snapshot is next refreshed. The extension reads the list from FINN's live responses.
 - **Some engine notes predate the chat** and still describe a relative Compare page (fit.ts header); the
   scoring itself is intrinsic (§2).
 
