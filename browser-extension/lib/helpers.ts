@@ -165,13 +165,32 @@ export function extractEquipmentText(config: FinnApiConfig): { group: string; te
     ...Object.entries(config.equipment ?? {}),
   ];
 
+  const delimiter = config.equipment_delimiter || ", ";
+
   return groups
     .map(([group, text]) => ({
       group: String(group).trim(),
-      text: String(text ?? "").replace(/\s+/g, " ").trim().slice(0, EQUIPMENT_TEXT_CHARS),
+      text: withoutAuditNotes(String(text ?? ""), delimiter)
+        .replace(/\s+/g, " ")
+        .trim()
+        .slice(0, EQUIPMENT_TEXT_CHARS),
     }))
     .filter((item) => item.group && item.text)
     .slice(0, EQUIPMENT_TEXT_GROUPS);
+}
+
+/**
+ * FINN's prose minus its own data-audit notes — "Audit override:
+ * hasLeatherSeats", "Audit override: dcChargeTime10To80 = 0.37". They record
+ * which of FINN's fields someone corrected, which the fields themselves
+ * already show; they say nothing about the car in words, and a figure in hours
+ * beside FINN's "22 Min." would only mislead the model reading them.
+ */
+function withoutAuditNotes(text: string, delimiter: string): string {
+  return text
+    .split(delimiter)
+    .filter((item) => !/^\s*Audit override:/i.test(item))
+    .join(delimiter);
 }
 
 export function extractUnansweredFeatures(config: FinnApiConfig): string[] {

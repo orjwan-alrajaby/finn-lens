@@ -97,6 +97,8 @@ export type FinnApiConfig = {
    */
   equipment?: Record<string, string | null> | null;
   equipment_packages?: Record<string, string | null> | null;
+  /** What separates the items in `equipment`: ", ". Commas inside an item are written "٫". */
+  equipment_delimiter?: string;
   downpayment_fixed_amount?: number;
 
   vehicle_size: {

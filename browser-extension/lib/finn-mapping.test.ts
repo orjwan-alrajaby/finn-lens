@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   extractBatteryKwh,
   extractDcChargeMinutes,
+  extractEquipmentText,
   extractEvRangeKm,
   extractDriverAssistanceLevel,
   extractFeatures,
@@ -68,6 +69,24 @@ describe("reading FINN's equipment entries", () => {
     expect(extractBatteryKwh(config({ Batteriekapazität: "77.03 kWh" }))).toBe(77.03);
     expect(extractBatteryKwh(config({ Batteriekapazität: "42,2 kWh" }))).toBe(42.2);
     expect(extractBatteryKwh(config({}))).toBeNull();
+  });
+
+  it("carries FINN's equipment prose without its data-audit notes", () => {
+    const text = extractEquipmentText(
+      config({}, {
+        equipment_delimiter: ", ",
+        equipment_packages: { "Winter-Paket": "Lenkrad beheizt, Beheizbare Windschutzscheibe" },
+        equipment: {
+          interior: "Audit override: hasSeatCooling, Audit override: hasLeatherSeats",
+          comfort: "Apple CarPlay / Android Auto, Audit override: dcChargeTime10To80 = 0.37, Einparkhilfe vorne٫ hinten",
+        },
+      }),
+    );
+
+    expect(text).toEqual([
+      { group: "Winter-Paket", text: "Lenkrad beheizt, Beheizbare Windschutzscheibe" },
+      { group: "comfort", text: "Apple CarPlay / Android Auto, Einparkhilfe vorne٫ hinten" },
+    ]);
   });
 
   it("reads the tyre setup, and nothing else, as one", () => {
