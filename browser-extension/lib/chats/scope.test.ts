@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { fleet } from "@/lib/reasoning-engine/test-data/fleet";
 
-import { addedToJudgement } from "./scope";
+import { addedToJudgement, theHeadline } from "./scope";
 
 /*
  * "Add them to the judgement" adds: the cars judged on another page stay in,
@@ -25,5 +25,14 @@ describe("adding this page's cars to a judgement", () => {
         const here = cars.slice(0, 20);
 
         expect(addedToJudgement(cars.slice(0, 10), here, "20 cars on this page")).toEqual({ cars: here, headline: "20 cars on this page" });
+    });
+});
+
+describe("a headline in a sentence", () => {
+    it("says “the car”, not “the 1 car”, and the count otherwise", () => {
+        expect(theHeadline("1 car on this page")).toBe("the car on this page");
+        expect(theHeadline("1 car matching your filters")).toBe("the car matching your filters");
+        expect(theHeadline("24 cars matching your filters")).toBe("the 24 cars matching your filters");
+        expect(theHeadline("12 cars on this page")).toBe("the 12 cars on this page");
     });
 });

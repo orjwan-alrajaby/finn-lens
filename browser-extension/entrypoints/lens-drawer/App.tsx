@@ -7,6 +7,7 @@ import { BrandMark, IconButton } from "@/components/lens-parts";
 import { LoadingScreen } from "@/components/Spinner";
 import { requestCloseDrawer, requestOpenDrawer, requestShowCar } from "@/lib/chats/bridge";
 import { closestMatch } from "@/lib/chats/judge";
+import { theHeadline } from "@/lib/chats/scope";
 
 import { Catch, CarHeader, CostTable, Section, StoryList, UsageSection } from "./parts";
 import { ExportButton, usePdfExport } from "./usePdfExport";
@@ -166,7 +167,7 @@ function Earlier({ value }: { value: JudgedCar }) {
         <div className="flex gap-2.5 border-b border-finn-cotton bg-finn-warning-lift/50 px-5 py-3 text-[12.5px] leading-snug text-finn-warning-ink">
             <History aria-hidden="true" className="mt-0.5 h-4 w-4 shrink-0" />
             <p>
-                <span className="font-black">An earlier result</span> — from {when}, when I judged the {value.judgement.headline}. Your chat has a newer one
+                <span className="font-black">An earlier result</span> — from {when}, when I judged {theHeadline(value.judgement.headline)}. Your chat has a newer one
                 {now ? ", with a different pick" : ""}; the chips on the page show that one.
             </p>
         </div>

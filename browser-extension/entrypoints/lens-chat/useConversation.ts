@@ -22,7 +22,7 @@ import {
     type Heard,
 } from "@/lib/chats/flow";
 import { askBeforeResult, judgementFrom, judgeWith, resultMessage, withJudgement } from "@/lib/chats/judge";
-import { addedToJudgement, judgedCars, loadedCars } from "@/lib/chats/scope";
+import { addedToJudgement, judgedCars, loadedCars, theHeadline } from "@/lib/chats/scope";
 import { loadChat, loadSettings, messageId, saveChat, saveSettings, setActiveChat } from "@/lib/chats/store";
 import type { Chat } from "@/lib/chats/types";
 import type { BubbleId } from "@/lib/lens-chat/bubbles";
@@ -188,7 +188,7 @@ export function useConversation(page: PageCars) {
                 const result = resultMessage(judged, cars, headline, urls, messageId(), at, from.understanding);
                 const judgement = judgementFrom(judged, cars, from.understanding, headline, url, urls, at);
 
-                const next = withLensSaying({ ...withJudgement(from, judgement), phase: "judged" }, `I've judged the ${headline}. Here's what I found:`);
+                const next = withLensSaying({ ...withJudgement(from, judgement), phase: "judged" }, `I've judged ${theHeadline(headline)}. Here's what I found:`);
 
                 await commit({
                     ...next,

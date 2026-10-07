@@ -58,6 +58,9 @@ export function pageCars(page: PageContext | null, loaded: Record<number, FinnCa
     };
 }
 
+/** A headline in a sentence: "the 24 cars matching your filters", and "the car on this page" rather than "the 1 car". */
+export const theHeadline = (headline: string): string => (/^1 car\b/.test(headline) ? headline.replace(/^1 car/, "the car") : `the ${headline}`);
+
 /**
  * A judgement with this page's cars added: this page's first, then the
  * ones judged before that aren't here. Judging the page alone dropped every
