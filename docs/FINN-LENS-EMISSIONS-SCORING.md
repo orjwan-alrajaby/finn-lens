@@ -819,6 +819,20 @@ remain, and both name something a reader would otherwise misread:
    flattering one. **The figure and the score are unchanged**: no corrected number is
    invented, for the reasons in §6.
 
+**Two more, corrected 2026-10-07.**
+
+3. **"Real-world use is usually higher."** A claim about cars in general, with no source shown
+   beside it. `TEST_DISCLAIMER` is now "Official EU test figures, as FINN lists them. Your own
+   use depends on how you drive.", and the car's "i" ends "Your own use depends on how and where
+   you drive, which the test can't tell Lens." The plug-in hybrid caveat, which cites the
+   European Commission's real-world report, is unchanged.
+4. **"Noticeably" less or more.** The band's edge is `EFFICIENCY_BAND` either side of the
+   benchmark, about 15%, and the copy now says so (`EFFICIENCY_BAND_WORDS`): "Uses less petrol
+   than the FINN Lens benchmark for petrol cars: about 15% below it or more." The sentence under
+   the readouts ends "…so its fuel use is lower than / within about 15% of / higher than the
+   benchmark." "Frugal for its kind", the deal-breaker and deal-sealer, uses the same edge and
+   names the benchmark — not "others that run on the same thing", which it never compared with.
+
 `ENVIRONMENTAL_METHOD` was rewritten to open on what the priority measures rather than on
 what it excludes, and `lib/car-labels.ts` no longer subtitles the priority with
 "Judged on emissions, not on equipment" — every other priority's subtitle says something
