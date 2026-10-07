@@ -598,9 +598,9 @@ describe("the one caveat kept", () => {
         const translation = toAnswers(base(), u);
         const run = runLens(cars, translation.answers, "page", "page")!;
         const story = tellFitStory(run, u, translation.lessRelevant, null);
-        const said = story.sections.flatMap((section) => section.lines.map((line) => `${section.key}: ${line.text}`)).filter((line) => /FINN doesn't publish/.test(line));
+        const said = story.sections.flatMap((section) => section.lines.map((line) => `${section.key}: ${line.text}`)).filter((line) => /FINN (doesn't publish|lists a boot size)/.test(line));
 
         expect(said).toHaveLength(1);
-        expect(said[0]).toMatch(/^bubble-carry: FINN doesn't publish boot space — FINN's figure doesn't say whether the seats are up or folded/);
+        expect(said[0]).toBe("bubble-carry: FINN lists a boot size, but not whether it's measured with the rear seats up or folded, so Lens doesn't compare boots on it.");
     });
 });

@@ -31,7 +31,7 @@ describe("the bubbles, as the spec lists them", () => {
             expect(item.counts.length, item.id).toBeLessThanOrEqual(3);
             for (const chip of item.chips?.options ?? []) expect((chip.counts ?? []).length, `${item.id}/${chip.id}`).toBeLessThanOrEqual(2);
             /* Boot space under lots to carry, and nowhere else. */
-            if (item.id === "carry") expect(item.cantCheck).toBe("boot space — FINN's figure doesn't say whether the seats are up or folded");
+            if (item.id === "carry") expect(item.cantCheck).toBe("FINN lists a boot size, but not whether it's measured with the rear seats up or folded, so Lens doesn't compare boots on it.");
             else expect(item.cantCheck, item.id).toBe("");
         }
     });

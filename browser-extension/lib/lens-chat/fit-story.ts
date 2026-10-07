@@ -764,15 +764,8 @@ export function tellFitStory(
          * reader of typed words notes Lens can't check stays out of the story:
          * unasked-for lists of gaps were noise.
          */
-        if (need.notInData && need.id.startsWith("bubble-")) {
-            const related = lines.some((line) => line.tone === "good");
-            lines.push({
-                tone: "unknown",
-                text: related
-                    ? `FINN doesn't publish ${need.notInData}, so Lens can't check that part — what's above is what it can.`
-                    : `FINN doesn't publish ${need.notInData}, so Lens has no way to tell you about that part.`,
-            });
-        }
+        /* A bubble's own caveat, as the bubble words it. */
+        if (need.notInData && need.id.startsWith("bubble-")) lines.push({ tone: "unknown", text: need.notInData });
 
         if (!lines.length) {
             lines.push({ tone: "note", text: "Lens has nothing on this car it can check for this, so it didn't count toward the ranking." });

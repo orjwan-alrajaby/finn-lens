@@ -1311,7 +1311,7 @@ function UnderstoodBubble({
             {bubble.cantCheck ? (
                 <p className="flex gap-1.5 border-t border-black/5 pt-2.5 text-[11px] leading-snug text-finn-iron">
                     <Info aria-hidden="true" className="mt-px h-3.5 w-3.5 shrink-0" />
-                    <span>I can't check {bubble.cantCheck}.</span>
+                    <span>{bubble.cantCheck}</span>
                 </p>
             ) : null}
         </li>

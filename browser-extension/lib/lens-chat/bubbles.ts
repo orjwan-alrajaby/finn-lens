@@ -104,7 +104,9 @@ export interface Bubble {
     suggests?: string;
     /**
      * What FINN's data can't tell Lens that changes how an answer should be
-     * read — said on the summary and in the drawer. Only where it does: a
+     * read, as one whole sentence — said on the summary and in the drawer as
+     * written, never fitted into a template ("FINN doesn't publish boot
+     * space" was untrue: it lists one, just not with the seats up or down). Only where it does: a
      * list of everything Lens can't check, under every need, is noise nobody
      * asked for. Boot space under "lots to carry" is the one kept, since
      * FINN's figure can't be taken as the boot a reader would load.
@@ -423,7 +425,7 @@ export const BUBBLES: Bubble[] = [
                 { id: "trailer", label: "Trailer or caravan", detail: "a trailer or caravan", description: "I'll check a towbar and a towing rating of 1,500 kg or more.", counts: ["hasTowbar", "towingCapacity1500"], suggests: "must-tow" },
             ],
         },
-        cantCheck: "boot space — FINN's figure doesn't say whether the seats are up or folded",
+        cantCheck: "FINN lists a boot size, but not whether it's measured with the rear seats up or folded, so Lens doesn't compare boots on it.",
         why: {
             hasElectricTailgate: "so the boot opens when your hands are full",
             hasSplitFoldingRearSeats: "so long or bulky things fit with part of the back seat down",
