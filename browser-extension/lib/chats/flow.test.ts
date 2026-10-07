@@ -85,7 +85,7 @@ describe("a first chat", () => {
         expect(asked(chat)[0]).toBe("intro");
         expect(chat.messages.find((message): message is Ask => message.kind === "ask")!.step.ask).toMatch(/show you what I understood before I judge anything/);
         expect(openAsk(chat)?.step.ask).toBe("First, who rides with you?");
-        expect(openAsk(chat)?.step.choices.map((choice) => choice.label)).toEqual(["Kids", "Adults", "A dog"]);
+        expect(openAsk(chat)?.step.choices.map((choice) => choice.label)).toEqual(["Kids", "Adults or teens", "A dog"]);
     });
 
     it("asks the bubbles a section at a time, how often after the driving, then the limits, and says what it understood", () => {
@@ -163,7 +163,7 @@ describe("the bubbles", () => {
         const step = bubbles();
         const kids = step.choices.find((choice) => choice.id === "kids")!;
 
-        expect(kids.means).toMatch(/Children in the car/);
+        expect(kids.means).toMatch(/^Children in a child seat\./);
         expect(kids.features?.[0]).toMatchObject({ label: "Rear doors", does: expect.stringMatching(/so children get in and out/) });
         expect(stepFor("bubbles-people", cars())!.why).toMatch(/The “i” on each says what I'd check/);
     });
@@ -179,10 +179,10 @@ describe("the bubbles", () => {
         for (const choice of step.choices) expect(choice.said).not.toMatch(/&/);
     });
 
-    it("keep the chips a bubble allows: one child seat, two places parked, any weathers together", () => {
-        const next = throughBubbles(startChat(null, cars(), TODAY), ["kids", "kids:baby", "kids:older", "city", "city:street", "city:garage", "city:open", "weather", "weather:snow", "weather:cold"]);
+    it("keep the chips a bubble allows: either child seat or both, two places parked, any weathers together", () => {
+        const next = throughBubbles(startChat(null, cars(), TODAY), ["kids", "kids:baby", "kids:booster", "city", "city:street", "city:garage", "city:open", "weather", "weather:snow", "weather:cold"]);
 
-        expect(next.understanding.bubbles?.kids?.chips).toEqual(["baby"]);
+        expect(next.understanding.bubbles?.kids?.chips).toEqual(["baby", "booster"]);
         expect(next.understanding.bubbles?.city?.chips).toEqual(["street", "garage"]);
         expect(next.understanding.bubbles?.weather?.chips).toEqual(["snow", "cold"]);
     });
@@ -368,7 +368,7 @@ describe("deal-breakers and deal-sealers", () => {
 
 describe("a chat from saved settings", () => {
     const settings = (): SavedSettings => {
-        const asked = walk(startChat(null, cars(), TODAY), { bubbles: ["kids", "kids:older", "long"], "often-long": ["monthly"], budget: ["budget-700"], period: ["period-6"] });
+        const asked = walk(startChat(null, cars(), TODAY), { bubbles: ["kids", "kids:booster", "long"], "often-long": ["monthly"], budget: ["budget-700"], period: ["period-6"] });
 
         return { savedAt: TODAY.toISOString(), fromChatId: asked.id, understanding: asked.understanding, rentalMonths: rentalMonths(asked.understanding) };
     };
@@ -401,7 +401,7 @@ describe("a chat from saved settings", () => {
 
         /* How often is asked again with it, as it was; the other sections stay as they were. */
         const again = answer(changing, openAsk(changing)!.id, ["long"], cars(), TODAY).chat;
-        expect(again.understanding.bubbles?.kids?.chips).toEqual(["older"]);
+        expect(again.understanding.bubbles?.kids?.chips).toEqual(["booster"]);
         expect(openAsk(again)?.step).toMatchObject({ id: "often-long", selected: ["monthly"] });
     });
 
@@ -1202,10 +1202,10 @@ describe("the Adjust panel's feature chips", () => {
 
 describe("the reader's own words", () => {
     it("speak in their own voice, saying a shared start once", () => {
-        const chat = walk(startChat(null, cars(), TODAY), { bubbles: ["adults", "adults:front", "city", "city:street", "city:garage"] });
+        const chat = walk(startChat(null, cars(), TODAY), { bubbles: ["adults", "city", "city:street", "city:garage"] });
         const said = chat.messages.filter((message) => message.from === "reader" && message.kind === "text").map((message) => (message as { text: string }).text);
 
-        expect(said).toContain("Other adults ride with me — beside me.");
+        expect(said).toContain("Adults or teens ride with me.");
         expect(said).toContain("I live in the city — I park on the street and in a garage.");
         expect(said.join(" ")).not.toMatch(/\byou park\b|beside you/);
     });
@@ -1277,18 +1277,17 @@ describe("changing how long, from the summary", () => {
 
 describe("bubbles that check nothing", () => {
     it("are named when nothing else was said, not called nothing", () => {
-        const chat = walk(startChat(null, cars(), TODAY), { bubbles: ["adults", "adults:front", "comfort"] });
+        const chat = walk(startChat(null, cars(), TODAY), { bubbles: ["comfort"] });
         const said = texts(chat).at(-1)!;
 
         expect(openAsk(chat)?.step.id).toBe("noNeeds");
         expect(said).not.toMatch(/You haven't told me anything/);
-        expect(said).toMatch(/Other adults ride with you: one adult beside you asks nothing extra of the car\./);
         expect(said).toMatch(/Comfort matters to you: tell me which, and I'll count them\./);
     });
 
-    it("don't claim one adult sits beside the reader once what adults in the back counted is taken out", () => {
-        const u = withBubbles(EMPTY_UNDERSTANDING, { kids: [], adults: ["back"] });
-        const chat = removeItem({ ...walk(startChat(null, cars(), TODAY), { bubbles: ["kids", "adults", "adults:back"] }), understanding: u }, "kids", "rearDoors", cars());
+    it("say they check nothing now, once what adults or teens counted is taken out", () => {
+        const u = withBubbles(EMPTY_UNDERSTANDING, { kids: ["baby"], adults: [] });
+        const chat = removeItem({ ...walk(startChat(null, cars(), TODAY), { bubbles: ["kids", "kids:baby", "adults"] }), understanding: u }, "kids", "rearDoors", cars());
         const adults = lastSummary(chat).bubbles!.find((bubble) => bubble.id === "adults")!;
 
         expect(adults.empty).not.toMatch(/beside you/);

@@ -129,14 +129,14 @@ export const BUBBLES: Bubble[] = [
         you: "You have kids",
         need: "Travelling with children",
         said: "I have kids.",
-        means: "Children in the car, from babies to teenagers.",
+        means: "Children in a child seat. Teenagers ride as passengers.",
         counts: ["rearDoors"],
         checks: ["hasIsofix"],
         worth: ["hasSplitFoldingRearSeats"],
         chips: {
-            ask: "Does the youngest ride in a child seat?",
-            mode: "optional",
-            multiple: false,
+            ask: "Which child seat?",
+            mode: "required",
+            multiple: true,
             options: [
                 {
                     id: "baby",
@@ -146,49 +146,31 @@ export const BUBBLES: Bubble[] = [
                     importance: "essential",
                     worth: ["hasElectricTailgate"],
                 },
-                { id: "booster", label: "Booster seat", detail: "a booster seat", description: "Older children on a booster seat or cushion." },
-                { id: "older", label: "Older kids", detail: "older kids", description: "Children past child seats. I'll suggest 3-zone climate and rear USB ports.", worth: ["hasThreeZoneAutomaticClimateControls", "hasBackUSBPorts"] },
+                { id: "booster", label: "Booster seat", detail: "a booster seat", description: "A booster seat or cushion." },
             ],
         },
         cantCheck: "",
         why: {
             rearDoors: "so children get in and out without folding a front seat",
             hasElectricTailgate: "so you can open the boot while holding a child",
-            hasThreeZoneAutomaticClimateControls: "so children in the back can set their own temperature",
             hasBackUSBPorts: "so devices in the back stay charged",
             hasSplitFoldingRearSeats: "so a pram or a big load fits beside a child seat",
         },
     },
     {
+        /* "adults" still, so chats saved with it keep it. Teens too: they ride as passengers, not in child seats. */
         id: "adults",
-        label: "Adults",
-        you: "Other adults ride with you",
-        need: "Adult passengers",
-        said: "Other adults ride with me.",
-        means: "Other grown-ups riding with you — beside you, or in the back.",
-        counts: [],
+        label: "Adults or teens",
+        you: "Adults or teens ride in the back",
+        need: "Passengers in the back",
+        said: "Adults or teens ride with me.",
+        means: "Passengers old enough not to need a child seat, in the back.",
+        counts: ["rearDoors"],
         checks: [],
-        worth: [],
-        chips: {
-            ask: "Where do they usually sit?",
-            mode: "required",
-            multiple: true,
-            options: [
-                { id: "front", label: "Beside me", detail: "beside you", mine: "beside me", description: "One adult in the front asks nothing extra of the car." },
-                {
-                    id: "back",
-                    label: "In the back",
-                    detail: "in the back",
-                    description: "I'll check rear doors, and suggest 3-zone climate and rear USB ports.",
-                    counts: ["rearDoors"],
-                    worth: ["hasThreeZoneAutomaticClimateControls", "hasBackUSBPorts"],
-                },
-            ],
-        },
+        worth: ["hasThreeZoneAutomaticClimateControls", "hasBackUSBPorts"],
         cantCheck: "",
-        empty: "One adult beside you asks nothing extra of the car.",
         why: {
-            rearDoors: "so adults get into the back without climbing past the front",
+            rearDoors: "so passengers get into the back without climbing past the front",
             hasThreeZoneAutomaticClimateControls: "so the back can set its own temperature",
             hasBackUSBPorts: "so phones in the back stay charged",
         },
@@ -578,8 +560,8 @@ const RECOMMENDED: Partial<Record<EvidenceId, { for: string[]; also?: string[] }
     hasWirelessAppleCarPlaySlashAndroidAuto: { for: ["traffic", "long"] },
     hasWirelessChargingStation: { for: ["traffic", "long"] },
     hasKeylessEntryAndStart: { for: ["traffic", "carry:shopping", "kids:baby"] },
-    hasThreeZoneAutomaticClimateControls: { for: ["kids:older", "adults:back", "weather:hot"] },
-    hasBackUSBPorts: { for: ["kids", "adults:back"] },
+    hasThreeZoneAutomaticClimateControls: { for: ["adults", "weather:hot"] },
+    hasBackUSBPorts: { for: ["kids", "adults"] },
     hasHeadUpDisplay: { for: ["long", "night"] },
 };
 
@@ -594,8 +576,7 @@ const SAID: Record<string, string> = {
     "carry:shopping": "you carry shopping",
     kids: "you have kids",
     "kids:baby": "your youngest is in a baby or toddler seat",
-    "kids:older": "your kids are older",
-    "adults:back": "adults ride in the back",
+    adults: "adults or teens ride in the back",
 };
 
 /** "Time on the road", said once, however it was said. */
@@ -639,7 +620,7 @@ export const BUBBLE_GROUPS: { id: BubbleGroupId; ask: string; why: string; none:
     {
         id: "people",
         ask: "First, who rides with you?",
-        why: "Children, adults and a dog each need different things from a car. The “i” on each says what I'd check.",
+        why: "Children in child seats, older passengers and a dog each need different things from a car. The “i” on each says what I'd check.",
         none: "Just me",
         placeholder: "e.g. “two teenagers and a big dog”",
         bubbles: ["kids", "adults", "dog"],

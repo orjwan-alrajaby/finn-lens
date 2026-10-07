@@ -117,7 +117,7 @@ The questions, in order (`STEP_ORDER` and `BUBBLE_STEPS`, flow.ts). Each open qu
 
 | Section | Bubbles |
 |---|---|
-| Who rides with you? | Kids · Adults · A dog |
+| Who rides with you? | Kids · Adults or teens · A dog |
 | Where and how do you drive? | In the city · In traffic · Long distances · At night |
 | What does the car have to cope with? | Tough weather · Lots to carry |
 | What else matters to you? | Help driving & parking · Comfort · The environment · A budget |
@@ -142,8 +142,8 @@ Some bubbles open a row of **chips** (follow-ups) that change what's counted:
 
 | Bubble | Chips (what each adds) |
 |---|---|
-| Kids | Baby or toddler seat (makes kids a top priority; suggests electric tailgate) · Booster seat · Older kids (suggests 3-zone climate, rear USB) |
-| Adults | Beside me (asks nothing extra; the summary says so) · In the back (rear doors; suggests 3-zone climate, rear USB) |
+| Kids | Which child seat? — Baby or toddler seat (makes kids a top priority; suggests electric tailgate) · Booster seat. Either or both. |
+| Adults or teens | No follow-up: taken to ride in the back — rear doors; suggests 3-zone climate and rear USB ports. |
 | In the city | Where you park, up to two: street (reversing camera) · home garage (width counts more; folding mirrors checked) · multi-storey (360° camera; folding mirrors) · open car park (rear cross-traffic alert) · driveway (nothing extra) |
 | Help driving & parking | Parking (360° camera; sensors checked) · **Parallel parking** (a shorter car, 360° camera; parking assistant and sensors checked) · Traffic & lane changes (blind spot; lane keeping checked) · Reversing out (rear cross-traffic alert, reversing camera) |
 | Tough weather | Snow & ice (snow can't come without cold, so it counts heated seats & wheel itself; **recommends all-wheel drive** — §9.2) · Rain & fog (rain & light sensors, fog lights; mild or cold) · Cold winters (heated seats & wheel; wet or dry, so it combines with rain) · Hot summers (ventilated seats). Any combination, all four with "Select all". |

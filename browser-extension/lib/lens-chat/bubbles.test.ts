@@ -45,12 +45,12 @@ describe("the bubbles, as the spec lists them", () => {
 
 describe("what a bubble counts", () => {
     it("kids: rear doors counted, ISOFIX checked; a baby seat makes it a must have and suggests an electric tailgate", () => {
-        expect(itemsOf(bubble("kids"), state())).toMatchObject({ counts: ["rearDoors"], checks: ["hasIsofix"], worth: ["hasSplitFoldingRearSeats"] });
+        /* Kids always come with a child seat now: a booster asks nothing beyond the bubble's own. */
+        expect(itemsOf(bubble("kids"), state({ chips: ["booster"] }))).toMatchObject({ counts: ["rearDoors"], checks: ["hasIsofix"], worth: ["hasSplitFoldingRearSeats"] });
 
         const baby = state({ chips: ["baby"] });
         expect(importanceOf(bubble("kids"), baby)).toBe("essential");
         expect(itemsOf(bubble("kids"), baby).worth).toContain("hasElectricTailgate");
-        expect(itemsOf(bubble("kids"), state({ chips: ["older"] })).worth).toEqual(expect.arrayContaining(["hasThreeZoneAutomaticClimateControls", "hasBackUSBPorts"]));
     });
 
     it("starts at “Matters”, takes how often, and keeps the reader's own say over both", () => {
@@ -176,20 +176,29 @@ describe("short labels, explained behind the “i”", () => {
     });
 });
 
-describe("adults", () => {
-    it("counts rear doors for adults in the back, and nothing for one beside you — saying so", () => {
-        const back = itemsOf(bubble("adults"), state({ chips: ["back"] }));
+describe("adults or teens", () => {
+    it("are taken to ride in the back: rear doors, with 3-zone climate and rear USB suggested — no follow-up asked", () => {
+        const items = itemsOf(bubble("adults"), state());
 
-        expect(back.counts).toEqual(["rearDoors"]);
-        expect(back.worth).toEqual(expect.arrayContaining(["hasThreeZoneAutomaticClimateControls", "hasBackUSBPorts"]));
-        expect(needOf(bubble("adults"), state({ chips: ["front"] }))).toBeNull();
-        expect(bubble("adults").empty).toBe("One adult beside you asks nothing extra of the car.");
+        expect(bubble("adults").label).toBe("Adults or teens");
+        expect(bubble("adults").chips).toBeUndefined();
+        expect(items.counts).toEqual(["rearDoors"]);
+        expect(items.worth).toEqual(expect.arrayContaining(["hasThreeZoneAutomaticClimateControls", "hasBackUSBPorts"]));
+    });
+
+    it("leave kids to child seats: baby or toddler, or booster — at least one, either or both", () => {
+        const kids = bubble("kids").chips!;
+
+        expect(kids.ask).toBe("Which child seat?");
+        expect(kids.options.map((option) => option.label)).toEqual(["Baby or toddler seat", "Booster seat"]);
+        expect(kids).toMatchObject({ mode: "required", multiple: true });
     });
 
     it("has no seat count among who rides with you: that's a deal-breaker or sealer now", () => {
         expect(bubbleById("six-seats")).toBeUndefined();
     });
 });
+
 
 describe("recommended, from what the reader said", () => {
     const said = (picks: Parameters<typeof withBubbles>[1]) => withBubbles(EMPTY_UNDERSTANDING, picks);

@@ -72,7 +72,7 @@ async function converse(cars: PinnedFinnCar[], picks: Picks): Promise<Chat> {
 }
 
 const EVERY_BUBBLE = [
-    "kids", "kids:baby", "adults", "adults:back", "dog", "city", "city:street", "city:garage", "help", "help:parking", "help:traffic", "help:reversing",
+    "kids", "kids:baby", "adults", "dog", "city", "city:street", "city:garage", "help", "help:parking", "help:traffic", "help:reversing",
     "long", "traffic", "weather", "weather:snow", "weather:wet", "weather:hot", "night", "carry", "carry:bulky", "carry:bikes", "carry:trailer",
     "comfort", "comfort:warm", "comfort:keyless", "comfort:phone", "comfort:climate", "comfort:seats", "comfort:sound", "comfort:sunroof",
     "environment", "environment:moderate", "budget",
@@ -92,7 +92,7 @@ const PERSONAS: { name: string; picks: Picks }[] = [
     { name: "someone who cares only about emissions, with no budget or dates", picks: { bubbles: ["environment", "environment:moderate"], deals: [], budget: [], period: [] } },
     { name: "a family who type everything at once", picks: { bubbles: { text: "We're a family of four with a dog. I commute 40 minutes each way on the Autobahn, our winters are snowy, and we can spend around 700 a month." }, deals: [], period: ["period-12"], distance: ["km-2500"] } },
     { name: "someone who taps every bubble", picks: { bubbles: EVERY_BUBBLE, "often-long": ["weekly"], "often-traffic": ["medium"], deals: [], budget: { amount: 800 }, period: ["period-12"], distance: ["km-1500"] } },
-    { name: "a couple who'd be sealed by an automatic and a towbar", picks: { bubbles: ["adults", "adults:front", "long", "carry", "carry:bikes"], "often-long": ["monthly"], deals: ["automatic=seal", "towbar=seal"], budget: { amount: 700 }, period: ["period-12"] } },
+    { name: "a couple who'd be sealed by an automatic and a towbar", picks: { bubbles: ["adults", "long", "carry", "carry:bikes"], "often-long": ["monthly"], deals: ["automatic=seal", "towbar=seal"], budget: { amount: 700 }, period: ["period-12"] } },
     { name: "a nervous electric-only city driver on €350", picks: { bubbles: ["help", "help:parking", "help:reversing", "city", "city:street"], fuel: ["fuel-electricCar"], budget: { amount: 350 }, period: ["period-12"] } },
 ];
 
