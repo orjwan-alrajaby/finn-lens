@@ -482,3 +482,23 @@ describe("why, for a figure", () => {
         expect(whyLines(clean, u).find((line) => line.said === "You care about the environment")?.has[0]).toMatch(/g\/km · Class [A-C]/);
     });
 });
+
+describe("the pick's chip", () => {
+    const page = fleet().slice(0, 24);
+
+    it("is the closest match when no car fits the dates, as the chat and the drawer say", () => {
+        const u = rentalFor(withDeals(withBubbles(EMPTY_UNDERSTANDING, { carry: ["trailer"] }), ["towbar"], { towbar: "must" }), 24, "", new Date("2026-10-07T10:00:00Z"));
+        const judged = judgeWith(u, page, "24 cars")!;
+        const verdicts = judgementFrom(judged, page, u, "24 cars", "", {}, "at").verdicts;
+
+        expect(verdicts[judged.run.recommendation.winner.id]?.closest).toBe(true);
+        expect(Object.values(verdicts).filter((verdict) => verdict.closest)).toHaveLength(1);
+    });
+
+    it("is the best for you when every limit holds", () => {
+        const u = withBubbles(EMPTY_UNDERSTANDING, { kids: ["baby"] });
+        const judged = judgeWith(u, page, "24 cars")!;
+
+        expect(judgementFrom(judged, page, u, "24 cars", "", {}, "at").verdicts[judged.run.recommendation.winner.id]?.closest).toBeUndefined();
+    });
+});

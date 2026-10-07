@@ -96,10 +96,17 @@ export function App() {
                                         <li key={bubble.id}>
                                             <p className="flex items-baseline gap-2 text-[13.5px] font-black">
                                                 {bubble.heading}
-                                                <span className="rounded-full bg-finn-pale-blue px-2 py-0.5 text-[11px] font-black text-finn-accent-blue">{IMPORTANCE_LABEL[bubble.importance]}</span>
+                                                {/* How much it counts means nothing for a bubble that checks nothing, as the chat's summary has it. */}
+                                                {bubble.counting !== false ? (
+                                                    <span className="rounded-full bg-finn-pale-blue px-2 py-0.5 text-[11px] font-black text-finn-accent-blue">{IMPORTANCE_LABEL[bubble.importance]}</span>
+                                                ) : null}
                                             </p>
-                                            {bubble.figure || bubble.counts.length ? (
-                                                <p className="text-[12px] text-finn-iron">Lens checks: {[bubble.figure, ...bubble.counts.map((item) => item.label)].filter(Boolean).join(" · ")}</p>
+                                            {bubble.figure || bubble.counts.length || bubble.shared?.length ? (
+                                                <p className="text-[12px] text-finn-iron">
+                                                    Lens checks: {[bubble.figure, ...bubble.counts.map((item) => item.label), ...(bubble.shared ?? []).map((item) => item.label)].filter(Boolean).join(" · ")}
+                                                </p>
+                                            ) : bubble.settled || bubble.empty ? (
+                                                <p className="text-[12px] text-finn-iron">{bubble.settled ?? bubble.empty}</p>
                                             ) : null}
                                         </li>
                                     ))}
@@ -122,7 +129,7 @@ export function App() {
                                 {told.lines.map((line) => (
                                     <div key={line.label} className="grid grid-cols-[150px_1fr] gap-4 bg-white px-4 py-3 text-[13px]">
                                         <dt className="font-bold text-finn-iron">{line.label}</dt>
-                                        <dd className="font-semibold">{line.label === "For" && settings?.rentalMonths ? `${settings.rentalMonths} months, from when you start a chat` : line.value}</dd>
+                                        <dd className="font-semibold">{line.label === "For" && settings?.rentalMonths ? `${settings.rentalMonths} months, from the month after you start a chat` : line.value}</dd>
                                     </div>
                                 ))}
                             </dl>

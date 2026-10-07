@@ -117,8 +117,10 @@ export function verdictsFor(judged: Judged, cars: PinnedFinnCar[]): Record<numbe
     const verdicts: Record<number, Verdict> = {};
     const rows = compareRows(run, Number.POSITIVE_INFINITY);
 
+    const closest = closestMatch(run);
+
     rows.forEach((row, index) => {
-        verdicts[row.id] = lineVerdict(row, index + 1, row.isMatch);
+        verdicts[row.id] = { ...lineVerdict(row, index + 1, row.isMatch), ...(row.isMatch && closest ? { closest } : {}) };
     });
 
     const understandingRules = judged.translation.profile.rules;

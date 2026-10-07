@@ -234,7 +234,7 @@ export function CarHeader({ value }: { value: JudgedCar }) {
                 ) : null}
                 {verdict.over ? (
                     <span className="rounded-full bg-finn-fit-limited-pale px-2.5 py-1 text-[11px] font-black text-finn-fit-limited">
-                        {verdict.over === "budget" ? "Over your budget" : "No term fits your period"}
+                        {verdict.over === "budget" ? "Over your budget" : "Not for your dates"}
                     </span>
                 ) : null}
             </div>

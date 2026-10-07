@@ -66,7 +66,7 @@ const TROPHY =
 /** Said beside the verdict when a ranked car is past one of the reader's limits. */
 const OVER: Record<NonNullable<Verdict["over"]>, string> = {
     budget: "over budget",
-    period: "term doesn't fit",
+    period: "not for your dates",
 };
 
 function chipFor(carId: number, verdict: Verdict, chatId: string, name: string | undefined): HTMLElement {
@@ -90,9 +90,10 @@ function chipFor(carId: number, verdict: Verdict, chatId: string, name: string |
         trophy.className = "trophy";
         trophy.innerHTML = TROPHY;
 
-        label.textContent = "Best for you";
+        /* Past a limit — nothing within the budget, nothing for the dates — it's the closest, as the chat and the drawer say. */
+        label.textContent = verdict.closest ? "Closest match" : "Best for you";
         button.append(trophy, label);
-        button.setAttribute("aria-label", `Lens's best match for you${name ? `: ${name}` : ""}. See why it won.`);
+        button.setAttribute("aria-label", `Lens's ${verdict.closest ? "closest" : "best"} match for you${name ? `: ${name}` : ""}. See why it won.`);
     } else {
         button.className = verdict.setAside ? "unknown" : verdict.band;
         label.textContent = verdict.over ? `${verdict.label} · ${OVER[verdict.over]}` : verdict.label;

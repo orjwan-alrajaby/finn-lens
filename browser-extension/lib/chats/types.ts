@@ -221,6 +221,8 @@ export interface Verdict {
     setAside: string | null;
     /** Ranked, but past one of the reader's limits: said on the chip beside the verdict. */
     over: "budget" | "period" | null;
+    /** The pick, past one of the reader's limits: "Closest match" on its chip, as the chat says it. */
+    closest?: boolean;
 }
 
 /** A car as a result message shows it. */
