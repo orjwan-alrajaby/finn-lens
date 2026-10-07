@@ -131,52 +131,83 @@ export function Typing() {
 /* A question with answers to tap                                             */
 /* -------------------------------------------------------------------------- */
 
+/** What an "i" says, in the same order everywhere: what it is, why it's starred, what it means, what Lens checks, and where it's from. */
+export interface TipContent {
+    title: string;
+    /** "Recommended because you said …": first, since it's why the star is there. */
+    recommended?: string;
+    /** A short paragraph each. */
+    body?: (string | null | undefined)[];
+    /** "I'll check": one item a line, rather than a run of "·". */
+    lists?: { label: string; items: string[]; hint?: string }[];
+    /** Said last and quieter: how it's scored, what tapping does. */
+    note?: string;
+    sources?: Source[];
+}
+
+/** The panel's width, and the gap it keeps from the "i" and from the edges. */
+const TIP_WIDTH = 236;
+const TIP_GAP = 8;
+
 /**
- * The "i" beside an answer: a brief explanation, opened by clicking it (or
+ * The "i" beside an answer: a small floating panel, opened by clicking it (or
  * Enter / Space) and never by hovering — a tooltip that pops up as the
- * pointer passes covers the very chips the reader is reaching for. A second
- * click, Escape, or a click anywhere else closes it. Fixed to the viewport
- * and held inside it, so it never runs off the edge of the narrow chat.
+ * pointer passes covers the very chips the reader is reaching for. It sits to
+ * the left of the "i", pointing at it, so the chips it explains stay in
+ * view; where the chat is too narrow for that, to the right, else below. A
+ * second click, ×, Escape, or a click anywhere else closes it.
  */
-export function InfoTip({ label, tone = "idle", children }: { label: string; tone?: "idle" | "on"; children: React.ReactNode }) {
+export function InfoTip({ label, tone = "idle", tip }: { label: string; tone?: "idle" | "on"; tip: TipContent }) {
     const [open, setOpen] = useState(false);
-    const [at, setAt] = useState<{ top: number; left: number } | null>(null);
+    const [at, setAt] = useState<{ top: number; left: number; side: "left" | "right" | "below"; arrow: number } | null>(null);
     const button = useRef<HTMLButtonElement>(null);
-    const tip = useRef<HTMLDivElement>(null);
+    const panel = useRef<HTMLDivElement>(null);
     const id = useId();
 
     useLayoutEffect(() => {
-        if (!open || !button.current || !tip.current) return;
+        if (!open || !button.current || !panel.current) return;
 
         const anchor = button.current.getBoundingClientRect();
-        const box = tip.current.getBoundingClientRect();
-        const left = Math.min(Math.max(8, anchor.left + anchor.width / 2 - box.width / 2), window.innerWidth - box.width - 8);
-        const above = anchor.top - box.height - 6;
+        const box = panel.current.getBoundingClientRect();
+        const middle = anchor.top + anchor.height / 2;
+        const clampTop = (top: number) => Math.min(Math.max(TIP_GAP, top), window.innerHeight - box.height - TIP_GAP);
+        const beside = clampTop(middle - 22);
 
-        setAt({ top: above >= 8 ? above : anchor.bottom + 6, left });
+        if (anchor.left - TIP_GAP - box.width >= TIP_GAP) {
+            setAt({ side: "left", left: anchor.left - TIP_GAP - box.width, top: beside, arrow: middle - beside });
+        } else if (anchor.right + TIP_GAP + box.width <= window.innerWidth - TIP_GAP) {
+            setAt({ side: "right", left: anchor.right + TIP_GAP, top: beside, arrow: middle - beside });
+        } else {
+            const left = Math.min(Math.max(TIP_GAP, anchor.left + anchor.width / 2 - box.width / 2), window.innerWidth - box.width - TIP_GAP);
+            setAt({ side: "below", left, top: anchor.bottom + TIP_GAP, arrow: anchor.left + anchor.width / 2 - left });
+        }
     }, [open]);
 
     useEffect(() => {
         if (!open) return;
 
         const away = (event: PointerEvent) => {
-            if (!button.current?.contains(event.target as Node) && !tip.current?.contains(event.target as Node)) setOpen(false);
+            if (!button.current?.contains(event.target as Node) && !panel.current?.contains(event.target as Node)) setOpen(false);
         };
         const escape = (event: KeyboardEvent) => {
             if (event.key !== "Escape") return;
             setOpen(false);
             button.current?.focus();
         };
-        /* Scrolling the chat moves the "i" away from a box fixed to the viewport: close it rather than leave it floating. */
-        const scrolled = () => setOpen(false);
+        /* Scrolling or resizing moves the "i" away from a panel fixed to the viewport: close it rather than leave it floating. */
+        const moved = (event: Event) => {
+            if (!panel.current?.contains(event.target as Node)) setOpen(false);
+        };
 
         document.addEventListener("pointerdown", away);
         document.addEventListener("keydown", escape);
-        document.addEventListener("scroll", scrolled, true);
+        document.addEventListener("scroll", moved, true);
+        window.addEventListener("resize", moved);
         return () => {
             document.removeEventListener("pointerdown", away);
             document.removeEventListener("keydown", escape);
-            document.removeEventListener("scroll", scrolled, true);
+            document.removeEventListener("scroll", moved, true);
+            window.removeEventListener("resize", moved);
         };
     }, [open]);
 
@@ -208,29 +239,98 @@ export function InfoTip({ label, tone = "idle", children }: { label: string; ton
             </button>
             {open ? (
                 <div
-                    ref={tip}
+                    ref={panel}
                     id={id}
-                    role="note"
-                    style={{ position: "fixed", top: at?.top ?? -9999, left: at?.left ?? -9999 }}
-                    className="z-50 w-64 max-w-[calc(100vw-16px)] space-y-0.5 rounded-xl bg-finn-highlight-navy px-3 py-2 text-left text-[11.5px] font-normal leading-snug text-white shadow-lg"
+                    role="dialog"
+                    aria-label={tip.title}
+                    onClick={(event) => event.stopPropagation()}
+                    style={{ position: "fixed", top: at?.top ?? -9999, left: at?.left ?? -9999, width: TIP_WIDTH, maxWidth: `calc(100vw - ${TIP_GAP * 2}px)` }}
+                    className="z-50 rounded-xl bg-white text-left font-normal shadow-[0_8px_24px_rgba(0,0,0,0.16)] ring-1 ring-black/10"
                 >
-                    {children}
+                    {/* The pointer: a corner of the panel turned towards the "i". */}
+                    {at ? (
+                        <span
+                            aria-hidden="true"
+                            style={at.side === "below" ? { top: -5, left: at.arrow - 5 } : { top: Math.max(10, at.arrow - 5), [at.side === "left" ? "right" : "left"]: -5 }}
+                            className={[
+                                "absolute h-2.5 w-2.5 rotate-45 bg-white",
+                                at.side === "left" ? "border-t border-r border-black/10" : at.side === "right" ? "border-b border-l border-black/10" : "border-t border-l border-black/10",
+                            ].join(" ")}
+                        />
+                    ) : null}
+                    <TipPanel tip={tip} onClose={() => setOpen(false)} />
                 </div>
             ) : null}
         </>
     );
 }
 
+/** What's inside the "i"'s panel, laid out the same way every time. */
+export function TipPanel({ tip, onClose }: { tip: TipContent; onClose?: () => void }) {
+    const body = (tip.body ?? []).filter((paragraph): paragraph is string => Boolean(paragraph));
+    const lists = (tip.lists ?? []).filter((list) => list.items.length);
+
+    return (
+        <div className="relative max-h-[min(70vh,440px)] overflow-y-auto px-3 pt-2.5 pb-3 text-[12px] leading-relaxed text-finn-black">
+            <div className="flex items-start justify-between gap-2">
+                <p className="pt-px text-[12.5px] font-black leading-snug">{tip.title}</p>
+                {onClose ? (
+                    <button
+                        type="button"
+                        onClick={onClose}
+                        aria-label="Close"
+                        className="-mt-0.5 -mr-1 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-finn-iron hover:bg-finn-snow hover:text-finn-black focus-visible:outline-2 focus-visible:outline-finn-accent-blue"
+                    >
+                        <X aria-hidden="true" className="h-3 w-3" strokeWidth={2.6} />
+                    </button>
+                ) : null}
+            </div>
+
+            {tip.recommended ? (
+                <p className="mt-1.5 flex gap-1.5 rounded-lg bg-[#fff6d6] px-2 py-1.5 text-[11.5px] font-semibold leading-snug text-[#8a5a00]">
+                    <Star aria-hidden="true" className="mt-0.5 h-3 w-3 shrink-0 fill-current" />
+                    <span>{tip.recommended}</span>
+                </p>
+            ) : null}
+
+            {body.map((paragraph) => (
+                <p key={paragraph} className="mt-1.5 text-finn-black/85">
+                    {paragraph}
+                </p>
+            ))}
+
+            {lists.map((list) => (
+                <div key={list.label} className="mt-2">
+                    <p className="text-[10px] font-black uppercase tracking-wide text-finn-iron">{list.label}</p>
+                    <ul className="mt-0.5 space-y-0.5">
+                        {list.items.map((item) => (
+                            <li key={item} className="flex gap-1.5">
+                                <Check aria-hidden="true" className="mt-[3px] h-3 w-3 shrink-0 text-finn-accent-blue" strokeWidth={3} />
+                                <span>{item}</span>
+                            </li>
+                        ))}
+                    </ul>
+                    {list.hint ? <p className="mt-0.5 text-[11px] leading-snug text-finn-iron">{list.hint}</p> : null}
+                </div>
+            ))}
+
+            {tip.note ? <p className="mt-2 text-[11px] leading-snug text-finn-iron">{tip.note}</p> : null}
+
+            <TipSources sources={tip.sources} />
+        </div>
+    );
+}
+
 /**
  * Where something in a tooltip comes from, when it isn't FINN's: "Source ↗",
- * linked to check. The tooltip is small, so the name is left to the link's
+ * linked to check. The panel is small, so the name is left to the link's
  * label — read out by a screen reader, and on the page it opens.
  */
 export function TipSources({ sources }: { sources?: Source[] }) {
     if (!sources?.length) return null;
 
     return (
-        <p className="flex flex-wrap gap-x-3 border-t border-white/10 pt-1 text-[10.5px]">
+        <p className="mt-2 flex flex-wrap gap-x-3 border-t border-finn-cotton pt-1.5 text-[10.5px]">
             {sources.map((source, index) => (
                 <a
                     key={source.url}
@@ -238,7 +338,7 @@ export function TipSources({ sources }: { sources?: Source[] }) {
                     target="_blank"
                     rel="noreferrer"
                     aria-label={`Source: ${source.name} (opens in a new tab)`}
-                    className="inline-flex items-center gap-0.5 font-semibold text-white/50 underline decoration-white/20 underline-offset-2 hover:text-white/80 hover:decoration-white/50"
+                    className="inline-flex items-center gap-0.5 font-bold text-finn-accent-blue underline decoration-finn-accent-blue/30 underline-offset-2 hover:decoration-finn-accent-blue"
                 >
                     {sources.length > 1 ? `Source ${index + 1}` : "Source"}
                     <ArrowUpRight aria-hidden="true" className="h-3 w-3" strokeWidth={2.6} />
@@ -248,26 +348,21 @@ export function TipSources({ sources }: { sources?: Source[] }) {
     );
 }
 
-/** What a choice means, for its tooltip: its name, what it is, and what Lens checks for it. */
-function tipFor(choice: Choice): React.ReactNode | null {
+/** What a choice means, for its "i": its name, why it's starred, what it is, and what Lens checks for it. */
+function tipFor(choice: Choice): TipContent | null {
     const body = choice.means ?? choice.description;
     if (!body && !choice.looksFor?.length && !choice.recommended && !choice.standard) return null;
 
-    return (
-        <>
-            <p className="font-black">{choice.label}</p>
-            {choice.recommended ? <p className="font-bold text-[#ffd76a]">{choice.recommended}</p> : null}
-            {body ? <p>{body}</p> : null}
-            {choice.means && choice.description && choice.description !== choice.means ? <p>{choice.description}</p> : null}
-            {choice.looksFor?.length ? <p className="text-white/75">I'll check: {choice.looksFor.join(" · ")}</p> : null}
-            {choice.standard ? (
-                <p className="text-white/75">
-                    Also making sure it has: {choice.standard.labels.join(" · ")}. {choice.standard.hint}
-                </p>
-            ) : null}
-            <TipSources sources={choice.sources} />
-        </>
-    );
+    return {
+        title: choice.label,
+        recommended: choice.recommended,
+        body: [body, choice.means && choice.description !== choice.means ? choice.description : null],
+        lists: [
+            { label: "I'll check", items: choice.looksFor ?? [] },
+            ...(choice.standard ? [{ label: "Also making sure it has", items: choice.standard.labels, hint: choice.standard.hint }] : []),
+        ],
+        sources: choice.sources,
+    };
 }
 
 function Chip({
@@ -286,8 +381,8 @@ function Chip({
     disabled?: boolean;
     muted?: boolean;
     icon?: React.ReactNode;
-    /** What the choice means: an "i" at the chip's right, with this as its tooltip. */
-    info?: React.ReactNode | null;
+    /** What the choice means: an "i" at the chip's right, with this in its panel. */
+    info?: TipContent | null;
     /** Starred: something the reader said points to it. */
     recommended?: boolean;
 }) {
@@ -322,9 +417,7 @@ function Chip({
                     ) : null}
                     {label}
                 </button>
-                <InfoTip label={label} tone={selected ? "on" : "idle"}>
-                    {info}
-                </InfoTip>
+                <InfoTip label={label} tone={selected ? "on" : "idle"} tip={info} />
             </span>
         );
     }
@@ -792,12 +885,11 @@ function BubbleChipRow({
                                 {option.label}
                             </button>
                             {option.description ? (
-                                <InfoTip label={option.label} tone={on ? "on" : "idle"}>
-                                    <p className="font-black">{option.label}</p>
-                                    {option.recommended ? <p className="font-bold text-[#ffd76a]">{option.recommended}</p> : null}
-                                    <p>{option.description}</p>
-                                    <TipSources sources={option.sources} />
-                                </InfoTip>
+                                <InfoTip
+                                    label={option.label}
+                                    tone={on ? "on" : "idle"}
+                                    tip={{ title: option.label, recommended: option.recommended, body: [option.description], sources: option.sources }}
+                                />
                             ) : null}
                         </span>
                     );
@@ -871,12 +963,7 @@ function Deals({
                                         <span className="inline-flex items-center gap-0.5 text-[13px] font-bold text-finn-black">
                                             {row.suggested ? <Star role="img" aria-label="Recommended" className="mr-1 h-3.5 w-3.5 fill-current text-finn-accent-blue" /> : null}
                                             {row.label}
-                                            <InfoTip label={row.label}>
-                                                <p className="font-black">{row.label}</p>
-                                                <p>{row.description}</p>
-                                                {row.suggested ? <p className="font-bold text-[#ffd76a]">{row.suggested}</p> : null}
-                                                <TipSources sources={row.sources} />
-                                            </InfoTip>
+                                            <InfoTip label={row.label} tip={{ title: row.label, recommended: row.suggested, body: [row.description], sources: row.sources }} />
                                         </span>
                                         <span
                                             role="radiogroup"
@@ -1214,12 +1301,19 @@ function Item({ label, kind, onClick, does }: { label: string; kind: "counts" | 
                 <span className={inner}>{body}</span>
             )}
             {does ? (
-                <InfoTip label={label}>
-                    <p className="font-black">{label}</p>
-                    <p>{does.replace(/^./, (c) => c.toUpperCase())}.</p>
-                    {kind === "checks" ? <p className="text-white/75">Nearly every car has it: a car FINN says is missing it loses a little, and having it earns nothing.</p> : null}
-                    {kind === "worth" ? <p className="text-white/75">Not checked yet — tap it to add it.</p> : null}
-                </InfoTip>
+                <InfoTip
+                    label={label}
+                    tip={{
+                        title: label,
+                        body: [`${does.replace(/^./, (c) => c.toUpperCase())}.`],
+                        note:
+                            kind === "checks"
+                                ? "Nearly every car has it: a car FINN says is missing it loses a little, and having it earns nothing."
+                                : kind === "worth"
+                                  ? "Not checked yet — tap it to add it."
+                                  : undefined,
+                    }}
+                />
             ) : null}
         </span>
     );
@@ -1298,10 +1392,10 @@ function UnderstoodBubble({
                 <div>
                     <p className="mb-1 flex items-center gap-0.5 text-[10.5px] font-black uppercase tracking-wide text-finn-iron">
                         On nearly every car
-                        <InfoTip label="On nearly every car">
-                            <p className="font-black">On nearly every car</p>
-                            <p>Standard equipment I still check: a car FINN says is missing one loses a little, and having one earns nothing.</p>
-                        </InfoTip>
+                        <InfoTip
+                            label="On nearly every car"
+                            tip={{ title: "On nearly every car", body: ["Standard equipment I still check: a car FINN says is missing one loses a little, and having one earns nothing."] }}
+                        />
                     </p>
                     <div className="flex flex-wrap gap-1.5">
                         {bubble.checks.map((item) => (

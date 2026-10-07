@@ -8,7 +8,7 @@ import { EMPTY_UNDERSTANDING } from "@/lib/lens-chat/understanding";
 import type { Chat, ChatMessage } from "@/lib/chats/types";
 import { GARAGE } from "@/lib/reasoning-engine/test-garage";
 
-import { AdjustPanel, MessageList, TipSources } from "./Messages";
+import { AdjustPanel, MessageList, TipPanel, TipSources } from "./Messages";
 import { SOURCES } from "@/lib/sources";
 
 /** A first chat, past "Got it — let's start": most tests begin at the first question. */
@@ -355,5 +355,32 @@ describe("Adjust panel chips", () => {
         expect(html).toContain('aria-label="What “Rear doors” means"');
         expect(html).toContain('aria-label="What “ISOFIX child seat anchors” means"');
         expect(html).toContain('aria-label="Stop checking Rear doors"');
+    });
+});
+
+describe("the “i” panel", () => {
+    it("lays out the same way every time: title, why it's starred, what it means, what's checked as a list, a quiet note, then sources", () => {
+        const html = renderToStaticMarkup(
+            createElement(TipPanel, {
+                onClose: noop,
+                tip: {
+                    title: "Snow & ice",
+                    recommended: "Recommended because you said you drive long distances.",
+                    body: ["Winters with snow and ice.", null],
+                    lists: [{ label: "I'll check", items: ["Heated seats", "Heated steering wheel"] }, { label: "Also making sure it has", items: [] }],
+                    note: "Not checked yet — tap it to add it.",
+                    sources: [SOURCES.adacAwd],
+                },
+            }),
+        );
+        const words = text(html).trim();
+
+        expect(words).toBe(
+            "Snow & ice Recommended because you said you drive long distances. Winters with snow and ice. I'll check Heated seats Heated steering wheel Not checked yet — tap it to add it. Source",
+        );
+        /* One item a line, not a run of "·"; an empty list isn't drawn. */
+        expect(html.match(/<li /g)).toHaveLength(2);
+        expect(words).not.toContain("Also making sure it has");
+        expect(html).toContain('aria-label="Close"');
     });
 });
