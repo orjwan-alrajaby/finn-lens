@@ -78,6 +78,12 @@ export interface Choice {
     means?: string;
     /** Starred, with why: "Recommended because you said totally green." */
     recommended?: string;
+    /**
+     * Standard equipment this answer calls for that Lens makes sure of —
+     * air conditioning for hot summers — with a hint from the cars here
+     * that it won't set them apart. Said so it doesn't look forgotten.
+     */
+    standard?: { labels: string[]; hint: string };
     /** Where anything it says that isn't FINN's comes from. */
     sources?: Source[];
     group?: string;

@@ -29,7 +29,7 @@ import {
     type BubbleId,
     type OftenId,
 } from "@/lib/lens-chat/bubbles";
-import { asPhrase, barePhrase, EVIDENCE, evidenceMet, isKind, type EvidenceId } from "@/lib/lens-chat/evidence";
+import { asPhrase, barePhrase, coverage, EVIDENCE, evidenceMet, isKind, type EvidenceId } from "@/lib/lens-chat/evidence";
 import { IMPORTANCE, IMPORTANCE_LABEL } from "@/lib/lens-chat/importance";
 import { SOURCES } from "@/lib/sources";
 import { DEALS, dealForRule, dealsHere, dealStates, letGo, stateLabel, withDeals, type DealState } from "@/lib/lens-chat/deals";
@@ -303,7 +303,22 @@ const CHIP = ":";
  * behind its "i", and the chips each opens. With no section — a chat from
  * before them — every bubble at once.
  */
-function bubblesStep(group?: (typeof BUBBLE_GROUPS)[number], u: Understanding = EMPTY_UNDERSTANDING): ChatStep {
+/**
+ * What a bubble's standard equipment means on this page: the reader expects
+ * air conditioning for hot summers, and Lens checks it — but it's on (nearly)
+ * every car here, so it won't set them apart. Said as a hint, from the cars
+ * themselves; nothing about other pages.
+ */
+function standardHint(ids: EvidenceId[], cars: FinnCar[]): string {
+    const one = ids.length === 1;
+    const counts = cars.length ? ids.map((id) => coverage(cars, id)) : [];
+    const everyCar = counts.length > 0 && counts.every((count) => count.notListed === 0 && count.unknown === 0);
+    const where = !cars.length ? "nearly every car FINN lists" : everyCar ? "every car here" : "nearly every car here";
+
+    return `${where.charAt(0).toUpperCase()}${where.slice(1)} has ${one ? "it" : "these"}, so ${one ? "it won't" : "they won't"} set the cars apart${everyCar ? "" : ` — but a car without ${one ? "it" : "them"} would lose out`}.`;
+}
+
+function bubblesStep(group?: (typeof BUBBLE_GROUPS)[number], u: Understanding = EMPTY_UNDERSTANDING, cars: FinnCar[] = []): ChatStep {
     const bubbles = group ? BUBBLES.filter((bubble) => group.bubbles.includes(bubble.id)) : BUBBLES;
 
     return {
@@ -318,6 +333,7 @@ function bubblesStep(group?: (typeof BUBBLE_GROUPS)[number], u: Understanding = 
             means: bubble.means,
             looksFor: bubble.counts.length ? labelsOf(bubble.counts) : undefined,
             features: bubble.counts.map((id) => ({ label: EVIDENCE[id].label, does: explain(id, bubble.why?.[id]) })),
+            ...(bubble.checks.length ? { standard: { labels: labelsOf(bubble.checks), hint: standardHint(bubble.checks, cars) } } : {}),
         })),
         bubbleChips: Object.fromEntries(
             bubbles
@@ -547,7 +563,7 @@ function bubblePicks(chosen: string[]): Partial<Record<BubbleId, string[]>> {
 export function stepFor(id: StepId, cars: FinnCar[], u: Understanding = EMPTY_UNDERSTANDING): ChatStep | null {
     switch (id) {
         case "bubbles":
-            return bubblesStep(undefined, u);
+            return bubblesStep(undefined, u, cars);
 
         case "from":
             return fromStep(u);
@@ -640,7 +656,7 @@ export function stepFor(id: StepId, cars: FinnCar[], u: Understanding = EMPTY_UN
 
     if (id.startsWith("bubbles-")) {
         const group = BUBBLE_GROUPS.find((item) => `bubbles-${item.id}` === id);
-        return group ? bubblesStep(group, u) : null;
+        return group ? bubblesStep(group, u, cars) : null;
     }
 
     /* How often: only for a bubble the reader tapped that asks it. */

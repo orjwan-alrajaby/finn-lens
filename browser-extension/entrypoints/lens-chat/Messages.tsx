@@ -251,7 +251,7 @@ export function TipSources({ sources }: { sources?: Source[] }) {
 /** What a choice means, for its tooltip: its name, what it is, and what Lens checks for it. */
 function tipFor(choice: Choice): React.ReactNode | null {
     const body = choice.means ?? choice.description;
-    if (!body && !choice.looksFor?.length && !choice.recommended) return null;
+    if (!body && !choice.looksFor?.length && !choice.recommended && !choice.standard) return null;
 
     return (
         <>
@@ -260,6 +260,11 @@ function tipFor(choice: Choice): React.ReactNode | null {
             {body ? <p>{body}</p> : null}
             {choice.means && choice.description && choice.description !== choice.means ? <p>{choice.description}</p> : null}
             {choice.looksFor?.length ? <p className="text-white/75">I'll check: {choice.looksFor.join(" · ")}</p> : null}
+            {choice.standard ? (
+                <p className="text-white/75">
+                    Also making sure it has: {choice.standard.labels.join(" · ")}. {choice.standard.hint}
+                </p>
+            ) : null}
             <TipSources sources={choice.sources} />
         </>
     );
@@ -1338,9 +1343,11 @@ function StaticSummary({ message }: { message: Extract<ChatMessage, { kind: "sum
             heading: bubble.heading,
             importance: bubble.counting === false ? null : bubble.importance,
             checks: [...(bubble.figure ? [bubble.figure] : []), ...bubble.counts.map((item) => item.label), ...(bubble.shared ?? []).map((item) => item.label)],
+            /* Standard equipment it calls for: said, so air conditioning for hot summers doesn't look forgotten. */
+            standard: bubble.checks.map((item) => item.label),
             note: bubble.settled ?? bubble.empty ?? null,
         })),
-        ...(message.needs ?? []).map((need) => ({ id: need.id, heading: need.label, importance: need.importance, checks: need.looksFor, note: null })),
+        ...(message.needs ?? []).map((need) => ({ id: need.id, heading: need.label, importance: need.importance, checks: need.looksFor, standard: [] as string[], note: null })),
     ];
 
     return (
@@ -1361,6 +1368,9 @@ function StaticSummary({ message }: { message: Extract<ChatMessage, { kind: "sum
                                     <p className="mt-0.5 text-[11.5px] leading-snug text-finn-iron">I'll check: {item.checks.join(" · ")}</p>
                                 ) : item.note ? (
                                     <p className="mt-0.5 text-[11.5px] leading-snug text-finn-iron">{item.note}</p>
+                                ) : null}
+                                {item.standard.length ? (
+                                    <p className="mt-0.5 text-[11px] leading-snug text-finn-iron/80">Also making sure it has: {item.standard.join(" · ")}</p>
                                 ) : null}
                             </li>
                         ))}

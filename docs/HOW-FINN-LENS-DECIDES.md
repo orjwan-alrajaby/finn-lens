@@ -126,7 +126,10 @@ Each bubble (`BUBBLES`, bubbles.ts) carries:
 
 - **counts** — equipment Lens scores for it (it earns when listed);
 - **checks** — standard equipment Lens checks for it: a car FINN says lacks it loses a little, and having
-  it earns nothing (§5.2);
+  it earns nothing (§5.2). Said where it's asked for, so it doesn't look forgotten: each bubble's "i" names
+  it ("Also making sure it has: Air conditioning") with a hint from the cars on the page ("Nearly every car
+  here has it, so it won't set the cars apart — but a car without it would lose out"), and the chat's
+  summary card lists it under what Lens checks;
 - **worth** — suggestions shown as "Might matter" on the summary, counted only if the reader adds them;
 - **cantCheck** — what FINN's data can't tell Lens, said on the summary and in the drawer **only where it
   changes how an answer reads**. Today that's one: boot space under "Lots to carry" (FINN's figure doesn't say

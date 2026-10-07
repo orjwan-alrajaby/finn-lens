@@ -8,6 +8,7 @@ import { fleet } from "@/lib/reasoning-engine/test-data/fleet";
 
 import { askBeforeResult, chatAnswers, judgementFrom, judgeWith, letGoAsk, resultMessage, rulesSignature } from "./judge";
 import { syncBubbles, withBubbles } from "@/lib/lens-chat/bubbles";
+import { readEvidence } from "@/lib/lens-chat/evidence";
 import { DEAL_MEANS, demandOf, letGo, withDeals } from "@/lib/lens-chat/deals";
 import { IMPORTANCE, IMPORTANCE_LABEL as LEVEL_LABEL } from "@/lib/lens-chat/importance";
 import { SOURCES } from "@/lib/sources";
@@ -1353,5 +1354,31 @@ describe("letting go of a fuel", () => {
         expect(diesel.label).toBe("Not diesel");
         expect(diesel.description).toMatch(/It's one you set aside when I asked what it can run on\.$/);
         expect(towbar.description).not.toMatch(/what it can run on/);
+    });
+});
+
+describe("standard equipment, said where it's asked for", () => {
+    it("names what each answer makes sure of, with a hint from the cars here that it won't set them apart", () => {
+        const page = fleet().sort((a, b) => a.id - b.id).slice(0, 40);
+        const copes = stepFor("bubbles-copes", page)!;
+        const driving = stepFor("bubbles-driving", page)!;
+        const weather = copes.choices.find((choice) => choice.id === "weather")!;
+        const traffic = driving.choices.find((choice) => choice.id === "traffic")!;
+
+        expect(weather.standard?.labels).toEqual(["Air conditioning"]);
+        expect(weather.standard?.hint).toMatch(/^(Every|Nearly every) car here has it, so it won't set the cars apart/);
+        expect(traffic.standard?.labels).toEqual(expect.arrayContaining(["Adaptive cruise control"]));
+        expect(traffic.standard?.hint).toMatch(/these, so they won't set the cars apart/);
+        expect(copes.bubbleChips!.weather!.options.find((option) => option.id === "hot")?.description).toMatch(/make sure it has air conditioning/);
+    });
+
+    it("says “every car here” only when every car here has it", () => {
+        const withAc = fleet().filter((car) => readEvidence(car, "hasAirConditioning") === "listed").slice(0, 10);
+        const without = fleet().find((car) => readEvidence(car, "hasAirConditioning") === "notListed")!;
+
+        expect(stepFor("bubbles-copes", withAc)!.choices.find((choice) => choice.id === "weather")!.standard!.hint).toBe("Every car here has it, so it won't set the cars apart.");
+        expect(stepFor("bubbles-copes", [...withAc, without])!.choices.find((choice) => choice.id === "weather")!.standard!.hint).toBe(
+            "Nearly every car here has it, so it won't set the cars apart — but a car without it would lose out.",
+        );
     });
 });

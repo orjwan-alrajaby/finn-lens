@@ -79,6 +79,8 @@ describe("here's what you told me, and what I understood", () => {
         expect(words).toContain("Here's what you told me, and what I understood:");
         expect(words).toMatch(/What you told me You have kids · a baby or toddler seat Top priority I'll check: Rear doors/);
         expect(words).toMatch(/Money & time Monthly limit €500 all in .* Deal-breakers & sealers Runs on Any Deal-breakers None Deal-sealers None/);
+        /* Standard equipment each answer calls for, said so it doesn't look forgotten. */
+        expect(words).toMatch(/You live in the city · you park on the street .*Also making sure it has: Automatic gearbox · Parking sensors · Automatic emergency braking/);
         expect(words).toContain("Does that look right?");
         expect(words).toMatch(/Looks good to me — continue This doesn't look right/);
         /* Nothing to edit in the chat itself. */

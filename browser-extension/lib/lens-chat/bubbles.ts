@@ -371,7 +371,7 @@ export const BUBBLES: Bubble[] = [
                     counts: ["hasHeatedSeats", "hasHeatedSteeringWheel"],
                     worth: ["hasAuxiliaryHeater"],
                 },
-                { id: "hot", label: "Hot summers", detail: "hot summers", description: "I'll check ventilated seats, and suggest 3-zone climate.", counts: ["hasSeatCooling"], worth: ["hasThreeZoneAutomaticClimateControls"] },
+                { id: "hot", label: "Hot summers", detail: "hot summers", description: "I'll check ventilated seats, suggest 3-zone climate, and make sure it has air conditioning — nearly every car FINN lists does, so that won't set the cars apart.", counts: ["hasSeatCooling"], worth: ["hasThreeZoneAutomaticClimateControls"] },
             ],
         },
         cantCheck: "",
