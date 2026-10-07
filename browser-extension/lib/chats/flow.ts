@@ -444,8 +444,8 @@ function hybridNamed(cars: FinnCar[], fuel: FinnCar["fuelType"]): string | null 
     const named = cars.filter((car) => car.fuelType === fuel && /\bhybrid\b/i.test(car.engine ?? ""));
     if (!named.length) return null;
 
-    const example = named[0]!;
-    return ` FINN files ${named.length} ${named.length === 1 ? "car" : "cars"} here with “Hybrid” in the engine name under ${fuel.toLowerCase()} — ${named.length === 1 ? "" : "such as "}the ${example.name} ${example.engine}.`;
+    const example = `${named[0]!.name} ${named[0]!.engine}`.replace(/\s+/g, " ").trim();
+    return ` FINN files ${named.length} ${named.length === 1 ? "car" : "cars"} here with “Hybrid” in the engine name under ${fuel.toLowerCase()} — ${named.length === 1 ? "" : "such as "}the ${example}.`;
 }
 
 /** What the reader would take, as a line: "Electric or plug-in hybrid". "Any" when nothing's ruled out. */

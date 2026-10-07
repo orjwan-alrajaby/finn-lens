@@ -27,9 +27,10 @@ import type { FinnCar } from "@/lib/types";
  * then reads two screens of prose never has to wonder which car it is about.
  */
 export function configurationName(car: FinnCar): string {
-    const named = [car.trim, car.equipmentLine].filter(Boolean).join(" ");
+    /* FINN's own words, spaced once: "141 FWD  Center-Line" arrives with two. */
+    const named = [car.trim, car.equipmentLine].filter(Boolean).join(" ").replace(/\s+/g, " ").trim();
 
-    return named || car.engine || `Configuration ${car.id}`;
+    return named || car.engine?.replace(/\s+/g, " ").trim() || `Configuration ${car.id}`;
 }
 
 /**
