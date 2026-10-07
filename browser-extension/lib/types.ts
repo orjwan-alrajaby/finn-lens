@@ -107,8 +107,8 @@ export type FinnApiConfig = {
   is_refurbished: boolean;
   has_hitch: "true" | "false";
 
-  /** FINN's tyre setup: one all-season set, or a summer and a winter set. */
-  tires?: "all_season" | "summer_winter" | null;
+  /** FINN's tyre setup: one all-season set, one winter set, or a summer and a winter set. */
+  tires?: "all_season" | "winter" | "summer_winter" | null;
 };
 
 
@@ -240,10 +240,10 @@ export interface FinnCar {
   towingCapacityKg?: number | null;
 
   /**
-   * FINN's tyre setup. Shown as a fact, never scored: nearly every FINN car
-   * has all-season tyres, and a summer and winter set isn't the worse option.
+   * FINN's tyre setup. Shown as a fact, never scored: all-season, winter, and
+   * a summer and a winter set are each a way to meet winter, not a ranking.
    */
-  tyres?: "allSeason" | "summerAndWinter" | null;
+  tyres?: "allSeason" | "winter" | "summerAndWinter" | null;
 
   dimensions: {
     length: number;

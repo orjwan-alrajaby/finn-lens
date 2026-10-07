@@ -364,14 +364,16 @@ export function traitFacts(
 /** How FINN's tyre setup reads in a sentence. */
 export const TYRE_SETUP = {
   allSeason: "all-season tyres",
+  winter: "winter tyres",
   summerAndWinter: "a summer and a winter set of tyres",
 } as const;
 
 /**
- * FINN's tyre setup, under Climate Suitability: quoted, never scored. Nearly
- * every FINN car has all-season tyres, and a summer and winter set isn't the
- * worse option, so there's nothing to rank — but it's what the car meets snow
- * on, and a reader asking about winter should hear it.
+ * FINN's tyre setup, under Climate Suitability: quoted, never scored. FINN
+ * fits all-season tyres, winter tyres, or a summer and a winter set (584, 44
+ * and 73 of the 701 cars in the 2026-10-07 fleet snapshot), and none of the
+ * three is the worse option, so there's nothing to rank — but it's what the
+ * car meets snow on, and a reader asking about winter should hear it.
  */
 function tyreTraits(vehicle: PinnedFinnCar, rival: PinnedFinnCar | null): TraitFact[] {
   if (!vehicle.tyres) return [];

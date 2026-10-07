@@ -200,6 +200,8 @@ describe("what FINN does publish, and Lens used to guess at", () => {
 
         expect(readEvidence({ ...car, tyres: "allSeason" }, "winterReadyTyres")).toBe("listed");
         expect(measuredDisplay({ ...car, tyres: "summerAndWinter" }, "winterReadyTyres")).toMatch(/summer set and a winter set/);
+        expect(readEvidence({ ...car, tyres: "winter" }, "winterReadyTyres")).toBe("listed");
+        expect(measuredDisplay({ ...car, tyres: "winter" }, "winterReadyTyres")).toBe("winter tyres, in FINN's data");
         expect(readEvidence({ ...car, tyres: null }, "winterReadyTyres")).toBe("unknown");
     });
 });

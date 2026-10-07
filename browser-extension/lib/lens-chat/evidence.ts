@@ -184,7 +184,7 @@ export const EVIDENCE: Record<EvidenceId, EvidenceDef> = {
         id: "winterReadyTyres",
         label: "All-season or winter tyres",
         explanation:
-            "What FINN says is fitted: all-season tyres, or a summer and a winter set. Not scored — nearly every FINN car comes on all-season tyres — but it's the answer to what the car is shod with in winter.",
+            "What FINN says is fitted: all-season tyres, winter tyres, or a summer and a winter set. Not scored — Lens doesn't rank one setup above another — but it's the answer to what the car is shod with in winter.",
         scoredIn: null,
         raisable: false,
     },
@@ -416,7 +416,7 @@ const PLAIN: Partial<Record<EvidenceId, string>> = {
     compactLength: "How long the car is, bumper to bumper.",
     compactWidth: "How wide the car is, as FINN measures it. FINN doesn't say whether that includes the mirrors.",
     suvBody: "Whether FINN files this car as an SUV. It's FINN's category, not a measurement.",
-    winterReadyTyres: "What FINN says is fitted: all-season tyres, or a summer and a winter set.",
+    winterReadyTyres: "What FINN says is fitted: all-season tyres, winter tyres, or a summer and a winter set.",
 };
 
 /** The short explanation where there is one, Lens's own where there isn't. */
@@ -462,7 +462,9 @@ export function measuredDisplay(car: FinnCar, id: EvidenceId): string | null {
             ? "a summer set and a winter set, in FINN's data"
             : car.tyres === "allSeason"
               ? "all-season tyres, in FINN's data"
-              : null;
+              : car.tyres === "winter"
+                ? "winter tyres, in FINN's data"
+                : null;
     }
 
     return null;

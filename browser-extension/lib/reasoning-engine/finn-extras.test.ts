@@ -230,11 +230,14 @@ describe("FINN's tyre setup", () => {
   it("is quoted under Climate Suitability and never scored", () => {
     const allSeason = climateText("allSeason");
     const twoSets = climateText("summerAndWinter");
+    const winter = climateText("winter");
 
     expect(allSeason.text).toMatch(/FINN fits it with all-season tyres, which Lens shows but doesn't score/);
     expect(twoSets.text).toMatch(/a summer and a winter set of tyres/);
+    expect(winter.text).toMatch(/FINN fits it with winter tyres, which Lens shows but doesn't score/);
 
     const fit = (car: PinnedFinnCar) => scoreVehicle(car, ["climateSuitability", "comfort", "safetyAssistance"], prefs()).fit;
     expect(fit(allSeason.car)).toBe(fit(twoSets.car));
+    expect(fit(allSeason.car)).toBe(fit(winter.car));
   });
 });

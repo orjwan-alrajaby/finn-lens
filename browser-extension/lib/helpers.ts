@@ -236,6 +236,7 @@ export function extractTowingCapacityKg(config: FinnApiConfig): number | null {
 /** FINN's `tires` field, or null when it says nothing Lens recognises. */
 export function extractTyres(config: FinnApiConfig): FinnCar["tyres"] {
   if (config.tires === "all_season") return "allSeason";
+  if (config.tires === "winter") return "winter";
   if (config.tires === "summer_winter") return "summerAndWinter";
 
   return null;

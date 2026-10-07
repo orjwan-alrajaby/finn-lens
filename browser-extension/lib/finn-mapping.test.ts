@@ -63,7 +63,8 @@ describe("reading FINN's equipment entries", () => {
   it("reads the tyre setup, and nothing else, as one", () => {
     expect(extractTyres(config({}, { tires: "all_season" }))).toBe("allSeason");
     expect(extractTyres(config({}, { tires: "summer_winter" }))).toBe("summerAndWinter");
-    expect(extractTyres(config({}, { tires: "winter" }))).toBeNull();
+    expect(extractTyres(config({}, { tires: "winter" }))).toBe("winter");
+    expect(extractTyres(config({}, { tires: "studded" }))).toBeNull();
     expect(extractTyres(config({}))).toBeNull();
   });
 
