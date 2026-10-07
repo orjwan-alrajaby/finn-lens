@@ -337,8 +337,18 @@ const positive = (value: unknown): number | null =>
  * carries figures for terms that aren't on offer — a car sold only on six
  * months still lists a 24-month price — so prices are read through that list
  * and never the other way round.
+ *
+ * Each price is read from `price.available_price_list` first. On an
+ * early-booking offer ("Frühbucherangebot") the top-level `b2c_12` still holds
+ * the price before the discount — the list's own `b2c_12_old` — and only the
+ * list carries what FINN charges now. Everywhere else the two agree, and the
+ * top level stands in for a term the list leaves out.
  */
 export function extractContract(config: FinnApiConfig): ContractOffer {
+  const list = config.price?.available_price_list;
+  const listed = (key: string): number | null =>
+    (list && typeof list === "object" ? positive(list[key]) : null) ?? positive(config.price?.[key]);
+
   const offered = Array.isArray(config.available_terms)
     ? config.available_terms
     : [];
@@ -351,8 +361,8 @@ export function extractContract(config: FinnApiConfig): ContractOffer {
 
       return {
         months,
-        privateMonthly: positive(config.price?.[`b2c_${months}`]),
-        businessMonthly: positive(config.price?.[`b2b_${months}`]),
+        privateMonthly: listed(`b2c_${months}`),
+        businessMonthly: listed(`b2b_${months}`),
         deliveryFrom: window?.available_from?.slice(0, 10) ?? null,
         deliveryTo: window?.available_to?.slice(0, 10) ?? null,
         deviationWeeks:

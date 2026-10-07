@@ -79,6 +79,21 @@ describe("reading FINN's terms", () => {
         expect(pricing.customerMonthly.price).toBe(296.5);
         expect(pricing.businessMonthly.price).toBe(250);
     });
+
+    /* FINN's Mercedes CLA electric, 41675, on an early-booking offer. */
+    it("quotes an early-booking discount, not the price before it", () => {
+        const offer = extractContract({
+            available_terms: [12],
+            default_term: 12,
+            price: {
+                b2b_12: 777, b2c_12: 924,
+                available_price_list: { b2b_12: 769, b2c_12: 914, b2c_12_old: 924 },
+            },
+            availability_by_term: {},
+        } as unknown as FinnApiConfig);
+
+        expect(offer.terms[0]).toMatchObject({ privateMonthly: 914, businessMonthly: 769 });
+    });
 });
 
 describe("fitContract", () => {

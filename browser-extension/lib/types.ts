@@ -35,7 +35,10 @@ export type FinnApiConfig = {
   /**
    * The monthly price for each term with nothing paid upfront: `b2c_12`,
    * `b2b_24`. It can also hold prices for terms the car isn't offered on, so
-   * it is only ever read through `available_terms`.
+   * it is only ever read through `available_terms`. Its
+   * `available_price_list` holds the same prices as FINN charges them now,
+   * with a struck-through `b2c_12_old` beside a discounted one; on an
+   * early-booking offer the top-level figure is the undiscounted one.
    */
   price?: Record<string, number | Record<string, number> | undefined>;
 
