@@ -471,3 +471,14 @@ describe("a car's size beside a parking bay", () => {
         expect(said).not.toMatch(/typical|before the mirrors/);
     });
 });
+
+describe("why, for a figure", () => {
+    it("names a car's CO₂ or fuel use only where it's something it got right", () => {
+        const u = withBubbles(EMPTY_UNDERSTANDING, { environment: ["moderate"], budget: [] });
+        const thirsty = fleet().find((car) => readEvidence(car, "lowCo2") === "notListed" && readEvidence(car, "frugal") === "notListed")!;
+        const clean = fleet().find((car) => readEvidence(car, "lowCo2") === "listed" && car.fuelType !== "Electric")!;
+
+        expect(whyLines(thirsty, u)).toEqual([]);
+        expect(whyLines(clean, u).find((line) => line.said === "You care about the environment")?.has[0]).toMatch(/g\/km · Class [A-C]/);
+    });
+});

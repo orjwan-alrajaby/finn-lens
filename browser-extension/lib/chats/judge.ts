@@ -225,9 +225,16 @@ export function whyLines(car: PinnedFinnCar, u: Understanding): { said: string; 
         .map(({ bubble, state, need }) => {
             const judgedOn = figuresOf(bubble, state);
             const has = need.evidence.filter((entry) => evidenceMet(car, entry.id) === true).map((entry) => measuredDisplay(car, entry.id) ?? lowerFirst(EVIDENCE[entry.id].label));
+            /*
+             * A figure only where it's something the car got right, by Lens's
+             * own lines: low CO₂ (class A to C), or frugal for its kind. "143
+             * g/km · Class E" or "moderate fuel use" isn't a reason it won.
+             */
             const figures = [
-                judgedOn.includes("environmental") && environment?.co2 ? environment.co2.display : null,
-                judgedOn.includes("efficiency") && environment?.efficiency ? `${lowerFirst(environment.efficiency.label)} (${environment.efficiency.display})` : null,
+                judgedOn.includes("environmental") && environment?.co2 && evidenceMet(car, "lowCo2") === true ? environment.co2.display : null,
+                judgedOn.includes("efficiency") && environment?.efficiency && evidenceMet(car, "frugal") === true
+                    ? `${lowerFirst(environment.efficiency.label)} (${environment.efficiency.display})`
+                    : null,
             ].filter((item): item is string => item != null);
 
             return { said: bubble.you, has: [...has, ...figures] };
