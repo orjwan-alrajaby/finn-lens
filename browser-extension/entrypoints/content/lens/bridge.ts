@@ -8,6 +8,7 @@ import { highlightConfiguration } from "../page/highlight";
 import { currentSearch } from "../search";
 
 import { setChatOpen, setChatWide } from "./bubble";
+import { hideTip, moveTip, showTip } from "./companion";
 import { closeDrawer, openDrawer } from "./drawer";
 import { token } from "./frames";
 
@@ -120,6 +121,16 @@ async function handle(message: ChatToPage): Promise<unknown> {
         case "LENS_CLOSE_DRAWER":
             closeDrawer();
             return { closed: true };
+
+        case "LENS_TIP_SHOW":
+            return { shown: showTip(message.tip, message.y) };
+
+        case "LENS_TIP_MOVE":
+            return { shown: moveTip(message.y) };
+
+        case "LENS_TIP_HIDE":
+            hideTip(false);
+            return { hidden: true };
     }
 }
 

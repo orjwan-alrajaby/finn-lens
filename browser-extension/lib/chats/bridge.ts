@@ -1,4 +1,4 @@
-import type { ChatHandshake, ChatToPage, PageChanged, PageContext, VerifyChat } from "@/lib/lens-chat/messages";
+import type { ChatHandshake, ChatToPage, PageChanged, PageContext, TipClosed, TipContent, VerifyChat } from "@/lib/lens-chat/messages";
 
 /**
  * A Lens frame's side of the page bridge, for the chat and the drawer alike.
@@ -75,6 +75,28 @@ export const requestOpenDrawer = (chatId: string, carId: number, judgement?: str
     send<{ opened: boolean }>({ type: "LENS_OPEN_DRAWER", chatId, carId, judgement });
 
 export const requestCloseDrawer = () => send<{ closed: boolean }>({ type: "LENS_CLOSE_DRAWER" });
+
+/**
+ * An "i"'s panel beside the chat, on the page: shown where there's room to
+ * the chat's left, else not — and then the chat shows it itself.
+ */
+export const requestTip = async (tip: TipContent, y: number) => (await send<{ shown: boolean }>({ type: "LENS_TIP_SHOW", tip, y }))?.shown === true;
+
+/** The "i" moved with the chat's scroll; false once it's out of sight and the panel has gone. */
+export const requestTipMove = async (y: number) => (await send<{ shown: boolean }>({ type: "LENS_TIP_MOVE", y }))?.shown === true;
+
+export const requestTipHide = () => void send<{ hidden: boolean }>({ type: "LENS_TIP_HIDE" });
+
+/** Calls `handler` when the reader closed the "i"'s panel on the page's side. */
+export function onTipClosed(handler: () => void): () => void {
+    const listener = (message: TipClosed) => {
+        if (message?.type === "LENS_TIP_CLOSED" && confirmed && message.token === confirmed) handler();
+    };
+
+    browser.runtime.onMessage.addListener(listener);
+
+    return () => browser.runtime.onMessage.removeListener(listener);
+}
 
 /** Calls `handler` whenever this frame's page says it changed. */
 export function onPageChanged(handler: () => void): () => void {

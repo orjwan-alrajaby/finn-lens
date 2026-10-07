@@ -2,13 +2,13 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ArrowLeft, ArrowUp, MessagesSquare, SquarePen, X } from "lucide-react";
 
 import { BrandMark, IconButton } from "@/components/lens-parts";
-import { onPageChanged, requestChatWide, requestCloseChat, requestOpenDrawer, requestPageContext } from "@/lib/chats/bridge";
+import { onPageChanged, onTipClosed, requestChatWide, requestCloseChat, requestOpenDrawer, requestPageContext, requestTip, requestTipHide, requestTipMove } from "@/lib/chats/bridge";
 import { rewindable } from "@/lib/chats/flow";
 import { loadedCars, pageCars } from "@/lib/chats/scope";
 import { ACTIVE_CHAT_KEY, activeChatId } from "@/lib/chats/store";
 
 import { ChatList } from "./ChatList";
-import { AdjustPanel, MessageList, useReveal } from "./Messages";
+import { AdjustPanel, companionClosed, MessageList, TipCompanionContext, useReveal, type TipCompanion } from "./Messages";
 import { useConversation, type PageCars } from "./useConversation";
 
 /**
@@ -20,6 +20,9 @@ import { useConversation, type PageCars } from "./useConversation";
  */
 
 const EMPTY_PAGE: PageCars = { cars: [], headline: "", url: "", urls: {} };
+
+/** The "i"'s companion beside the chat on finn.com, through the page bridge. */
+const COMPANION: TipCompanion = { show: requestTip, move: requestTipMove, hide: requestTipHide };
 
 export function App() {
     const [page, setPage] = useState<PageCars>(EMPTY_PAGE);
@@ -39,6 +42,9 @@ export function App() {
         setPage({ cars: cars.cars, headline: cars.headline, url: context?.url ?? "", urls: context?.carUrls ?? {} });
         setPageRead(true);
     }, []);
+
+    /* The reader closed the "i"'s companion on the page's side: no "i" here has it any more. */
+    useEffect(() => onTipClosed(companionClosed), []);
 
     useEffect(() => {
         void readPage();
@@ -150,6 +156,7 @@ export function App() {
     }
 
     return (
+        <TipCompanionContext.Provider value={COMPANION}>
         <div className="flex h-screen flex-col bg-finn-snow font-sans text-finn-black">
             <header className="flex shrink-0 items-center gap-2.5 bg-finn-highlight-navy px-3 py-2.5 text-white">
                 {view === "list" && chat ? (
@@ -264,6 +271,7 @@ export function App() {
                 </div>
             )}
         </div>
+        </TipCompanionContext.Provider>
     );
 }
 

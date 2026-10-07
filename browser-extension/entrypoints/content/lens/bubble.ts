@@ -2,6 +2,7 @@ import { CHAT_SIZE_KEY } from "@/lib/chats/data";
 
 import { brandMark, el, panelStyles } from "../page/dom";
 
+import { hideTip } from "./companion";
 import { lensFrame, notifyPageChanged } from "./frames";
 
 /**
@@ -23,7 +24,13 @@ let host: HTMLElement | null = null;
 let frame: HTMLIFrameElement | null = null;
 let panel: HTMLElement | null = null;
 let bubbleLabel: HTMLElement | null = null;
+/** What the chat and the bubble sit in: the companion beside the chat is drawn here too. */
+let layer: HTMLElement | null = null;
 let isOpen = false;
+
+/** The chat's panel, for what sits beside it. */
+export const chatPanel = (): HTMLElement | null => panel;
+export const chatLayer = (): HTMLElement | null => layer;
 
 /* -------------------------------------------------------------------------- */
 /* Making the chat bigger                                                     */
@@ -191,6 +198,9 @@ export function setChatOpen(next: boolean): void {
     panel.style.display = next ? "block" : "none";
     panel.setAttribute("aria-hidden", String(!next));
 
+    /* The "i"'s companion belongs to the chat: it goes when the chat does. */
+    if (!next) hideTip(true);
+
     if (bubbleLabel) bubbleLabel.textContent = next ? "Close" : "Lens";
 
     if (next) {
@@ -288,7 +298,8 @@ async function mount(): Promise<void> {
         [brandMark(36), bubbleLabel],
     );
 
-    shadow.append(el("div", { class: "relative font-sans" }, [panel, bubble]));
+    layer = el("div", { class: "relative font-sans" }, [panel, bubble]);
+    shadow.append(layer);
 
     document.documentElement.append(host);
 }

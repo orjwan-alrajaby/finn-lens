@@ -6,6 +6,7 @@ import { activeFollowUp, allChips, followUps, IMPORTANCE_LABEL } from "@/lib/cha
 import { IMPORTANCE, IMPORTANCE_LEVELS, SCALE_EXPLAINED } from "@/lib/lens-chat/importance";
 import { DEAL_MEANS } from "@/lib/lens-chat/deals";
 import type { Source } from "@/lib/sources";
+import type { TipContent } from "@/lib/lens-chat/messages";
 import type { BubbleChips, CarSnapshot, ChatMessage, Choice, CustomAnswer, DealRow, StepId, SummaryBubble } from "@/lib/chats/types";
 import type { NeedImportance } from "@/lib/lens-ai/contract";
 import { lowerFirst } from "@/lib/reasoning-engine/format";
@@ -131,33 +132,56 @@ export function Typing() {
 /* A question with answers to tap                                             */
 /* -------------------------------------------------------------------------- */
 
-/** What an "i" says, in the same order everywhere: what it is, why it's starred, what it means, what Lens checks, and where it's from. */
-export interface TipContent {
-    title: string;
-    /** "Recommended because you said …": first, since it's why the star is there. */
-    recommended?: string;
-    /** A short paragraph each. */
-    body?: (string | null | undefined)[];
-    /** "I'll check": one item a line, rather than a run of "·". */
-    lists?: { label: string; items: string[]; hint?: string }[];
-    /** Said last and quieter: how it's scored, what tapping does. */
-    note?: string;
-    sources?: Source[];
+export type { TipContent };
+
+/**
+ * Where an "i" can open its panel outside the chat: beside it on finn.com,
+ * on the chat's left (see `entrypoints/content/lens/companion.ts`). `show`
+ * says whether it could; where it can't, or there's no page — a test, a
+ * phone's sheet — the "i" opens its panel inside the chat instead.
+ */
+export interface TipCompanion {
+    show(tip: TipContent, y: number): Promise<boolean>;
+    /** The "i" moved with the chat's scroll; false once the panel has gone. */
+    move(y: number): Promise<boolean>;
+    hide(): void;
 }
+
+export const TipCompanionContext = createContext<TipCompanion | null>(null);
+
+/*
+ * Which "i" has the companion: one at a time, so opening another takes it
+ * over, and its own "i" shows it's no longer open.
+ */
+let outsideTip: string | null = null;
+const outsideListeners = new Set<() => void>();
+const setOutsideTip = (id: string | null) => {
+    outsideTip = id;
+    outsideListeners.forEach((listener) => listener());
+};
+
+/** The reader closed the companion on the page's side: no "i" has it now. */
+export const companionClosed = () => setOutsideTip(null);
 
 /** The panel's width, and the gap it keeps from the "i" and from the edges. */
 const TIP_WIDTH = 236;
 const TIP_GAP = 8;
 
 /**
- * The "i" beside an answer: a small floating panel, opened by clicking it (or
- * Enter / Space) and never by hovering — a tooltip that pops up as the
- * pointer passes covers the very chips the reader is reaching for. It sits to
- * the left of the "i", pointing at it, so the chips it explains stay in
- * view; where the chat is too narrow for that, to the right, else below. A
- * second click, ×, Escape, or a click anywhere else closes it.
+ * The "i" beside an answer, opened by clicking it (or Enter / Space) and
+ * never by hovering — a tooltip that pops up as the pointer passes covers
+ * the very chips the reader is reaching for.
+ *
+ * On finn.com its panel is the chat's companion, beside the chat on its left
+ * and joined to it level with the "i", so it never covers what it explains;
+ * it follows the "i" as the chat scrolls, and stays open while the reader
+ * taps. Where that has no room, it's a small panel inside the chat, to the
+ * "i"'s left, else right, else below. A second click, ×, or Escape closes
+ * either; the one inside the chat closes on a click elsewhere too.
  */
 export function InfoTip({ label, tone = "idle", tip }: { label: string; tone?: "idle" | "on"; tip: TipContent }) {
+    const companion = useContext(TipCompanionContext);
+    const [outside, setOutside] = useState(false);
     const [open, setOpen] = useState(false);
     const [at, setAt] = useState<{ top: number; left: number; side: "left" | "right" | "below"; arrow: number } | null>(null);
     const button = useRef<HTMLButtonElement>(null);
@@ -211,22 +235,89 @@ export function InfoTip({ label, tone = "idle", tip }: { label: string; tone?: "
         };
     }, [open]);
 
+    /* Whether this "i" has the companion, kept in step with whichever has it. */
+    useEffect(() => {
+        const listener = () => setOutside(outsideTip === id);
+        outsideListeners.add(listener);
+        return () => {
+            outsideListeners.delete(listener);
+            /* Gone — the question answered, the chat moved on — so its panel goes too. */
+            if (outsideTip === id) {
+                companion?.hide();
+                setOutsideTip(null);
+            }
+        };
+    }, [id, companion]);
+
+    /* While it has the companion: follow the chat's scroll, and let Escape close it. */
+    useEffect(() => {
+        if (!outside || !companion) return;
+
+        let frame = 0;
+        const follow = () => {
+            cancelAnimationFrame(frame);
+            frame = requestAnimationFrame(() => {
+                const box = button.current?.getBoundingClientRect();
+                if (!box) return;
+                void companion.move(box.top + box.height / 2).then((shown) => {
+                    if (!shown && outsideTip === id) setOutsideTip(null);
+                });
+            });
+        };
+        const escape = (event: KeyboardEvent) => {
+            if (event.key !== "Escape") return;
+            companion.hide();
+            setOutsideTip(null);
+            button.current?.focus();
+        };
+
+        document.addEventListener("scroll", follow, true);
+        document.addEventListener("keydown", escape);
+        return () => {
+            cancelAnimationFrame(frame);
+            document.removeEventListener("scroll", follow, true);
+            document.removeEventListener("keydown", escape);
+        };
+    }, [outside, companion, id]);
+
+    const toggle = async () => {
+        if (outside) {
+            companion?.hide();
+            setOutsideTip(null);
+            return;
+        }
+        if (open) {
+            setOpen(false);
+            return;
+        }
+
+        const box = button.current?.getBoundingClientRect();
+        if (companion && box && (await companion.show(tip, box.top + box.height / 2))) {
+            setOutsideTip(id);
+            return;
+        }
+
+        /* No room beside the chat: inside it, and the companion isn't anyone's now. */
+        if (outsideTip) setOutsideTip(null);
+        setOpen(true);
+    };
+
     return (
         <>
             <button
                 ref={button}
                 type="button"
                 aria-label={`What “${label}” means`}
-                aria-expanded={open}
+                aria-expanded={open || outside}
                 aria-controls={open ? id : undefined}
                 onClick={(event) => {
                     event.stopPropagation();
-                    setOpen((current) => !current);
+                    void toggle();
                 }}
                 className={[
                     "inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full transition-colors",
                     "focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-finn-accent-blue",
-                    open
+                    open || outside
                         ? tone === "on"
                             ? "bg-white/25 text-white"
                             : "bg-finn-pale-blue text-finn-accent-blue"

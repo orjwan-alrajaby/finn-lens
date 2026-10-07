@@ -1,4 +1,5 @@
 import type { FinnSearch } from "@/lib/finn-search";
+import type { Source } from "@/lib/sources";
 
 /**
  * The messages between Lens's frames and the finn.com page they sit on.
@@ -59,7 +60,32 @@ export type ChatToPage = { token: string } & (
     /* `judgement`: an earlier judgement to read the car out of, by when it was made; the latest when absent. */
     | { type: "LENS_OPEN_DRAWER"; chatId: string; carId: number; judgement?: string }
     | { type: "LENS_CLOSE_DRAWER" }
+    /* An "i" opened: its panel beside the chat, level with `y` (the "i"'s middle, in the chat frame's own coordinates). */
+    | { type: "LENS_TIP_SHOW"; tip: TipContent; y: number }
+    /* The chat scrolled: the "i" is at `y` now. */
+    | { type: "LENS_TIP_MOVE"; y: number }
+    | { type: "LENS_TIP_HIDE" }
 );
+
+/** What an "i" says, in the same order everywhere: what it is, why it's starred, what it means, what Lens checks, and where it's from. */
+export interface TipContent {
+    title: string;
+    /** "Recommended because you said …": first, since it's why the star is there. */
+    recommended?: string;
+    /** A short paragraph each. */
+    body?: (string | null | undefined)[];
+    /** "I'll check": one item a line, rather than a run of "·". */
+    lists?: { label: string; items: string[]; hint?: string }[];
+    /** Said last and quieter: how it's scored, what tapping does. */
+    note?: string;
+    sources?: Source[];
+}
+
+/** Sent by the content script when the reader closed the "i"'s panel on the page side — ×, Escape, the chat closing. */
+export interface TipClosed {
+    type: "LENS_TIP_CLOSED";
+    token: string;
+}
 
 export const CHAT_TO_PAGE_TYPES = new Set<string>([
     "LENS_CHAT_CONTEXT",
@@ -68,6 +94,9 @@ export const CHAT_TO_PAGE_TYPES = new Set<string>([
     "LENS_CHAT_WIDE",
     "LENS_OPEN_DRAWER",
     "LENS_CLOSE_DRAWER",
+    "LENS_TIP_SHOW",
+    "LENS_TIP_MOVE",
+    "LENS_TIP_HIDE",
 ]);
 
 /** The extension pages allowed to use the bridge. */
