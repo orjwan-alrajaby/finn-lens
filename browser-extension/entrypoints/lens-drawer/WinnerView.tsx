@@ -8,6 +8,7 @@ import { weighingOf, type Weighing } from "@/lib/chats/weighing";
 import { fitFor } from "@/lib/reasoning-engine";
 import { GOOD_FROM, PARTIAL_FROM, STRONG_FROM } from "@/lib/reasoning-engine/bands";
 import { requestOpenDrawer } from "@/lib/chats/bridge";
+import { closestMatch } from "@/lib/chats/judge";
 
 import { sameJudgement } from "./useJudgedCar";
 import { alternativesWithinLimits } from "@/lib/lens-chat/run";
@@ -67,7 +68,9 @@ export function WinnerView({ value, print = false }: { value: JudgedCar; print?:
                         <Trophy aria-hidden="true" className="h-5 w-5" strokeWidth={2.4} />
                     </span>
                     <div className="min-w-0">
-                        <p className="text-[11px] font-black uppercase tracking-wide text-[#9a6200]">Best for you, of {judgement.carIds.length} cars</p>
+                        <p className="text-[11px] font-black uppercase tracking-wide text-[#9a6200]">
+                            {closestMatch(run) ? "Closest match" : "Best for you"}, of {judgement.carIds.length} cars
+                        </p>
                         <h1 className="text-[20px] font-black leading-tight text-finn-black">{car.name}</h1>
                         <p className="text-[12.5px] text-finn-iron">{configurationName(car)}</p>
                     </div>
@@ -80,7 +83,7 @@ export function WinnerView({ value, print = false }: { value: JudgedCar; print?:
                     {cost ? (
                         <p className="shrink-0 text-right text-[11px] text-finn-iron">
                             <span className="block text-[20px] font-black tabular-nums text-finn-black">{euros(cost.breakdown.totalMonthly)}</span>
-                            a month, estimated
+                            {cost.breakdown.complete ? "a month, estimated" : "a month, as far as Lens can tell"}
                         </p>
                     ) : null}
                 </div>
@@ -150,8 +153,13 @@ export function WinnerView({ value, print = false }: { value: JudgedCar; print?:
                                     <div className="min-w-0 flex-1">
                                         <p className="truncate text-[13px] font-black text-finn-black">{line.name}</p>
                                         <p className="text-[11.5px] text-finn-iron">
-                                            about {euros(line.monthly)}/month
-                                            {line.budget === "over" ? <span className="font-bold text-finn-fit-limited"> · over your limit</span> : null}
+                                            {/* Where FINN's data leaves part of the cost out, the figure is the least it costs. */}
+                                            {line.costComplete ? "about" : "at least"} {euros(line.monthly)}/month
+                                            {line.budget === "over" ? (
+                                                <span className="font-bold text-finn-fit-limited"> · over your limit</span>
+                                            ) : line.rental === "doesNotFit" ? (
+                                                <span className="font-bold text-finn-fit-limited"> · not for your dates</span>
+                                            ) : null}
                                         </p>
                                     </div>
                                     <BandChip band={line.band} label={line.bandLabel} />

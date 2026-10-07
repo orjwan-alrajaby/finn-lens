@@ -6,6 +6,7 @@ import { ExternalLink, History, LocateFixed, X } from "lucide-react";
 import { BrandMark, IconButton } from "@/components/lens-parts";
 import { LoadingScreen } from "@/components/Spinner";
 import { requestCloseDrawer, requestOpenDrawer, requestShowCar } from "@/lib/chats/bridge";
+import { closestMatch } from "@/lib/chats/judge";
 
 import { Catch, CarHeader, CostTable, Section, StoryList, UsageSection } from "./parts";
 import { ExportButton, usePdfExport } from "./usePdfExport";
@@ -46,7 +47,7 @@ export function App() {
             <header className="flex shrink-0 items-center gap-2.5 border-b border-finn-cotton px-4 py-3">
                 <BrandMark size={30} className="ring-1 ring-finn-cotton" />
                 <div className="min-w-0 flex-1">
-                    <p className="text-[14px] font-black leading-tight">{winner ? "Why it's the best for you" : "How it fits you"}</p>
+                    <p className="text-[14px] font-black leading-tight">{winner ? (closestMatch(winner.judged.run) ? "Why it's the closest match" : "Why it's the best for you") : "How it fits you"}</p>
                     <p className="truncate text-[11.5px] text-finn-iron">
                         {loaded.state === "ready" ? `From your chat: ${loaded.value.chat.title}` : "From your chat with Lens"}
                     </p>
@@ -96,7 +97,11 @@ function CarView({ value }: { value: JudgedCar }) {
             {verdict.setAside ? (
                 <Section title="Why it wasn't ranked">
                     <p className="text-[13px] leading-relaxed text-finn-black">
-                        {verdict.setAside}, so I set this car aside before judging the others. Change your answers in the chat if you'd like it back in.
+                        {/* Graded but not ranked: nothing fitted the budget, and only the cars nearest it were ranked. */}
+                        {verdict.label !== "Ruled out" && verdict.over === "budget"
+                            ? "Nothing here fits your budget, so I ranked only the cars closest to it — and this one costs more than those."
+                            : `${verdict.setAside}, so I set this car aside before judging the others.`}{" "}
+                        Change your answers in the chat if you'd like it back in.
                     </p>
                 </Section>
             ) : null}

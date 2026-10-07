@@ -2,9 +2,10 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 
-import { startChat } from "@/lib/chats/flow";
+import { rentalFor, startChat } from "@/lib/chats/flow";
 import { judgementFrom, judgeWith } from "@/lib/chats/judge";
 import { withBubbles } from "@/lib/lens-chat/bubbles";
+import { withDeals } from "@/lib/lens-chat/deals";
 import { tellFitStory } from "@/lib/lens-chat/fit-story";
 import { EMPTY_UNDERSTANDING, withBudget } from "@/lib/lens-chat/understanding";
 import { buildCostAnalysis } from "@/lib/reasoning-engine";
@@ -78,5 +79,35 @@ describe("the winner's drawer", () => {
 
         expect(folded(html)).toEqual([]);
         expect(text(html)).toContain("How I weighed it");
+    });
+});
+
+describe("the drawer of a pick past a limit", () => {
+    /* FINN's snapshot offers these cars on short terms only: two years fits none of them. */
+    function past(): JudgedCar {
+        const u = rentalFor(withDeals(withBubbles(EMPTY_UNDERSTANDING, { carry: ["trailer"] }), ["towbar"], { towbar: "must" }), 24, "", new Date("2026-10-07T10:00:00Z"));
+        const judged = judgeWith(u, page, "24 cars")!;
+        const id = judged.run.recommendation.winner.id;
+        const car = page.find((item) => item.id === id)!;
+        const judgement = judgementFrom(judged, page, u, "24 cars", "", {}, "2026-10-07T10:00:00Z");
+
+        return { ...winner(), chat: { ...startChat(null, page), judgement }, judgement, judged, car, verdict: judgement.verdicts[id]!, story: tellFitStory(judged.run, u, judged.translation.lessRelevant, null, id), cost: buildCostAnalysis(car, judged.run.answers.preferences, judged.run.recommendation.context.costs[id]) };
+    }
+
+    it("calls it the closest match, as the chat does", () => {
+        const words = text(renderToStaticMarkup(createElement(WinnerView, { value: past(), print: true })));
+
+        expect(words).toContain("Closest match, of 24 cars");
+        expect(words).not.toContain("Best for you");
+    });
+
+    it("says a runner-up that misses the dates is not for them, rather than nothing", () => {
+        const words = text(renderToStaticMarkup(createElement(WinnerView, { value: past(), print: true })));
+
+        expect(words.slice(words.indexOf("Why not the others"))).toMatch(/\/month · not for your dates/);
+    });
+
+    it("is the best for you when every limit holds", () => {
+        expect(text(renderToStaticMarkup(createElement(WinnerView, { value: winner(), print: true })))).toContain("Best for you, of 24 cars");
     });
 });

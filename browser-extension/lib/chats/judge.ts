@@ -266,6 +266,20 @@ export function becauseOf(u: Understanding): { said: string; importance: NeedImp
 const FIGURE_WORDS: Partial<Record<string, string>> = { environmental: "CO₂ per km", efficiency: "fuel or electricity use for its kind" };
 
 /**
+ * Whether the pick is past one of the reader's limits — nothing within the
+ * budget, nothing for their dates, a deal-breaker no car has and they kept —
+ * so it's the closest match, not the strongest. The chat's result and the
+ * drawer say it alike.
+ */
+export function closestMatch(run: LensRun): boolean {
+    const { recommendation } = run;
+
+    return Boolean(
+        run.ruledOut?.nothingLeft || run.nearestToLimit || recommendation.isFallback || recommendation.rentalFallback === "noneFit" || recommendation.gearboxFallback === "noneFit",
+    );
+}
+
+/**
  * When no car here can be rented for the reader's dates: said first, since it
  * changes what the pick means — "Audi Q3 only offers terms up to 9 months,
  * which doesn't cover November 2026 to October 2028".
@@ -309,11 +323,7 @@ export function resultMessage(
      * means; else the biggest trade-off; else whatever else the engine noted.
      */
     const limit = run.ruledOut?.nothingLeft || run.nearestToLimit || datesNote(run) ? note : (run.narrative.verdict.budgetNote ?? null);
-    /* Past a limit — the budget, the dates, a deal-breaker kept — it's the closest match, not the strongest. */
-    const { recommendation } = run;
-    const closest = Boolean(
-        run.ruledOut?.nothingLeft || run.nearestToLimit || recommendation.isFallback || recommendation.rentalFallback === "noneFit" || recommendation.gearboxFallback === "noneFit",
-    );
+    const closest = closestMatch(run);
     const [tradeoff] = run.narrative.tradeoffs;
     const know = limit ?? (tradeoff ? `${tradeoff.headline}. ${tradeoff.sentences[0] ?? tradeoff.evidence}` : note);
 

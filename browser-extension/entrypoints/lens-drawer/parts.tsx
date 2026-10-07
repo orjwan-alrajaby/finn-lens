@@ -218,7 +218,8 @@ export function CostTable({ cost }: { cost: CostAnalysis }) {
 /** The car itself: photo, name, the chip it wears on FINN's card, and what it costs. */
 export function CarHeader({ value }: { value: JudgedCar }) {
     const { car, verdict, judgement, cost, isWinner } = value;
-    const total = judgement.carIds.length;
+    /* Its place among the cars that were ranked: the ones set aside before ranking have none. */
+    const total = Object.values(judgement.verdicts).filter((item) => item.rank != null).length;
 
     return (
         <div className="px-5 pt-4 pb-4">
@@ -228,7 +229,7 @@ export function CarHeader({ value }: { value: JudgedCar }) {
                 {isWinner ? <WinnerChip /> : <BandChip band={verdict.setAside ? "unknown" : verdict.band} label={verdict.label} />}
                 {verdict.rank != null ? (
                     <span className="rounded-full bg-finn-cotton px-2.5 py-1 text-[11px] font-black text-finn-black">
-                        #{verdict.rank} of {total}
+                        #{verdict.rank} of {total} ranked
                     </span>
                 ) : null}
                 {verdict.over ? (
@@ -246,7 +247,7 @@ export function CarHeader({ value }: { value: JudgedCar }) {
                 {cost ? (
                     <p className="shrink-0 text-right text-[11px] text-finn-iron">
                         <span className="block text-[18px] font-black tabular-nums text-finn-black">{euros(cost.breakdown.totalMonthly)}</span>
-                        a month, estimated
+                        {cost.breakdown.complete ? "a month, estimated" : "a month, as far as Lens can tell"}
                     </p>
                 ) : null}
             </div>
