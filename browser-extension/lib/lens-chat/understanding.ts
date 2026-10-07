@@ -1095,6 +1095,7 @@ export const budgetCeiling = (budget: NonNullable<Understanding["budget"]>): num
 
 export function budgetText(budget: Understanding["budget"]): string {
     if (!budget) return "No limit";
+    if (budget.stretchTo) return `${euros(budget.monthly)}/month, up to ${euros(budget.stretchTo)} at a push`;
     return budget.kind === "hardMax" ? `${euros(budget.monthly)}/month maximum` : `Around ${euros(budget.monthly)}/month`;
 }
 
@@ -1110,6 +1111,13 @@ export function diffUnderstanding(before: Understanding, after: Understanding): 
 
     if (period(before.rental) !== period(after.rental)) {
         lines.push({ label: "Rental period", from: period(before.rental), to: period(after.rental) });
+    }
+
+    /* How far they drive: it prices every car's mileage, so a typed distance is a change worth saying. */
+    const distance = (km: Understanding["monthlyKm"]) => (km ? `about ${km.value.toLocaleString("en-GB")} km a month` : "not said");
+
+    if (distance(before.monthlyKm) !== distance(after.monthlyKm)) {
+        lines.push({ label: "Distance", from: distance(before.monthlyKm), to: distance(after.monthlyKm) });
     }
 
     const importanceText = IMPORTANCE_LABEL;

@@ -1102,7 +1102,15 @@ export function summaryOf(u: Understanding, id: string = messageId(), cars: Finn
         label: "Monthly limit",
         value: !u.budget
             ? "No fixed limit"
-            : `${formatEUR(u.budget.monthly)} all in${u.budget.firm ? ", nothing over it" : u.budget.kind === "target" ? `, a little over is fine (up to about ${formatEUR(budgetCeiling(u.budget))})` : ""}`,
+            : `${formatEUR(u.budget.monthly)} all in${
+                  u.budget.firm
+                      ? ", nothing over it"
+                      : u.budget.stretchTo
+                        ? `, up to ${formatEUR(u.budget.stretchTo)} at a push`
+                        : u.budget.kind === "target"
+                          ? `, a little over is fine (up to about ${formatEUR(budgetCeiling(u.budget))})`
+                          : ""
+              }`,
         step: "budget",
     });
     lines.push({ label: "For", value: u.rental ? `${monthLabel(u.rental.from)} – ${monthLabel(u.rental.to)}` : periodUnset(u), step: "period" });
@@ -1762,7 +1770,9 @@ function answerStep(
         const amount = extra.amount ?? (picked[0] ? Number(picked[0].id.replace("budget-", "")) : null);
 
         if (extra.amount != null) said = `Up to ${formatEUR(extra.amount)} a month.`;
-        understanding = amount ? syncBubbles(withBudget(understanding, Math.round(amount), said)) : waiveEssential(understanding, "budget");
+        /* Words that gave a limit — "around 650, could stretch to 700" — are the answer; none at all is "no fixed limit". */
+        const worded = !amount && extra.heard?.understanding.budget != null;
+        understanding = amount ? syncBubbles(withBudget(understanding, Math.round(amount), said)) : worded ? syncBubbles(understanding) : waiveEssential(understanding, "budget");
     } else if (step.id === "period") {
         const months = extra.amount ?? (picked[0] ? Number(picked[0].id.replace("period-", "")) : null);
 
@@ -1770,7 +1780,9 @@ function answerStep(
         /* A new length from the month already picked — "from January" stays January — unless that month has passed. */
         const from = understanding.rental && understanding.rental.from >= startMonth(today) ? (understanding.rental.from as MonthString) : null;
         understanding = !months
-            ? waiveEssential(understanding, "rental")
+            ? extra.heard?.understanding.rental
+                ? understanding
+                : waiveEssential(understanding, "rental")
             : from
               ? withRental(understanding, from, addMonths(from, Math.round(months) - 1), said)
               : rentalFor(understanding, Math.round(months), said, today);

@@ -743,6 +743,13 @@ const needFor = (step: GuideStepId, choice: GuideChoice): Need | null => {
     return null;
 };
 
+/** The need one of the deal-breakers stands for — "automatic", "no-suv" — exactly as tapping it would set it. */
+export function ruleNeed(choiceId: string): Need | null {
+    const choice = RULES.find((item) => item.id === choiceId);
+
+    return choice ? needFor("rules", choice) : null;
+}
+
 /**
  * The need one of the guide's own answers stands for, narrowed to these
  * cars — so words that mean "Pets" land on exactly what tapping it would.

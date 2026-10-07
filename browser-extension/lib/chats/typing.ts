@@ -4,7 +4,10 @@ import { buildVocabulary } from "@/lib/lens-ai/vocabulary";
 import { evidenceCatalogue } from "@/lib/lens-chat/evidence";
 import { evidenceForNeeds } from "@/lib/lens-chat/fit-story";
 import { bubbleById, bubblesIn, syncBubbles, withBubbles, type BubbleId } from "@/lib/lens-chat/bubbles";
-import { catalogueNeed } from "@/lib/lens-chat/guide";
+import { catalogueNeed, ruleNeed } from "@/lib/lens-chat/guide";
+import { demandOf } from "@/lib/lens-chat/deals";
+import { asPhrase, type EvidenceId } from "@/lib/lens-chat/evidence";
+import type { Need } from "@/lib/lens-chat/understanding";
 import { lowerFirst } from "@/lib/reasoning-engine/format";
 import type { LensRun } from "@/lib/lens-chat/run";
 import {
@@ -81,6 +84,7 @@ const AS_BUBBLE: Record<string, (text: string) => { bubble: BubbleId; chips: str
     /* "Eco-friendly" doesn't say how green: the bubble alone, judged on the CO₂ label. */
     clean: () => ({ bubble: "environment", chips: [] }),
     winter: (text) => ({ bubble: "weather", chips: [/snow|\bice\b|icy/i.test(text) ? "snow" : "cold"] }),
+    towing: () => ({ bubble: "carry", chips: ["trailer"] }),
     safety: () => ({ bubble: "help", chips: [] }),
 };
 
@@ -91,6 +95,28 @@ const AS_BUBBLE: Record<string, (text: string) => { bubble: BubbleId; chips: str
  */
 const AS_NEED: Record<string, string> = { efficient: "efficiency-matters" };
 
+/**
+ * Typed rules that are a deal-breaker row's own: "I need an automatic" is the
+ * automatic row set to "Must have", shown and changed there — a rule of its
+ * own beside the row stayed in force when the row said "Doesn't matter".
+ */
+const AS_RULE: Record<string, string> = { automatic: "automatic", "no-suv": "no-suv" };
+
+/** The fuels "What can it run on?" sets aside for each typed wish: electric only, or anything but. */
+const AS_FUEL: Record<string, EvidenceId[]> = { electric: ["plugInHybrid", "petrolCar", "dieselCar"], "not-electric": ["electricCar"] };
+
+/** What it runs on, as "What can it run on?" would set it: the same need, so the question shows it picked and changes it. */
+const fuelNeed = (out: EvidenceId[], said: string): Need => ({
+    id: "fuel",
+    label: "What it runs on",
+    importance: "essential",
+    said,
+    priorities: [],
+    evidence: out.map((id) => ({ id, use: `Set aside: you'd rather not have ${asPhrase(id)}.`, unwanted: true, mustHave: false })),
+    notInData: null,
+    status: "active",
+});
+
 function asTapped(u: Understanding, before: Understanding, text: string, cars: FinnCar[]): { understanding: Understanding; heardAs: string[] } {
     const had = new Set(before.needs.map((need) => need.id));
     const heardAs: string[] = [];
@@ -99,6 +125,19 @@ function asTapped(u: Understanding, before: Understanding, text: string, cars: F
 
     for (const need of u.needs) {
         if (had.has(need.id) || need.id.startsWith("bubble-")) continue;
+
+        const rule = AS_RULE[need.id] ? ruleNeed(AS_RULE[need.id]!) : null;
+        if (rule) {
+            needs = [...needs.filter((item) => item.id !== need.id && item.id !== rule.id), rule];
+            heardAs.push(lowerFirst(demandOf({ id: rule.evidence[0]!.id, mode: rule.evidence[0]!.unwanted ? "without" : "must" })));
+            continue;
+        }
+
+        if (AS_FUEL[need.id]) {
+            needs = [...needs.filter((item) => item.id !== need.id && item.id !== "fuel"), fuelNeed(AS_FUEL[need.id]!, need.said)];
+            heardAs.push(need.id === "electric" ? "electric only" : "not electric");
+            continue;
+        }
 
         const match = AS_BUBBLE[need.id]?.(text);
         const bubble = match ? bubbleById(match.bubble) : null;

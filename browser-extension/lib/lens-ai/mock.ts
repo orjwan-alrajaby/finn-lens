@@ -75,7 +75,7 @@ function readBudget(message: string): WireUnderstanding["budget"] {
     /* Sentences, not clauses: "around 650 is okay but I'd rather be closer to 550" is one thought. */
     const clauses = message.replace(/[’`]/g, "'").split(/(?<=[.!?;])\s+/).filter(
         (clause) =>
-            /€|\beur(o|os)?\b|a month|per month|monthly|budget|afford|spend|\bpay\b|\bmax(imum)?\b|can do/i.test(clause) &&
+            /€|\beur(o|os)?\b|a month|per month|monthly|budget|afford|spend|\bpay\b|\bmax(imum)?\b|can do|stretch|\blimit\b|\bup to\b/i.test(clause) &&
             !/\bkm\b|kilomet/i.test(clause.replace(/\d+\s*(€|euros?)/gi, "")),
     );
 
@@ -151,6 +151,25 @@ function readKm(message: string): WireUnderstanding["monthlyKm"] {
         }
     }
 
+    /* Said outright, a month or a year: "2,000 km a month", "about 30,000 km a year". */
+    const NUMBER = "(\\d{1,3}(?:[.,\\s]\\d{3})+|\\d+)";
+    const figure = (raw: string) => Number(raw.replace(/[.,\s](?=\d{3}\b)/g, ""));
+    const perMonth = text.match(new RegExp(`${NUMBER}\\s?km\\s?(?:a|per|each|every)\\s?month|${NUMBER}\\s?km\\s?monthly`));
+    const perYear = text.match(new RegExp(`${NUMBER}\\s?km\\s?(?:a|per|each|every)\\s?year|${NUMBER}\\s?km\\s?(?:yearly|annually)`));
+    if (perMonth) {
+        const km = figure(perMonth[1] ?? perMonth[2]!);
+        if (km >= 50 && km <= 20_000) {
+            total += km;
+            parts.push(`about ${km.toLocaleString("en-GB")} km a month`);
+        }
+    } else if (perYear) {
+        const km = figure(perYear[1] ?? perYear[2]!);
+        if (km >= 600 && km <= 240_000) {
+            total += km / 12;
+            parts.push(`about ${km.toLocaleString("en-GB")} km a year`);
+        }
+    }
+
     if (!total) return null;
 
     return { value: Math.round(total / 10) * 10, said: parts.join(" plus ") };
@@ -172,7 +191,25 @@ function readSituation(message: string, previous: WireUnderstanding) {
         if (!needs.some((need) => need.id === rule.id)) needs.push(rule);
     };
 
-    const electricWanted = /\b(want|like|prefer|really wants?|would like)\b[^.]*\b(electric|ev)\b/i.test(text) || /\belectric car\b/i.test(text);
+    /*
+     * Electric, wanted or refused: "I don't want an electric car" is the
+     * opposite of wanting one, and "it doesn't have to be electric" is
+     * neither — it was read as "electric only" before.
+     */
+    const electricSentences = text.split(/(?<=[.!?;])\s+/).filter((sentence) => /\b(electric|ev)s?\b/i.test(sentence));
+    const either = (sentence: string) => /\b(doesn't|does not|don't|do not)\s+(have|need)\s+to\s+be\b|\bor (petrol|diesel|hybrid)\b|\bwhether\b/i.test(sentence);
+    const electricRejected = electricSentences.some(
+        (sentence) => !either(sentence) && /\b(don't|do not|doesn't|never|no|not|hate|avoid)\b(\s+\w+){0,3}\s+(electric|ev)s?\b|\bnon-electric\b/i.test(sentence),
+    );
+    const electricWanted =
+        !electricRejected &&
+        electricSentences.some(
+            (sentence) =>
+                !either(sentence) &&
+                (/\b(want|like|prefer|really wants?|would like)\b[^.]*\b(electric|ev)\b/i.test(sentence) ||
+                    /\belectric car\b/i.test(sentence) ||
+                    /\b(must|has to|have to|needs? to) be (an? )?electric\b|\belectric only\b|\bonly electric\b/i.test(sentence)),
+        );
     const rangeWorry = /stranded|run(ning)? out of (charge|battery)|range anxiety|worried about (the )?range/i.test(text);
     const partnerSplit = electricWanted && rangeWorry && /partner|husband|wife|girlfriend|boyfriend/i.test(text);
 
@@ -437,7 +474,8 @@ function readSituation(message: string, previous: WireUnderstanding) {
         });
     }
 
-    const longDrives = /motorway|highway|autobahn|commut|long(er)? (trips?|drives?|journeys?)|hours? away|hour trips?|\d{3}\s?km|road trips?|visit (family|my parents|friends)/i.test(text);
+    /* A 300 km trip is a long drive; 2,000 km a month says how far, not how long each drive is. */
+    const longDrives = /motorway|highway|autobahn|commut|long(er)? (trips?|drives?|journeys?)|hours? away|hour trips?|\d{3}\s?km(?!\s?(?:a|per|each|every)\s?(?:month|year)|\s?(?:monthly|yearly|annually))|road trips?|visit (family|my parents|friends)/i.test(text);
     if (longDrives) {
         add({
             id: "long-drives",
@@ -528,6 +566,25 @@ function readSituation(message: string, previous: WireUnderstanding) {
         });
     }
 
+    if (electricRejected) {
+        add({ id: "not-electric", label: "Not electric", importance: "essential", said: "you don't want an electric car", priorities: [], evidence: [{ id: "electricCar", use: "", unwanted: true }] });
+    }
+
+    /* Towing: a trailer, a caravan, a horse box — but not "I don't tow". */
+    if (/\btow(s|ing)?\b|\bcaravan\b|\btrailer\b|horse ?box/i.test(text) && !/\b(don't|do not|never|won't)\s+tow\b/i.test(text)) {
+        add({
+            id: "towing",
+            label: "Towing",
+            importance: "important",
+            said: "you tow a trailer or caravan",
+            priorities: ["practicality"],
+            evidence: [
+                { id: "hasTowbar", use: "lets you tow at all" },
+                { id: "towingCapacity1500", use: "" },
+            ],
+        });
+    }
+
     if (/\bautomatic\b/i.test(text) && /\b(must|has to|need|want)\b/i.test(text)) {
         add({ id: "automatic", label: "An automatic", importance: "essential", said: "it has to be an automatic", priorities: [], evidence: [{ id: "hasAutomaticTransmission", use: "", mustHave: true }] });
     }
@@ -588,11 +645,14 @@ function replyFor(
     answering: boolean,
 ): string {
     const message = request.message;
-    const firstNeeds = (added.length ? added : u.needs.filter((need) => need.status === "active")).slice(0, 2).map((need) => need.label.toLowerCase());
+    /* "not an SUV", not "not an suv". */
+    const firstNeeds = (added.length ? added : u.needs.filter((need) => need.status === "active")).slice(0, 2).map((need) => phrase(need.label));
     const situation = firstNeeds.length > 1 ? `${firstNeeds[0]} and ${firstNeeds[1]}` : firstNeeds[0] ?? "what you need";
     const money = u.budget
         ? u.budget.kind === "hardMax"
-            ? `€${u.budget.monthly} is a firm ceiling${u.budget.stretchTo ? `, €${u.budget.stretchTo} at a push` : ""}`
+            ? u.budget.stretchTo
+                ? `€${u.budget.monthly}, €${u.budget.stretchTo} at a push`
+                : `€${u.budget.monthly} is a firm ceiling`
             : `around €${u.budget.monthly}${u.budget.stretchTo ? `, €${u.budget.stretchTo} at most` : ""}`
         : "";
 

@@ -320,7 +320,22 @@ export function useConversation(page: PageCars) {
                 const read = await readTyped(current, message, pageRef.current.cars, current.phase === "judged" ? await lastRun(current) : null);
 
                 if (!read.changes.length) {
-                    await commit(withExchange(current, message, read.reply || "I didn't catch anything I can judge cars by in that. You can tap one of the answers instead."));
+                    /*
+                     * Nothing changed: a question about the result has its
+                     * answer; anything else says how it was read — never the
+                     * reader's placeholder "What you need."
+                     */
+                    await commit(
+                        withExchange(
+                            current,
+                            message,
+                            read.kind === "answer" && read.reply
+                                ? read.reply
+                                : read.heardAs.length
+                                  ? `${readBack(message, read, false)} That's already what I have.`
+                                  : "I didn't catch anything I can judge cars by in that. You can tap one of the answers instead.",
+                        ),
+                    );
                     return;
                 }
 
