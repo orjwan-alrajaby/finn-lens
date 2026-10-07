@@ -162,6 +162,52 @@ describe("the result", () => {
     });
 });
 
+describe("the result, past a limit and on a shared model", () => {
+    const base = (): Extract<ChatMessage, { kind: "result" }> => ({
+        id: "r2",
+        at: "",
+        from: "lens",
+        kind: "result",
+        headline: "7 cars",
+        count: 7,
+        winner: { id: 1, name: "Toyota Yaris Teamplayer 1.5 Hybrid", configuration: "Teamplayer 1.5 Hybrid", image: null, monthly: 384, band: "strong", bandLabel: "Strong match", url: null, overLimit: false },
+        reason: null,
+        because: [{ said: "You have kids", importance: "essential", into: ["rear doors"], share: 50 }],
+        note: null,
+        runnersUp: [
+            { id: 2, name: "MG 3", configuration: "", image: null, monthly: 224, band: "good", bandLabel: "Good match", url: null, overLimit: true, over: "period" },
+            { id: 3, name: "Audi Q3", configuration: "", image: null, monthly: 980, band: "good", bandLabel: "Good match", url: null, overLimit: true, over: "budget" },
+        ],
+        setAside: 0,
+    });
+    const words = (message: Extract<ChatMessage, { kind: "result" }>) =>
+        text(renderToStaticMarkup(createElement(MessageList, { messages: [message], typing: false, busy: false, onAnswer: noop, onOpenCar: noop, longResults: true })));
+
+    it("names the model once, with its configuration on the line below", () => {
+        const html = renderToStaticMarkup(createElement(MessageList, { messages: [base()], typing: false, busy: false, onAnswer: noop, onOpenCar: noop }));
+
+        expect(html).toMatch(/>Toyota Yaris<\/p><p[^>]*>Teamplayer 1\.5 Hybrid<\/p>/);
+        expect(text(html)).not.toContain("Teamplayer 1.5 Hybrid Teamplayer 1.5 Hybrid");
+    });
+
+    it("is the closest match, not the strongest, once it's past a limit", () => {
+        expect(words(base())).toContain("Your strongest match");
+        expect(words({ ...base(), closest: true })).toContain("Closest match");
+        expect(words({ ...base(), closest: true })).not.toContain("Your strongest match");
+    });
+
+    it("says which limit a runner-up is past: a cheap car that only misses the dates isn't over the limit", () => {
+        const said = words(base());
+
+        expect(said).toContain("MG 3 about €224/month · not for your dates");
+        expect(said).toContain("Audi Q3 about €980/month · over your limit");
+    });
+
+    it("says how much each thing counted as its share of the decision", () => {
+        expect(words(base())).toContain("Because you said… You have kids — top priority, 50% of the decision");
+    });
+});
+
 describe("deal-breakers and deal-sealers", () => {
     it("draws a row each, with only what that row can be, and an “i” for each", () => {
         const step = stepFor("deals", cars())!;

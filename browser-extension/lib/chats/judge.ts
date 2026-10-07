@@ -1,4 +1,4 @@
-import { buildRecommendation } from "@/lib/reasoning-engine";
+import { buildRecommendation, describeRentalProblem, formatEUR } from "@/lib/reasoning-engine";
 import { calculateCost, missingPiece } from "@/lib/reasoning-engine/cost";
 import type { Answers } from "@/lib/reasoning-engine/answers";
 import { bandForScore } from "@/lib/reasoning-engine/bands";
@@ -12,10 +12,11 @@ import { FIT_BANDS, type FitLevel } from "@/lib/reasoning-engine/fit";
 import { totalFor } from "@/lib/reasoning-engine/scoring";
 import { asPhrase, EVIDENCE, evidenceMet, measuredDisplay } from "@/lib/lens-chat/evidence";
 import { allowedByRules, alternativesWithinLimits, compareRows, runLens, summariseMatch, type CarLine, type LensRun } from "@/lib/lens-chat/run";
-import { ruledOut, toAnswers, type Translation, type Understanding } from "@/lib/lens-chat/understanding";
+import { NEED_WEIGHT, ruledOut, toAnswers, type Translation, type Understanding } from "@/lib/lens-chat/understanding";
 import type { PinnedFinnCar } from "@/lib/types";
 
 import type { CarSnapshot, Chat, ChatMessage, Judgement, Verdict } from "./types";
+import { wholePercents } from "./weighing";
 
 /**
  * A chat's judgement: the reader's answers, run through the real engine over
@@ -202,6 +203,8 @@ const snapshot = (line: CarLine, urls: Record<number, string>): CarSnapshot => (
     bandLabel: line.bandLabel,
     url: urls[line.id] ?? null,
     overLimit: line.budget === "over" || line.rental === "doesNotFit",
+    /* Which limit: a €224 car that only fails the dates isn't "over your limit". */
+    over: line.budget === "over" ? "budget" : line.rental === "doesNotFit" ? "period" : null,
 });
 
 const RANK: Record<NeedImportance, number> = { essential: 0, important: 1, niceToHave: 2 };
@@ -232,12 +235,52 @@ export function whyLines(car: PinnedFinnCar, u: Understanding): { said: string; 
         .filter((line) => line.has.length > 0);
 }
 
-/** Which bubbles put weight where, in the reader's words. */
-export function becauseOf(u: Understanding): { said: string; importance: NeedImportance; into: string[] }[] {
-    return bubblesIn(u).flatMap(({ bubble }) => {
-        const need = u.needs.find((item) => item.id === `bubble-${bubble.id}` && item.status === "active");
-        return need ? [{ said: bubble.you, importance: need.importance, into: need.priorities.map((id) => CATEGORIES[id].label) }] : [];
-    });
+/**
+ * How much each thing the reader said counted, in their own terms: what they
+ * said, how much it counts, its share of the decision and what Lens looked at
+ * for it — the drawer's "How I weighed it" in brief, and never the engine's
+ * priority names ("Comfort → Climate Suitability" read as nonsense). The
+ * share is the one the engine is given: a need's weight over every need's.
+ */
+export function becauseOf(u: Understanding): { said: string; importance: NeedImportance; into: string[]; share: number }[] {
+    const counted = u.needs.filter((need) => need.status === "active" && need.priorities.length > 0);
+    const total = counted.reduce((sum, need) => sum + NEED_WEIGHT[need.importance], 0);
+    const percents = wholePercents(counted.map((need) => (total ? NEED_WEIGHT[need.importance] / total : 0)));
+
+    return counted
+        .map((need, index) => {
+            const bubble = need.id.startsWith("bubble-") ? bubblesIn(u).find((item) => `bubble-${item.bubble.id}` === need.id)?.bubble : null;
+            const figures = need.priorities.filter((id) => CATEGORIES[id].numericOnly).map((id) => FIGURE_WORDS[id] ?? CATEGORIES[id].label.toLowerCase());
+
+            return {
+                said: bubble ? bubble.you : need.id.startsWith("sealer-") ? `${need.label} would seal it` : need.label,
+                importance: need.importance,
+                into: [...figures, ...need.evidence.filter((entry) => !entry.unwanted).map((entry) => lowerFirst(EVIDENCE[entry.id].label))],
+                share: percents[index]!,
+            };
+        })
+        .sort((a, b) => b.share - a.share);
+}
+
+/** A figure Lens judges on, as "because you said" names it. */
+const FIGURE_WORDS: Partial<Record<string, string>> = { environmental: "CO₂ per km", efficiency: "fuel or electricity use for its kind" };
+
+/**
+ * When no car here can be rented for the reader's dates: said first, since it
+ * changes what the pick means — "Audi Q3 only offers terms up to 9 months,
+ * which doesn't cover November 2026 to October 2028".
+ */
+function datesNote(run: LensRun): string | null {
+    const { recommendation } = run;
+    if (recommendation.rentalFallback !== "noneFit") return null;
+
+    const contract = recommendation.context.costs[recommendation.winner.id]?.contract;
+    const problem = contract ? describeRentalProblem(contract) : null;
+    const name = compareRows(run, 1)[0]?.name ?? recommendation.winner.name;
+
+    return problem
+        ? `None of the cars here fits your dates — ${name} ${problem}. It's the best fit for everything else you told me.`
+        : "None of the cars here fits your dates, so this is the best fit for everything else you told me.";
 }
 
 export function resultMessage(
@@ -257,15 +300,20 @@ export function resultMessage(
     const note = run.ruledOut?.nothingLeft
         ? `No car here has ${run.ruledOut.evidence.length === 1 ? "what your deal-breaker asks for" : "all of your deal-breakers"}, and you kept ${run.ruledOut.evidence.length === 1 ? "it" : "them all"} — so this is the best fit for everything else you told me.`
         : run.nearestToLimit
-          ? `Nothing here fits your budget, so I ranked the cars closest to it — up to about €${run.nearestToLimit.upTo} a month.`
-          : summary.note;
+          ? `Nothing here fits your budget, so I ranked the cars closest to it — up to about ${formatEUR(run.nearestToLimit.upTo)} a month.`
+          : (datesNote(run) ?? summary.note);
 
     /*
      * One thing to know: a note about a limit first — over budget, nothing
      * within it, every car broke a rule — since it changes what the pick
      * means; else the biggest trade-off; else whatever else the engine noted.
      */
-    const limit = run.ruledOut?.nothingLeft || run.nearestToLimit ? note : (run.narrative.verdict.budgetNote ?? null);
+    const limit = run.ruledOut?.nothingLeft || run.nearestToLimit || datesNote(run) ? note : (run.narrative.verdict.budgetNote ?? null);
+    /* Past a limit — the budget, the dates, a deal-breaker kept — it's the closest match, not the strongest. */
+    const { recommendation } = run;
+    const closest = Boolean(
+        run.ruledOut?.nothingLeft || run.nearestToLimit || recommendation.isFallback || recommendation.rentalFallback === "noneFit" || recommendation.gearboxFallback === "noneFit",
+    );
     const [tradeoff] = run.narrative.tradeoffs;
     const know = limit ?? (tradeoff ? `${tradeoff.headline}. ${tradeoff.sentences[0] ?? tradeoff.evidence}` : note);
 
@@ -276,6 +324,7 @@ export function resultMessage(
         kind: "result",
         headline,
         count: cars.length,
+        ...(closest ? { closest } : {}),
         winner: winner ? snapshot(winner, urls) : null,
         reason: summary.reason,
         ...(u

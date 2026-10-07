@@ -11,7 +11,9 @@ import type { PinnedFinnCar } from "@/lib/types";
 import { applyFollowUp, FOLLOW_UPS, WORTH_A_LOOK } from "./follow-ups";
 import { BASE_ANSWERS, becauseOf, chatAnswers, judgementAt, judgementFrom, judgeWith, resultMessage, whyLines, withJudgement } from "./judge";
 import { withBubbles } from "@/lib/lens-chat/bubbles";
+import { withDeals } from "@/lib/lens-chat/deals";
 import { readEvidence } from "@/lib/lens-chat/evidence";
+import { rentalFor } from "./flow";
 import { fleet } from "@/lib/reasoning-engine/test-data/fleet";
 
 /*
@@ -333,7 +335,10 @@ describe("why, in the reader's words", () => {
         expect(message.reasons?.[0]).toBe(message.reason);
         expect(message.tradeoffs?.length).toBe(judged.run.narrative.tradeoffs.length);
         expect(message.because).toEqual(becauseOf(u));
-        expect(message.because?.[0]).toMatchObject({ said: "You have kids", importance: "essential", into: ["Practicality"] });
+        /* In the reader's terms — what it counted, and its share of the decision, as the drawer says it — never the engine's priorities. */
+        expect(message.because?.[0]).toEqual({ said: "You have kids", importance: "essential", into: ["rear doors"], share: 50 });
+        expect(message.because?.map((item) => item.share)).toEqual([50, 25, 25]);
+        expect(JSON.stringify(message.because)).not.toMatch(/Practicality|City & Parking|Environmental Impact/);
     });
 
     it("says one thing to know: a limit first, else the biggest trade-off — never the engine's uncertainty first", () => {
@@ -344,5 +349,48 @@ describe("why, in the reader's words", () => {
         if (verdict.budgetNote) expect(message.know).toBe(verdict.budgetNote);
         else if (tradeoffs[0]) expect(message.know?.startsWith(`${tradeoffs[0].headline}.`)).toBe(true);
         expect(tradeoffs.length + (verdict.budgetNote ? 1 : 0)).toBeGreaterThan(0);
+    });
+});
+
+describe("a result past the reader's dates", () => {
+    /* FINN's snapshot offers these cars on short terms only: two years fits none of them. */
+    const page = fleet().slice(0, 24);
+    const twoYears = rentalFor(withDeals(withBubbles(EMPTY_UNDERSTANDING, { carry: ["trailer"] }), ["towbar"], { towbar: "must" }), 24, "", new Date("2026-10-07T10:00:00Z"));
+
+    it("says no car here fits them, first, and calls the pick the closest match", () => {
+        const judged = judgeWith(twoYears, page, "24 cars")!;
+        const message = resultMessage(judged, page, "24 cars", {}, "m1", "at", twoYears);
+
+        expect(judged.run.recommendation.rentalFallback).toBe("noneFit");
+        expect(message.know).toMatch(/^None of the cars here fits your dates — .+ only offers terms up to \d+ months, which doesn't cover November 2026 to October 2028\. It's the best fit for everything else you told me\.$/);
+        expect(message.closest).toBe(true);
+    });
+
+    it("says which limit each runner-up is past", () => {
+        const judged = judgeWith(twoYears, page, "24 cars")!;
+        const message = resultMessage(judged, page, "24 cars", {}, "m1", "at", twoYears);
+
+        for (const car of message.runnersUp) expect(car.over ?? null, car.name).toBe(car.overLimit ? (car.over === "budget" ? "budget" : "period") : null);
+        expect(message.runnersUp.some((car) => car.over === "period")).toBe(true);
+    });
+
+    it("isn't the closest match when every limit holds", () => {
+        const u = withBubbles(EMPTY_UNDERSTANDING, { kids: ["baby"] });
+        const judged = judgeWith(u, page, "24 cars")!;
+
+        expect(resultMessage(judged, page, "24 cars", {}, "m1", "at", u).closest).toBeUndefined();
+    });
+});
+
+describe("a result with nothing within the budget", () => {
+    it("writes the price it looked up to as money", () => {
+        const page = fleet();
+        const u = withBudget(withBubbles(EMPTY_UNDERSTANDING, { weather: ["snow"] }), 150, "");
+        const judged = judgeWith(u, page, "728 cars")!;
+        const message = resultMessage(judged, page, "728 cars", {}, "m1", "at", u);
+
+        expect(judged.run.nearestToLimit).not.toBeNull();
+        expect(message.know).toMatch(/up to about €\d{1,3}(,\d{3})* a month\.$/);
+        expect(message.closest).toBe(true);
     });
 });

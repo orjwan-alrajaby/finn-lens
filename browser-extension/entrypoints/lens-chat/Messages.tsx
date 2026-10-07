@@ -1624,7 +1624,7 @@ function RunnerUp({ car, onOpen }: { car: CarSnapshot; onOpen: () => void }) {
                     <span className="block truncate text-[12.5px] font-black text-finn-black">{car.name}</span>
                     <span className="block truncate text-[11px] text-finn-iron">
                         {car.monthly != null ? `about ${euros(car.monthly)}/month` : car.configuration}
-                        {car.overLimit ? <span className="font-bold text-finn-fit-limited"> · over your limit</span> : null}
+                        {car.overLimit ? <span className="font-bold text-finn-fit-limited"> · {car.over === "period" ? "not for your dates" : "over your limit"}</span> : null}
                     </span>
                 </span>
                 <BandChip band={car.band} label={car.bandLabel} />
@@ -1651,6 +1651,8 @@ function Result({
 }) {
     const { winner } = message;
     const [open, setOpen] = useState(long);
+    /* The name carries the configuration where two cars share a model; it's said on the line below, so not twice. */
+    const model = winner && winner.name.endsWith(` ${winner.configuration}`) ? winner.name.slice(0, -winner.configuration.length - 1) : winner?.name;
     /* Only what the car has: a thing said that it has nothing for isn't a reason it won. */
     const why = (message.why ?? []).filter((line) => line.has.length > 0);
     const reasons = message.reasons ?? (message.reason ? [message.reason] : []);
@@ -1664,7 +1666,7 @@ function Result({
                 <div className="relative bg-gradient-to-b from-[#fff8e1] to-white p-3.5">
                     <div className="flex items-start justify-between gap-2">
                         <div>
-                            <p className="text-[11px] font-black uppercase tracking-wide text-[#9a6200]">Your strongest match</p>
+                            <p className="text-[11px] font-black uppercase tracking-wide text-[#9a6200]">{message.closest ? "Closest match" : "Your strongest match"}</p>
                             <WinnerChip />
                         </div>
                         {winner.monthly != null ? (
@@ -1677,7 +1679,7 @@ function Result({
 
                     <CarPhoto src={winner.image} alt={winner.name} className="mt-2 h-28 w-full rounded-xl" />
 
-                    <p className="mt-2.5 text-[15px] font-black leading-tight text-finn-black">{winner.name}</p>
+                    <p className="mt-2.5 text-[15px] font-black leading-tight text-finn-black">{model}</p>
                     <p className="text-[12px] text-finn-iron">{winner.configuration}</p>
 
                     {why.length ? (
@@ -1735,7 +1737,12 @@ function Result({
                                     <ul className="mt-1 space-y-0.5">
                                         {message.because.map((item) => (
                                             <li key={item.said} className="text-[12px] leading-snug text-finn-black">
-                                                {item.said} <span className="text-finn-iron">— {IMPORTANCE_LABEL[item.importance].toLowerCase()} → {item.into.join(", ")}</span>
+                                                {item.said}{" "}
+                                                <span className="text-finn-iron">
+                                                    {/* Its share of the decision, as the drawer's "How I weighed it" says it; older results named the engine's priorities. */}
+                                                    — {IMPORTANCE_LABEL[item.importance].toLowerCase()}
+                                                    {item.share != null ? `, ${item.share}% of the decision` : ` → ${item.into.join(", ")}`}
+                                                </span>
                                             </li>
                                         ))}
                                     </ul>

@@ -235,6 +235,8 @@ export interface CarSnapshot {
     url: string | null;
     /** Over the reader's monthly limit, or on no FINN term that covers their period. */
     overLimit: boolean;
+    /** Which of the two, where it's one: absent on snapshots from before it was kept. */
+    over?: "budget" | "period" | null;
 }
 
 /**
@@ -309,6 +311,8 @@ export type ChatMessage =
           kind: "result";
           headline: string;
           count: number;
+          /** Past one of the reader's limits — the budget, the dates, a deal-breaker they kept — so "closest", not "strongest". */
+          closest?: boolean;
           winner: CarSnapshot | null;
           reason: string | null;
           /**
@@ -323,8 +327,12 @@ export type ChatMessage =
           tradeoffs?: { headline: string; text: string }[];
           /** One thing to know, short: a limit note, else the biggest trade-off, else the engine's note. */
           know?: string | null;
-          /** Which bubbles put weight where: "You have kids — must have → Practicality". */
-          because?: { said: string; importance: NeedImportance; into: string[] }[];
+          /**
+           * How much each thing said counted: "You have kids — top priority,
+           * 50% of the decision". `into` is what Lens looked at for it; on
+           * results from before `share`, the priorities it went into.
+           */
+          because?: { said: string; importance: NeedImportance; into: string[]; share?: number }[];
           note: string | null;
           runnersUp: CarSnapshot[];
           setAside: number;
