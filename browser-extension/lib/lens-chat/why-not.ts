@@ -50,15 +50,17 @@ export function carNamed(run: LensRun, text: string): PinnedFinnCar | null {
 /* "Rear USB ports" belongs in a sentence as "rear USB ports", never "rear usb ports". */
 const lower = lowerFirst;
 
-const names = (keys: SignalId[], limit = 3): string =>
-    keys
-        .map((key) => (SIGNALS[key]?.label ? lower(SIGNALS[key].label) : ""))
-        .filter(Boolean)
-        .slice(0, limit)
-        .join(", ");
-
 const joined = (parts: string[]): string =>
     parts.length <= 1 ? (parts[0] ?? "") : `${parts.slice(0, -1).join(", ")} and ${parts.at(-1)}`;
+
+/* "heated seats and heated steering wheel", not "heated seats, heated steering wheel". */
+const names = (keys: SignalId[], limit = 3): string =>
+    joined(
+        keys
+            .map((key) => (SIGNALS[key]?.label ? lower(SIGNALS[key].label) : ""))
+            .filter(Boolean)
+            .slice(0, limit),
+    );
 
 export function whyNot(run: LensRun, carId: number): WhyNot | null {
     const { recommendation } = run;
@@ -88,11 +90,18 @@ export function whyNot(run: LensRun, carId: number): WhyNot | null {
         );
     } else if (theirs?.contract.status === "doesNotFit") {
         sentences.push(`The ${name(car)} doesn't fit the dates you gave me, so it couldn't win.`);
+    } else if (theirs?.budgetStatus === "unknown" && theirs.budget != null && mine?.budgetStatus === "within") {
+        /* Not over the limit, but not confirmed within it: FINN's data leaves part of its cost out. */
+        sentences.push(`Part of the ${name(car)}'s cost can't be worked out from FINN's data, so it can't be confirmed within the ${formatEUR(theirs.budget)} you gave me — and the ${name(match)} can.`);
+    } else if (theirs?.contract.status === "unknown" && mine?.contract.status === "fits") {
+        sentences.push(`FINN's data confirms the ${name(match)} for your dates, but not the ${name(car)}.`);
     }
 
     /* -- The two scores, in the reader's own terms -------------------------- */
 
     const level = score(car) === score(match);
+    /* It scored higher and lost on a limit: "the match covers a little more" would be false. */
+    const higher = score(car) > score(match);
 
     if (level && difference != null && difference > 0) {
         sentences.push(
@@ -134,7 +143,7 @@ export function whyNot(run: LensRun, carId: number): WhyNot | null {
 
     if (ahead.length) {
         sentences.push(`The ${name(match)} is ahead on ${joined(ahead.slice(0, 2))}.`);
-    } else if (!level) {
+    } else if (!level && !higher) {
         sentences.push(`Nothing you ${rankedByReader(context) ? "ranked" : "asked for"} separates them by much; the ${name(match)} simply covers a little more of it.`);
     }
 

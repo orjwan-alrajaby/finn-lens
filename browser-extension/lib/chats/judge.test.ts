@@ -4,6 +4,7 @@ import { priorityWeights, totalFor } from "@/lib/reasoning-engine/scoring";
 import { BASELINE, GARAGE, garageCar } from "@/lib/reasoning-engine/test-garage";
 import { EVIDENCE } from "@/lib/lens-chat/evidence";
 import { tellFitStory } from "@/lib/lens-chat/fit-story";
+import { whyNot } from "@/lib/lens-chat/why-not";
 import { applyChoices, guideSteps } from "@/lib/lens-chat/guide";
 import { EMPTY_UNDERSTANDING, withBudget, withRental, withSuggestion, type Understanding } from "@/lib/lens-chat/understanding";
 import type { PinnedFinnCar } from "@/lib/types";
@@ -392,5 +393,46 @@ describe("a result with nothing within the budget", () => {
         expect(judged.run.nearestToLimit).not.toBeNull();
         expect(message.know).toMatch(/up to about €\d{1,3}(,\d{3})* a month\.$/);
         expect(message.closest).toBe(true);
+    });
+});
+
+describe("the drawer's story about a car that isn't the pick", () => {
+    const page = fleet().slice(0, 24);
+    const u = withDeals(withBudget(withBubbles(EMPTY_UNDERSTANDING, { kids: ["older"], weather: ["snow"] }), 700, "Up to €700 a month."), ["automatic", "awd", "co2"], {
+        automatic: "seal",
+        awd: "must",
+        co2: "seal",
+    });
+    const judged = judgeWith(u, page, "24 cars")!;
+    const { run, translation } = judged;
+    const pick = run.recommendation.winner;
+    const over = run.recommendation.ranked.find((car) => car.id !== pick.id && run.recommendation.context.costs[car.id]?.budgetStatus === "over")!;
+
+    it("says it's over the limit — not that nothing here fits, when the pick does", () => {
+        expect(run.recommendation.context.costs[pick.id]?.budgetStatus).toBe("within");
+
+        const story = tellFitStory(run, u, translation.lessRelevant, null, over.id);
+        const budget = story.sections.find((section) => section.key === "budget")!;
+
+        expect(budget.title).toBe("It's over your €700 limit");
+        expect(budget.lines[0]!.text).toMatch(/^At about €[\d,]+\/month, it's €[\d,]+ over the maximum you gave me\.$/);
+        expect(JSON.stringify(story)).not.toMatch(/Nothing here stays within|This is the closest match/);
+    });
+
+    it("doesn't say the pick covers more, when this one scored higher and lost on the limit", () => {
+        const higher = run.recommendation.ranked.find((car) => car.id !== pick.id && totalFor(run.recommendation.scores, car.id) > totalFor(run.recommendation.scores, pick.id))!;
+        const sentences = whyNot(run, higher.id)!.sentences.join(" ");
+
+        expect(sentences).toMatch(/over the €700 you gave me, so it couldn't win whatever it carries/);
+        expect(sentences).not.toMatch(/simply covers a little more/);
+    });
+
+    it("names a deal-sealer as the thing itself, with its article", () => {
+        const story = tellFitStory(run, u, translation.lessRelevant, null, pick.id);
+        const sealer = story.sections.find((section) => section.key === "sealer-automatic")!;
+
+        expect(sealer.title).toBe("It has an automatic");
+        expect(sealer.short).toBe("An automatic gearbox would seal it");
+        expect(JSON.stringify(story)).not.toMatch(/the basics for an automatic|It has automatic gearbox/);
     });
 });

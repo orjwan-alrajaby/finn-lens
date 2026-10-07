@@ -468,6 +468,14 @@ export function tellFitStory(
                 tone = "unknown";
                 title = `It may fit your ${formatEUR(u.budget.monthly)} limit`;
                 lines.push({ tone: "unknown", text: `What Lens can estimate comes to ${formatEUR(monthly)}/month, but part of the cost is missing, so it can't confirm the car stays under your maximum.` });
+            } else if (other) {
+                /* Another car, over it: about this car, not "nothing here fits" — the match may well fit. */
+                tone = "missing";
+                title = `It's over your ${formatEUR(u.budget.monthly)} limit`;
+                lines.push({
+                    tone: "missing",
+                    text: `At ${cost.complete ? "about" : "least"} ${formatEUR(monthly)}/month, it's ${cost.complete ? "" : "at least "}${formatEUR(monthly - u.budget.monthly)} over the maximum you gave me.`,
+                });
             } else {
                 tone = "missing";
                 title = `Nothing here stays within ${formatEUR(u.budget.monthly)}`;
@@ -497,7 +505,9 @@ export function tellFitStory(
 
             tone = beyond ? "missing" : gap > 0 ? "note" : "good";
             title = beyond
-                ? `Nothing here comes near the ${formatEUR(u.budget.monthly)} you mentioned`
+                ? other
+                    ? `Beyond the ${formatEUR(u.budget.monthly)} you mentioned`
+                    : `Nothing here comes near the ${formatEUR(u.budget.monthly)} you mentioned`
                 : gap > 0
                   ? gap <= u.budget.monthly * 0.1
                     ? `A little above the ${formatEUR(u.budget.monthly)} you mentioned`
@@ -506,7 +516,9 @@ export function tellFitStory(
             lines.push({
                 tone,
                 text: beyond
-                    ? `The closest match costs about ${formatEUR(monthly)}/month — ${formatEUR(gap)} above it. Lens stretched to ${formatEUR(ceiling)} for a figure you called a target, and nothing here fits even that.`
+                    ? other
+                        ? `About ${formatEUR(monthly)}/month — ${formatEUR(gap)} above it, and past the ${formatEUR(ceiling)} Lens stretched to for a figure you called a target.`
+                        : `The closest match costs about ${formatEUR(monthly)}/month — ${formatEUR(gap)} above it. Lens stretched to ${formatEUR(ceiling)} for a figure you called a target, and nothing here fits even that.`
                     : `About ${formatEUR(monthly)}/month${Math.abs(gap) >= 1 ? ` — ${formatEUR(Math.abs(gap))} ${gap > 0 ? "above" : "below"} it` : ""}. ${
                           u.budget.stretchTo
                               ? `You said you could stretch to ${formatEUR(u.budget.stretchTo)}, so Lens looked no further than that.`
@@ -720,7 +732,8 @@ export function tellFitStory(
         const lines = read.filter((item) => !common.includes(item)).map((item) => item.line);
 
         if (common.length) {
-            const names = joinNames(common.map((item) => lower(EVIDENCE[item.entry.id].label)));
+            /* "an automatic", "rear doors": each as it reads in a sentence, article and all. */
+            const names = joinNames(common.map((item) => asPhrase(item.entry.id)));
 
             lines.push({
                 tone: "note",
@@ -780,6 +793,8 @@ export function tellFitStory(
         /* A need judged only by the figure takes the figure's verdict, and its words, everywhere. */
         const byFigure = emissions && !evidence.length ? emissions : null;
         const tone: Tone = byFigure ? byFigure.tone : byEquipment;
+        /* A deal-sealer names one thing: whether the car has it, not "the basics for" it. */
+        const sealed = need.id.startsWith("sealer-") && evidence.length === 1 ? evidence[0]! : null;
 
         sections.push({
             key: need.id,
@@ -787,6 +802,12 @@ export function tellFitStory(
             figure: byFigure ? { kind: need.priorities.includes("environmental") ? "co2" : "efficiency", need: need.label } : undefined,
             title: byFigure
                 ? byFigure.label
+                : sealed
+                  ? good.length
+                      ? `It has ${asPhrase(sealed.id)}`
+                      : missing.length
+                        ? `It doesn't have ${asPhrase(sealed.id)}`
+                        : `FINN doesn't say whether it has ${asPhrase(sealed.id)}`
                 : tone === "good"
                     ? `It helps with ${lower(need.label)}`
                     : tone === "note" && onlyBasics && !missing.length
@@ -801,7 +822,7 @@ export function tellFitStory(
              * "Around-average emissions" — not the reader's wish, "Low
              * emissions", which read as a claim about the car.
              */
-            short: byFigure ? byFigure.label : need.label,
+            short: byFigure ? byFigure.label : sealed ? `${need.label} would seal it` : need.label,
             kind: "need",
             importance: need.importance,
             lines,
