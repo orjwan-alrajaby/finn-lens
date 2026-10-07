@@ -47,6 +47,8 @@ export interface BubbleChip {
     sources?: Source[];
     /** After the bubble, in a sentence: "snow and ice". */
     detail: string;
+    /** The same in the reader's own voice, where `detail` speaks to them: "I park on the street", "beside me". */
+    mine?: string;
     counts?: EvidenceId[];
     checks?: EvidenceId[];
     worth?: EvidenceId[];
@@ -170,7 +172,7 @@ export const BUBBLES: Bubble[] = [
             mode: "required",
             multiple: true,
             options: [
-                { id: "front", label: "Beside me", detail: "beside you", description: "One adult in the front asks nothing extra of the car." },
+                { id: "front", label: "Beside me", detail: "beside you", mine: "beside me", description: "One adult in the front asks nothing extra of the car." },
                 {
                     id: "back",
                     label: "In the back",
@@ -222,11 +224,11 @@ export const BUBBLES: Bubble[] = [
             multiple: true,
             max: 2,
             options: [
-                { id: "street", label: "On the street", detail: "you park on the street", description: "Kerbside, between other cars. I'll check a reversing camera.", counts: ["hasOneEightyDegreesReversingCamera"] },
-                { id: "garage", label: "Home garage", detail: "you park in a garage", description: "A tight garage: width counts more, and I check folding mirrors.", stronger: ["compactWidth"], checks: ["hasElectricallyFoldingMirrors"] },
-                { id: "multi-storey", label: "Multi-storey", detail: "you park in multi-storeys", description: "Multi-storey or underground car parks. I'll check a 360° camera and folding mirrors.", counts: ["hasThreeSixtyDegreesCamera"], checks: ["hasElectricallyFoldingMirrors"] },
-                { id: "open", label: "Open car park", detail: "you park in open car parks", description: "Supermarket or office car parks, reversing out into traffic. I'll check rear cross-traffic alert.", counts: ["hasRearCrosswalkWarning"] },
-                { id: "driveway", label: "Driveway", detail: "you park on a driveway", description: "Your own driveway. Nothing extra to check." },
+                { id: "street", label: "On the street", detail: "you park on the street", mine: "I park on the street", description: "Kerbside, between other cars. I'll check a reversing camera.", counts: ["hasOneEightyDegreesReversingCamera"] },
+                { id: "garage", label: "Home garage", detail: "you park in a garage", mine: "I park in a garage", description: "A tight garage: width counts more, and I check folding mirrors.", stronger: ["compactWidth"], checks: ["hasElectricallyFoldingMirrors"] },
+                { id: "multi-storey", label: "Multi-storey", detail: "you park in multi-storeys", mine: "I park in multi-storeys", description: "Multi-storey or underground car parks. I'll check a 360° camera and folding mirrors.", counts: ["hasThreeSixtyDegreesCamera"], checks: ["hasElectricallyFoldingMirrors"] },
+                { id: "open", label: "Open car park", detail: "you park in open car parks", mine: "I park in open car parks", description: "Supermarket or office car parks, reversing out into traffic. I'll check rear cross-traffic alert.", counts: ["hasRearCrosswalkWarning"] },
+                { id: "driveway", label: "Driveway", detail: "you park on a driveway", mine: "I park on a driveway", description: "Your own driveway. Nothing extra to check." },
             ],
         },
         cantCheck: "",
@@ -812,11 +814,30 @@ export function suggestedBecause(bubble: Bubble, state: BubbleState): [rule: str
     return pairs.filter(([rule], index) => pairs.findIndex(([other]) => other === rule) === index);
 }
 
+/**
+ * Chips' details in one phrase, the words they start with said once: "you
+ * park on the street and in a garage", not "you park on the street, you park
+ * in a garage".
+ */
+export function joinedDetails(details: string[]): string {
+    if (details.length < 2) return details[0] ?? "";
+
+    const words = details.map((detail) => detail.split(" "));
+    let shared = 0;
+    while (words.every((list) => list.length > shared + 1 && list[shared] === words[0]![shared])) shared += 1;
+
+    const rests = words.map((list) => list.slice(shared).join(" "));
+    /* "rain and fog, and cold winters", not "rain and fog and cold winters". */
+    const list = `${rests.slice(0, -1).join(", ")}${rests.some((rest) => rest.includes(" and ")) ? "," : ""} and ${rests.at(-1)}`;
+
+    return shared ? `${words[0]!.slice(0, shared).join(" ")} ${list}` : list;
+}
+
 /** "You have kids · a baby or toddler seat". */
 export function bubbleHeading(bubble: Bubble, state: BubbleState): string {
     const details = (bubble.chips?.options ?? []).filter((option) => state.chips.includes(option.id)).map((option) => option.detail);
 
-    return details.length ? `${bubble.you} · ${details.join(", ")}` : bubble.you;
+    return details.length ? `${bubble.you} · ${joinedDetails(details)}` : bubble.you;
 }
 
 /** The need a bubble stands for: null when it counts nothing yet (comforts with none picked). */

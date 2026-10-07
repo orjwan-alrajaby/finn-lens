@@ -109,7 +109,7 @@ describe("a first chat", () => {
 
         expect(said[0]).toBe("Got it — let's start.");
         expect(said[1]).toBe("I have kids — a baby or toddler seat.");
-        expect(said[3]).toBe("The weather here is tough — snow and ice and rain and fog.");
+        expect(said[3]).toBe("The weather here is tough — snow and ice, and rain and fog.");
         expect(texts(chat)[1]).toBe("Got it — you have kids.");
         expect(texts(chat)[2]).toBe("Fine — nothing in particular for how you drive.");
     });
@@ -805,6 +805,16 @@ describe("progress through the questions", () => {
         expect(progress(changing)).toEqual({ done: 0, total: 1 });
     });
 
+    it("keeps the total while “how long?” is the question, since “from when?” follows it", () => {
+        const chat = walk(startChat(null, cars(), TODAY), { bubbles: [] }, cars());
+        const totals = chat.messages
+            .filter((message): message is Ask & { progress?: { done: number; total: number } } => message.kind === "ask" && ["budget", "period", "from"].includes(message.step.id))
+            .map((message) => message.progress?.total);
+
+        /* "Not sure yet" to how long takes "from when?" away after it's answered, never before. */
+        expect(totals.slice(0, 2)).toEqual([9, 9]);
+    });
+
     it("isn't shown on “how it works”, the summary's “looks good” or “what would you like to do?”", () => {
         expect(progress(beginChat(null, cars(), TODAY))).toBeUndefined();
         expect(progress(walk(startChat(null, cars(), TODAY), { bubbles: ["dog"] }))).toBeUndefined();
@@ -1186,5 +1196,101 @@ describe("the Adjust panel's feature chips", () => {
         for (const item of items) expect(item.does, item.id).toMatch(/\w{4,}/);
         expect(bubbles.find((bubble) => bubble.id === "kids")!.counts.find((item) => item.id === "rearDoors")?.does).toMatch(/so children get in and out/);
         expect(bubbles.find((bubble) => bubble.id === "environment")?.figureDoes).toMatch(/official CO₂ figure FINN lists/);
+    });
+});
+
+describe("the reader's own words", () => {
+    it("speak in their own voice, saying a shared start once", () => {
+        const chat = walk(startChat(null, cars(), TODAY), { bubbles: ["adults", "adults:front", "city", "city:street", "city:garage"] });
+        const said = chat.messages.filter((message) => message.from === "reader" && message.kind === "text").map((message) => (message as { text: string }).text);
+
+        expect(said).toContain("Other adults ride with me — beside me.");
+        expect(said).toContain("I live in the city — I park on the street and in a garage.");
+        expect(said.join(" ")).not.toMatch(/\byou park\b|beside you/);
+    });
+
+    it("end with a full stop when the answer was the question's “none”", () => {
+        const chat = walk(startChat(null, cars(), TODAY), { bubbles: ["dog"] });
+        const said = chat.messages.filter((message) => message.from === "reader" && message.kind === "text").map((message) => (message as { text: string }).text);
+
+        expect(said).toContain("Nothing in particular.");
+        expect(said).toContain("Not sure yet.");
+    });
+
+    it("name the questions they pick to change as they'd say them", () => {
+        const chat = walk(startChat(null, cars(), TODAY), { bubbles: ["dog"], budget: ["budget-500"] });
+        const changing = changeAnswers(chat, cars());
+        const some = answer(changing, openAsk(changing)!.id, ["some"], cars(), TODAY).chat;
+        const which = answer(some, openAsk(some)!.id, ["bubbles-driving", "budget"], cars(), TODAY).chat;
+
+        expect(texts(which).length).toBeGreaterThan(0);
+        expect(which.messages.some((message) => message.kind === "text" && message.text === "I'd like to change where and how I drive and my monthly limit.")).toBe(true);
+    });
+
+    it("say which question a summary “Change” is for", () => {
+        const chat = walk(startChat(null, cars(), TODAY), { bubbles: ["dog"] });
+
+        for (const [step, words] of [["fuel", "what it runs on"], ["deals", "my deal-breakers and sealers"], ["from", "when I need it from"]] as const) {
+            const changing = changeOne(chat, step, cars());
+            expect(changing.messages.some((message) => message.kind === "text" && message.text === `I'd like to change ${words}.`), step).toBe(true);
+        }
+    });
+});
+
+describe("the summary's headings", () => {
+    it("join a bubble's answers with “and”, and a comma where an answer has its own “and”", () => {
+        const u = withBubbles(EMPTY_UNDERSTANDING, { city: ["street", "garage"], weather: ["wet", "cold"] });
+        const bubbles = summaryOf(u, "s", cars()).bubbles!;
+
+        expect(bubbles.find((bubble) => bubble.id === "city")?.heading).toBe("You live in the city · you park on the street and in a garage");
+        expect(bubbles.find((bubble) => bubble.id === "weather")?.heading).toBe("The weather where you live is tough · rain and fog, and cold winters");
+    });
+});
+
+describe("changing how long, from the summary", () => {
+    it("keeps the month it starts from", () => {
+        const chat = walk(startChat(null, cars(), TODAY), { bubbles: ["dog"], period: ["period-12"], from: ["from-2027-01"] });
+        expect(chat.understanding.rental).toMatchObject({ from: "2027-01", to: "2027-12" });
+
+        const changing = changeOne(chat, "period", cars());
+        const done = answer(changing, openAsk(changing)!.id, ["period-6"], cars(), TODAY).chat;
+
+        expect(done.understanding.rental).toMatchObject({ from: "2027-01", to: "2027-06" });
+    });
+
+    it("starts next month once the month it started from has passed", () => {
+        const chat = walk(startChat(null, cars(), TODAY), { bubbles: ["dog"], period: ["period-12"] });
+        const later = new Date("2027-03-15T10:00:00Z");
+        const changing = changeOne(chat, "period", cars());
+        const done = answer(changing, openAsk(changing)!.id, ["period-6"], cars(), later).chat;
+
+        expect(done.understanding.rental).toMatchObject({ from: "2027-04", to: "2027-09" });
+    });
+
+    it("says “Not sure yet” back as FINN's default term, not as nothing said", () => {
+        const chat = walk(startChat(null, cars(), TODAY), { bubbles: ["dog"] });
+
+        expect(lastSummary(chat).lines.find((line) => line.label === "For")?.value).toBe("Not sure yet — each car on FINN's default term");
+    });
+});
+
+describe("bubbles that check nothing", () => {
+    it("are named when nothing else was said, not called nothing", () => {
+        const chat = walk(startChat(null, cars(), TODAY), { bubbles: ["adults", "adults:front", "comfort"] });
+        const said = texts(chat).at(-1)!;
+
+        expect(openAsk(chat)?.step.id).toBe("noNeeds");
+        expect(said).not.toMatch(/You haven't told me anything/);
+        expect(said).toMatch(/Other adults ride with you: one adult beside you asks nothing extra of the car\./);
+        expect(said).toMatch(/Comfort matters to you: tell me which, and I'll count them\./);
+    });
+
+    it("don't claim one adult sits beside the reader once what adults in the back counted is taken out", () => {
+        const u = withBubbles(EMPTY_UNDERSTANDING, { kids: [], adults: ["back"] });
+        const chat = removeItem({ ...walk(startChat(null, cars(), TODAY), { bubbles: ["kids", "adults", "adults:back"] }), understanding: u }, "kids", "rearDoors", cars());
+        const adults = lastSummary(chat).bubbles!.find((bubble) => bubble.id === "adults")!;
+
+        expect(adults.empty).not.toMatch(/beside you/);
+        expect(adults.empty).toMatch(/not checking anything/);
     });
 });

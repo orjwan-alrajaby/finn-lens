@@ -13,6 +13,7 @@ import {
     importanceSaid,
     itemsOf,
     figuresOf,
+    joinedDetails,
     OFTEN,
     recommendedBecause,
     suggestedBecause,
@@ -126,6 +127,23 @@ const CHANGE_LABEL: Partial<Record<StepId, string>> = {
     distance: "How far you drive",
 };
 
+/** The same questions in the reader's own voice, for what they say when they pick them: "I'd like to change how far I drive". */
+const CHANGE_SAID: Partial<Record<StepId, string>> = {
+    "bubbles-people": "who rides with me",
+    "bubbles-driving": "where and how I drive",
+    "bubbles-copes": "what the car copes with",
+    "bubbles-matters": "what else matters",
+    from: "when I need it from",
+    fuel: "what it runs on",
+    deals: "my deal-breakers and sealers",
+    "often-long": "how often I drive far",
+    "often-traffic": "how long my drive is",
+    rules: "my deal-breakers",
+    budget: "my monthly limit",
+    period: "how long I need it",
+    distance: "how far I drive",
+};
+
 /** What a question's answer is now, in a few words: "€700 a month", "you have kids and you drive at night a lot". */
 function nowSaid(step: StepId, u: Understanding): string {
     switch (step) {
@@ -136,14 +154,15 @@ function nowSaid(step: StepId, u: Understanding): string {
         case "deals": {
             const breakers = rulesText(u);
             const sealers = sealersText(u);
-            return breakers === "None" && sealers === "None" ? "none" : `${lowerFirst(breakers)}; sealers: ${lowerFirst(sealers)}`;
+            const parts = [breakers === "None" ? "" : lowerFirst(breakers), sealers === "None" ? "" : `${lowerFirst(sealers)} would seal it`].filter(Boolean);
+            return parts.length ? parts.join("; ") : "none";
         }
         case "rules":
             return rulesText(u).toLowerCase() === "none" ? "none" : lowerFirst(rulesText(u));
         case "budget":
             return u.budget ? `${formatEUR(u.budget.monthly)} a month` : "no fixed limit";
         case "period":
-            return u.rental ? `${monthLabel(u.rental.from)} to ${monthLabel(u.rental.to)}` : "not set";
+            return u.rental ? `${monthLabel(u.rental.from)} to ${monthLabel(u.rental.to)}` : lowerFirst(periodUnset(u));
         case "distance":
             return u.monthlyKm ? `about ${u.monthlyKm.value.toLocaleString("en-GB")} km a month` : "not said";
     }
@@ -633,7 +652,7 @@ export function stepFor(id: StepId, cars: FinnCar[], u: Understanding = EMPTY_UN
                 choices: CHANGEABLE.filter((step) => stepFor(step, cars, u)).map((step) => ({
                     id: step,
                     label: CHANGE_LABEL[step]!,
-                    said: CHANGE_LABEL[step]!,
+                    said: CHANGE_SAID[step] ?? lowerFirst(CHANGE_LABEL[step]!),
                     description: `Now: ${nowSaid(step, u)}.`,
                 })),
                 none: "Never mind",
@@ -896,6 +915,9 @@ export function acknowledge(step: ChatStep, u: Understanding, chosen: string[] =
     }
 }
 
+/** How long, when there are no dates: "Not sure yet" was an answer, and it means FINN's default term. */
+const periodUnset = (u: Understanding): string => ((u.waived ?? []).includes("rental") ? "Not sure yet — each car on FINN's default term" : "Not set");
+
 /** The reader's deal-sealers in a line: "An automatic gearbox and a towbar". */
 function sealersText(u: Understanding): string {
     const sealers = u.needs.filter((need) => need.status === "active" && need.id.startsWith("sealer-")).map((need, index) => (index ? lower(need.label) : need.label));
@@ -1015,12 +1037,41 @@ function summaryBubbles(u: Understanding, cars: FinnCar[]): SummaryBubble[] {
             ...(figure ? { figure, figureDoes: figuresOf(bubble, state).map((id) => FIGURE_DOES[id]).find(Boolean) } : {}),
             cantCheck: bubble.cantCheck,
             ...(!live.length && !figure && !settledHere.length
-                ? { empty: !items.counts.length && bubble.empty ? bubble.empty : "I'm not checking anything for this now. Add something below, or take it off with “Change”." }
+                ? { empty: emptyNote(bubble, items) }
                 : {}),
             ...(settledHere.length
                 ? { settled: `A deal-breaker already sets aside ${joined(settledHere.map((id) => (isKind(id) ? `every car that isn't ${asPhrase(id)}` : `every car without ${asPhrase(id)}`)))}.` }
                 : {}),
         };
+    });
+}
+
+/**
+ * Why a bubble checks nothing: its own reason where nothing was asked of the
+ * car ("One adult beside you asks nothing extra of the car"), or that the
+ * reader took out what it checked — then the bubble's own reason would be
+ * wrong: adults in the back, rear doors taken out, aren't "one adult beside you".
+ */
+function emptyNote(bubble: (typeof BUBBLES)[number], items: ReturnType<typeof itemsOf>): string {
+    if (!items.counts.length && !items.removed.length && bubble.empty) return bubble.empty;
+
+    return "I'm not checking anything for this now. Add something below, or take it off with “Change”.";
+}
+
+/** Why each bubble tapped weighs nothing, in a sentence each: "Other adults ride with you: one adult beside you asks nothing extra of the car." */
+function nothingToCheck(u: Understanding): string[] {
+    const settled = new Set(ruledOut(u).map((rule) => rule.id));
+
+    return bubblesIn(u).map(({ bubble, state }) => {
+        const items = itemsOf(bubble, state);
+        const why =
+            items.counts.length && items.counts.every((id) => settled.has(id))
+                ? "a deal-breaker already settles it"
+                : items.removed.length && !items.counts.length
+                  ? "you took out what I'd check"
+                  : lowerFirst((bubble.empty ?? "there's nothing I can check for it").replace(/\.$/, ""));
+
+        return `${bubble.you}: ${why}.`;
     });
 }
 
@@ -1040,7 +1091,7 @@ export function summaryOf(u: Understanding, id: string = messageId(), cars: Finn
             : `${formatEUR(u.budget.monthly)} all in${u.budget.firm ? ", nothing over it" : u.budget.kind === "target" ? `, a little over is fine (up to about ${formatEUR(budgetCeiling(u.budget))})` : ""}`,
         step: "budget",
     });
-    lines.push({ label: "For", value: u.rental ? `${monthLabel(u.rental.from)} – ${monthLabel(u.rental.to)}` : "Not set", step: "period" });
+    lines.push({ label: "For", value: u.rental ? `${monthLabel(u.rental.from)} – ${monthLabel(u.rental.to)}` : periodUnset(u), step: "period" });
     lines.push({
         label: "Driving",
         value: u.monthlyKm
@@ -1146,7 +1197,7 @@ const KEEP: ChatStep = {
 const NO_NEEDS: ChatStep = {
     id: "noNeeds",
     ask: "Want to tell me something about your life?",
-    why: "Everything I judge comes from what you tell me: the equipment it points me at, or a car's CO₂. With nothing said, I have nothing to judge fit on.",
+    why: "Everything I judge comes from what you tell me: the equipment it points me at, or a car's CO₂. Without one of those, I have nothing to judge fit on.",
     multiple: false,
     choices: [{ id: "add", label: "Pick something", said: "Let me pick something." }],
     custom: { kind: "text", label: "Say it in my own words…", placeholder: "e.g. “long drives with two kids”" },
@@ -1160,7 +1211,7 @@ const NO_NEEDS: ChatStep = {
 const isQuestion = (id: StepId) => isBubbleStep(id) || id.startsWith("often-") || ["budget", "period", "from", "distance", "fuel", "deals", "rules"].includes(id);
 
 /** The questions in `queue` that would be asked, as things stand: what askNext would skip, skipped. */
-function stillToAsk(queue: StepId[], chat: Chat, cars: FinnCar[]): number {
+function stillToAsk(queue: StepId[], chat: Chat, cars: FinnCar[], asking?: StepId): number {
     const preselect = chat.revising;
     const u = chat.understanding;
     const ids = queue.flatMap((id) => (id === "bubbles" ? BUBBLE_STEPS : [id]));
@@ -1174,12 +1225,12 @@ function stillToAsk(queue: StepId[], chat: Chat, cars: FinnCar[]): number {
             !(!preselect && answered(id, u)) &&
             /*
              * "From when?" needs a length: counted ahead while "how long?" is
-             * still to come, so the total doesn't jump. How far and the
+             * still to come or being asked, so the total doesn't jump. How far and the
              * deal-breakers are counted without being built — each reads
              * every car, a fifth of a second over FINN's whole inventory —
              * since they're nearly always asked.
              */
-            (id === "distance" || id === "deals" || stepFor(id, cars, u) != null || (id === "from" && unique.includes("period"))),
+            (id === "distance" || id === "deals" || stepFor(id, cars, u) != null || (id === "from" && (unique.includes("period") || asking === "period"))),
     ).length;
 }
 
@@ -1238,7 +1289,7 @@ export function askNext(chat: Chat, cars: FinnCar[]): Chat {
             /* What's already been said — typed earlier, or kept from last time — shows as picked, so answering doesn't undo it. */
             step: preselect || isBubbleStep(id) || id === "from" || id === "fuel" || id === "deals" ? { ...step, selected: selectedFor(step, u, chat.picks) } : step,
             answered: false,
-            ...(isQuestion(id) ? { progress: { done, total: done + 1 + stillToAsk(queue, { ...chat, queue }, cars) } } : {}),
+            ...(isQuestion(id) ? { progress: { done, total: done + 1 + stillToAsk(queue, { ...chat, queue }, cars, id) } } : {}),
         };
 
         /* A question in the chat closes the Adjust panel: the chat is where it's answered. */
@@ -1251,11 +1302,16 @@ export function askNext(chat: Chat, cars: FinnCar[]): Chat {
      * reader "you put safety first" — so Lens says so and asks, instead.
      */
     if (!lifeNeeds(u).length) {
+        /* Bubbles tapped that weigh nothing — one adult beside them, comfort with none picked — are said, not called nothing. */
+        const tapped = nothingToCheck(u);
+
         return touch(
             { ...chat, messages: closeAsks(chat.messages) },
             [
                 lens(
-                    "You haven't told me anything the car has to do, so I have nothing to judge how well each car fits you — only what it costs. For cost alone, FINN's own list and its price filter are the better tool.",
+                    tapped.length
+                        ? `Nothing you've told me gives me anything to check on a car yet. ${tapped.join(" ")} So I have nothing to judge how well each car fits you — only what it costs, and for that FINN's own list and its price filter are the better tool.`
+                        : "You haven't told me anything the car has to do, so I have nothing to judge how well each car fits you — only what it costs. For cost alone, FINN's own list and its price filter are the better tool.",
                 ),
                 { id: messageId(), at: now(), from: "lens", kind: "ask", step: NO_NEEDS, answered: false },
             ],
@@ -1417,8 +1473,8 @@ function bubblesSaid(chosen: string[]): string {
 
     return BUBBLES.filter((bubble) => picks[bubble.id])
         .map((bubble) => {
-            const details = (bubble.chips?.options ?? []).filter((option) => picks[bubble.id]!.includes(option.id)).map((option) => option.detail);
-            return details.length ? `${bubble.said.replace(/\.$/, "")} — ${joined(details)}.` : bubble.said;
+            const details = (bubble.chips?.options ?? []).filter((option) => picks[bubble.id]!.includes(option.id)).map((option) => option.mine ?? option.detail);
+            return details.length ? `${bubble.said.replace(/\.$/, "")} — ${joinedDetails(details)}.` : bubble.said;
         })
         .join(" ");
 }
@@ -1517,7 +1573,7 @@ function answerStep(
 
     /* -- Changing answers: all of them, or which ------------------------- */
     if (step.id === "changeHow" || step.id === "changeWhich") {
-        const said = step.multiple ? (picked.length ? `I'd like to change: ${joined(picked.map((choice, index) => (index ? lowerFirst(choice.label) : choice.label)))}.` : "Never mind.") : tapped || "Never mind.";
+        const said = step.multiple ? (picked.length ? `I'd like to change ${joined(picked.map((choice) => choice.said))}.` : "Never mind.") : tapped || "Never mind.";
 
         if (!picked.length) {
             /* Nothing to change: back to exactly where the chat was, where Lens kept it; else as it is now. */
@@ -1697,11 +1753,17 @@ function answerStep(
         const months = extra.amount ?? (picked[0] ? Number(picked[0].id.replace("period-", "")) : null);
 
         if (extra.amount != null) said = `I need it for about ${Math.round(extra.amount)} months.`;
-        understanding = months ? rentalFor(understanding, Math.round(months), said, today) : waiveEssential(understanding, "rental");
+        /* A new length from the month already picked — "from January" stays January — unless that month has passed. */
+        const from = understanding.rental && understanding.rental.from >= startMonth(today) ? (understanding.rental.from as MonthString) : null;
+        understanding = !months
+            ? waiveEssential(understanding, "rental")
+            : from
+              ? withRental(understanding, from, addMonths(from, Math.round(months) - 1), said)
+              : rentalFor(understanding, Math.round(months), said, today);
     }
 
     /* Nothing tapped: the reader said this question's own "none". */
-    if (!said) said = chosen.length && step.guide ? saidFor(step.guide, chosen) : (step.none ?? "");
+    if (!said) said = chosen.length && step.guide ? saidFor(step.guide, chosen) : step.none ? `${step.none}.` : "";
 
     const reply = [extra.heard?.reply, acknowledge(step, understanding, chosen)].filter(Boolean).join(" ");
     const next = touch(base, [reader(said), lens(reply)], { understanding, queue });
@@ -1721,10 +1783,7 @@ export function changeAnswers(chat: Chat, cars: FinnCar[]): Chat {
 
 const CHANGE_WHAT: Partial<Record<StepId, string>> = {
     bubbles: "what I told you about my life",
-    rules: "my deal-breakers",
-    budget: "my monthly limit",
-    period: "how long I need it",
-    distance: "how far I drive",
+    ...CHANGE_SAID,
 };
 
 /** One answer, changed from the summary: that question again, then back to the summary. */
