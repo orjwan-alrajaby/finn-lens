@@ -282,7 +282,7 @@ export function withinLimits(step: Pick<ChatStep, "max" | "exclusive">, chosen: 
 /** The deal-breakers' sections, in the order they're shown. */
 const RULE_GROUPS: { id: string; title: string }[] = [
     { id: "yours", title: "From what you told me" },
-    { id: "money", title: "Money" },
+    { id: "money", title: "Money & time" },
     { id: "energy", title: "Fuel & emissions" },
     { id: "car", title: "The car itself" },
 ];
@@ -385,6 +385,7 @@ function dealsStep(u: Understanding, cars: FinnCar[]): ChatStep | null {
         /* A row that can't seal the deal says why, so the missing "Seals it" isn't a puzzle. */
         description: options.includes("seal") ? deal.description : `${deal.description} I can only rule on this, not weigh it — so it can't seal the deal.`,
         options,
+        ...(deal.labels ? { labels: deal.labels } : {}),
         ...(because.has(deal.id) ? { suggested: `Recommended because ${because.get(deal.id)}.` } : {}),
     }));
     const groups = RULE_GROUPS.filter((group) => rows.some((row) => row.group === group.id));
@@ -917,6 +918,7 @@ function dealSaid(row: DealRow, state: DealState): string {
     const deal = DEALS.find((item) => item.id === row.id)!;
 
     if (deal.id === "limit") return "Nothing over my limit.";
+    if (deal.id === "dates") return state === "flex" ? "Only cars I can have for my dates — a month either way is fine." : "Only cars I can have for my dates.";
     if (state === "seal") return `${deal.phrase.replace(/^./, (c) => c.toUpperCase())} would seal it.`;
 
     return `It ${stateLabel(deal, state).toLowerCase()} ${deal.phrase}.`;
@@ -936,6 +938,7 @@ function breakersSaid(u: Understanding): string {
                   : `any car without ${asPhrase(rule.id)}`,
         ),
         ...(u.budget?.firm ? [`any car over ${formatEUR(u.budget.monthly)} a month`] : []),
+        ...(u.rental?.firm ? [`any car that can't be rented ${(u.rental.flexMonths ?? 0) > 0 ? "within a month of" : "for"} ${monthLabel(u.rental.from)} to ${monthLabel(u.rental.to)}`] : []),
     ];
 
     if (!parts.length) return "";
@@ -1100,7 +1103,13 @@ export function summaryOf(u: Understanding, id: string = messageId(), cars: Finn
               }`,
         step: "budget",
     });
-    lines.push({ label: "For", value: u.rental ? `${monthLabel(u.rental.from)} – ${monthLabel(u.rental.to)}` : periodUnset(u), step: "period" });
+    lines.push({
+        label: "For",
+        value: u.rental
+            ? `${monthLabel(u.rental.from)} – ${monthLabel(u.rental.to)}${u.rental.firm ? ((u.rental.flexMonths ?? 0) > 0 ? ", a month either way" : ", these dates only") : ""}`
+            : periodUnset(u),
+        step: "period",
+    });
     lines.push({
         label: "Driving",
         value: u.monthlyKm
@@ -1411,7 +1420,7 @@ export function answer(
 
     /* Keeping the answers ends the questions: from a judgement, "Change my answers" is the way back. */
     /* Nor is letting a deal-breaker go: the cars are judged again on it straight away. */
-    if (ask.step.id === "keep" || ask.step.id === "start" || ask.step.id === "intro" || ask.step.id === "letGo") return { ...result, chat: { ...result.chat, history: [] } };
+    if (ask.step.id === "keep" || ask.step.id === "start" || ask.step.id === "intro" || ask.step.id === "letGo" || ask.step.id === "datesOff") return { ...result, chat: { ...result.chat, history: [] } };
 
     const said = result.chat.messages[chat.messages.length];
     const before: Rewind = {
@@ -1508,6 +1517,33 @@ function answerStep(
     const tapped = picked.length ? picked.map((choice) => choice.said).join(" ") : "";
     const messages = closeAsks(chat.messages);
     const base: Chat = { ...chat, messages, picks: { ...(chat.picks ?? {}), [step.id]: chosen } };
+
+    /* -- No car can be had for the reader's dates: a month either way, other dates, or no pick here -- */
+    if (step.id === "datesOff" && base.understanding.rental) {
+        const choice = picked[0]?.id;
+
+        if (choice === "flex") {
+            const understanding = { ...base.understanding, rental: { ...base.understanding.rental, firm: true, flexMonths: 1 } };
+            return { chat: touch(base, [reader(tapped), lens("A month either way, then. Judging again…")], { understanding, phase: "ready" }), after: "judge" };
+        }
+
+        if (choice === "change") {
+            return { chat: askNext(touch(base, [reader(tapped)], { queue: ["period", "from"], revising: true, kept: null }), cars), after: "wait" };
+        }
+
+        /* Kept: no car here can be had, so there's no pick here — rather than one they can't have. */
+        return {
+            chat: touch(
+                base,
+                [
+                    reader("Keep my dates."),
+                    lens("Then none of the cars on this page can be had for those dates, so I won't pick one. Open another FINN page and tap “Judge the cars here”, or change your dates any time."),
+                ],
+                { phase: "ready" },
+            ),
+            after: "wait",
+        };
+    }
 
     /* -- No car has every deal-breaker: the ones let go of become sealers, and the cars are judged again -- */
     if (step.id === "letGo") {

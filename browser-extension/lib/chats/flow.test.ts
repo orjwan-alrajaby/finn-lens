@@ -7,6 +7,8 @@ import { EMPTY_UNDERSTANDING, ruledOut } from "@/lib/lens-chat/understanding";
 import { fleet } from "@/lib/reasoning-engine/test-data/fleet";
 
 import { askBeforeResult, chatAnswers, judgementFrom, judgeWith, letGoAsk, resultMessage, rulesSignature } from "./judge";
+import { buildCostAnalysis } from "@/lib/reasoning-engine/cost";
+import type { Understanding } from "@/lib/lens-chat/understanding";
 import { syncBubbles, withBubbles } from "@/lib/lens-chat/bubbles";
 import { readEvidence } from "@/lib/lens-chat/evidence";
 import { DEAL_MEANS, demandOf, letGo, withDeals } from "@/lib/lens-chat/deals";
@@ -1003,6 +1005,7 @@ describe("must, mustn't, or seals it", () => {
             must: "A deal-breaker: any car without it is set aside before I score anything.",
             mustNot: "A deal-breaker: any car that is one is set aside before I score anything.",
             seal: "A deal-sealer: counts as a top priority, but a car without it can still win if it's clearly better at everything else.",
+            flex: "Still a deal-breaker, but a car also counts if it can be rented with the start a month earlier or later — and it says which.",
         });
     });
 });
@@ -1379,5 +1382,81 @@ describe("standard equipment, said where it's asked for", () => {
         expect(stepFor("bubbles-copes", [...withAc, without])!.choices.find((choice) => choice.id === "weather")!.standard!.hint).toBe(
             "Nearly every car here has it, so it won't set the cars apart — but a car without it would lose out.",
         );
+    });
+});
+
+describe("dates as a rule", () => {
+    /* FINN's snapshot carries no terms or delivery windows: these give a few cars their own. */
+    const term = (deliveryFrom: string, deliveryTo: string) => ({ months: 12, privateMonthly: 400, businessMonthly: 340, deliveryFrom, deliveryTo, deviationWeeks: 0 });
+    const withTerm = (car: ReturnType<typeof fleet>[number], from: string, to: string) => ({ ...car, contract: { defaultMonths: 12, terms: [term(from, to)] } }) as typeof car;
+    const page = () => {
+        const cars = fleet().sort((a, b) => a.id - b.id).slice(0, 4);
+        return [
+            withTerm(cars[0]!, "2026-11-01", "2026-11-30"), // November only
+            withTerm(cars[1]!, "2026-12-01", "2026-12-31"), // December only
+            withTerm(cars[2]!, "2026-12-01", "2026-12-31"),
+            withTerm(cars[3]!, "2027-03-01", "2027-03-31"), // March only
+        ];
+    };
+    const dated = (from: string, firm: boolean, flexMonths = 0) =>
+        ({ ...withBubbles(EMPTY_UNDERSTANDING, { dog: [] }), rental: { from, to: addMonths(from, 11), startDay: null, said: "", firm, flexMonths } }) as Understanding;
+
+    it("never picks a car that can't be had for dates held as a rule, and says why for each set aside", () => {
+        const u = dated("2026-12", true);
+        const judged = judgeWith(u, page(), "cars")!;
+        const winner = judged.run.recommendation.winner;
+        const verdicts = judgementFrom(judged, page(), u, "", "", {}, "").verdicts;
+
+        expect(judged.run.recommendation.context.costs[winner.id]!.contract.status).toBe("fits");
+        expect(judged.run.offDates?.ids.sort()).toEqual([page()[0]!.id, page()[3]!.id].sort());
+        expect(verdicts[page()[3]!.id]).toMatchObject({ label: "Ruled out", rank: null });
+        expect(verdicts[page()[3]!.id]!.setAside).toMatch(/^Can't be rented for your dates, which you said to keep to/);
+    });
+
+    it("takes a car a month out when a month either way is fine, and says it isn't the exact dates", () => {
+        const u = dated("2026-11", true, 1);
+        const judged = judgeWith(u, page(), "cars")!;
+        const december = page()[1]!;
+        const cost = buildCostAnalysis(december, judged.run.answers.preferences);
+
+        expect(judged.run.offDates?.ids).toEqual([page()[3]!.id]);
+        expect(cost.breakdown.contract).toMatchObject({ status: "fits", shiftedMonths: 1 });
+        expect(cost.caveats[0]).toMatch(/^Not on your exact dates: it can be rented a month later, December 2026 to November 2027, which you said is fine\./);
+    });
+
+    it("asks before any result when no car here can be had — and keeping the dates means no pick, not one they can't have", () => {
+        const u = dated("2027-06", true);
+        const judged = judgeWith(u, page(), "cars")!;
+        const chat = { ...startChat(null, page(), TODAY), understanding: u, queue: [], phase: "ready" as const };
+        const ask = askBeforeResult(chat, judged.run, "d1", "")!;
+
+        expect(judged.run.offDates?.nothingLeft).toBe(true);
+        expect(ask.step).toMatchObject({ id: "datesOff", ask: "No car here can be rented for June 2027 to May 2028. Would a month earlier or later work?", none: "Keep my dates" });
+
+        const asked = { ...chat, messages: [...chat.messages, ask] };
+        const flex = answer(asked, "d1", ["flex"], page(), TODAY);
+        expect(flex.after).toBe("judge");
+        expect(flex.chat.understanding.rental).toMatchObject({ firm: true, flexMonths: 1 });
+
+        const keep = answer(asked, "d1", [], page(), TODAY);
+        expect(keep.after).toBe("wait");
+        expect(texts(keep.chat).at(-1)).toMatch(/^Then none of the cars on this page can be had for those dates, so I won't pick one\./);
+
+        const change = answer(asked, "d1", ["change"], page(), TODAY);
+        expect(openAsk(change.chat)?.step.id).toBe("period");
+    });
+
+    it("is offered as a deal-breaker once there are dates: my dates only, or a month either way", () => {
+        const u = dated("2026-12", false);
+        const step = stepFor("deals", page(), u)!;
+        const row = step.deals!.find((item) => item.id === "dates")!;
+
+        expect(row).toMatchObject({ label: "Available for my dates", options: ["must", "flex"], labels: { must: "My dates only", flex: "A month either way" }, group: "money" });
+        expect(step.groups?.find((group) => group.id === "money")?.title).toBe("Money & time");
+        expect(stepFor("deals", page(), withBubbles(EMPTY_UNDERSTANDING, { dog: [] }))!.deals!.some((item) => item.id === "dates")).toBe(false);
+
+        const flex = withDeals(u, ["dates"], { dates: "flex" });
+        expect(flex.rental).toMatchObject({ firm: true, flexMonths: 1 });
+        expect(withDeals(flex, ["dates"], {}).rental).toMatchObject({ firm: false, flexMonths: 0 });
     });
 });

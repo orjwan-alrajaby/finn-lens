@@ -94,6 +94,12 @@ export interface ContractFit {
     /** Every term length on offer, shortest first. */
     termsOffered: number[];
     problems: RentalProblem[];
+    /**
+     * Months the start moved to fit — +1 a month later, −1 a month earlier —
+     * where the reader allowed it and the exact dates didn't fit. Absent on
+     * the exact dates.
+     */
+    shiftedMonths?: number;
 }
 
 /**
@@ -103,6 +109,35 @@ export interface ContractFit {
  * FINN shows first, and the status is `notSet`.
  */
 export function fitContract(
+    vehicle: Pick<PinnedFinnCar, "contract">,
+    preferences: LensPreferences,
+): ContractFit {
+    const exact = fitExactly(vehicle, preferences);
+    const flex = preferences.rentalFlexMonths ?? 0;
+
+    /*
+     * "A month either way is fine": the exact dates first; failing them, the
+     * same length started a month later, then a month earlier — said, never
+     * passed off as the dates asked for.
+     */
+    if (exact.status === "fits" || !flex || !preferences.rentalFrom || !preferences.rentalTo) return exact;
+
+    for (let step = 1; step <= flex; step += 1) {
+        for (const shift of [step, -step]) {
+            const moved = fitExactly(vehicle, {
+                ...preferences,
+                rentalFrom: addMonths(preferences.rentalFrom, shift),
+                rentalTo: addMonths(preferences.rentalTo, shift),
+            });
+            if (moved.status === "fits") return { ...moved, shiftedMonths: shift };
+        }
+    }
+
+    return exact;
+}
+
+/** The fit on exactly the reader's dates. */
+function fitExactly(
     vehicle: Pick<PinnedFinnCar, "contract">,
     preferences: LensPreferences,
 ): ContractFit {

@@ -91,9 +91,12 @@ export function weighingOf(u: Understanding, summary: Summary): Weighing {
         line("Runs on"),
         line("Deal-breakers"),
         u.budget?.firm ? line("Monthly limit") : undefined,
+        u.rental?.firm ? line("For") : undefined,
     ].filter((item): item is NonNullable<typeof item> => item != null && item.value !== "Any" && item.value !== "None");
 
-    const terms = summary.lines.filter((item) => ["budget", "period", "from", "distance"].includes(item.step ?? "") && !(u.budget?.firm && item.label === "Monthly limit"));
+    const terms = summary.lines.filter(
+        (item) => ["budget", "period", "from", "distance"].includes(item.step ?? "") && !(u.budget?.firm && item.label === "Monthly limit") && !(u.rental?.firm && item.label === "For"),
+    );
 
     return { needs, setAside: setAside.map(({ label, value }) => ({ label, value })), terms: terms.map(({ label, value }) => ({ label, value })) };
 }

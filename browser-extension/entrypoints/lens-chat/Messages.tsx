@@ -554,7 +554,15 @@ function StarKey() {
  */
 function DealKey({ rows }: { rows: DealRow[] }) {
     const offered = new Set(rows.flatMap((row) => row.options));
-    const must = [rows.some((row) => row.options.includes("must") && row.kind) && "Must be", rows.some((row) => row.options.includes("must") && !row.kind) && "Must have"].filter(Boolean).join(" / ");
+    /* Rows with their own words for "must" ("My dates only") are keyed by those words, not "Must have". */
+    const plain = rows.filter((row) => !row.labels?.must);
+    const must = [
+        plain.some((row) => row.options.includes("must") && row.kind) && "Must be",
+        plain.some((row) => row.options.includes("must") && !row.kind) && "Must have",
+        ...rows.filter((row) => row.labels?.must && row.options.includes("must")).map((row) => row.labels!.must!),
+    ]
+        .filter(Boolean)
+        .join(" / ");
     const mustNot = [rows.some((row) => row.options.includes("mustNot") && row.kind) && "Mustn't be", rows.some((row) => row.options.includes("mustNot") && !row.kind) && "Mustn't have"]
         .filter(Boolean)
         .join(" / ");
@@ -563,6 +571,9 @@ function DealKey({ rows }: { rows: DealRow[] }) {
         ...(offered.has("must") ? [{ label: must, tone: DEAL_TONE.must, means: DEAL_MEANS.must }] : []),
         ...(offered.has("mustNot") ? [{ label: mustNot, tone: DEAL_TONE.mustNot, means: DEAL_MEANS.mustNot }] : []),
         ...(offered.has("seal") ? [{ label: "Seals it", tone: DEAL_TONE.seal, means: DEAL_MEANS.seal }] : []),
+        ...rows
+            .filter((row) => row.options.includes("flex"))
+            .map((row) => ({ label: row.labels?.flex ?? "Either way", tone: DEAL_TONE.flex, means: DEAL_MEANS.flex })),
     ];
 
     return (
@@ -798,13 +809,15 @@ function BubbleChipRow({
 }
 
 const DEAL_LABEL = (row: DealRow, state: DealRow["options"][number]): string =>
-    state === "seal" ? "Seals it" : state === "must" ? (row.kind ? "Must be" : "Must have") : row.kind ? "Mustn't be" : "Mustn't have";
+    row.labels?.[state] ??
+    (state === "seal" ? "Seals it" : state === "must" ? (row.kind ? "Must be" : "Must have") : state === "flex" ? "Either way" : row.kind ? "Mustn't be" : "Mustn't have");
 
 /* Soft fills, with the text and border in the darker shade: picked reads clearly without shouting. */
 const DEAL_TONE: Record<DealRow["options"][number], string> = {
     must: "bg-finn-pale-blue text-finn-highlight-navy ring-1 ring-finn-highlight-navy/45",
     mustNot: "bg-finn-fit-limited-pale text-finn-fit-limited ring-1 ring-finn-fit-limited/45",
     seal: "bg-finn-fit-good-pale text-finn-fit-good ring-1 ring-finn-fit-good/45",
+    flex: "bg-finn-pale-blue text-finn-accent-blue ring-1 ring-finn-accent-blue/45",
 };
 
 /**

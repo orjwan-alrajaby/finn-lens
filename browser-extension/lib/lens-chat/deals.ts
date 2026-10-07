@@ -39,7 +39,8 @@ function figureDiffers(cars: FinnCar[], figure: CategoryId): boolean {
  * isn't something Lens scores, only something it can rule on.
  */
 
-export type DealState = "must" | "mustNot" | "seal";
+/* "flex": the dates, a month either way — a rule, on dates moved a month if they must be. */
+export type DealState = "must" | "mustNot" | "seal" | "flex";
 
 export interface Deal {
     id: string;
@@ -60,6 +61,8 @@ export interface Deal {
     mustNot?: string;
     /** What sealing it counts: a piece of equipment, or a figure. */
     seal?: { evidence?: EvidenceId; figure?: CategoryId; need: string };
+    /** Its own words for its options, where "Must have" doesn't fit: "My dates only". */
+    labels?: Partial<Record<DealState, string>>;
 }
 
 export const DEALS: Deal[] = [
@@ -71,6 +74,20 @@ export const DEALS: Deal[] = [
         group: "money",
         mustNot: "firm-budget",
         description: "Cars over your monthly limit, all costs together, are set aside rather than ranked lower.",
+    },
+    {
+        /*
+         * The dates, as a rule. Not a car fact: FINN's terms and delivery
+         * windows for the reader's period (contract.ts). Offered once there
+         * are dates, as "my dates only" or "a month either way".
+         */
+        id: "dates",
+        phrase: "available for my dates",
+        label: "Available for my dates",
+        kind: false,
+        group: "money",
+        labels: { must: "My dates only", flex: "A month either way" },
+        description: "Whether FINN can rent the car for your dates: a term that covers them, and delivery by the month you start.",
     },
     {
         id: "electric",
@@ -184,6 +201,7 @@ export const DEAL_MEANS: Record<DealState, string> = {
     must: "A deal-breaker: any car without it is set aside before I score anything.",
     mustNot: "A deal-breaker: any car that is one is set aside before I score anything.",
     seal: "A deal-sealer: counts as a top priority, but a car without it can still win if it's clearly better at everything else.",
+    flex: "Still a deal-breaker, but a car also counts if it can be rented with the start a month earlier or later — and it says which.",
 };
 
 /** How a state reads on the row: "Must be", "Mustn't have", "Seals it". */
@@ -213,9 +231,14 @@ export function dealsHere(u: Understanding, cars: FinnCar[]): { deal: Deal; opti
     /* Electric or not is asked on its own now — "What can it run on?" — so it isn't a row here too. */
     return DEALS.filter((deal) => deal.id !== "electric").map((deal) => ({
         deal,
-        options: [ruleHere(deal.must) ? ("must" as const) : null, ruleHere(deal.mustNot) ? ("mustNot" as const) : null, sealHere(deal) ? ("seal" as const) : null].filter(
-            (state): state is DealState => state != null,
-        ),
+        options:
+            deal.id === "dates"
+                ? u.rental
+                    ? (["must", "flex"] as DealState[])
+                    : []
+                : ([ruleHere(deal.must) ? "must" : null, ruleHere(deal.mustNot) ? "mustNot" : null, sealHere(deal) ? "seal" : null] as (DealState | null)[]).filter(
+                      (state): state is DealState => state != null,
+                  ),
     })).filter((row) => row.options.length > 0);
 }
 
@@ -229,6 +252,8 @@ export function dealStates(u: Understanding): Record<string, DealState> {
         else if (deal.mustNot === "firm-budget" ? u.budget?.firm : deal.mustNot && active.has(`rules-${deal.mustNot}`)) states[deal.id] = "mustNot";
         else if (active.has(`sealer-${deal.id}`)) states[deal.id] = "seal";
     }
+
+    if (u.rental?.firm) states.dates = (u.rental.flexMonths ?? 0) > 0 ? "flex" : "must";
 
     return states;
 }
@@ -262,6 +287,12 @@ export function withDeals(u: Understanding, offered: string[], states: Record<st
     const picked = deals.map((deal) => (states[deal.id] === "must" ? deal.must : states[deal.id] === "mustNot" ? deal.mustNot : undefined)).filter((id): id is string => Boolean(id) && id !== "firm-budget");
 
     let next = applyChoices(u, { ...step, choices: step.choices.filter((choice) => ruleIds.has(choice.id)) }, picked);
+
+    /* The dates: a rule held on the rental itself — exact, or a month either way. */
+    if (deals.some((deal) => deal.id === "dates") && next.rental) {
+        const state = states.dates;
+        next = { ...next, rental: { ...next.rental, firm: state === "must" || state === "flex", flexMonths: state === "flex" ? 1 : 0 } };
+    }
 
     if (deals.some((deal) => deal.id === "limit") && next.budget) {
         const firm = states.limit === "mustNot";

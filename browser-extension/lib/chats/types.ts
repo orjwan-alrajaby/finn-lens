@@ -42,8 +42,10 @@ export type StepId =
     | "fuel"
     /** Deal-breakers and deal-sealers: what rules a car out, and what makes it. */
     | "deals"
-    /** No car has every deal-breaker: which would the reader let go of? Asked after the result. */
+    /** No car has every deal-breaker: which would the reader let go of? Asked before the result. */
     | "letGo"
+    /** No car here can be had for the reader's dates, held as a rule: a month either way, other dates, or none. */
+    | "datesOff"
     | `often-${string}`
     | "budget"
     | "period"
@@ -102,7 +104,9 @@ export interface DealRow {
     group: string;
     description: string;
     sources?: Source[];
-    options: ("must" | "mustNot" | "seal")[];
+    options: ("must" | "mustNot" | "seal" | "flex")[];
+    /** Its own words for its options, where "Must have" doesn't fit: "My dates only". */
+    labels?: Partial<Record<"must" | "mustNot" | "seal" | "flex", string>>;
     /** Why it's first: "Suggested because you carry a lot." */
     suggested?: string;
 }

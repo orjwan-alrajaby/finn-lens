@@ -1,4 +1,4 @@
-import { buildRecommendation, describeRentalProblem, formatEUR } from "@/lib/reasoning-engine";
+import { buildRecommendation, describeRentalProblem, formatEUR, monthLabel } from "@/lib/reasoning-engine";
 import { calculateCost, missingPiece } from "@/lib/reasoning-engine/cost";
 import type { Answers } from "@/lib/reasoning-engine/answers";
 import { bandForScore } from "@/lib/reasoning-engine/bands";
@@ -59,7 +59,7 @@ export interface Judged {
 
 export function judgeWith(u: Understanding, cars: PinnedFinnCar[], headline: string): Judged | null {
     const translation = chatAnswers(u);
-    const run = runLens(cars, translation.answers, "page", headline, ruledOut(u), u.budget?.firm === true);
+    const run = runLens(cars, translation.answers, "page", headline, ruledOut(u), u.budget?.firm === true, u.rental?.firm === true);
 
     return run ? { run, translation } : null;
 }
@@ -143,6 +143,24 @@ export function verdictsFor(judged: Judged, cars: PinnedFinnCar[]): Record<numbe
             setAside: breakdown
                 ? `Can't be confirmed within your ${limit} limit, which you said to keep to — missing ${breakdown.missing.map((reason) => missingPiece(reason, breakdown)).join("; and ")}`
                 : `Over your ${limit} limit, which you said to keep to`,
+        };
+    }
+
+    /* Not to be had for dates the reader made a rule: set aside, saying why — exactly, from FINN's terms. */
+    for (const id of run.offDates && !run.offDates.nothingLeft ? run.offDates.ids : []) {
+        const car = cars.find((item) => item.id === id);
+        const contract = car ? calculateCost(car, run.answers.preferences).contract : null;
+        const problem = contract ? describeRentalProblem(contract) : null;
+
+        verdicts[id] = {
+            band: "unknown",
+            label: "Ruled out",
+            rank: null,
+            winner: false,
+            over: "period",
+            setAside: run.offDates!.unconfirmed.includes(id)
+                ? `FINN's data can't confirm it for your dates, which you said to keep to${problem ? ` — it ${problem}` : ""}`
+                : `Can't be rented for your dates, which you said to keep to${problem ? ` — it ${problem}` : ""}`,
         };
     }
 
@@ -362,7 +380,7 @@ export function resultMessage(
          * nobody asked.
          */
         runnersUp: alternativesWithinLimits(run, 3).map((line) => snapshot(line, urls)),
-        setAside: (run.ruledOut && !run.ruledOut.nothingLeft ? run.ruledOut.setAside : 0) + (run.overLimit?.ids.length ?? 0),
+        setAside: (run.ruledOut && !run.ruledOut.nothingLeft ? run.ruledOut.setAside : 0) + (run.overLimit?.ids.length ?? 0) + (run.offDates && !run.offDates.nothingLeft ? run.offDates.ids.length : 0),
         /* The judgement made with it carries the same moment: that's how the result finds it again. */
         judgement: at,
     };
@@ -410,8 +428,40 @@ export function rulesSignature(u: Understanding): string {
  * to ask.
  */
 export function askBeforeResult(from: Chat, run: LensRun, id: string, at: string): Extract<ChatMessage, { kind: "ask" }> | null {
-    if (from.keptRules && from.keptRules === rulesSignature(from.understanding)) return null;
-    return letGoAsk(run, id, at);
+    const letGo = from.keptRules && from.keptRules === rulesSignature(from.understanding) ? null : letGoAsk(run, id, at);
+    return letGo ?? datesAsk(run, from.understanding, id, at);
+}
+
+/**
+ * No car here can be had for the reader's dates, which they made a rule: a
+ * car they can't have is no pick, so the question comes before any result —
+ * a month either way (if they haven't said so already), other dates, or
+ * keep these and have no pick here.
+ */
+export function datesAsk(run: LensRun, u: Understanding, id: string, at: string): Extract<ChatMessage, { kind: "ask" }> | null {
+    if (!run.offDates?.nothingLeft || !u.rental) return null;
+
+    const flexed = (u.rental.flexMonths ?? 0) > 0;
+    const dates = `${monthLabel(u.rental.from)} to ${monthLabel(u.rental.to)}`;
+
+    return {
+        id,
+        at,
+        from: "lens",
+        kind: "ask",
+        answered: false,
+        step: {
+            id: "datesOff",
+            ask: flexed ? `No car here can be rented within a month of ${dates}. What would you like to do?` : `No car here can be rented for ${dates}. Would a month earlier or later work?`,
+            why: "A car you can't have for your dates isn't a pick, so I'm asking before showing one.",
+            multiple: false,
+            choices: [
+                ...(flexed ? [] : [{ id: "flex", label: "A month either way is fine", said: "A month either way is fine." }]),
+                { id: "change", label: "Change my dates", said: "I'd like to change my dates." },
+            ],
+            none: "Keep my dates",
+        },
+    };
 }
 
 /** The fuels, as "What can it run on?" sets them aside. */

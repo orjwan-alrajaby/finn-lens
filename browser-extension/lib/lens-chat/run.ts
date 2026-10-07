@@ -68,6 +68,13 @@ export interface LensRun {
      * within it (`unconfirmed`, a subset of `ids`).
      */
     overLimit: { ids: number[]; limit: number; unconfirmed: number[] } | null;
+    /**
+     * Cars set aside because they can't be had for the reader's dates, held
+     * as a rule — `unconfirmed` where FINN's data can't say. `nothingLeft`
+     * when no car here can be: then nothing is set aside, and the reader is
+     * asked before any result.
+     */
+    offDates: { ids: number[]; unconfirmed: number[]; nothingLeft: boolean } | null;
     /** "Comparing 12 cars on this page". */
     scopeHeadline: string;
     answers: Answers;
@@ -112,6 +119,8 @@ export function runLens(
     ruledOut: Rule[] = [],
     /** The monthly limit is a rule: cars over it are set aside too, not graded. */
     firmBudget = false,
+    /** The dates are a rule — "my dates only", or a month either way: a car not confirmed for them is set aside. */
+    firmRental = false,
 ): LensRun | null {
     if (!cars.length) return null;
 
@@ -126,7 +135,7 @@ export function runLens(
     const setAside = cars.length - allowed.length;
     const nothingLeft = allowed.length === 0;
 
-    const pool = nothingLeft ? cars : allowed;
+    let pool = nothingLeft ? cars : allowed;
     const rank = (candidates: PinnedFinnCar[]) =>
         buildRecommendation(candidates, answers.priorities, answers.preferences, answers.features);
 
@@ -140,6 +149,29 @@ export function runLens(
      * set is priced first. If nothing is within it, the rule can't hold, and
      * the nearest are ranked below as for any limit — and said so.
      */
+    /*
+     * The dates, held as a rule: a car that can't be had for them — or that
+     * FINN's data can't confirm — isn't a pick, however well it fits. Set
+     * aside first, so the limit is then held among cars that can be had. If
+     * none can, nothing is set aside here: the reader is asked what to do
+     * before any result is shown.
+     */
+    let offDates: LensRun["offDates"] = null;
+
+    if (firmRental && answers.preferences.rentalFrom) {
+        const { costs } = recommendation.context;
+        const off = pool.filter((car) => costs[car.id]?.contract.status !== "fits");
+        const unconfirmed = off.filter((car) => costs[car.id]?.contract.status !== "doesNotFit").map((car) => car.id);
+
+        if (off.length === pool.length) {
+            offDates = { ids: off.map((car) => car.id), unconfirmed, nothingLeft: true };
+        } else if (off.length) {
+            pool = pool.filter((car) => !off.includes(car));
+            recommendation = rank(pool) ?? recommendation;
+            offDates = { ids: off.map((car) => car.id), unconfirmed, nothingLeft: false };
+        }
+    }
+
     let overLimit: LensRun["overLimit"] = null;
     const limit = answers.preferences.monthlyBudget;
 
@@ -212,6 +244,7 @@ export function runLens(
         scope,
         scopeHeadline,
         overLimit,
+        offDates,
         answers,
         level: levelWith(recommendation),
         nearestToLimit,

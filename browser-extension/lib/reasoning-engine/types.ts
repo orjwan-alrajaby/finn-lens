@@ -56,6 +56,12 @@ export interface LensPreferences {
   /** The last month the reader wants the car for, included: "2027-05". */
   rentalTo: string | null;
   /**
+   * How many months the start may move either way — the reader said "a month
+   * either way is fine". A car that doesn't fit the exact dates is tried that
+   * much earlier and later; 0 or absent, the dates are exact.
+   */
+  rentalFlexMonths?: number;
+  /**
    * True when the reader may only drive an automatic — a licence limited to
    * automatics, or simply never driving a manual.
    *

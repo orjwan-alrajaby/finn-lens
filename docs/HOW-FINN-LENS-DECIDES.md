@@ -205,7 +205,8 @@ only what FINN lists:
 
 ### 3.6 Deal-breakers & deal-sealers
 
-One row per thing (`DEALS`, deals.ts): Over my limit · Low CO₂ emissions · Frugal for its kind · Automatic
+One row per thing (`DEALS`, deals.ts): Over my limit · Available for my dates (My dates only · A month either
+way — §9.5) · Low CO₂ emissions · Frugal for its kind · Automatic
 gearbox · SUV · Rear doors · Six or more seats · Towbar · All-wheel drive. Each set to:
 
 | Option | Means |
@@ -451,8 +452,18 @@ counts as fitting.
 
 ### 9.5 The rental period and the gearbox
 
-Like the budget, three-state and eligibility-only (contract.ts, decision.ts): never a point added or removed.
-See §10.4 for the period.
+Three-state and eligibility-only by default (contract.ts, decision.ts): never a point added or removed — a car
+that fits the dates is preferred, and see §10.4 for how a period is matched to FINN's terms.
+
+**Dates as a rule** — the "Available for my dates" deal row, offered once there are dates (`runLens`, run.ts):
+
+- **My dates only**: a car that can't be rented for the dates, or that FINN's data can't confirm, is set aside
+  before the limit is applied, each saying why from FINN's terms. A car the reader can't have is never the pick.
+- **A month either way**: the same, but a car also counts if it fits with the start a month later or earlier
+  (`rentalFlexMonths`, `fitContract`), and its cost says it isn't the exact dates.
+- **No car here can be had**: Lens asks before showing any result (`datesAsk`, judge.ts) — a month either way,
+  change the dates, or keep them. Keeping them means **no pick on this page**, said plainly, rather than a car
+  they can't have.
 
 ---
 

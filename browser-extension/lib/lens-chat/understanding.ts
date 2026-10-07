@@ -84,7 +84,16 @@ export interface Understanding {
         /** A rule, not only a line: cars over it are set aside rather than graded. */
         firm?: boolean;
     } | null;
-    rental: { from: string; to: string; startDay: number | null; said: string } | null;
+    rental: {
+        from: string;
+        to: string;
+        startDay: number | null;
+        said: string;
+        /** The dates are a rule: a car that can't be had for them is set aside, never the pick. */
+        firm?: boolean;
+        /** How many months the start may move either way to find a car: "a month either way". */
+        flexMonths?: number;
+    } | null;
     monthlyKm: { value: number; said: string } | null;
     needs: Need[];
     context: { label: string; said: string }[];
@@ -487,7 +496,8 @@ export const withRental = (
     from && to && isMonthString(from) && isMonthString(to) && monthsInclusive(from, to) >= 1
         ? {
               ...u,
-              rental: { from, to, startDay: startDay && startDay >= 1 && startDay <= 31 ? startDay : null, said },
+              /* New dates keep how firm the reader said dates are. */
+              rental: { firm: u.rental?.firm, flexMonths: u.rental?.flexMonths, from, to, startDay: startDay && startDay >= 1 && startDay <= 31 ? startDay : null, said },
               waived: waiving(u, "rental", false),
           }
         : u;
@@ -969,6 +979,7 @@ export function toAnswers(
     if (u.rental) {
         preferences.rentalFrom = u.rental.from;
         preferences.rentalTo = u.rental.to;
+        preferences.rentalFlexMonths = u.rental.flexMonths ?? 0;
     }
     if (u.monthlyKm) preferences.monthlyKm = u.monthlyKm.value;
     if (onlyAsked) {

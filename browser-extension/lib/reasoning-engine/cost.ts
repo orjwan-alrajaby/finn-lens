@@ -747,13 +747,19 @@ function rentalCaveats(contract: ContractFit): string[] {
 
   if (problem) return [`This car ${problem}.`];
 
+  /* Fits only on moved dates: said first, so it's never read as the dates asked for. */
+  const moved = contract.shiftedMonths
+    ? [`Not on your exact dates: it can be rented a month ${contract.shiftedMonths > 0 ? "later" : "earlier"}, ${periodLabel(period)}, which you said is fine.`]
+    : [];
+
   if (term && extraMonths && extraMonths > 0) {
     return [
+      ...moved,
       `FINN's shortest term that covers ${periodLabel(period)} is ${term.months} months, so the contract would run until the end of ${monthLabel(addMonths(period.from, term.months - 1))} — ${extraMonths} month${extraMonths === 1 ? "" : "s"} past when you need it. FINN's data doesn't say whether it can be ended early.`,
     ];
   }
 
-  return [];
+  return moved;
 }
 
 function budgetSentence(breakdown: CostBreakdown): string | null {
