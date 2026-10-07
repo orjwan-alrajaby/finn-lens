@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { ContractTerm, FinnApiConfig, PinnedFinnCar } from "@/lib/types";
-import { extractContract, extractPricing } from "@/lib/helpers";
+import { extractAvailability, extractContract, extractPricing } from "@/lib/helpers";
 
 import { buildAdviceNarrative, buildRecommendation, migratePreferences } from "./index";
 import { calculateCost, buildCostAnalysis } from "./cost";
@@ -78,6 +78,13 @@ describe("reading FINN's terms", () => {
         /* Not the €199 that assumes €1,500 paid upfront. */
         expect(pricing.customerMonthly.price).toBe(296.5);
         expect(pricing.businessMonthly.price).toBe(250);
+    });
+
+    it("gives the delivery window of the term it prices, not the down-payment default", () => {
+        const availability = extractAvailability(raw);
+
+        expect(availability.termInMonths).toBe(24);
+        expect(availability.to).toBe("2026-12-31T00:00:00.000Z");
     });
 
     /* FINN's Mercedes CLA electric, 41675, on an early-booking offer. */

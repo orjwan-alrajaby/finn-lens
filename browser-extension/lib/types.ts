@@ -11,7 +11,7 @@ export type FinnApiConfig = {
 
   model: string;
   model_year: string;
-  engine: string;
+  engine?: string | null;
   equipment_line: string | null;
   trim_name: string;
 
@@ -63,12 +63,13 @@ export type FinnApiConfig = {
     };
   };
 
-  consumption: number;
+  /* FINN leaves these out on some cars, and sends no CO₂ figure for electric ones. */
+  consumption?: number | null;
   consumption_city: number | null;
   consumption_highway: number | null;
 
-  co2emission: number;
-  co2_class: string;
+  co2emission: number | null;
+  co2_class?: string | null;
 
   /** WLTP range in km, as FINN sends it: a string, "571". Null for cars that aren't electric. */
   ev_range?: string | number | null;
@@ -166,15 +167,17 @@ export interface FinnCar {
   pricing: ReturnType<typeof extractPricing>;
 
   consumption: {
-    combined: number;
+    /** Null when FINN sends no figure. */
+    combined: number | null;
     city: number | null;
     highway: number | null;
     unit: ConsumptionUnit;
   };
 
   co2: {
-    value: number;
-    class: string;
+    /** Null when FINN sends no figure, as for every electric car. */
+    value: number | null;
+    class: string | null;
     unit: "g/km";
   };
 

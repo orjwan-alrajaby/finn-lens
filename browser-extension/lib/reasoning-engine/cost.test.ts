@@ -365,7 +365,7 @@ describe("a plug-in hybrid's electricity, from the EU's figures", () => {
     expect(energy.plugIn?.kWhPer100Km).toBe(10.8);
     expect(energy.isFloor).toBe(false);
     expect(analysis.breakdown.complete).toBe(true);
-    expect(energy.amount).toBeCloseTo((1000 / 100) * (tucson.consumption.combined * energy.energyPrice! + 10.8 * energy.plugIn!.price), 5);
+    expect(energy.amount).toBeCloseTo((1000 / 100) * (tucson.consumption.combined! * energy.energyPrice! + 10.8 * energy.plugIn!.price), 5);
     expect(line.label).toBe("Estimated fuel & electricity");
     expect(line.facts).toContainEqual({ label: "Electricity use (EU official figure)", value: "10.8 kWh/100km", source: "eu" });
     expect(line.sources).toEqual([{ name: EU_ELECTRICITY_SOURCE.name, url: EU_ELECTRICITY_SOURCE.url }]);

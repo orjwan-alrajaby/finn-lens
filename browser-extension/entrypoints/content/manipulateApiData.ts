@@ -32,7 +32,7 @@ function mapFinnConfig(config: FinnApiConfig): FinnCar {
     model: config.model,
     trim: config.trim_name,
     year: config.model_year,
-    engine: config.engine,
+    engine: config.engine ?? "",
     equipmentLine: config.equipment_line ?? "",
 
     fuelType,
@@ -53,15 +53,15 @@ function mapFinnConfig(config: FinnApiConfig): FinnCar {
     contract: extractContract(config),
 
     consumption: {
-      combined: config.consumption,
+      combined: config.consumption ?? null,
       city: config.consumption_city,
       highway: config.consumption_highway,
       unit: "L/100Km",
     },
 
     co2: {
-      value: config.co2emission,
-      class: config.co2_class,
+      value: config.co2emission ?? null,
+      class: config.co2_class ?? null,
       unit: "g/km",
     },
 

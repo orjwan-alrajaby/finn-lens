@@ -279,8 +279,14 @@ export function extractTyres(config: FinnApiConfig): FinnCar["tyres"] {
   return null;
 }
 
+/**
+ * The delivery window for the term Lens quotes a price on — the same term
+ * `extractPricing` picks. It used to follow `default_downpayment_term`, which
+ * on 14 of FINN's 127 cars is a different term from the one priced.
+ */
 export function extractAvailability(config: FinnApiConfig) {
-  const term = config.default_downpayment_term;
+  const offer = extractContract(config);
+  const term = offer.defaultMonths ?? offer.terms[0]?.months ?? config.default_downpayment_term;
   const termAvailability = config.availability_by_term?.[term];
   const availableFrom = termAvailability?.available_from ?? null;
 
@@ -292,7 +298,7 @@ export function extractAvailability(config: FinnApiConfig) {
     from: availableFrom,
     to: termAvailability?.available_to ?? null,
     deviationWeeks: termAvailability?.deviation_in_weeks ?? null,
-    defaultDownPaymentTermInMonths: term,
+    termInMonths: term,
   };
 }
 

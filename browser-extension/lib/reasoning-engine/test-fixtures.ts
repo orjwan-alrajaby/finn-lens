@@ -111,7 +111,7 @@ export function makeCar(overrides: CarOverrides): PinnedFinnCar {
       from: null,
       to: null,
       deviationWeeks: null,
-      defaultDownPaymentTermInMonths: 6,
+      termInMonths: 6,
     },
 
     pricing: {
