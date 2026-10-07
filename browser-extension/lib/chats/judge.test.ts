@@ -398,7 +398,8 @@ describe("a result with nothing within the budget", () => {
 });
 
 describe("the drawer's story about a car that isn't the pick", () => {
-    const page = fleet().slice(0, 24);
+    /* A page where the pick is within €700 and cars that score higher aren't. */
+    const page = fleet().slice(144, 168);
     const u = withDeals(withBudget(withBubbles(EMPTY_UNDERSTANDING, { kids: ["older"], weather: ["snow"] }), 700, "Up to €700 a month."), ["automatic", "awd", "co2"], {
         automatic: "seal",
         awd: "must",
@@ -407,7 +408,10 @@ describe("the drawer's story about a car that isn't the pick", () => {
     const judged = judgeWith(u, page, "24 cars")!;
     const { run, translation } = judged;
     const pick = run.recommendation.winner;
-    const over = run.recommendation.ranked.find((car) => car.id !== pick.id && run.recommendation.context.costs[car.id]?.budgetStatus === "over")!;
+    /* One whose cost FINN's data gives in full, so the story can say "about". */
+    const over = run.recommendation.ranked.find(
+        (car) => car.id !== pick.id && run.recommendation.context.costs[car.id]?.budgetStatus === "over" && run.recommendation.context.costs[car.id]?.complete,
+    )!;
 
     it("says it's over the limit — not that nothing here fits, when the pick does", () => {
         expect(run.recommendation.context.costs[pick.id]?.budgetStatus).toBe("within");

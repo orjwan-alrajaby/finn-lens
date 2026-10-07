@@ -834,7 +834,6 @@ export const CATEGORIES = {
     numericOnly: false,
     features: [
       "hasWirelessChargingStation",
-      "hasKeylessEntryAndStart",
       "hasPremiumSoundSystem",
       "hasThreeZoneAutomaticClimateControls",
       "hasElectricFrontSeatAdjustment",
@@ -842,7 +841,7 @@ export const CATEGORIES = {
       "hasSunroof",
       "hasBackUSBPorts",
     ],
-    expected: ["hasAppleCarPlaySlashAndroidAuto"],
+    expected: ["hasAppleCarPlaySlashAndroidAuto", "hasKeylessEntryAndStart"],
   },
 } satisfies Record<
   string,

@@ -130,10 +130,17 @@ function problemsWith(chat: Chat, cars: PinnedFinnCar[]): string[] {
         if (/isn't already over|also fits your/.test(verdict.headline)) problems.push(`the headline says the budget holds: ${verdict.headline}`);
     }
 
-    /* No car within the limits in a better band than the winner. */
+    /*
+     * No car within the limits in a better band than the winner. Within them
+     * means confirmed: a car whose cost or dates FINN's data can't settle
+     * ranks after one it can, by design.
+     */
     const order = ["strong", "good", "partial", "limited", "unknown"];
+    const confirmed = (id: string) =>
+        ["within", "notSet"].includes(context.costs[Number(id)]?.budgetStatus ?? "") && ["fits", "notSet"].includes(context.costs[Number(id)]?.contract.status ?? "");
     const better = Object.entries(verdicts).filter(
-        ([id, item]) => Number(id) !== winner.id && item.rank != null && !item.over && order.indexOf(item.band) < order.indexOf(verdicts[winner.id]!.band),
+        ([id, item]) =>
+            Number(id) !== winner.id && item.rank != null && !item.over && confirmed(id) && order.indexOf(item.band) < order.indexOf(verdicts[winner.id]!.band),
     );
     if (better.length) problems.push(`${better.length} cars within the limits sit in a better band than the winner`);
 

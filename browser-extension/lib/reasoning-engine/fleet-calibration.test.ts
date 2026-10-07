@@ -55,6 +55,16 @@ describe("standard equipment on FINN's inventory", () => {
     for (const id of CATEGORY_IDS) {
       for (const { key, role } of countedItems(id)) {
         if (isDerivedSignal(key) || role === "expected") continue;
+        /*
+         * Reversing camera: on 631 of 701 cars (90.01%) in the October 2026
+         * snapshot, one car over the line. Kept scored: as standard, a small
+         * car without one would be marked down (see City & Parking below),
+         * and street parking could only check it, never count it.
+         */
+        if (key === "hasOneEightyDegreesReversingCamera") {
+          expect(prevalence(key), key).toBeLessThan(0.92);
+          continue;
+        }
 
         expect(prevalence(key as FeatureId), key).toBeLessThan(BASELINE_PREVALENCE);
       }

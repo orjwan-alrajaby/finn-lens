@@ -148,7 +148,7 @@ Some bubbles open a row of **chips** (follow-ups) that change what's counted:
 | Help driving & parking | Parking (360° camera; sensors checked) · **Parallel parking** (a shorter car, 360° camera; parking assistant and sensors checked) · Traffic & lane changes (blind spot; lane keeping checked) · Reversing out (rear cross-traffic alert, reversing camera) |
 | Tough weather | Snow & ice (snow can't come without cold, so it counts heated seats & wheel itself; **recommends all-wheel drive** — §9.2) · Rain & fog (rain & light sensors, fog lights; mild or cold) · Cold winters (heated seats & wheel; wet or dry, so it combines with rain) · Hot summers (ventilated seats). Any combination, all four with "Select all". |
 | Lots to carry | Shopping (electric tailgate) · Bulky things (split-folding seats) · Bikes, skis, roof box (roof rails) · Trailer or caravan (towbar, 1,500 kg towing; suggests the towbar deal-breaker) |
-| Comfort | 14 comforts FINN lists and Lens can score, each by name (heated seats, heated wheel, ventilated seats, pre-heating, keyless entry & start, wireless CarPlay / Android Auto, wireless charging, 3-zone climate, electric seats, lumbar support, premium sound, sunroof, rear USB ports, head-up display). Leather and ambient lighting are said not to count. |
+| Comfort | 14 comforts FINN lists, each by name (heated seats, heated wheel, ventilated seats, pre-heating, keyless entry & start, wireless CarPlay / Android Auto, wireless charging, 3-zone climate, electric seats, lumbar support, premium sound, sunroof, rear USB ports, head-up display). Keyless entry is standard, so it is checked rather than scored. Leather and ambient lighting are said not to count. |
 | The environment | **How green should the car be?** — §7.4 |
 | A budget | How firm: Hard limit · Some give — §9.4 |
 
@@ -300,7 +300,13 @@ featureScore = 100 × max(0, Σ weight × utility  −  Σ weight of standard it
 An item on at least 90% of FINN's cars (`BASELINE_PREVALENCE`, evidence.ts; re-checked against the fleet
 snapshot on every calibration run) is **expected**: having it earns nothing, a confirmed gap costs its
 weight. Counted as earning, it would add the same to every car and only squeeze the differences. Examples:
-emergency braking, lane keeping, ISOFIX, parking sensors and parking assistant (704 and 703 of 728).
+emergency braking, lane keeping, ISOFIX, parking sensors and parking assistant (688 and 685 of 701 in the
+October 2026 snapshot), and keyless entry & start (656 of 701; it was 636 of 728 in September, below the line).
+
+One item sits on the line and is kept scored on purpose: the **reversing camera**, on 631 of 701 cars (90.01%).
+As standard, a small car without one would be marked down, which City & Parking is built not to do (a short
+car needs cameras less), and street parking could only check it, never count it. The calibration test names
+this exception and fails if the camera passes 92%, when it should be re-decided.
 
 ### 5.3 What's in each priority
 
@@ -313,7 +319,7 @@ From `CATEGORIES`, constants.ts. *Niche* items count only when raised (a towbar 
 | Practicality | rear doors, five seats, split-folding rear seats, electric tailgate; *niche:* towbar, 1,500 kg towing, roof rails, six+ seats | ISOFIX |
 | Long Distance Travel | level 2 driver assistance, lumbar support, head-up display; *niche:* spare wheel; also matrix LED. Electric cars: range and DC charging limit it (§6) | cruise control, adaptive cruise, navigation |
 | Climate Suitability | heated seats, rain & light sensors, heated wheel, cornering lights, seat cooling, fog lights, auxiliary heater, headlight cleaning, heat pump; *niche:* all-wheel drive | air conditioning |
-| Comfort | wireless charging, keyless entry & start, premium sound, 3-zone climate, electric seats, wireless CarPlay / Android Auto, sunroof, rear USB | CarPlay / Android Auto |
+| Comfort | wireless charging, premium sound, 3-zone climate, electric seats, wireless CarPlay / Android Auto, sunroof, rear USB | CarPlay / Android Auto, keyless entry & start |
 | Environmental Impact / Efficiency | figures, not equipment (§7) | — |
 
 **Boot space is not scored** (`BOOT_SCORING_ENABLED = false`): FINN's litres are seats-up on one car and

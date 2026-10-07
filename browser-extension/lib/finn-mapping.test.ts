@@ -86,16 +86,13 @@ describe("the mapper over FINN's inventory snapshot", () => {
     expect(cars.length).toBeGreaterThan(500);
   });
 
-  /* FINN sends a list for every car in the snapshot, and each list is taken as sent. */
-  it("reads every car's equipment list as supplied, including all-false ones", () => {
+  /*
+   * FINN sends a list for every car in the snapshot, and each list is taken
+   * as sent. A list that says no to everything is supplied too; the October
+   * 2026 snapshot has none, so supplied-equipment.test.ts holds that case.
+   */
+  it("reads every car's equipment list as supplied", () => {
     expect(cars.every((car) => car.featuresSupplied)).toBe(true);
-    /* The gearbox and drive type are stated fields, not entries in the list. */
-    const listed = (car: (typeof cars)[number]) =>
-      Object.entries(car.features)
-        .filter(([key]) => key !== "hasAutomaticTransmission" && key !== "hasAllWheelDrive")
-        .map(([, value]) => value);
-
-    expect(cars.some((car) => !listed(car).some(Boolean))).toBe(true);
   });
 
   it("gives every car a length", () => {

@@ -1347,7 +1347,11 @@ describe("sealing a figure", () => {
 
 describe("letting go of a fuel", () => {
     it("says the row came from what it can run on, so “Not diesel” isn't a puzzle to someone who tapped Electric", () => {
-        const page = fleet().slice(0, 24);
+        /* Electric cars without a towbar and others with one: no car here keeps both rules. */
+        const page = [
+            ...fleet().filter((car) => car.fuelType === "Electric" && readEvidence(car, "hasTowbar") === "notListed").slice(0, 12),
+            ...fleet().filter((car) => car.fuelType === "Diesel" && readEvidence(car, "hasTowbar") === "listed").slice(0, 12),
+        ];
         const u = withDeals(walk(startChat(null, page, TODAY), { bubbles: ["carry", "carry:trailer"], fuel: ["fuel-electricCar"] }, page).understanding, ["towbar"], { towbar: "must" });
         const question = letGoAsk(judgeWith(u, page, "24 cars")!.run, "x", "")!;
         const diesel = question.step.choices.find((choice) => choice.id === "dieselCar")!;

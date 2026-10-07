@@ -15,6 +15,7 @@ import { matchSentence } from "./plain";
 import { runLens } from "./run";
 import { carNamed, whyNot } from "./why-not";
 import { totalFor } from "@/lib/reasoning-engine/scoring";
+import { bootLitres } from "@/lib/reasoning-engine/evidence";
 import { EMPTY_UNDERSTANDING, groundInWhatWasSaid, readQuestion, readUnderstanding, ruledOut, toAnswers, waiveEssential } from "./understanding";
 
 /*
@@ -139,11 +140,12 @@ describe("FINN's boot figure", () => {
     });
 
     it("is quoted, but never read as the car meeting a need for space", () => {
-        const picanto = cars.find((car) => car.model === "Picanto")!;
-        const { story } = compare(luggage, [picanto]);
+        /* The biggest figure on the page: the one likeliest to be read as room, when it may be seats folded. */
+        const roomiest = [...cars].filter((car) => bootLitres(car)).sort((a, b) => bootLitres(b)! - bootLitres(a)!)[0]!;
+        const { story } = compare(luggage, [roomiest]);
         const section = story.sections.find((item) => item.key === "luggage")!;
 
-        expect(section.lines[0]?.text).toMatch(/1010 L boot.*seats up or folded/);
+        expect(section.lines[0]?.text).toMatch(new RegExp(`${Math.round(bootLitres(roomiest)!)} L boot.*seats up or folded`));
         expect(section.lines[0]?.tone).toBe("note");
         expect(section.tone).not.toBe("good");
     });
@@ -308,7 +310,10 @@ describe("when nothing stays within a hard maximum", () => {
         const budget = story.sections.find((section) => section.key === "budget")!;
 
         expect(budget.lines.map((line) => line.text).join(" ")).toMatch(/not the best match at any price/);
-        expect(budget.lines.map((line) => line.text).join(" ")).toMatch(/per-kilometre charge for the [\d,]+ km a month you drive beyond the 500 km it includes/);
+        /* What the distance adds is said, whether FINN prices it as a mileage package or by the kilometre. */
+        expect(budget.lines.map((line) => line.text).join(" ")).toMatch(
+            /FINN's [\d,]+ km mileage package, which your distance needs|per-kilometre charge for the [\d,]+ km a month you drive beyond the 500 km it includes/,
+        );
     });
 });
 
@@ -406,10 +411,17 @@ describe("why not that one", () => {
 
         return runLens(cars, toAnswers(base(), understanding).answers, "page", "Comparing cars on this page")!;
     };
+    /* A car behind the match, and the only one on the page by its name, so naming it can only mean it. */
+    const behind = (result: ReturnType<typeof run>) =>
+        result.recommendation.ranked.find(
+            (car) =>
+                totalFor(result.recommendation.scores, car.id) < totalFor(result.recommendation.scores, result.recommendation.winner.id) &&
+                cars.filter((item) => item.name === car.name).length === 1,
+        )!;
 
     it("finds the car the reader named, and not the match", () => {
         const result = run();
-        const other = result.recommendation.ranked.find((car) => car.id !== result.recommendation.winner.id)!;
+        const other = behind(result);
         const found = carNamed(result, `Why didn't you choose the ${other.name}?`);
 
         expect(found?.id).toBe(other.id);
@@ -418,7 +430,7 @@ describe("why not that one", () => {
 
     it("names both cars and says where the match is ahead", () => {
         const result = run();
-        const other = result.recommendation.ranked.find((car) => car.id !== result.recommendation.winner.id)!;
+        const other = behind(result);
         const answer = whyNot(result, other.id)!;
         const said = answer.sentences.join(" ");
 
