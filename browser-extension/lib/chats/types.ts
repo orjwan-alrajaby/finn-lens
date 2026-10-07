@@ -85,7 +85,14 @@ export interface Choice {
      * air conditioning for hot summers — with a hint from the cars here
      * that it won't set them apart. Said so it doesn't look forgotten.
      */
-    standard?: { labels: string[]; hint: string; /** The same, short enough for one line under the "i"'s panel. */ short?: string };
+    standard?: {
+        labels: string[];
+        hint: string;
+        /** The same, short enough for one line under the "i"'s panel. */
+        short?: string;
+        /** Each with what it does, for its own "i" in the panel. */
+        items?: { label: string; does: string }[];
+    };
     /** Where anything it says that isn't FINN's comes from. */
     sources?: Source[];
     group?: string;

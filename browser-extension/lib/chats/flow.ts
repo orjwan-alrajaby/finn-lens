@@ -346,7 +346,14 @@ function bubblesStep(group?: (typeof BUBBLE_GROUPS)[number], u: Understanding = 
             means: bubble.means,
             looksFor: bubble.counts.length ? labelsOf(bubble.counts) : undefined,
             features: bubble.counts.map((id) => ({ label: EVIDENCE[id].label, does: explain(id, bubble.why?.[id]) })),
-            ...(bubble.checks.length ? { standard: { labels: labelsOf(bubble.checks), hint: standardHint(bubble.checks, cars), short: standardShort(bubble.checks, cars) } } : {}),
+            ...(bubble.checks.length ? {
+                      standard: {
+                          labels: labelsOf(bubble.checks),
+                          hint: standardHint(bubble.checks, cars),
+                          short: standardShort(bubble.checks, cars),
+                          items: bubble.checks.map((id) => ({ label: EVIDENCE[id].label, does: explain(id, bubble.why?.[id]) || EVIDENCE[id].explanation.replace(/\.$/, "") })),
+                      },
+                  } : {}),
         })),
         bubbleChips: Object.fromEntries(
             bubbles

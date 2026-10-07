@@ -1,4 +1,4 @@
-import type { TipClosed, TipContent } from "@/lib/lens-chat/messages";
+import { tipItem, type TipClosed, type TipContent, type TipItem } from "@/lib/lens-chat/messages";
 import { TIP_CARD, TIP_DOT, TIP_HEADING, type TipTone } from "@/lib/lens-chat/tip-style";
 
 import { el } from "../page/dom";
@@ -33,6 +33,8 @@ const POST_LEVEL = 40;
 const POST_SHOWING = 44;
 
 let box: HTMLElement | null = null;
+/** Where the "i" that opened it is, in the chat frame: for seating it again when it changes size. */
+let shownAt: number | null = null;
 let post: HTMLElement | null = null;
 let watching: ResizeObserver | null = null;
 
@@ -41,6 +43,7 @@ const ICONS = {
     info: '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>',
     check: '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>',
     dotStar: '<svg viewBox="0 0 24 24" width="10" height="10" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>',
+    itemInfo: '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>',
     dotInfo: '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>',
     close: '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>',
     out: '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7M7 7h10v10"/></svg>',
@@ -58,6 +61,38 @@ function dot(tone: TipTone): HTMLElement {
     return icon(markup, `mt-px inline-flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full ${TIP_DOT[tone]}`);
 }
 
+/** One listed thing, with its own small "i" opening what it does right under its name. */
+function listItem(item: string | TipItem, tone: TipTone): HTMLElement {
+    const { label, does } = tipItem(item);
+    const row = el("span", { class: "flex items-start gap-2" }, [dot(tone), el("span", { class: "leading-snug", text: label })]);
+
+    if (!does) return el("li", {}, [row]);
+
+    const description = el("p", { class: "mt-0.5 pl-[26px] text-[12px] leading-snug text-finn-iron", text: does });
+    description.hidden = true;
+
+    const idle = "text-finn-accent-blue/70 hover:bg-finn-pale-blue hover:text-finn-accent-blue";
+    const pressed = "bg-finn-accent-blue text-white";
+    const base = "mt-px inline-flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full transition-colors focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-finn-accent-blue";
+    const toggle = el("button", {
+        class: `${base} ${idle}`,
+        attrs: { type: "button", "aria-label": `What “${label}” is`, "aria-expanded": "false" },
+        on: {
+            click: () => {
+                description.hidden = !description.hidden;
+                toggle.className = `${base} ${description.hidden ? idle : pressed}`;
+                toggle.setAttribute("aria-expanded", String(!description.hidden));
+                /* Taller or shorter now: seat it on its post again. */
+                if (shownAt != null) place(shownAt);
+            },
+        },
+    });
+    toggle.innerHTML = ICONS.itemInfo;
+    row.append(toggle);
+
+    return el("li", {}, [row, description]);
+}
+
 /** The same layout as the panel inside the chat (`TipPanel`): soft cards, a coloured disc on each line. */
 function contents(tip: TipContent): HTMLElement[] {
     const body = (tip.body ?? []).filter((paragraph): paragraph is string => Boolean(paragraph));
@@ -65,20 +100,17 @@ function contents(tip: TipContent): HTMLElement[] {
     const sources = tip.sources ?? [];
 
     return [
+        /* What it means first, then why it's starred: the star is about something the reader has just read. */
+        ...body.map((paragraph) => el("p", { class: "px-0.5", text: paragraph })),
         ...(tip.recommended
             ? [el("div", { class: `${TIP_CARD} flex gap-2` }, [dot("star"), el("p", { class: "text-[12.5px] font-semibold leading-snug text-[#7a4f00]", text: tip.recommended })])]
             : []),
-        ...body.map((paragraph) => el("p", { class: "px-0.5", text: paragraph })),
         ...lists.map((list) => {
             const tone = list.tone ?? "check";
             return el("div", { class: TIP_CARD }, [
                 el("p", { class: `text-[12.5px] font-black ${TIP_HEADING[tone]}`, text: list.label }),
-                list.hint ? el("p", { class: "text-[11.5px] leading-snug text-finn-iron", text: list.hint }) : null,
-                el(
-                    "ul",
-                    { class: "mt-1.5 space-y-1.5" },
-                    list.items.map((item) => el("li", { class: "flex items-start gap-2" }, [dot(tone), el("span", { class: "leading-snug", text: item })])),
-                ),
+                el("ul", { class: "mt-1.5 space-y-1.5" }, list.items.map((item) => listItem(item, tone))),
+                list.hint ? el("p", { class: "mt-2 text-[11.5px] leading-snug text-finn-iron", text: list.hint }) : null,
             ]);
         }),
         ...(tip.note ? [el("div", { class: "flex items-start gap-2 px-0.5" }, [dot("note"), el("p", { class: "text-[12px] leading-snug text-finn-iron", text: tip.note })])] : []),
@@ -115,6 +147,7 @@ function notifyClosed(): void {
  * sight.
  */
 function place(y: number): boolean {
+    shownAt = y;
     const panel = chatPanel();
     if (!panel || !box || !post) return false;
 
@@ -221,6 +254,7 @@ export function hideTip(notify: boolean): void {
     box.remove();
     post?.remove();
     box = null;
+    shownAt = null;
     post = null;
 
     if (notify) notifyClosed();

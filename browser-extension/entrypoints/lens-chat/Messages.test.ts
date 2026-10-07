@@ -359,7 +359,7 @@ describe("Adjust panel chips", () => {
 });
 
 describe("the “i” panel", () => {
-    it("lays out the same way every time: title, why it's starred, what it means, what's checked as a list, a quiet note, then sources", () => {
+    it("lays out the same way every time: title, what it means, why it's starred, what's checked as a list, a quiet note, then sources", () => {
         const html = renderToStaticMarkup(
             createElement(TipPanel, {
                 onClose: noop,
@@ -367,7 +367,7 @@ describe("the “i” panel", () => {
                     title: "Snow & ice",
                     recommended: "Recommended because you said you drive long distances.",
                     body: ["Winters with snow and ice.", null],
-                    lists: [{ label: "I'll check", items: ["Heated seats", "Heated steering wheel"] }, { label: "Also making sure it has", items: [] }],
+                    lists: [{ label: "I'll check", items: ["Heated seats", "Heated steering wheel"] }, { label: "Also checked", items: [] }],
                     note: "Not checked yet — tap it to add it.",
                     sources: [SOURCES.adacAwd],
                 },
@@ -376,12 +376,36 @@ describe("the “i” panel", () => {
         const words = text(html).trim();
 
         expect(words).toBe(
-            "Snow & ice Recommended because you said you drive long distances. Winters with snow and ice. I'll check Heated seats Heated steering wheel Not checked yet — tap it to add it. Source",
+            "Snow & ice Winters with snow and ice. Recommended because you said you drive long distances. I'll check Heated seats Heated steering wheel Not checked yet — tap it to add it. Source",
         );
         /* One item a line, not a run of "·"; an empty list isn't drawn. */
-        expect(html.match(/<li /g)).toHaveLength(2);
-        expect(words).not.toContain("Also making sure it has");
+        expect(html.match(/<li>/g)).toHaveLength(2);
+        expect(words).not.toContain("Also checked");
         expect(html).toContain('aria-label="Close"');
+    });
+
+    it("gives each listed thing that says what it does an “i” of its own, and closes a list on its caption", () => {
+        const html = renderToStaticMarkup(
+            createElement(TipPanel, {
+                tip: {
+                    title: "Long distances",
+                    lists: [
+                        {
+                            label: "Also checked",
+                            tone: "standard",
+                            items: [{ label: "Cruise control", does: "a set speed held without your foot on the pedal" }, "Built-in navigation"],
+                            hint: "On nearly every car here; one without them loses a little.",
+                        },
+                    ],
+                },
+            }),
+        );
+
+        expect(text(html).trim()).toBe("Long distances Also checked Cruise control Built-in navigation On nearly every car here; one without them loses a little.");
+        expect(html).toContain('aria-label="What “Cruise control” is"');
+        expect(html).not.toContain('aria-label="What “Built-in navigation” is"');
+        /* What it does opens on its "i", not before. */
+        expect(html).not.toContain("held without your foot");
     });
 });
 

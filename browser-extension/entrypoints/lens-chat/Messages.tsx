@@ -6,7 +6,7 @@ import { activeFollowUp, allChips, followUps, IMPORTANCE_LABEL } from "@/lib/cha
 import { IMPORTANCE, IMPORTANCE_LEVELS, SCALE_EXPLAINED } from "@/lib/lens-chat/importance";
 import { DEAL_MEANS } from "@/lib/lens-chat/deals";
 import type { Source } from "@/lib/sources";
-import type { TipContent } from "@/lib/lens-chat/messages";
+import { tipItem, type TipContent, type TipItem } from "@/lib/lens-chat/messages";
 import { TIP_CARD, TIP_DOT, TIP_HEADING, type TipTone } from "@/lib/lens-chat/tip-style";
 import type { BubbleChips, CarSnapshot, ChatMessage, Choice, CustomAnswer, DealRow, StepId, SummaryBubble } from "@/lib/chats/types";
 import type { NeedImportance } from "@/lib/lens-ai/contract";
@@ -383,6 +383,13 @@ export function TipPanel({ tip, onClose }: { tip: TipContent; onClose?: () => vo
             </div>
 
             <div className="space-y-2.5 px-3 pt-3 pb-3">
+                {/* What it means first, then why it's starred: the star is about something the reader has just read. */}
+                {body.map((paragraph) => (
+                    <p key={paragraph} className="px-0.5">
+                        {paragraph}
+                    </p>
+                ))}
+
                 {tip.recommended ? (
                     <div className={`${TIP_CARD} flex gap-2`}>
                         <TipDot tone="star" />
@@ -390,26 +397,17 @@ export function TipPanel({ tip, onClose }: { tip: TipContent; onClose?: () => vo
                     </div>
                 ) : null}
 
-                {body.map((paragraph) => (
-                    <p key={paragraph} className="px-0.5">
-                        {paragraph}
-                    </p>
-                ))}
-
                 {lists.map((list) => {
                     const tone = list.tone ?? "check";
                     return (
                         <div key={list.label} className={TIP_CARD}>
                             <p className={`text-[12.5px] font-black ${TIP_HEADING[tone]}`}>{list.label}</p>
-                            {list.hint ? <p className="text-[11.5px] leading-snug text-finn-iron">{list.hint}</p> : null}
                             <ul className="mt-1.5 space-y-1.5">
                                 {list.items.map((item) => (
-                                    <li key={item} className="flex items-start gap-2">
-                                        <TipDot tone={tone} />
-                                        <span className="leading-snug">{item}</span>
-                                    </li>
+                                    <TipListItem key={tipItem(item).label} item={item} tone={tone} />
                                 ))}
                             </ul>
+                            {list.hint ? <p className="mt-2 text-[11.5px] leading-snug text-finn-iron">{list.hint}</p> : null}
                         </div>
                     );
                 })}
@@ -424,6 +422,37 @@ export function TipPanel({ tip, onClose }: { tip: TipContent; onClose?: () => vo
                 <TipSources sources={tip.sources} />
             </div>
         </div>
+    );
+}
+
+/** One listed thing, with its own small "i" opening what it does right under its name. */
+function TipListItem({ item, tone }: { item: string | TipItem; tone: TipTone }) {
+    const { label, does } = tipItem(item);
+    const [open, setOpen] = useState(false);
+
+    return (
+        <li>
+            <span className="flex items-start gap-2">
+                <TipDot tone={tone} />
+                <span className="leading-snug">{label}</span>
+                {does ? (
+                    <button
+                        type="button"
+                        aria-label={`What “${label}” is`}
+                        aria-expanded={open}
+                        onClick={() => setOpen((current) => !current)}
+                        className={[
+                            "mt-px inline-flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full transition-colors",
+                            "focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-finn-accent-blue",
+                            open ? "bg-finn-accent-blue text-white" : "text-finn-accent-blue/70 hover:bg-finn-pale-blue hover:text-finn-accent-blue",
+                        ].join(" ")}
+                    >
+                        <Info aria-hidden="true" className="h-3 w-3" strokeWidth={2.6} />
+                    </button>
+                ) : null}
+            </span>
+            {open && does ? <p className="mt-0.5 pl-[26px] text-[12px] leading-snug text-finn-iron">{does}</p> : null}
+        </li>
     );
 }
 
@@ -479,9 +508,12 @@ function tipFor(choice: Choice): TipContent | null {
         recommended: choice.recommended,
         body: [body, choice.means && choice.description !== choice.means ? choice.description : null],
         lists: [
-            { label: "I'll check", items: choice.looksFor ?? [], tone: "check" },
+            /* Each with what it does, behind its own "i". */
+            { label: "I'll check", items: choice.features?.length ? choice.features : (choice.looksFor ?? []), tone: "check" },
             /* Standard equipment, listed the same way in its own green: what it is at a glance, how little it weighs in a line. */
-            ...(choice.standard ? [{ label: "Also checked", items: choice.standard.labels, hint: choice.standard.short ?? choice.standard.hint, tone: "standard" as const }] : []),
+            ...(choice.standard
+                ? [{ label: "Also checked", items: choice.standard.items ?? choice.standard.labels, hint: choice.standard.short ?? choice.standard.hint, tone: "standard" as const }]
+                : []),
         ],
         sources: choice.sources,
     };

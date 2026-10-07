@@ -75,12 +75,28 @@ export interface TipContent {
     /** A short paragraph each. */
     body?: (string | null | undefined)[];
     /** "I'll check": one item a line, rather than a run of "·". */
-    /** One item a line. `tone`: what Lens counts ("check", the default), or what it also checks on nearly every car ("standard"). */
-    lists?: { label: string; items: string[]; hint?: string; tone?: "check" | "standard" }[];
+    /**
+     * One item a line, each with its own "i" where it says what it does.
+     * `tone`: what Lens counts ("check", the default), or what it also checks
+     * on nearly every car ("standard"). `hint` closes the list.
+     */
+    lists?: { label: string; items: (string | TipItem)[]; hint?: string; tone?: "check" | "standard" }[];
     /** Said last and quieter: how it's scored, what tapping does. */
     note?: string;
     sources?: Source[];
 }
+
+/** One thing an "i" panel lists: its name, and what it does, opened under it by its own "i". */
+export interface TipItem {
+    label: string;
+    does?: string;
+}
+
+/** A listed item as name and description, and the description as a sentence: "Cruise control that brakes …". */
+export const tipItem = (item: string | TipItem): { label: string; does: string | null } =>
+    typeof item === "string"
+        ? { label: item, does: null }
+        : { label: item.label, does: item.does ? `${item.does.charAt(0).toUpperCase()}${item.does.slice(1)}${/[.!?]$/.test(item.does) ? "" : "."}` : null };
 
 /** Sent by the content script when the reader closed the "i"'s panel on the page side — ×, Escape, the chat closing. */
 export interface TipClosed {
