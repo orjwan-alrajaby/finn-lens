@@ -173,13 +173,18 @@ describe("what someone is already confident about", () => {
 
 describe("what FINN does publish, and Lens used to guess at", () => {
     it("reads the body type FINN files rather than inferring it from length", () => {
-        const { story } = read(scenario("no-big-suv"));
+        const { story, winner } = read(scenario("no-big-suv"));
         const section = sectionFor(story, "not-big")!;
         const bodyLine = section.lines.find((line) => /files it as/.test(line.text))!;
 
         expect(bodyLine.text).toMatch(/files it as (a|an) /);
-        /* The winner isn't an SUV, which is what the reader asked for. */
-        expect(bodyLine.tone).toBe("good");
+        /*
+         * Good when FINN doesn't file it as an SUV, which is what the reader
+         * asked for; the miss when it does. Not wanting one is a need here,
+         * not a deal-breaker, so a short SUV can still win on the rest.
+         */
+        expect(bodyLine.tone).toBe(/suv/i.test(winner.vehicleType) ? "missing" : "good");
+        expect(bodyLine.text.includes("an SUV")).toBe(/suv/i.test(winner.vehicleType));
     });
 
     it("marks an SUV as the bad news for someone who didn't want one", () => {
@@ -395,8 +400,9 @@ describe("what someone rules out", () => {
         expect(run.ruledOut?.nothingLeft).toBe(true);
         const section = story.sections.find((item) => item.key === "ruled-out")!;
         expect(section.title).toBe("No car here meets “mustn't be an SUV”");
+        const compared = run.recommendation.context.vehicles.length;
         expect(section.lines.map((line) => line.text)).toEqual([
-            `None of the ${run.recommendation.context.vehicles.length} cars compared does.`,
+            compared === 1 ? "The one car compared doesn't." : `None of the ${compared} cars compared does.`,
             "You kept it, so this is the best fit for everything else you told me. To let it go, change your deal-breakers and I'll judge again.",
         ]);
     });

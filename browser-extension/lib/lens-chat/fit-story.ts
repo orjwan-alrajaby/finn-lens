@@ -598,8 +598,12 @@ export function tellFitStory(
                         tone: "note",
                         text:
                             rules.length === 1
-                                ? `None of the ${cars.length} ${cars.length === 1 ? "car" : "cars"} compared does.`
-                                : `Of the ${cars.length} ${cars.length === 1 ? "car" : "cars"} compared, none meets ${rules.length === 2 ? "both" : `all ${rules.length}`} at once: ${listed(rules.map((rule) => lowerFirst(demandOf(rule))))}.`,
+                                ? cars.length === 1
+                                    ? "The one car compared doesn't."
+                                    : `None of the ${cars.length} cars compared does.`
+                                : cars.length === 1
+                                  ? `The one car compared doesn't meet ${rules.length === 2 ? "both" : `all ${rules.length}`} at once: ${listed(rules.map((rule) => lowerFirst(demandOf(rule))))}.`
+                                  : `Of the ${cars.length} cars compared, none meets ${rules.length === 2 ? "both" : `all ${rules.length}`} at once: ${listed(rules.map((rule) => lowerFirst(demandOf(rule))))}.`,
                     },
                     ...easing.map((item) => ({
                         tone: "note" as const,
