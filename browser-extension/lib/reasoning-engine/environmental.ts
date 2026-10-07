@@ -179,6 +179,9 @@ const ELECTRIC_MEDIUM_SEGMENT_KWH = 16.2;
  */
 export const EFFICIENCY_BAND = 20 / COMBUSTION_FLEET_CO2;
 
+/** The band in words, for saying where "uses less" starts: "about 15%". */
+export const EFFICIENCY_BAND_WORDS = `about ${Math.round(EFFICIENCY_BAND * 100)}%`;
+
 /**
  * The short line that closes a section built on these figures.
  *
@@ -187,7 +190,7 @@ export const EFFICIENCY_BAND = 20 / COMBUSTION_FLEET_CO2;
  * even to a reader who never opens it.
  */
 export const TEST_DISCLAIMER =
-  "Official EU test figures. Real-world use is usually higher.";
+  "Official EU test figures, as FINN lists them. Your own use depends on how you drive.";
 
 /* -------------------------------------------------------------------------- */
 /* Shapes                                                                     */
@@ -771,9 +774,9 @@ export function assessEfficiency(
   const against = `the FINN Lens benchmark for ${cohort.kind}`;
 
   const explanation = {
-    high: `Uses noticeably less ${cohort.noun} than ${against}.`,
-    moderate: `Uses about as much ${cohort.noun} as ${against}.`,
-    low: `Uses noticeably more ${cohort.noun} than ${against}.`,
+    high: `Uses less ${cohort.noun} than ${against}: ${EFFICIENCY_BAND_WORDS} below it or more.`,
+    moderate: `Uses about as much ${cohort.noun} as ${against}: within ${EFFICIENCY_BAND_WORDS} of it.`,
+    low: `Uses more ${cohort.noun} than ${against}: ${EFFICIENCY_BAND_WORDS} above it or more.`,
   }[level];
 
   /*
@@ -812,9 +815,9 @@ export function assessEfficiency(
    * doesn't name where the band's edges are.
    */
   const standing = {
-    high: "noticeably lower than",
-    moderate: "broadly in line with",
-    low: "noticeably higher than",
+    high: "lower than",
+    moderate: `within ${EFFICIENCY_BAND_WORDS} of`,
+    low: "higher than",
   }[level];
 
   const reasoning = `${compared}, so its ${cohort.use} is ${standing} the benchmark.`;
@@ -849,7 +852,7 @@ export function assessEfficiency(
       body:
         `${cohort.unitMeaning(formatNumber(consumption))}\n\n` +
         `The figure comes from the official EU test, which makes it useful for comparing cars. ` +
-        `Real-world use is usually higher, especially on motorways, in cold weather, or with a loaded car.`,
+        `Your own use depends on how and where you drive, which the test can't tell Lens.`,
     },
     disclaimer: TEST_DISCLAIMER,
     value: consumption,

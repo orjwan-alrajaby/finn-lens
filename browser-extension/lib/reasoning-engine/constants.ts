@@ -573,7 +573,7 @@ export const DERIVED_SIGNALS = {
   seatsSixPlus: {
     label: "Six or more seats",
     explanation:
-      "Room for more than five people, usually with a third row. Read from the seat count FINN lists, and only counted if you raise it.",
+      "Room for more than five people. Read from the seat count FINN lists, and only counted if you raise it.",
   },
   driverAssistLevel2: {
     label: "Level 2 driver assistance",

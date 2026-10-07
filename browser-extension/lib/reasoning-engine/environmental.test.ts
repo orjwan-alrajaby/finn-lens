@@ -740,25 +740,25 @@ describe("what the efficiency reference is, and isn't", () => {
 
     expect(below.label).toBe("Moderate fuel use");
     expect(below.reasoning).toBe(
-      "It uses about 6% less petrol than the 5.8 L/100km FINN Lens benchmark, so its fuel use is broadly in line with the benchmark.",
+      "It uses about 6% less petrol than the 5.8 L/100km FINN Lens benchmark, so its fuel use is within about 15% of the benchmark.",
     );
 
     const above = readingOf(petrol(141, 6.1));
 
     expect(above.label).toBe("Moderate fuel use");
     expect(above.reasoning).toBe(
-      "It uses about 5% more petrol than the 5.8 L/100km FINN Lens benchmark, so its fuel use is broadly in line with the benchmark.",
+      "It uses about 5% more petrol than the 5.8 L/100km FINN Lens benchmark, so its fuel use is within about 15% of the benchmark.",
     );
 
     expect(readingOf(petrol(136, 5.84)).reasoning).toBe(
-      "It uses about as much petrol as the 5.8 L/100km FINN Lens benchmark, so its fuel use is broadly in line with the benchmark.",
+      "It uses about as much petrol as the 5.8 L/100km FINN Lens benchmark, so its fuel use is within about 15% of the benchmark.",
     );
 
     expect(readingOf(petrol(102, 4.4)).reasoning).toMatch(
-      /about 25% less petrol than the 5.8 L\/100km FINN Lens benchmark, so its fuel use is noticeably lower than the benchmark\.$/,
+      /about 25% less petrol than the 5.8 L\/100km FINN Lens benchmark, so its fuel use is lower than the benchmark\.$/,
     );
     expect(readingOf(electric(22.4)).reasoning).toMatch(
-      /about 32% more electricity than the 17 kWh\/100km FINN Lens benchmark, so its electricity use is noticeably higher than the benchmark\.$/,
+      /about 32% more electricity than the 17 kWh\/100km FINN Lens benchmark, so its electricity use is higher than the benchmark\.$/,
     );
 
     for (const vehicle of [petrol(128, 5.5), petrol(141, 6.1), petrol(102, 4.4), petrol(190, 8.2)]) {
@@ -854,10 +854,10 @@ describe("what the efficiency reference is, and isn't", () => {
       title: "What does 5.5 L/100km mean?",
       body:
         "L/100km tells you how much fuel a car uses to travel 100 kilometres, so 5.5 L/100km means about 5.5 litres of fuel per 100 km. A lower L/100km figure means the car uses less fuel.\n\n" +
-        "The figure comes from the official EU test, which makes it useful for comparing cars. Real-world use is usually higher, especially on motorways, in cold weather, or with a loaded car.",
+        "The figure comes from the official EU test, which makes it useful for comparing cars. Your own use depends on how and where you drive, which the test can't tell Lens.",
     });
 
-    expect(disclaimer).toBe("Official EU test figures. Real-world use is usually higher.");
+    expect(disclaimer).toBe("Official EU test figures, as FINN lists them. Your own use depends on how you drive.");
 
     const battery = readingOf(electric(16));
 
@@ -865,7 +865,7 @@ describe("what the efficiency reference is, and isn't", () => {
       /^kWh\/100km tells you how much electricity a car uses to travel 100 kilometres, so 16 kWh\/100km means about 16 kWh of electricity per 100 km\. A kilowatt-hour \(kWh\) is the unit your electricity bill uses\./,
     );
     expect(battery.meaning.body).toMatch(/\n\nThe figure comes from the official EU test/);
-    expect(battery.disclaimer).toBe("Official EU test figures. Real-world use is usually higher.");
+    expect(battery.disclaimer).toBe("Official EU test figures, as FINN lists them. Your own use depends on how you drive.");
 
     /* Nothing here a reader new to cars would have to look up. */
     for (const vehicle of [petrol(128, 5.5), diesel(120, 4.5), electric(16)]) {

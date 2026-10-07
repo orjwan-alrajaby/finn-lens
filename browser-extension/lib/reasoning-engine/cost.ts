@@ -640,12 +640,12 @@ function excessMileageLine(breakdown: CostBreakdown): CostLine {
       `Lens doesn't have FINN's mileage packages for this car, so this charges the ` +
       `${formatKm(excessMileage.excessKm)} a month beyond the included ${formatKm(excessMileage.includedMonthlyKm)} ` +
       `at FINN's ${formatPrice(excessMileage.extraKmPrice)}/km: about ${formatEUR(excessMileage.amount ?? 0)}. ` +
-      "A mileage package, if FINN offers one for this car, would usually cost less.";
+      "If FINN offers this car with a mileage package, that may cost less.";
   } else {
     explanation =
       `FINN includes ${formatKm(excessMileage.includedMonthlyKm)}/month and you expect to drive ` +
       `${formatKm(excessMileage.excessKm)} beyond that, but FINN hasn't supplied an ` +
-      "extra-kilometre price for this car. We can't estimate the charge, so the extra " +
+      "extra-kilometre price for this car. Lens can't estimate the charge, so the extra " +
       "mileage line is missing from the total rather than counted as €0.";
   }
 

@@ -473,7 +473,7 @@ export const BUBBLES: Bubble[] = [
         you: "You care about the environment",
         need: "A greener car",
         said: "I care about the environment.",
-        means: "How green the car is, from FINN's own figures: what it uses for its kind, or its CO₂ on the A to G label. How green is picked next to it.",
+        means: "How green the car is, from FINN's own figures: what it uses for its kind, or its CO₂ on the A to G label. Tap it, and I'll ask how green.",
         counts: [],
         checks: [],
         worth: [],
@@ -495,7 +495,7 @@ export const BUBBLES: Bubble[] = [
                     label: "Clean for its fuel type",
                     detail: "clean for its fuel type",
                     description:
-                        "Any fuel — petrol and diesel too — as long as it uses little for its kind. I compare each car's fuel or electricity use, as FINN lists it, with the others that run on the same thing.",
+                        "Any fuel — petrol and diesel too — as long as it uses little for its kind. I compare each car's fuel or electricity use, as FINN lists it, with FINN Lens's benchmark for cars that run on the same thing. A plug-in hybrid can't be judged on it.",
                     figures: ["efficiency"],
                     suggests: null,
                 },

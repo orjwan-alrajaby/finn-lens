@@ -1,4 +1,5 @@
 import { CATEGORIES } from "@/lib/reasoning-engine/constants";
+import { EFFICIENCY_BAND_WORDS } from "@/lib/reasoning-engine/environmental";
 import { formatEUR } from "@/lib/reasoning-engine";
 import type { CategoryId } from "@/lib/reasoning-engine/types";
 import type { NeedImportance } from "@/lib/lens-ai/contract";
@@ -559,7 +560,7 @@ const RULES: GuideChoice[] = [
         id: "frugal",
         label: "Frugal for its kind only",
         said: "Only cars that are frugal for their kind.",
-        description: "Only cars that use noticeably less fuel or electricity than FINN Lens's benchmark for cars that run on the same thing. Plug-in hybrids can't be judged on this, so they're set aside too.",
+        description: `Only cars whose fuel or electricity use is ${EFFICIENCY_BAND_WORDS} or more below FINN Lens's benchmark for cars that run on the same thing. Plug-in hybrids can't be judged on this, so they're set aside too.`,
         rule: { id: "frugal", mode: "must", label: "Frugal for its kind" },
     },
 ];

@@ -973,6 +973,8 @@ export function toAnswers(
     if (u.monthlyKm) preferences.monthlyKm = u.monthlyKm.value;
     if (onlyAsked) {
         preferences.countOnlyAsked = true;
+        /* A chat that didn't ask how far assumes it, and says so rather than "you told Lens". */
+        preferences.monthlyKmAssumed = !u.monthlyKm;
 
         /*
          * Each need weighs what its importance says, split across the

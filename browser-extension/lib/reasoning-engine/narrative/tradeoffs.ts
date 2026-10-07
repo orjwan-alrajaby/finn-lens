@@ -418,7 +418,7 @@ function costTradeoff(
   );
 
   const evidence = sentence(
-    `At your mileage this is estimated at ${formatEUR(cost.subject.total)}/month,`,
+    `At ${context.preferences.monthlyKm.toLocaleString("en-GB")} km a month this is estimated at ${formatEUR(cost.subject.total)}/month,`,
     `about ${formatEUR(difference)} more than ${alternative.name} at`,
     formatEUR(alternative.total),
   );
@@ -455,22 +455,22 @@ function budgetTradeoff(cost: CostReasoning): Tradeoff | null {
 
   const evidence = over
     ? sentence(
-        `You set ${formatEUR(cost.budget)}/month. This is estimated at`,
+        `Your limit is ${formatEUR(cost.budget)}/month. This is estimated at`,
         `${formatEUR(cost.subject.total)}/month, about`,
         `${formatEUR(Math.abs(cost.budgetDifference ?? 0))} over`,
       )
     : sentence(
-        `You set ${formatEUR(cost.budget)}/month, and part of this car's cost`,
+        `Your limit is ${formatEUR(cost.budget)}/month, and part of this car's cost`,
         "couldn't be estimated from FINN's data",
       );
 
   const relevance = over
     ? sentence(
-        "Your budget is the one constraint Lens treats as a hard limit rather",
-        "than a preference, so nothing else here outweighs it",
+        "Lens doesn't pick a car over your limit while one within it can win,",
+        "whatever else it has"
       )
     : sentence(
-        "We won't call a car affordable on the strength of numbers we don't have,",
+        "Lens won't call a car affordable on numbers FINN's data doesn't have,",
         "so it can't be confirmed to fit",
       );
 
@@ -482,7 +482,7 @@ function budgetTradeoff(cost: CostReasoning): Tradeoff | null {
     severity: "high",
     headline: over
       ? `${formatEUR(Math.abs(cost.budgetDifference ?? 0))}/month over your budget`
-      : "We can't confirm it fits your budget",
+      : "Can't be confirmed within your limit",
     evidence,
     relevance,
     rival: null,

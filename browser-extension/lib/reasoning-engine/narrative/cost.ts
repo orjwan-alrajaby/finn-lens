@@ -107,6 +107,7 @@ const UNKNOWN_LABEL: Record<string, string> = {
 function describeComposition(
   subject: CostPosition,
   monthlyKm: number,
+  assumed = false,
 ): string | null {
   const parts: string[] = [];
 
@@ -130,7 +131,9 @@ function describeComposition(
 
   return sentence(
     `That's ${first}, plus ${rest.join(", plus ")}, at the`,
-    `${formatKm(monthlyKm)}/month you told Lens you drive`,
+    assumed
+      ? `${formatKm(monthlyKm)}/month Lens assumed, since you didn't say how far you drive`
+      : `${formatKm(monthlyKm)}/month you told Lens you drive`,
   );
 }
 
@@ -169,7 +172,7 @@ function describeAgainst(
    */
   return role === "cheapest"
     ? sentence(
-        "None of the close alternatives we can fully cost comes in lower —",
+        "None of the close alternatives Lens can fully cost comes in lower —",
         `the nearest is ${other.name} at ${formatEUR(other.total)}/month`,
       )
     : sentence(
@@ -213,20 +216,20 @@ export function reasonAboutCost(
 
   const headline = subject.complete
     ? sentence(
-        `At your mileage we estimate ${formatEUR(subject.total)}/month in total`,
+        `At ${context.preferences.monthlyKm.toLocaleString("en-GB")} km a month, Lens estimates ${formatEUR(subject.total)}/month in total`,
       )
     : sentence(
-        `We can only account for ${formatEUR(subject.total)}/month of this car's cost`,
+        `Lens can only account for ${formatEUR(subject.total)}/month of this car's cost`,
       );
 
   const sentences = paragraph(
     headline,
-    describeComposition(subject, context.preferences.monthlyKm),
+    describeComposition(subject, context.preferences.monthlyKm, context.preferences.monthlyKmAssumed),
     unknowns.length
       ? sentence(
-          `We couldn't work out ${unknowns.join(" or ")}, so the real cost is higher`,
+          `Lens couldn't work out ${unknowns.join(" or ")}, so the real cost is higher`,
           `than the ${formatEUR(subject.total)}/month above`,
-          "— we've left it out rather than counting it as zero",
+          "— it's left out rather than counted as zero",
         )
       : null,
     rival ? describeAgainst(subject, rival, "rival") : null,

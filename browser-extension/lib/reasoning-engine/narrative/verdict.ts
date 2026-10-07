@@ -218,7 +218,7 @@ function describeBudgetOverride(
     const overToo = budget != null && cost?.budgetStatus === "over";
     const winnerWithin = context.costs[evaluation.vehicle.id]?.budgetStatus === "within";
     const why = overToo
-      ? `${topScorer.name} scores higher overall, but at about ${formatEUR(cost!.totalMonthly)}/month it's over the ${formatEUR(budget!)} budget you set, and it ${problem}`
+      ? `${topScorer.name} scores higher overall, but ${costedAt(cost!)} it's over your ${formatEUR(budget!)} limit, and it ${problem}`
       : /* "…but it is due 21 Oct, but FINN says…" — one "but" is enough. */
         problem.includes(", but ")
         ? `${topScorer.name} scores higher overall. It ${problem}`
@@ -240,14 +240,13 @@ function describeBudgetOverride(
   const problem =
     cost?.budgetStatus === "over"
       ? sentence(
-          `${topScorer.name} scores higher overall, but at about`,
-          `${formatEUR(cost.totalMonthly)}/month it's over the ${formatEUR(budget)}`,
-          `budget you set`,
+          `${topScorer.name} scores higher overall, but ${costedAt(cost)}`,
+          `it's over your ${formatEUR(budget)} limit`,
         )
       : sentence(
           `${topScorer.name} scores higher overall, but part of its cost`,
-          `couldn't be estimated, so we can't confirm it fits your ${formatEUR(budget)}`,
-          `budget`,
+          `couldn't be estimated, so Lens can't confirm it's within your ${formatEUR(budget)}`,
+          `limit`,
         );
 
   return sentence(
@@ -257,6 +256,17 @@ function describeBudgetOverride(
       ? "that does fit"
       : "that isn't already over it, though part of its own cost couldn't be estimated either",
   );
+}
+
+/**
+ * What a car costs, as far as it's known: "at about €579/month", or — where
+ * FINN's data leaves part of it out — "at €579/month before what FINN's data
+ * can't price", since that's the least it costs, not about what.
+ */
+function costedAt(cost: { totalMonthly: number; complete: boolean }): string {
+  return cost.complete
+    ? `at about ${formatEUR(cost.totalMonthly)}/month`
+    : `at ${formatEUR(cost.totalMonthly)}/month before what FINN's data can't price,`;
 }
 
 /**
@@ -465,13 +475,13 @@ export function reasonAboutVerdict(
               ? `also fits your ${formatEUR(budget)}/month budget`
               : `isn't already over your ${formatEUR(budget)}/month budget`,
           )
-      : sentence(`${name} is the strongest match for what you told us`);
+      : sentence(`${name} is the strongest match for what you told Lens`);
 
   return {
     headline: judgeable(evaluation)
       ? headline
       : sentence(
-          `${name} is the best estimate for what you told us, but FINN's data`,
+          `${name} is the best estimate for what you told Lens, but FINN's data`,
           "doesn't cover enough of your top two priorities to recommend it with confidence",
         ),
     reasons: describeReasons(priorities, rankedByReader(context)),

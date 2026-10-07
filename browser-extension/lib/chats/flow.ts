@@ -975,12 +975,12 @@ function rulesText(u: Understanding): string {
 /** What a figure a bubble is judged on is, for its "i". */
 const FIGURE_DOES: Partial<Record<string, string>> = {
     environmental: "the official CO₂ figure FINN lists for each car, placed on the German label's A to G classes",
-    efficiency: "how much fuel or electricity each car uses as FINN lists it, compared with the others that run on the same thing",
+    efficiency: "how much fuel or electricity each car uses as FINN lists it, against FINN Lens's benchmark for cars that run on the same thing",
 };
 
 const FIGURE: Partial<Record<string, string>> = {
     environmental: "Each car's CO₂ per km",
-    efficiency: "Each car's fuel or electricity use, against others of its kind",
+    efficiency: "Each car's fuel or electricity use, for its kind",
 };
 
 /**

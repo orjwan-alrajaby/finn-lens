@@ -488,7 +488,7 @@ describe("financial reasoning is specific", () => {
     if (!narrative.cost.subject.complete) {
       expect(narrative.cost.unknowns.length).toBeGreaterThan(0);
       expect(narrative.cost.sentences.join(" ")).toContain(
-        "rather than counting it as zero",
+        "rather than counted as zero",
       );
     }
   });

@@ -35,6 +35,12 @@ export interface LensPreferences {
   monthlyBudget: number;
   /** Roughly how far the user drives in a typical month. An estimate is fine. */
   monthlyKm: number;
+  /**
+   * True when the reader never said how far they drive and `monthlyKm` is
+   * Lens's assumption — a chat that didn't ask — so a sentence about it
+   * doesn't say "you told Lens".
+   */
+  monthlyKmAssumed?: boolean;
   petrolPrice: number;
   dieselPrice: number;
   electricityPrice: number;

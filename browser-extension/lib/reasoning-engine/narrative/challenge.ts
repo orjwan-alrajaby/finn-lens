@@ -253,15 +253,15 @@ function describeBudget(
 
   if (cost.budgetStatus === "over") {
     return sentence(
-      `${challengerName} is over the ${formatEUR(budget)}/month budget you set,`,
+      `${challengerName} is over your ${formatEUR(budget)}/month limit,`,
       `by about ${formatEUR(Math.abs(cost.budgetDifference ?? 0))}`,
     );
   }
 
   if (cost.budgetStatus === "unknown") {
     return sentence(
-      `Part of ${challengerName}'s cost couldn't be estimated, so we can't`,
-      `confirm it fits your ${formatEUR(budget)}/month budget`,
+      `Part of ${challengerName}'s cost couldn't be estimated, so Lens can't`,
+      `confirm it's within your ${formatEUR(budget)}/month limit`,
     );
   }
 

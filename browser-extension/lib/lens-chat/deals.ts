@@ -1,3 +1,4 @@
+import { EFFICIENCY_BAND_WORDS } from "@/lib/reasoning-engine/environmental";
 import type { CategoryId } from "@/lib/reasoning-engine/types";
 import { SOURCES, type Source } from "@/lib/sources";
 import type { FinnCar } from "@/lib/types";
@@ -85,7 +86,7 @@ export const DEALS: Deal[] = [
         group: "energy",
         must: "frugal",
         seal: { figure: "efficiency", need: "Using little fuel or electricity" },
-        description: "Uses noticeably less fuel or electricity than others that run on the same thing. A plug-in hybrid can't be judged on it.",
+        description: `Fuel or electricity use ${EFFICIENCY_BAND_WORDS} or more below FINN Lens's benchmark for cars that run on the same thing. A plug-in hybrid can't be judged on it.`,
     },
     {
         id: "automatic",
@@ -106,7 +107,7 @@ export const DEALS: Deal[] = [
         kind: true,
         group: "car",
         mustNot: "no-suv",
-        description: "A taller, boxier body, as FINN lists it.",
+        description: "Cars FINN files as SUVs: FINN's body type, not a measurement.",
     },
     {
         id: "doors",
@@ -128,7 +129,7 @@ export const DEALS: Deal[] = [
         group: "car",
         must: "six-seats",
         seal: { evidence: "seatsSixPlus", need: "Six or more seats" },
-        description: "Room for more than five people, usually with a third row.",
+        description: "Room for more than five people, from the seat count FINN lists.",
     },
     {
         id: "towbar",

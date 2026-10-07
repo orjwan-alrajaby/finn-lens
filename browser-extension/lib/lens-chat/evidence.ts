@@ -1,6 +1,6 @@
 import { CATEGORIES, CATEGORY_IDS, SIGNALS } from "@/lib/reasoning-engine/constants";
 import { bootLitres, evRangeKm, isBinarySignal, lengthMm, signalUtility, widthMm, type Anchors } from "@/lib/reasoning-engine/evidence";
-import { assessEfficiency, assessEnvironment } from "@/lib/reasoning-engine/environmental";
+import { assessEfficiency, assessEnvironment, EFFICIENCY_BAND_WORDS } from "@/lib/reasoning-engine/environmental";
 import { PROPER_NAME } from "@/lib/reasoning-engine/format";
 import type { CategoryId, SignalId } from "@/lib/reasoning-engine/types";
 import type { FinnCar } from "@/lib/types";
@@ -175,7 +175,7 @@ export const EVIDENCE: Record<EvidenceId, EvidenceDef> = {
         id: "frugal",
         label: "Frugal for its kind",
         explanation:
-            "Whether the car uses noticeably less fuel or electricity than the FINN Lens benchmark for cars that run on the same thing. A plug-in hybrid isn't judged: FINN's one figure for it mixes the two.",
+            `Whether the car's fuel or electricity use, as FINN lists it, is ${EFFICIENCY_BAND_WORDS} or more below the FINN Lens benchmark for cars that run on the same thing. A plug-in hybrid isn't judged: FINN's one figure for it mixes the two.`,
         scoredIn: null,
         raisable: false,
     },
@@ -290,7 +290,7 @@ export function readEvidence(car: FinnCar, id: EvidenceId): EvidenceState {
         return co2 == null ? "unknown" : co2.gPerKm <= 115 ? "listed" : "notListed";
     }
 
-    /* "Uses noticeably less than the benchmark": the engine's own "high" efficiency. */
+    /* Far enough below the benchmark: the engine's own "high" efficiency. */
     if (id === "frugal") {
         const reading = assessEfficiency(car);
 
@@ -408,14 +408,14 @@ const PLAIN: Partial<Record<EvidenceId, string>> = {
     hasIsofix: "Standard anchor points that a child seat clips straight into, instead of being belted in.",
     hasLumbarSupport: "An adjustable support for the lower back, for long stretches behind the wheel.",
     hasHeatedSteeringWheel: "The wheel itself warms up, so you can drive without gloves on a cold morning.",
-    hasHeatPump: "Heats the cabin far more efficiently than a normal electric heater, so winter costs less range.",
+    hasHeatPump: "Heats the cabin using less battery power than a plain electric heater, so winter costs less range.",
     hasElectricTailgate: "The boot opens and closes on a motor, which helps when your hands are full.",
     hasSplitFoldingRearSeats: "The back seat folds in sections, so you can carry something long and a passenger at once.",
     bootVolume: "How much the boot holds, as FINN publishes it. FINN doesn't say whether the figure is with the seats up or folded.",
     electricRange: "How far FINN says the car goes on a full charge, measured on the standard WLTP cycle.",
     compactLength: "How long the car is, bumper to bumper.",
-    compactWidth: "How wide the car is, excluding the mirrors.",
-    suvBody: "Whether FINN files this car as an SUV. It's a category, not a measurement — some are shorter than ordinary hatchbacks.",
+    compactWidth: "How wide the car is, as FINN measures it. FINN doesn't say whether that includes the mirrors.",
+    suvBody: "Whether FINN files this car as an SUV. It's FINN's category, not a measurement.",
     winterReadyTyres: "What FINN says is fitted: all-season tyres, or a summer and a winter set.",
 };
 

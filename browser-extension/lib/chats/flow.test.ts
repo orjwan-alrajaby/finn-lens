@@ -690,7 +690,7 @@ describe("questions in sections, and the changes to them", () => {
 
         expect(environment.ask).toBe("How green should the car be?");
         expect(environment.options.map((option) => option.label)).toEqual(["Clean for its fuel type", "Moderately green", "Totally green"]);
-        expect(environment.options[0]!.description).toMatch(/petrol and diesel too.*others that run on the same thing/);
+        expect(environment.options[0]!.description).toMatch(/petrol and diesel too.*FINN Lens's benchmark for cars that run on the same thing\. A plug-in hybrid can't be judged on it\.$/);
         expect(environment.options[1]!.description).toMatch(/^Low CO₂ on the German label: class A to C, 115 g\/km or less\./);
         expect(environment.options[2]!.description).toMatch(/^Electric: FINN lists them in CO₂ class A, which on the German label is 0 g\/km\..*FINN's CO₂ figure says nothing about making the electricity\.$/);
     });

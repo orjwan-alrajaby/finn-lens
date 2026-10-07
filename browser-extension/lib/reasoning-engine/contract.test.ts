@@ -239,7 +239,7 @@ describe("the rental period as a hard rule", () => {
         const note = buildAdviceNarrative(result.evaluation, result.context, result.alternatives).verdict.budgetNote!;
 
         expect(result.winner.id).toBe(7);
-        expect(note).toMatch(/over the €700 budget you set, and it only offers terms up to 6 months/);
+        expect(note).toMatch(/over your €700 limit, and it only offers terms up to 6 months/);
         expect(note).toMatch(/Fair Long is the strongest car here that fits both\.$/);
     });
 });

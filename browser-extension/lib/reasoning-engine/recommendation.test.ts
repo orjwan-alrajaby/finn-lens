@@ -772,7 +772,7 @@ describe("alternatives and the hot seat", () => {
     expect(evaluation.cost.budgetSentence).toContain("over budget");
 
     const reasoning = reasonAboutChallenge(evaluation, result.context)!;
-    expect(reasoning.budget).toContain("over the");
+    expect(reasoning.budget).toContain("over your");
     expect(reasoning.verdict).toContain("budget");
   });
 
