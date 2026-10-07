@@ -370,8 +370,8 @@ export const TYRE_SETUP = {
 
 /**
  * FINN's tyre setup, under Climate Suitability: quoted, never scored. FINN
- * fits all-season tyres, winter tyres, or a summer and a winter set (584, 44
- * and 73 of the 701 cars in the 2026-10-07 fleet snapshot), and none of the
+ * fits all-season tyres, winter tyres, or a summer and a winter set (581, 44
+ * and 73 of the 698 cars in the 2026-10-07 fleet snapshot), and none of the
  * three is the worse option, so there's nothing to rank — but it's what the
  * car meets snow on, and a reader asking about winter should hear it.
  */

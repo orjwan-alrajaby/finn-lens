@@ -199,7 +199,8 @@ describe("equipment nearly every car has", () => {
         );
         const lines = story.sections.find((item) => item.key === "safety")!.lines.map((line) => line.text);
 
-        expect(lines.some((line) => /so does nearly every car here/.test(line))).toBe(true);
+        /* "It also has …, but so does" after a line that sets it apart; "It has … — as does" when none does. */
+        expect(lines.some((line) => /(so|as) does nearly every car here/.test(line))).toBe(true);
         expect(lines.filter((line) => /emergency braking/i.test(line))).toHaveLength(1);
     });
 });

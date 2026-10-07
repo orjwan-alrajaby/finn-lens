@@ -56,8 +56,9 @@ describe("standard equipment on FINN's inventory", () => {
       for (const { key, role } of countedItems(id)) {
         if (isDerivedSignal(key) || role === "expected") continue;
         /*
-         * Reversing camera: on 631 of 701 cars (90.01%) in the October 2026
-         * snapshot, one car over the line. Kept scored: as standard, a small
+         * Reversing camera: on 628 of 698 cars (89.97%) in the October 2026
+         * snapshot, and 631 of 701 (90.01%), one car over the line, in the
+         * one before. Kept scored either way: as standard, a small
          * car without one would be marked down (see City & Parking below),
          * and street parking could only check it, never count it.
          */

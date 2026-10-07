@@ -51,7 +51,7 @@ const FEATURE_KEYS = {
   hasParkingAssistant: "Parkassistent",
   hasParkingSensors: "Parksensoren",
   hasAuxiliaryHeater: "Standheizung",
-  /* On 48 of 701 cars (October 2026 snapshot), 45 of them electric; scored for electric cars only. */
+  /* On 48 of 698 cars (October 2026 snapshot), 45 of them electric; scored for electric cars only. */
   hasHeatPump: "Wärmepumpe",
   hasBlindSpotAssist: "Toter-Winkel-Assistent",
   hasRearCrosswalkWarning: "Verkehrsquerenwarnung hinten",
@@ -114,7 +114,7 @@ export function extractFeatures(config: FinnApiConfig): Record<string, boolean> 
     ...features,
     /*
      * FINN lists keyless entry and start either as one entry or as two, and
-     * the two disagree on 89 of 701 cars (October 2026 snapshot). Either way
+     * the two disagree on 88 of 698 cars (October 2026 snapshot). Either way
      * of saying it counts.
      */
     hasKeylessEntryAndStart:
