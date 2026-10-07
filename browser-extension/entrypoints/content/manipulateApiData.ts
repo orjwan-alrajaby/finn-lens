@@ -2,6 +2,8 @@ import type { FinnApiConfig, FinnCar, FuelType, Transmission } from "@/lib/types
 import {
   getFeature,
   extractFeatures,
+  extractEvRangeKm,
+  extractBatteryKwh,
   hasSuppliedEquipment,
   extractUnansweredFeatures,
   extractEquipmentText,
@@ -65,8 +67,8 @@ function mapFinnConfig(config: FinnApiConfig): FinnCar {
 
     electric: isElectric
       ? {
-          range: config.ev_range ?? "Unknown",
-          batteryCapacity: (getFeature(config, "Batteriekapazität") as number) ?? "Unknown",
+          range: extractEvRangeKm(config) ?? "Unknown",
+          batteryCapacity: extractBatteryKwh(config) ?? "Unknown",
           rangeUnit: "km",
           batteryUnit: "kWh",
         }

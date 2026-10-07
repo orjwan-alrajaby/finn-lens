@@ -67,10 +67,8 @@ export type FinnApiConfig = {
   co2emission: number;
   co2_class: string;
 
-  ev_range: number;
-  battery_capacity: number;
-
-  trunk_capacity: number;
+  /** WLTP range in km, as FINN sends it: a string, "571". Null for cars that aren't electric. */
+  ev_range?: string | number | null;
 
   color: {
     id: string;

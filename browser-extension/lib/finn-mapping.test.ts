@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  extractBatteryKwh,
   extractDcChargeMinutes,
+  extractEvRangeKm,
   extractDriverAssistanceLevel,
   extractFeatures,
   extractTowingCapacityKg,
@@ -60,6 +62,14 @@ describe("reading FINN's equipment entries", () => {
     expect(extractTowingCapacityKg(config({}))).toBeNull();
   });
 
+  it("reads the electric range and battery FINN sends as text as numbers", () => {
+    expect(extractEvRangeKm(config({}, { ev_range: "571" }))).toBe(571);
+    expect(extractEvRangeKm(config({}, { ev_range: null }))).toBeNull();
+    expect(extractBatteryKwh(config({ Batteriekapazität: "77.03 kWh" }))).toBe(77.03);
+    expect(extractBatteryKwh(config({ Batteriekapazität: "42,2 kWh" }))).toBe(42.2);
+    expect(extractBatteryKwh(config({}))).toBeNull();
+  });
+
   it("reads the tyre setup, and nothing else, as one", () => {
     expect(extractTyres(config({}, { tires: "all_season" }))).toBe("allSeason");
     expect(extractTyres(config({}, { tires: "summer_winter" }))).toBe("summerAndWinter");
@@ -103,7 +113,7 @@ describe("the mapper over FINN's inventory snapshot", () => {
   it("gives every electric car a range, and no other car one", () => {
     for (const car of cars) {
       if (car.fuelType === "Electric") {
-        expect(Number(car.electric?.range)).toBeGreaterThan(0);
+        expect(car.electric?.range).toBeGreaterThan(0);
       } else {
         expect(car.electric).toBeNull();
       }

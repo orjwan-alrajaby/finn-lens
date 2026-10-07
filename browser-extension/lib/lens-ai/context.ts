@@ -10,6 +10,7 @@ import {
     evaluateChallenger,
     periodLabel,
 } from "@/lib/reasoning-engine";
+import { evRangeKm } from "@/lib/reasoning-engine/evidence";
 import { totalFor } from "@/lib/reasoning-engine/scoring";
 import type { AdviceNarrative } from "@/lib/reasoning-engine/narrative";
 import type {
@@ -120,10 +121,8 @@ function carFacts(car: PinnedFinnCar, rec: Recommendation, cars: PinnedFinnCar[]
         doors: car.doors || null,
         seats: car.capacity?.seats || null,
         lengthMm: car.dimensions?.length || null,
-        electricRangeKm:
-            car.electric && typeof car.electric.range === "number"
-                ? car.electric.range
-                : null,
+        /* Read through the engine: cars pinned by earlier builds hold FINN's string, "571". */
+        electricRangeKm: evRangeKm(car),
         dcCharge10to80Minutes: car.dcChargeMinutes ?? null,
         driverAssistanceLevel: car.driverAssistanceLevel ?? null,
         equipmentListSupplied: car.featuresSupplied ?? null,

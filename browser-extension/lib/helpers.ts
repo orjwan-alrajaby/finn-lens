@@ -233,6 +233,24 @@ export function extractTowingCapacityKg(config: FinnApiConfig): number | null {
   return Number.isFinite(kg) && kg > 0 ? kg : null;
 }
 
+/** A positive number from FINN's figure, written as a number or as "77.03 kWh"; null otherwise. */
+function leadingNumber(value: unknown): number | null {
+  const parsed =
+    typeof value === "number" ? value : typeof value === "string" ? Number.parseFloat(value.replace(",", ".")) : NaN;
+
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+}
+
+/** FINN's `ev_range`, which it sends as a string ("571"), in kilometres. */
+export function extractEvRangeKm(config: FinnApiConfig): number | null {
+  return leadingNumber(config.ev_range);
+}
+
+/** FINN's `Batteriekapazität`, "77.03 kWh" → 77.03. */
+export function extractBatteryKwh(config: FinnApiConfig): number | null {
+  return leadingNumber(getFeature(config, "Batteriekapazität"));
+}
+
 /** FINN's `tires` field, or null when it says nothing Lens recognises. */
 export function extractTyres(config: FinnApiConfig): FinnCar["tyres"] {
   if (config.tires === "all_season") return "allSeason";
