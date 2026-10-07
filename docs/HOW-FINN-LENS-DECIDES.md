@@ -5,7 +5,7 @@
 > rests on — FINN's own data, arithmetic on it, a published European source, or Lens's own labelled
 > assumption. Written for anyone changing the engine, reviewing it, or checking a claim it makes.
 >
-> **State described:** branch `life-bubbles` at `af08559` (7 October 2026). `npx tsc --noEmit` clean,
+> **State described:** branch `life-bubbles` at `c35fde9` (7 October 2026). `npx tsc --noEmit` clean,
 > `npx vitest run` green (993 tests).
 >
 > **Related documents.** [`FINN-LENS-EMISSIONS-SCORING.md`](FINN-LENS-EMISSIONS-SCORING.md) is the long
@@ -111,20 +111,21 @@ Two separations run through it:
 Every car enters Lens through one mapper: `mapFinnConfig` (`entrypoints/content/manipulateApiData.ts`),
 with the field readers in `lib/helpers.ts` and FINN's shape in `FinnApiConfig` (`lib/types.ts`). The
 readings below were checked on 7 October 2026 against six pages of `/api/cars` exactly as finn.com sent
-them — 127 of the 151 cars FINN listed that day — and against the fleet snapshot (§17).
+them — 127 of the 151 cars FINN listed that day — against the listing those pages drew, and against the
+fleet snapshot (§17).
 
 | FINN sends | Lens reads | Why |
 |---|---|---|
-| `price.b2c_12`, `b2b_12`, … — the monthly price per term, nothing upfront | The term's price from `price.available_price_list` first, the top level where the list leaves a term out (`extractContract`) | On an early-booking offer ("Frühbucherangebot") the top level still holds the price before the discount — the list's `b2c_12_old` — and only the list holds what FINN charges now: 5 of the 127 cars, €10 a month each. Everywhere else the two agree. |
+| `price.b2c_12`, `b2b_12`, … — the monthly price per term, nothing upfront | The term's price from `price.available_price_list` first, the top level where the list leaves a term out (`extractContract`) | On an early-booking offer ("Frühbucherangebot") the top level still holds the price before the discount — the list's `b2c_12_old` — and only the list holds what FINN charges now: 5 of the 127 cars, €10 a month each, and 10 of the 698 in the fleet snapshot. Everywhere else the two agree. finn.com's cards show the same: the CLA electric's card strikes through €799 and charges €789 (with €1,500 down), and €789 plus €1,500 over 12 months is the list's €914. All 35 single-configuration cards match the list this way. |
 | `downpayment_prices` — the same prices after a €1,500 down payment | Only its list price (`msrp`) and per-km price | Its monthly prices are lower by exactly €1,500 spread over the term; quoting them without the €1,500 made every car look cheaper. |
 | `available_terms`, `default_term` | The terms on offer, and the one to quote when the reader gives no period | The price object can carry terms that aren't on offer, so prices are read through `available_terms`. |
 | `availability_by_term` — per term: first delivery, last, the weeks it may slip, and the delivery batches | Each term's window, dates cut to the day | Dates arrive as midnight UTC, so cutting doesn't move the day. The slip belongs to the earliest batch. The car's headline window is the priced term's: FINN's `default_downpayment_term` differs from it on 14 cars. |
 | `extra_500` … `extra_5000`, `extra_km_price` | Mileage packages, and the per-km price beyond the largest (§10.1) | `extra_1000_old` and the like are struck-through prices and are skipped. |
 | `ev_range` as text — `"571"` | A number of kilometres | It's text on every electric car. The facts handed to the model only accepted a number, so the model had no electric car's range until this was read. |
 | `Batteriekapazität` as text — `"77.03 kWh"` | A number of kWh | Listed for some petrol and diesel mild hybrids too; read for electric cars only. |
-| `tires`: `all_season` (110), `winter` (13), `summer_winter` (4) | All-season, winter, or a summer and a winter set: shown under Climate Suitability, never scored | Winter tyres were read as "FINN doesn't say" until 7 October 2026. |
+| `tires`: `all_season` (110), `winter` (13), `summer_winter` (4); in the fleet snapshot 581, 44 and 73 | All-season, winter, or a summer and a winter set: shown under Climate Suitability, never scored | Winter tyres were read as "FINN doesn't say" until 7 October 2026. |
 | `co2emission`: `null` on all 25 electric cars; `consumption` and `co2_class` absent on one petrol car | An electric car's CO₂ as 0 g/km, since it has no tailpipe (`assessEnvironment`, §7); any other missing figure as unknown, never 0 | §1: only an absent field is unknown. The petrol car with neither figure gets no environmental reading. |
-| `closed_features_list` — flags, and text for figures (`"1500 kg"`, `"28 Min."`, `"Level 2"`) | `true` is listed, `false` is a real no, absent is unknown (§5) | Wireless CarPlay is answered `"Ja (Kabellos)"` or `false`. Keyless entry & start counts when FINN lists it as one entry or as both halves; on 19 of the 127 the one entry says yes while a half says no, and the one entry is taken. |
+| `closed_features_list` — flags, and text for figures (`"1500 kg"`, `"28 Min."`, `"Level 2"`) | `true` is listed, `false` is a real no, absent is unknown (§5) | Wireless CarPlay is answered `"Ja (Kabellos)"` or `false`. Keyless entry & start counts when FINN lists it as one entry or as both halves; on 19 of the 127 the one entry says yes while a half says no (88 of the 698 in the snapshot), and the one entry is taken. |
 | `config_drive` — six spellings: Frontantrieb, Heckantrieb, Allrad, FWD, RWD, AWD | Front-, rear- or all-wheel drive | |
 | `equipment`, `equipment_packages` — FINN's German prose | Carried verbatim for the model, packages first, without FINN's data-audit notes | 97 of the 127 cars carry notes like "Audit override: hasLeatherSeats" or "Audit override: dcChargeTime10To80 = 0.37" (hours, beside FINN's "22 Min."). They say which field someone corrected, not what the car has; on 18 cars a whole group was nothing else. Items are split on FINN's `equipment_delimiter` (", "); a comma inside an item is written "٫". |
 
@@ -219,7 +220,7 @@ Not asked when the page has one fuel. Fuels not picked are set aside before scor
 only what FINN lists:
 
 - FINN has exactly four fuel types — no "hybrid". Where FINN files cars with "Hybrid" in its own engine name
-  under petrol (83 in the fleet snapshot, e.g. "Toyota Yaris 1.5-l-VVT-i Hybrid 116 CVT"), Petrol's "i"
+  under petrol (86 in the fleet snapshot, e.g. "Toyota Yaris 1.5-l-VVT-i Hybrid 116 CVT"), Petrol's "i"
   counts them from the page.
 - Plug-in hybrid's "i" says FINN gives only the fuel figure, and the electricity is the EU's figure (§10.3).
 - Stars from how green (§7.4): totally green → Electric; moderately green → any fuel most of whose cars on
@@ -322,10 +323,11 @@ featureScore = 100 × max(0, Σ weight × utility  −  Σ weight of standard it
 An item on at least 90% of FINN's cars (`BASELINE_PREVALENCE`, evidence.ts; re-checked against the fleet
 snapshot on every calibration run) is **expected**: having it earns nothing, a confirmed gap costs its
 weight. Counted as earning, it would add the same to every car and only squeeze the differences. Examples:
-emergency braking, lane keeping, ISOFIX, parking sensors and parking assistant (688 and 685 of 701 in the
-October 2026 snapshot), and keyless entry & start (656 of 701; it was 636 of 728 in September, below the line).
+emergency braking, lane keeping, ISOFIX, parking sensors and parking assistant (685 and 683 of 698 in the
+October 2026 snapshot), and keyless entry & start (653 of 698; it was 636 of 728 in September, below the line).
 
-One item sits on the line and is kept scored on purpose: the **reversing camera**, on 631 of 701 cars (90.01%).
+One item sits on the line and is kept scored on purpose: the **reversing camera**, on 628 of 698 cars (89.97%)
+— it was 631 of 701 (90.01%), one car over, in the snapshot before.
 As standard, a small car without one would be marked down, which City & Parking is built not to do (a short
 car needs cameras less), and street parking could only check it, never count it. The calibration test names
 this exception and fails if the camera passes 92%, when it should be re-decided.
@@ -535,7 +537,7 @@ conformity (Implementing Regulation (EU) 2020/683). Lens uses that figure for th
 - **Matching** (`euElectricityFor`, eu-electricity.ts): make; FINN's CO₂ and fuel figures exactly (fuel to the
   0.1 L the EU reports); and the longest run of FINN's own words that names the car ("GLA250E", "E300DE"),
   never generic ones ("xDrive" alone once paired a 330e with an X1). Engine power isn't used: FINN's is the
-  whole system's, the EU's the engine's. 35 of FINN's 44 plug-ins match.
+  whole system's, the EU's the engine's. 27 of the 39 plug-ins in the fleet snapshot match.
 - **More than one version matches** (same figures, different electricity): the highest is used, and said.
 - **No match**: the electricity is named as missing; the car can't be confirmed within a budget, and is set
   aside under a hard one.
@@ -615,7 +617,7 @@ either car, since any could be the deciding one.
 | [ADAC — "Durch den Winter? Aber sicher!"](https://presse.adac.de/regionalclubs/wuerttemberg/files/adac-infobroschuere-durch-den-winter.pdf) (2015), p. 19 | "in punkto Wintertauglichkeit gibt es zwischen Front- und Heckantrieb keinen eindeutigen Sieger"; with ESP (standard on new cars since 2014) stability and traction problems are largely past | Why Lens doesn't ask about front- vs rear-wheel drive (§15) — not shown to readers | Read in full |
 
 FINN's own API is the source for everything else: `https://www.finn.com/api/cars` (snapshot in
-`lib/reasoning-engine/test-data/finn-fleet-snapshot.json`, taken 2026-10-07, 701 cars). §2.1 says how
+`lib/reasoning-engine/test-data/finn-fleet-snapshot.json`, taken 2026-10-07, 698 cars). §2.1 says how
 each of its fields is read.
 
 ---
@@ -662,13 +664,11 @@ Numbers with no source to take them from. Each is labelled where it's shown.
   and body type), so no car is affected — but a future mustn't rule on optional equipment should set aside
   unconfirmed cars, as a hard limit does.
 - **The EEA's 2025 data is provisional**, and the table needs re-running as FINN adds models: a new plug-in
-  model isn't matched until it does. 9 of FINN's 44 plug-ins don't match today (Mazda CX-60 / CX-80, MG S9,
-  BMW 330e and two X5 and two Tucson entries).
+  model isn't matched until it does. 12 of the 39 plug-ins in the fleet snapshot don't match today: two
+  Mazda CX-60 and two CX-80, two Honda CR-V e:PHEV and two Kia Sportage, the MG S9, a Hyundai Tucson, the
+  BMW X5 xDrive50e, and a BMW 230i Coupé FINN files as a plug-in hybrid.
 - **Band thresholds** are provisional (§8).
 - **Boot space** waits on a seats-up source (§5.3).
-- **The fleet snapshot predates the price list.** It was taken before `scripts/snapshot-finn-fleet.mjs` kept
-  `price.available_price_list`, so the fleet tests price an early-booking car before its discount (§2.1)
-  until the snapshot is next refreshed. The extension reads the list from FINN's live responses.
 - **Some engine notes predate the chat** and still describe a relative Compare page (fit.ts header); the
   scoring itself is intrinsic (§2).
 
