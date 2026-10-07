@@ -813,20 +813,21 @@ function DealKey({ rows }: { rows: DealRow[] }) {
         .filter(Boolean)
         .join(" / ");
     const entries: { label: string; tone: string; means: string }[] = [
-        { label: "Doesn't matter", tone: "bg-finn-snow text-finn-black ring-1 ring-finn-iron/40", means: "Not part of the judgement." },
-        ...(offered.has("must") ? [{ label: must, tone: DEAL_TONE.must, means: DEAL_MEANS.must }] : []),
-        ...(offered.has("mustNot") ? [{ label: mustNot, tone: DEAL_TONE.mustNot, means: DEAL_MEANS.mustNot }] : []),
-        ...(offered.has("seal") ? [{ label: "Seals it", tone: DEAL_TONE.seal, means: DEAL_MEANS.seal }] : []),
+        { label: "Doesn't matter", tone: DEAL_ON.none, means: "Not part of the judgement." },
+        ...(offered.has("must") ? [{ label: must, tone: DEAL_ON.must, means: DEAL_MEANS.must }] : []),
+        ...(offered.has("mustNot") ? [{ label: mustNot, tone: DEAL_ON.mustNot, means: DEAL_MEANS.mustNot }] : []),
+        ...(offered.has("seal") ? [{ label: "Seals it", tone: DEAL_ON.seal, means: DEAL_MEANS.seal }] : []),
         ...rows
             .filter((row) => row.options.includes("flex"))
-            .map((row) => ({ label: row.labels?.flex ?? "Either way", tone: DEAL_TONE.flex, means: DEAL_MEANS.flex })),
+            .map((row) => ({ label: row.labels?.flex ?? "Either way", tone: DEAL_ON.flex, means: DEAL_MEANS.flex })),
     ];
 
     return (
         <dl className="mt-3 space-y-2 border-t border-black/5 pt-2.5 text-[12px] leading-snug">
             {entries.map((entry) => (
                 <div key={entry.label} className="flex items-start gap-2">
-                    <dt className={`mt-px shrink-0 rounded-full px-2 py-0.5 text-[10.5px] font-black ${entry.tone}`}>{entry.label}</dt>
+                    {/* The same filled rectangle the option becomes when picked. */}
+                    <dt className={`mt-px shrink-0 rounded-md px-2 py-0.5 text-[10.5px] font-black ${entry.tone}`}>{entry.label}</dt>
                     <dd className="text-finn-iron">{entry.means}</dd>
                 </div>
             ))}
@@ -999,13 +1000,31 @@ const DEAL_LABEL = (row: DealRow, state: DealRow["options"][number]): string =>
     row.labels?.[state] ??
     (state === "seal" ? "Seals it" : state === "must" ? (row.kind ? "Must be" : "Must have") : state === "flex" ? "Either way" : row.kind ? "Mustn't be" : "Mustn't have");
 
-/* Soft fills, with the text and border in the darker shade: picked reads clearly without shouting. */
-const DEAL_TONE: Record<DealRow["options"][number], string> = {
-    must: "bg-finn-pale-blue text-finn-highlight-navy ring-1 ring-finn-highlight-navy/45",
-    mustNot: "bg-finn-fit-limited-pale text-finn-fit-limited ring-1 ring-finn-fit-limited/45",
-    seal: "bg-finn-fit-good-pale text-finn-fit-good ring-1 ring-finn-fit-good/45",
-    flex: "bg-finn-pale-blue text-finn-accent-blue ring-1 ring-finn-accent-blue/45",
+type DealOption = DealRow["options"][number] | "none";
+
+/*
+ * Each option its own lively colour — blue for a must, red for a mustn't,
+ * green for what seals it, violet for either way, grey for doesn't matter —
+ * outlined until picked, then filled. White text on each fill stays legible.
+ */
+const DEAL_ON: Record<DealOption, string> = {
+    none: "bg-[#52525b] text-white ring-1 ring-[#52525b]",
+    must: "bg-finn-accent-blue text-white ring-1 ring-finn-accent-blue",
+    mustNot: "bg-finn-error text-white ring-1 ring-finn-error",
+    seal: "bg-[#0b8a4c] text-white ring-1 ring-[#0b8a4c]",
+    flex: "bg-[#6d28d9] text-white ring-1 ring-[#6d28d9]",
 };
+
+const DEAL_OFF: Record<DealOption, string> = {
+    none: "bg-white text-[#52525b] ring-1 ring-[#d4d4d8] hover:bg-finn-snow",
+    must: "bg-white text-finn-accent-blue ring-1 ring-finn-accent-blue/45 hover:bg-finn-pale-blue",
+    mustNot: "bg-white text-finn-error ring-1 ring-finn-error/45 hover:bg-finn-fit-limited-pale",
+    seal: "bg-white text-[#0b8a4c] ring-1 ring-[#0b8a4c]/45 hover:bg-finn-fit-good-pale",
+    flex: "bg-white text-[#6d28d9] ring-1 ring-[#6d28d9]/45 hover:bg-[#f5f3ff]",
+};
+
+/** The shape every deal option, key and button here shares: a rectangle, 8px round. */
+const DEAL_SHAPE = "rounded-lg text-[12px] font-black leading-tight transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-finn-accent-blue";
 
 /**
  * Deal-breakers and deal-sealers: a row each, set to Doesn't matter, a rule
@@ -1052,44 +1071,43 @@ function Deals({
                             {group.title ? <p className="mb-1.5 px-1 text-[10.5px] font-black uppercase tracking-wide text-finn-iron">{group.title}</p> : null}
                             <ul className="divide-y divide-finn-cotton overflow-hidden rounded-2xl bg-white ring-1 ring-black/5">
                                 {group.rows.map((row) => (
-                                    /* The name on its own line, its options spread evenly under it: room to read and to tap. */
-                                    <li key={row.id} className="space-y-2 px-3.5 py-3">
-                                        <span className="inline-flex items-center gap-0.5 text-[13px] font-bold text-finn-black">
-                                            {row.suggested ? <Star role="img" aria-label="Recommended" className="mr-1 h-3.5 w-3.5 fill-current text-finn-accent-blue" /> : null}
-                                            {row.label}
-                                            <InfoTip label={row.label} tip={{ title: row.label, recommended: row.suggested, body: [row.description], sources: row.sources }} />
-                                        </span>
-                                        <span
-                                            role="radiogroup"
-                                            aria-label={row.label}
-                                            className="grid gap-1.5"
-                                            style={{ gridTemplateColumns: `repeat(${row.options.length + 1}, minmax(0, 1fr))` }}
-                                        >
-                                            {([undefined, ...row.options] as (DealRow["options"][number] | undefined)[]).map((option) => {
-                                                const on = states[row.id] === option;
+                                    /*
+                                     * The row measures itself: with room, the options sit beside the
+                                     * name at their own size; without, they fill the line under it in
+                                     * equal columns. A wider chat gets the wider layout at once.
+                                     */
+                                    <li key={row.id} className="@container px-3.5 py-3">
+                                        <div className="flex flex-col gap-2 @min-[500px]:flex-row @min-[500px]:items-center @min-[500px]:justify-between @min-[500px]:gap-4">
+                                            <span className="inline-flex min-w-0 items-center gap-0.5 text-[13px] font-bold text-finn-black">
+                                                {row.suggested ? <Star role="img" aria-label="Recommended" className="mr-1 h-3.5 w-3.5 shrink-0 fill-current text-finn-accent-blue" /> : null}
+                                                {row.label}
+                                                <InfoTip label={row.label} tip={{ title: row.label, recommended: row.suggested, body: [row.description], sources: row.sources }} />
+                                            </span>
+                                            <span role="radiogroup" aria-label={row.label} className="grid shrink-0 grid-flow-col auto-cols-fr gap-1.5 @min-[500px]:auto-cols-max">
+                                                {(["none", ...row.options] as DealOption[]).map((option) => {
+                                                    const on = (states[row.id] ?? "none") === option;
 
-                                                return (
-                                                    <button
-                                                        key={option ?? "none"}
-                                                        type="button"
-                                                        role="radio"
-                                                        aria-checked={on}
-                                                        onClick={() => setStates((current) => ({ ...current, [row.id]: option }))}
-                                                        className={[
-                                                            "rounded-full px-2 py-1.5 text-center text-[11.5px] font-black leading-tight transition-colors",
-                                                            "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-finn-accent-blue",
-                                                            on
-                                                                ? option
-                                                                    ? DEAL_TONE[option]
-                                                                    : "bg-finn-snow text-finn-black ring-1 ring-finn-iron/40"
-                                                                : "bg-white text-finn-iron ring-1 ring-finn-cotton hover:text-finn-black hover:ring-finn-iron/30",
-                                                        ].join(" ")}
-                                                    >
-                                                        {option ? DEAL_LABEL(row, option) : "Doesn't matter"}
-                                                    </button>
-                                                );
-                                            })}
-                                        </span>
+                                                    return (
+                                                        <button
+                                                            key={option}
+                                                            type="button"
+                                                            role="radio"
+                                                            aria-checked={on}
+                                                            onClick={() => setStates((current) => ({ ...current, [row.id]: option === "none" ? undefined : option }))}
+                                                            className={[
+                                                                "inline-flex items-center justify-center gap-1 px-1.5 py-2 text-center @min-[500px]:px-2.5",
+                                                                DEAL_SHAPE,
+                                                                on ? `${DEAL_ON[option]} shadow-sm` : DEAL_OFF[option],
+                                                            ].join(" ")}
+                                                        >
+                                                            {/* The tick where there's room for it; narrow, the fill alone says it's picked. */}
+                                                            {on ? <Check aria-hidden="true" className="hidden h-3 w-3 shrink-0 @min-[500px]:block" strokeWidth={3.5} /> : null}
+                                                            {option === "none" ? "Doesn't matter" : DEAL_LABEL(row, option)}
+                                                        </button>
+                                                    );
+                                                })}
+                                            </span>
+                                        </div>
                                     </li>
                                 ))}
                             </ul>
@@ -1101,13 +1119,15 @@ function Deals({
                             <button
                                 type="button"
                                 onClick={() => onAnswer(chosen)}
-                                className="inline-flex items-center gap-1 rounded-full bg-finn-highlight-navy px-4 py-2 text-[12.5px] font-black text-white shadow-sm transition-colors hover:bg-finn-accent-blue focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-finn-accent-blue"
+                                className={`inline-flex items-center gap-1 bg-finn-highlight-navy px-4 py-2.5 text-white shadow-sm hover:bg-finn-accent-blue ${DEAL_SHAPE}`}
                             >
                                 Continue
                                 <ChevronRight aria-hidden="true" className="h-4 w-4" />
                             </button>
                         ) : (
-                            <Chip label={step.none ?? "Nothing's off the table"} muted onClick={() => onAnswer([])} />
+                            <button type="button" onClick={() => onAnswer([])} className={`px-4 py-2.5 ${DEAL_SHAPE} ${DEAL_OFF.none}`}>
+                                {step.none ?? "Nothing's off the table"}
+                            </button>
                         )}
                         {onNeverMind ? <NeverMind onClick={onNeverMind} /> : null}
                     </div>

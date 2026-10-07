@@ -224,10 +224,14 @@ describe("deal-breakers and deal-sealers", () => {
             /Why I'm asking: Only pick what you'd truly refuse, or what would win you over — everything else is weighed on what you've already told me\. Doesn't matter Not part of the judgement\. Must (be \/ )?have A deal-breaker: any car without it is set aside before I score anything\. (Mustn't be A deal-breaker: any car that is one is set aside before I score anything\. )?Seals it A deal-sealer: counts as a top priority, but a car without it can still win if it's clearly better at everything else\./,
         );
         expect(html).not.toContain('title="A deal-');
-        /* Soft fills with the darker shade for text and border, never solid colour. */
-        expect(html).toContain("bg-finn-fit-good-pale text-finn-fit-good ring-1 ring-finn-fit-good/45");
-        expect(html).toContain("bg-finn-pale-blue text-finn-highlight-navy ring-1 ring-finn-highlight-navy/45");
-        expect(html).not.toMatch(/bg-finn-fit-(good|limited) text-white/);
+        /* Each option its own lively colour, outlined until picked; the picked one filled, with a tick. */
+        expect(html).toContain("bg-white text-finn-accent-blue ring-1 ring-finn-accent-blue/45");
+        expect(html).toContain("bg-white text-[#0b8a4c] ring-1 ring-[#0b8a4c]/45");
+        expect(html).toMatch(/aria-checked="true" class="[^"]*bg-\[#52525b\] text-white[^"]*"><svg[^>]*lucide-check/);
+        /* Rectangles, not bubbles; beside the name once the row has room. */
+        expect(html).not.toMatch(/role="radio"[^>]*rounded-full/);
+        expect(html).toMatch(/role="radio"[^>]*rounded-lg/);
+        expect(html).toContain("@min-[500px]:flex-row");
         expect(html).toContain("aria-label=\"What “Towbar” means\"");
         expect(words).toContain("Nothing's off the table");
     });
