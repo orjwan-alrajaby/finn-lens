@@ -1851,7 +1851,8 @@ function Result({
                     <div className="flex items-start justify-between gap-2">
                         <div>
                             <p className="text-[11px] font-black uppercase tracking-wide text-[#9a6200]">{message.closest ? "Closest match" : "Your strongest match"}</p>
-                            <WinnerChip />
+                            {/* "Best for you" under "Closest match" said two things at once. */}
+                            <WinnerChip label={message.closest ? "Lens's pick" : undefined} />
                         </div>
                         {winner.monthly != null ? (
                             <span className="text-right text-[11px] font-semibold text-finn-iron">

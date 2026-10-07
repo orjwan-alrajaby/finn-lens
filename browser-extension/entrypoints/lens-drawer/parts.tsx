@@ -226,7 +226,7 @@ export function CarHeader({ value }: { value: JudgedCar }) {
             <CarPhoto src={car.images?.thumbnail || null} alt={car.name} className="h-40 w-full rounded-2xl" />
 
             <div className="mt-3 flex flex-wrap items-center gap-1.5">
-                {isWinner ? <WinnerChip /> : <BandChip band={verdict.setAside ? "unknown" : verdict.band} label={verdict.label} />}
+                {isWinner ? <WinnerChip label={verdict.closest ? "Lens's pick" : undefined} /> : <BandChip band={verdict.setAside ? "unknown" : verdict.band} label={verdict.label} />}
                 {verdict.rank != null ? (
                     <span className="rounded-full bg-finn-cotton px-2.5 py-1 text-[11px] font-black text-finn-black">
                         #{verdict.rank} of {total} ranked

@@ -384,3 +384,27 @@ describe("the “i” panel", () => {
         expect(html).toContain('aria-label="Close"');
     });
 });
+
+describe("the pick's gold chip", () => {
+    it("doesn't say “Best for you” under “Closest match”", () => {
+        const message: Extract<ChatMessage, { kind: "result" }> = {
+            id: "r3",
+            at: "",
+            from: "lens",
+            kind: "result",
+            headline: "5 cars",
+            count: 5,
+            closest: true,
+            winner: { id: 1, name: "MG 3", configuration: "", image: null, monthly: 300, band: "good", bandLabel: "Good match", url: null, overLimit: true, over: "period" },
+            reason: null,
+            note: null,
+            runnersUp: [],
+            setAside: 0,
+        };
+        const words = text(render([message]));
+
+        expect(words).toContain("Closest match");
+        expect(words).toContain("Lens's pick");
+        expect(words).not.toContain("Best for you");
+    });
+});
