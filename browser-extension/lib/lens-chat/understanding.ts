@@ -246,6 +246,9 @@ export function readUnderstanding(
 
         if (months >= 1 && months <= MAX_RENTAL_MONTHS && wire.rental.to >= today) {
             rental = {
+                /* New dates keep how firm the reader said dates are; until they say, they're firm. */
+                firm: previous.rental?.firm ?? true,
+                flexMonths: previous.rental?.flexMonths ?? 0,
                 from: wire.rental.from,
                 to: wire.rental.to,
                 startDay: Number.isInteger(day) && day >= 1 && day <= 31 ? day : null,
@@ -496,8 +499,12 @@ export const withRental = (
     from && to && isMonthString(from) && isMonthString(to) && monthsInclusive(from, to) >= 1
         ? {
               ...u,
-              /* New dates keep how firm the reader said dates are. */
-              rental: { firm: u.rental?.firm, flexMonths: u.rental?.flexMonths, from, to, startDay: startDay && startDay >= 1 && startDay <= 31 ? startDay : null, said },
+              /*
+               * New dates keep how firm the reader said dates are. Until they
+               * say, they're firm: a car that can't be had for them can't be
+               * the pick.
+               */
+              rental: { firm: u.rental?.firm ?? true, flexMonths: u.rental?.flexMonths ?? 0, from, to, startDay: startDay && startDay >= 1 && startDay <= 31 ? startDay : null, said },
               waived: waiving(u, "rental", false),
           }
         : u;

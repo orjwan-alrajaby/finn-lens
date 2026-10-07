@@ -1390,7 +1390,7 @@ describe("standard equipment, said where it's asked for", () => {
 });
 
 describe("dates as a rule", () => {
-    /* FINN's snapshot carries no terms or delivery windows: these give a few cars their own. */
+    /* Terms and delivery windows set by hand, so each car's fit with the dates is known. */
     const term = (deliveryFrom: string, deliveryTo: string) => ({ months: 12, privateMonthly: 400, businessMonthly: 340, deliveryFrom, deliveryTo, deviationWeeks: 0 });
     const withTerm = (car: ReturnType<typeof fleet>[number], from: string, to: string) => ({ ...car, contract: { defaultMonths: 12, terms: [term(from, to)] } }) as typeof car;
     const page = () => {
@@ -1404,6 +1404,16 @@ describe("dates as a rule", () => {
     };
     const dated = (from: string, firm: boolean, flexMonths = 0) =>
         ({ ...withBubbles(EMPTY_UNDERSTANDING, { dog: [] }), rental: { from, to: addMonths(from, 11), startDay: null, said: "", firm, flexMonths } }) as Understanding;
+
+    it("holds the dates as a rule from the moment they're given, until the reader says otherwise", () => {
+        const cars = page();
+        const chat = walk(startChat(null, cars, TODAY), { bubbles: ["dog"], period: ["period-12"], deals: ["dates=must"] }, cars);
+        const asked = chat.messages.find((message) => message.kind === "ask" && message.step.id === "deals");
+
+        /* The row comes already on "My dates only"; Continue keeps it. */
+        expect(asked?.kind === "ask" && asked.step.selected).toContain("dates=must");
+        expect(chat.understanding.rental).toMatchObject({ firm: true, flexMonths: 0 });
+    });
 
     it("never picks a car that can't be had for dates held as a rule, and says why for each set aside", () => {
         const u = dated("2026-12", true);

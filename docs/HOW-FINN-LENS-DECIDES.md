@@ -461,7 +461,10 @@ counts as fitting.
 Three-state and eligibility-only by default (contract.ts, decision.ts): never a point added or removed — a car
 that fits the dates is preferred, and see §10.4 for how a period is matched to FINN's terms.
 
-**Dates as a rule** — the "Available for my dates" deal row, offered once there are dates (`runLens`, run.ts):
+**Dates as a rule** — the "Available for my dates" deal row, offered once there are dates (`runLens`, run.ts).
+Dates are firm from the moment they're given (`withRental`, and the typed reading): the row starts on **My
+dates only**, and the reader eases it to a month either way or "Doesn't matter". Changing the dates later
+keeps whichever they chose.
 
 - **My dates only**: a car that can't be rented for the dates, or that FINN's data can't confirm, is set aside
   before the limit is applied, each saying why from FINN's terms. A car the reader can't have is never the pick.

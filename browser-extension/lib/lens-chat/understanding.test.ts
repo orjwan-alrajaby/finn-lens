@@ -114,7 +114,7 @@ describe("reading an understanding", () => {
 
         /* Blind spot warning is scored under Safety & Driver Assistance. */
         expect(u.needs.find((need) => need.id === "confidence")?.priorities).toContain("safetyAssistance");
-        expect(u.rental).toEqual({ from: "2099-10", to: "2100-04", startDay: 8, said: "from the 8th of October until April" });
+        expect(u.rental).toEqual({ firm: true, flexMonths: 0, from: "2099-10", to: "2100-04", startDay: 8, said: "from the 8th of October until April" });
         expect(u.budget?.kind).toBe("hardMax");
     });
 
@@ -477,8 +477,19 @@ describe("the two things Lens asks for itself", () => {
     it("keeps the day the reader asked for it", () => {
         const u = withRental(EMPTY_UNDERSTANDING, "2027-03", "2027-09", "from the 3rd of March", 3);
 
-        expect(u.rental).toEqual({ from: "2027-03", to: "2027-09", startDay: 3, said: "from the 3rd of March" });
+        expect(u.rental).toEqual({ firm: true, flexMonths: 0, from: "2027-03", to: "2027-09", startDay: 3, said: "from the 3rd of March" });
         expect(missingEssentials(u).period).toBe(false);
+    });
+
+    it("takes the dates as firm until the reader says otherwise, and keeps what they said when the dates change", () => {
+        const first = withRental(EMPTY_UNDERSTANDING, "2027-03", "2027-09", "March to September");
+        expect(first.rental).toMatchObject({ firm: true, flexMonths: 0 });
+
+        const eased = { ...first, rental: { ...first.rental!, firm: true, flexMonths: 1 } };
+        expect(withRental(eased, "2027-04", "2027-10", "April to October").rental).toMatchObject({ firm: true, flexMonths: 1 });
+
+        const loose = { ...first, rental: { ...first.rental!, firm: false, flexMonths: 0 } };
+        expect(withRental(loose, "2027-04", "2027-10", "April to October").rental).toMatchObject({ firm: false });
     });
 
     it("takes the dates after a waiver, and stops counting it waived", () => {
