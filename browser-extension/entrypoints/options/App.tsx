@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Database, MessageCircle, ShieldCheck, Trash2 } from "lucide-react";
 
+import { BetaTag } from "@/components/lens-parts";
 import { BRAND_IDLE_SPIN } from "@/lib/brand-spinner";
 import { FINN_BASE_URL } from "@/lib/constants";
 import { clearGroups, DATA_GROUPS, summarise, type DataGroupId, type DataSummary } from "@/lib/chats/data";
@@ -73,7 +74,10 @@ export function App() {
                         <img src="/icon/128.png" alt="" className={`h-12 w-12 object-contain ${BRAND_IDLE_SPIN}`} />
                     </span>
                     <div>
-                        <h1 className="text-[24px] font-black leading-tight tracking-tight">Finn Lens settings</h1>
+                        <h1 className="flex items-center gap-2 text-[24px] font-black leading-tight tracking-tight">
+                            Finn Lens settings
+                            <BetaTag className="text-[11px]" />
+                        </h1>
                         <p className="text-[13px] text-white/75">Your saved answers, and everything Lens keeps in this browser.</p>
                     </div>
                 </div>

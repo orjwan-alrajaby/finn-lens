@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { ChevronRight, ExternalLink, Globe, MessageCircle, RefreshCw, Settings, SquarePen, Trophy } from "lucide-react";
 
+import { BetaTag } from "@/components/lens-parts";
 import { BRAND_IDLE_SPIN } from "@/lib/brand-spinner";
 import { FINN_BASE_URL } from "@/lib/constants";
 import { activeChat, listChats, setActiveChat } from "@/lib/chats/store";
@@ -86,7 +87,10 @@ export function App() {
                             <img src="/icon/128.png" alt="" className={`h-10 w-10 object-contain ${BRAND_IDLE_SPIN}`} />
                         </span>
                         <div>
-                            <h1 className="text-[15px] font-black leading-none tracking-tight">Finn Lens</h1>
+                            <h1 className="flex items-center gap-1.5 text-[15px] font-black leading-none tracking-tight">
+                                Finn Lens
+                                <BetaTag />
+                            </h1>
                             <p className="mt-1 text-[11px] text-white/65">Ranks finn.com's cars against what you need</p>
                         </div>
                     </div>

@@ -63,6 +63,22 @@ export function WinnerChip({ label = "Best for you", className = "" }: { label?:
     );
 }
 
+/**
+ * "Beta", beside Lens's name wherever the reader sees it — the chat, the
+ * popup, Settings — so nobody mistakes this build for a finished product.
+ * Drawn for the navy headers all three have.
+ */
+export function BetaTag({ className = "" }: { className?: string }) {
+    return (
+        <span
+            title="A beta: Lens is still being tried out."
+            className={`inline-flex items-center rounded-full bg-white/15 px-1.5 py-px text-[9.5px] font-black uppercase tracking-wider text-white/90 ring-1 ring-white/25 ${className}`}
+        >
+            Beta
+        </span>
+    );
+}
+
 /** A car's photo on FINN's pale blue ground, or the ground alone when FINN sent none. */
 export function CarPhoto({ src, alt, className = "" }: { src: string | null; alt: string; className?: string }) {
     return (

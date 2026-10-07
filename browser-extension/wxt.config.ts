@@ -29,6 +29,12 @@ export default defineConfig({
      * "finn-lens" — the npm package name, not the product's.
      */
     name: "Finn Lens",
+    /*
+     * The beta FINN's team is trying. Chrome shows this beside the version
+     * (0.9.0, from package.json) in chrome://extensions; the UI says "Beta"
+     * where the reader sees Lens's name.
+     */
+    version_name: "0.9.0 beta",
     description:
       "Choose between FINN car subscriptions by chatting with Lens. Tell it what you need, and it judges the cars on finn.com and explains its pick.",
     host_permissions: ["https://www.finn.com/*"],
@@ -65,7 +71,7 @@ export default defineConfig({
            * the page and the script and style chunks it loads have to be
            * reachable from there. Only on finn.com. The page runs on
            * the extension's origin, so finn.com can frame it but can't read
-           * into it, or into the storage holding the reader's Lens AI key.
+           * into it, or into the storage holding the reader's chats.
            */
           "lens-chat.html",
           "lens-drawer.html",

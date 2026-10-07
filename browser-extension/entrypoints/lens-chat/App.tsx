@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ArrowLeft, ArrowUp, MessagesSquare, SquarePen, X } from "lucide-react";
 
-import { BrandMark, IconButton } from "@/components/lens-parts";
+import { BetaTag, BrandMark, IconButton } from "@/components/lens-parts";
 import { onPageChanged, onTipClosed, requestChatWide, requestCloseChat, requestOpenDrawer, requestPageContext, requestTip, requestTipHide, requestTipMove } from "@/lib/chats/bridge";
 import { rewindable } from "@/lib/chats/flow";
 import { loadedCars, pageCars } from "@/lib/chats/scope";
@@ -167,7 +167,10 @@ export function App() {
                     <BrandMark size={34} />
                 )}
                 <div className="min-w-0 flex-1">
-                    <p className="text-[14px] font-black leading-tight">Lens</p>
+                    <p className="flex items-center gap-1.5 text-[14px] font-black leading-tight">
+                        Lens
+                        <BetaTag />
+                    </p>
                     <p className="truncate text-[11.5px] text-white/70">
                         {view === "list" ? "Every chat you've had" : (chat?.title ?? "Your car-choosing assistant")}
                     </p>
