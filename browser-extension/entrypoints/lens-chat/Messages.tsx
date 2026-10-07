@@ -2,7 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useId, useLayoutEffe
 import { ArrowUpRight, Check, ChevronDown, ChevronRight, Info, PencilLine, Plus, Star, Undo2, X } from "lucide-react";
 
 import { BandChip, BrandMark, CarPhoto, euros, WinnerChip } from "@/components/lens-parts";
-import { activeFollowUp, allChips, coveredBy, followUps, IMPORTANCE_LABEL } from "@/lib/chats/flow";
+import { activeFollowUp, allChips, followUps, IMPORTANCE_LABEL } from "@/lib/chats/flow";
 import { IMPORTANCE, IMPORTANCE_LEVELS, SCALE_EXPLAINED } from "@/lib/lens-chat/importance";
 import { DEAL_MEANS } from "@/lib/lens-chat/deals";
 import type { Source } from "@/lib/sources";
@@ -681,13 +681,6 @@ function OwnAnswer({
     );
 }
 
-/** "a, b and c", lower-cased after the first word of each: equipment named in a sentence. */
-const joinedLabels = (labels: string[]): string => {
-    const lowered = labels.map(lowerFirst);
-
-    return lowered.length <= 1 ? (lowered[0] ?? "") : `${lowered.slice(0, -1).join(", ")} and ${lowered.at(-1)}`;
-};
-
 /** The reader's own words, added beside the taps: tap them to edit, × to take them back. */
 function AddedWords({ text, onEdit, onRemove }: { text: string; onEdit: () => void; onRemove: () => void }) {
     return (
@@ -1001,16 +994,6 @@ function Ask({
         .filter(([bubble, rules]) => rules.required && picked.includes(bubble) && !picked.some((item) => item.startsWith(`${bubble}:`)))
         .map(([bubble]) => bubble);
 
-    /* An answer something already picked mostly covers: set aside, and said why beneath the chips. */
-    const covered = step.choices.flatMap((choice) => {
-        if (picked.includes(choice.id)) return [];
-
-        const by = picked.map((id) => ({ id, shared: coveredBy(step, id, choice.id) })).find((entry) => entry.shared);
-        const picker = by ? step.choices.find((item) => item.id === by.id) : null;
-
-        return by && picker ? [{ choice, by: picker, shared: by.shared! }] : [];
-    });
-    const setAside = new Set(covered.map((entry) => entry.choice.id));
     const chosen = step.choices.filter((choice) => picked.includes(choice.id));
     const typing = own && ownText.trim().length > 1;
     const ready = picked.length > 0 || added != null || typing;
@@ -1024,8 +1007,9 @@ function Ask({
             selected={step.multiple && picked.includes(choice.id)}
             disabled={
                 step.multiple &&
-                (setAside.has(choice.id) ||
-                    (full && !picked.includes(choice.id) && !(step.exclusive ?? []).some((set) => set.includes(choice.id) && set.some((id) => picked.includes(id)))))
+                full &&
+                !picked.includes(choice.id) &&
+                !(step.exclusive ?? []).some((set) => set.includes(choice.id) && set.some((id) => picked.includes(id)))
             }
             onClick={() => (step.multiple ? toggle(choice.id) : onAnswer([choice.id]))}
             info={tipFor(choice)}
@@ -1086,14 +1070,6 @@ function Ask({
                                         : chip(choice);
                                 })}
                             </div>
-                            {covered.map(({ choice, by, shared }) => (
-                                <p key={choice.id} className="mt-1.5 flex gap-1.5 px-1 text-[11.5px] leading-snug text-finn-iron">
-                                    <Info aria-hidden="true" className="mt-px h-3.5 w-3.5 shrink-0 text-finn-accent-blue" />
-                                    <span>
-                                        “{choice.label}” overlaps with “{by.label}”: both check {joinedLabels(shared)}, so I've set it aside.
-                                    </span>
-                                </p>
-                            ))}
                         </div>
                     )}
 

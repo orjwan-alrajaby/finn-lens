@@ -237,32 +237,12 @@ const WHY: Record<string, string> = {
     distance: `FINN's price includes ${FINN_INCLUDED_MONTHLY_KM.toLocaleString("en-GB")} km a month; more needs one of FINN's mileage packages, which adds to each car's price. Your distance also sets what fuel or charging costs you.`,
 };
 
-/** An answer this much of whose checks another picked answer already makes is set aside. */
-const MOSTLY = 0.75;
-
 /**
- * Which answers each one mostly covers: at least three quarters of what Lens
- * would check for the other is already on its own list. Worked out from the
- * equipment on these cars, so it holds for this page and says why.
+ * The guide's step as the chat asks it. Answers that check the same things
+ * are all taken: Lens counts a shared item once and lets each answer weigh
+ * in, rather than setting one aside or telling the reader what to pick.
  */
-function coverageOf(choices: ChatStep["choices"], threshold = MOSTLY): ChatStep["covers"] {
-    const covers: NonNullable<ChatStep["covers"]> = {};
-
-    for (const picked of choices) {
-        for (const other of choices) {
-            if (other.id === picked.id || !picked.looksFor?.length || !other.looksFor?.length) continue;
-
-            const shared = other.looksFor.filter((label) => picked.looksFor!.includes(label));
-
-            if (shared.length / other.looksFor.length >= threshold) (covers[picked.id] ??= []).push({ id: other.id, shared });
-        }
-    }
-
-    return Object.keys(covers).length ? covers : undefined;
-}
-
-/** The guide's step as the chat asks it; `overlap` is how much two answers may share before one is set aside. */
-const fromGuide = (step: GuideStep, overlap = MOSTLY): ChatStep => {
+const fromGuide = (step: GuideStep): ChatStep => {
     const choices = step.choices.map(({ id, label, said, description, means, group, need }) => ({
         id,
         label,
@@ -282,14 +262,13 @@ const fromGuide = (step: GuideStep, overlap = MOSTLY): ChatStep => {
         why: WHY[step.id],
         multiple: step.multiple,
         choices,
-        covers: step.multiple ? coverageOf(choices, overlap) : undefined,
         none: step.none,
         guide: step,
     };
 };
 
 /** Taps held to what the question allows: the first of answers that exclude each other, and no more than its limit. */
-export function withinLimits(step: Pick<ChatStep, "max" | "exclusive" | "covers">, chosen: string[]): string[] {
+export function withinLimits(step: Pick<ChatStep, "max" | "exclusive">, chosen: string[]): string[] {
     let kept = [...new Set(chosen)];
 
     for (const set of step.exclusive ?? []) {
@@ -297,15 +276,7 @@ export function withinLimits(step: Pick<ChatStep, "max" | "exclusive" | "covers"
         kept = kept.filter((id) => !set.includes(id) || id === first);
     }
 
-    /* In the order picked: an answer something picked before it mostly covers is set aside, as the page does. */
-    kept = kept.filter((id, index) => !kept.slice(0, index).some((earlier) => coveredBy(step, earlier, id)));
-
     return step.max ? kept.slice(0, step.max) : kept;
-}
-
-/** What `picked` shares with `other`, when it mostly covers it; null when it doesn't. */
-export function coveredBy(step: Pick<ChatStep, "covers">, picked: string, other: string): string[] | null {
-    return step.covers?.[picked]?.find((entry) => entry.id === other)?.shared ?? null;
 }
 
 /** The deal-breakers' sections, in the order they're shown. */

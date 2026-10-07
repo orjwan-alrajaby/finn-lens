@@ -511,7 +511,7 @@ const MEANS: Record<string, string> = {
     adults: "Grown-ups riding with you: family, friends or colleagues.",
     dog: "A dog, cat or other pet that travels in the car.",
     city: "Driving in town: traffic lights, stop-and-go traffic, narrow streets, cyclists and people crossing. Where you park is asked next.",
-    commute: "The same trip to work or school most weekdays, whatever the roads. If it's through town, pick City driving too.",
+    commute: "The same trip to work or school most weekdays, whatever the roads.",
     motorway: "Hours at a steady speed on the motorway, for work or to see people. How often is asked next.",
     roadtrips: "Longer trips with luggage: holidays and weekends away, often loaded up.",
     night: "A lot of your driving happens after dark, on lit or unlit roads.",

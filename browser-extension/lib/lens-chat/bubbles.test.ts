@@ -251,3 +251,21 @@ describe("parallel parking", () => {
         expect(parallel.description).not.toMatch(/steers|parks itself|automatically/i);
     });
 });
+
+describe("overlaps, handled quietly", () => {
+    it("never tell the reader what else to pick, or not to", () => {
+        for (const item of BUBBLES) {
+            for (const text of [item.means, ...(item.chips?.options ?? []).map((option) => option.description)]) {
+                expect(text, item.id).not.toMatch(/no need to pick|pick [\w ]+ too|don't pick|instead of picking/i);
+            }
+        }
+    });
+
+    it("take answers that check the same things together, counting each item once", () => {
+        const u = withBubbles(EMPTY_UNDERSTANDING, { weather: ["snow", "cold"] });
+        const items = itemsOf(bubble("weather"), state({ chips: ["snow", "cold"] })).counts;
+
+        expect(u.bubbles?.weather?.chips).toEqual(["snow", "cold"]);
+        expect(items.filter((id) => id === "hasHeatedSeats")).toHaveLength(1);
+    });
+});
