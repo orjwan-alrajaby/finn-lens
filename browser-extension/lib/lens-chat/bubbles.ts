@@ -840,12 +840,29 @@ export function bubbleHeading(bubble: Bubble, state: BubbleState): string {
     return details.length ? `${bubble.you} · ${joinedDetails(details)}` : bubble.you;
 }
 
-/** The need a bubble stands for: null when it counts nothing yet (comforts with none picked). */
-export function needOf(bubble: Bubble, state: BubbleState): Need | null {
+/** The fuels other than electric: all three set aside is "electric only". */
+const NOT_ELECTRIC: EvidenceId[] = ["petrolCar", "dieselCar", "plugInHybrid"];
+
+/**
+ * Figures a rule already settles, so a bubble judged on them leaves nothing
+ * to tell the cars apart. Electric only settles CO₂: FINN lists every
+ * electric car at 0 g/km, so "totally green" beside it would weigh a third
+ * of the decision on a number every car left shares.
+ */
+export function settledFigures(u: Understanding): Set<CategoryId> {
+    const rules = ruledOut(u);
+    const without = new Set(rules.filter((rule) => rule.mode === "without").map((rule) => rule.id));
+    const electricOnly = rules.some((rule) => rule.id === "electricCar" && rule.mode === "must") || NOT_ELECTRIC.every((id) => without.has(id));
+
+    return new Set<CategoryId>(electricOnly ? ["environmental"] : []);
+}
+
+/** The need a bubble stands for: null when it counts nothing yet (comforts with none picked), or nothing a rule hasn't settled. */
+export function needOf(bubble: Bubble, state: BubbleState, settled: Set<CategoryId> = new Set()): Need | null {
     const items = itemsOf(bubble, state);
     const importance = importanceOf(bubble, state);
 
-    const figures = figuresOf(bubble, state);
+    const figures = figuresOf(bubble, state).filter((id) => !settled.has(id));
 
     if (!items.counts.length && !figures.length) return null;
 
@@ -883,8 +900,9 @@ const isBubbleNeed = (id: string) => id.startsWith("bubble-");
  */
 export function syncBubbles(u: Understanding): Understanding {
     const settled = new Set(ruledOut(u).map((rule) => rule.id));
+    const figures = settledFigures(u);
     const needs = bubblesIn(u)
-        .map(({ bubble, state }) => needOf(bubble, state))
+        .map(({ bubble, state }) => needOf(bubble, state, figures))
         .filter((need): need is Need => need != null && (need.evidence.some((entry) => !settled.has(entry.id)) || !need.evidence.length));
 
     /*

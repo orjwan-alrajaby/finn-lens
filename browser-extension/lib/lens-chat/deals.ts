@@ -3,9 +3,28 @@ import type { CategoryId } from "@/lib/reasoning-engine/types";
 import { SOURCES, type Source } from "@/lib/sources";
 import type { FinnCar } from "@/lib/types";
 
+import { assessEnvironment, efficiencyScore } from "@/lib/reasoning-engine/environmental";
+
 import { barePhrase, coverage, EVIDENCE, type EvidenceId } from "./evidence";
+import { allowedByRules } from "./run";
 import { applyChoices, explain, guideSteps } from "./guide";
-import type { Need, Rule, Understanding } from "./understanding";
+import { ruledOut, type Need, type Rule, type Understanding } from "./understanding";
+
+/** The fuels, as "What can it run on?" rules on them. */
+const FUEL_RULES = new Set<EvidenceId>(["electricCar", "petrolCar", "dieselCar", "plugInHybrid"]);
+
+/**
+ * Whether the cars differ on a figure, so sealing it could move anything:
+ * their CO₂, or their use for their kind. Every car here at 0 g/km — a page of
+ * electric cars — can't be told apart on CO₂, however much it counts.
+ */
+function figureDiffers(cars: FinnCar[], figure: CategoryId): boolean {
+    const values = cars
+        .map((car) => (figure === "environmental" ? assessEnvironment(car)?.co2?.gPerKm : figure === "efficiency" ? efficiencyScore(car)?.score : undefined))
+        .filter((value): value is number => value != null);
+
+    return new Set(values).size > 1;
+}
 
 /**
  * Deal-breakers and deal-sealers: the few things that decide a car for the
@@ -180,9 +199,12 @@ export const stateLabel = (deal: Pick<Deal, "kind">, state: DealState): string =
 export function dealsHere(u: Understanding, cars: FinnCar[]): { deal: Deal; options: DealState[] }[] {
     const rules = new Set((guideSteps(cars).find((step) => step.id === "rules")?.choices ?? []).map((choice) => choice.id));
     const ruleHere = (id?: string) => Boolean(id) && (id === "firm-budget" ? Boolean(u.budget) && !u.bubbles?.budget?.chips.length : rules.has(id!));
+    /* The cars what it can run on leaves in, since that's asked first: a figure is judged among them. */
+    const fuelled = allowedByRules(cars, ruledOut(u).filter((rule) => FUEL_RULES.has(rule.id)));
     const sealHere = (deal: Deal) => {
         if (!deal.seal) return false;
-        if (deal.seal.figure || !cars.length) return true;
+        if (!cars.length) return true;
+        if (deal.seal.figure) return figureDiffers(fuelled, deal.seal.figure);
 
         const { listed, notListed, unknown } = coverage(cars, deal.seal.evidence!);
         return listed > 0 && notListed + unknown > 0;

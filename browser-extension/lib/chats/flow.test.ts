@@ -7,7 +7,7 @@ import { EMPTY_UNDERSTANDING, ruledOut } from "@/lib/lens-chat/understanding";
 import { fleet } from "@/lib/reasoning-engine/test-data/fleet";
 
 import { askBeforeResult, chatAnswers, judgementFrom, judgeWith, letGoAsk, resultMessage, rulesSignature } from "./judge";
-import { withBubbles } from "@/lib/lens-chat/bubbles";
+import { syncBubbles, withBubbles } from "@/lib/lens-chat/bubbles";
 import { DEAL_MEANS, demandOf, letGo, withDeals } from "@/lib/lens-chat/deals";
 import { IMPORTANCE, IMPORTANCE_LABEL as LEVEL_LABEL } from "@/lib/lens-chat/importance";
 import { SOURCES } from "@/lib/sources";
@@ -1292,5 +1292,52 @@ describe("bubbles that check nothing", () => {
 
         expect(adults.empty).not.toMatch(/beside you/);
         expect(adults.empty).toMatch(/not checking anything/);
+    });
+});
+
+describe("CO₂ beside electric only", () => {
+    const inventory = fleet();
+    const green = () => walk(startChat(null, inventory, TODAY), { bubbles: ["environment", "environment:zero", "dog"], fuel: ["fuel-electricCar"] }, inventory);
+
+    it("weighs nothing — every electric car FINN lists is 0 g/km — and the summary says why", () => {
+        const chat = green();
+        const environment = lastSummary(chat).bubbles!.find((bubble) => bubble.id === "environment")!;
+
+        expect(chat.understanding.needs.some((need) => need.id === "bubble-environment")).toBe(false);
+        expect(environment.counting).toBe(false);
+        expect(environment.figure).toBeUndefined();
+        expect(environment.settled).toMatch(/^You picked electric only, and FINN lists every electric car at 0 g\/km of CO₂/);
+        expect(environment.empty).toBeUndefined();
+    });
+
+    it("counts again once a fuel is let in", () => {
+        const chat = green();
+        const back = letGo(chat.understanding, ["petrolCar"]);
+
+        expect(syncBubbles(back).needs.some((need) => need.id === "bubble-environment" && need.priorities.includes("environmental"))).toBe(true);
+    });
+
+    it("is said as the reason when it was all the reader gave", () => {
+        const chat = walk(startChat(null, inventory, TODAY), { bubbles: ["environment", "environment:zero"], fuel: ["fuel-electricCar"] }, inventory);
+
+        expect(openAsk(chat)?.step.id).toBe("noNeeds");
+        expect(texts(chat).at(-1)).toMatch(/You care about the environment: you picked electric only, and FINN lists every electric car at 0 g\/km of CO₂/);
+    });
+});
+
+describe("sealing a figure", () => {
+    it("isn't offered where every car has the same one: a page of electric cars can't be told apart on CO₂", () => {
+        const electric = fleet().filter((car) => car.fuelType === "Electric").slice(0, 20);
+        const rows = stepFor("deals", electric, withBubbles(EMPTY_UNDERSTANDING, { environment: ["moderate"] }))!.deals!;
+
+        expect(rows.find((row) => row.id === "co2")).toBeUndefined();
+        /* Electric cars still differ in how much they use for their kind. */
+        expect(rows.find((row) => row.id === "frugal")?.options).toContain("seal");
+    });
+
+    it("is offered where the cars differ on it", () => {
+        const rows = stepFor("deals", fleet().slice(0, 24), EMPTY_UNDERSTANDING)!.deals!;
+
+        expect(rows.find((row) => row.id === "co2")?.options).toContain("seal");
     });
 });

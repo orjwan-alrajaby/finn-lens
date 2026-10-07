@@ -14,6 +14,7 @@ import {
     itemsOf,
     figuresOf,
     joinedDetails,
+    settledFigures,
     OFTEN,
     recommendedBecause,
     suggestedBecause,
@@ -993,6 +994,7 @@ function summaryBubbles(u: Understanding, cars: FinnCar[]): SummaryBubble[] {
     const tapped = bubblesIn(u);
     const countedAnywhere = new Set(tapped.flatMap(({ bubble, state }) => itemsOf(bubble, state).counts));
     const settled = new Set(ruledOut(u).map((rule) => rule.id));
+    const settledFigure = settledFigures(u);
     /* Equipment only electric cars can have, for a reader who's ruled electric out. */
     const noElectric = ruledOut(u).some((rule) => rule.id === "electricCar" && rule.mode === "without");
     const pointless = (id: EvidenceId) => settled.has(id) || (noElectric && id === "hasHeatPump");
@@ -1012,7 +1014,10 @@ function summaryBubbles(u: Understanding, cars: FinnCar[]): SummaryBubble[] {
 
     return tapped.map(({ bubble, state }) => {
         const items = itemsOf(bubble, state);
-        const figure = figuresOf(bubble, state).map((id) => FIGURE[id]).find(Boolean);
+        const figures = figuresOf(bubble, state);
+        const figure = figures.filter((id) => !settledFigure.has(id)).map((id) => FIGURE[id]).find(Boolean);
+        /* Judged on CO₂ alone, beside electric only: every car left is 0 g/km. */
+        const figureSettled = figures.length > 0 && figures.every((id) => settledFigure.has(id));
         const settledHere = items.counts.filter((id) => settled.has(id));
         const live = items.counts.filter((id) => !settled.has(id));
         const own = live.filter((id) => !shown.has(id));
@@ -1034,14 +1039,16 @@ function summaryBubbles(u: Understanding, cars: FinnCar[]): SummaryBubble[] {
             ...(shared.length ? { shared: named(shared, bubble.why) } : {}),
             checks: named(items.checks.filter((id) => !settled.has(id)), bubble.why),
             worth: named(worth, bubble.why),
-            ...(figure ? { figure, figureDoes: figuresOf(bubble, state).map((id) => FIGURE_DOES[id]).find(Boolean) } : {}),
+            ...(figure ? { figure, figureDoes: figures.filter((id) => !settledFigure.has(id)).map((id) => FIGURE_DOES[id]).find(Boolean) } : {}),
             cantCheck: bubble.cantCheck,
-            ...(!live.length && !figure && !settledHere.length
+            ...(!live.length && !figure && !settledHere.length && !figureSettled
                 ? { empty: emptyNote(bubble, items) }
                 : {}),
             ...(settledHere.length
                 ? { settled: `A deal-breaker already sets aside ${joined(settledHere.map((id) => (isKind(id) ? `every car that isn't ${asPhrase(id)}` : `every car without ${asPhrase(id)}`)))}.` }
-                : {}),
+                : figureSettled
+                  ? { settled: ELECTRIC_SETTLES_CO2 }
+                  : {}),
         };
     });
 }
@@ -1058,15 +1065,22 @@ function emptyNote(bubble: (typeof BUBBLES)[number], items: ReturnType<typeof it
     return "I'm not checking anything for this now. Add something below, or take it off with “Change”.";
 }
 
+/** Why CO₂ counts nothing beside electric only, as the summary says it. */
+const ELECTRIC_SETTLES_CO2 = "You picked electric only, and FINN lists every electric car at 0 g/km of CO₂ — so CO₂ can't tell the cars left apart, and I don't weigh it.";
+
 /** Why each bubble tapped weighs nothing, in a sentence each: "Other adults ride with you: one adult beside you asks nothing extra of the car." */
 function nothingToCheck(u: Understanding): string[] {
     const settled = new Set(ruledOut(u).map((rule) => rule.id));
+    const figures = settledFigures(u);
 
     return bubblesIn(u).map(({ bubble, state }) => {
         const items = itemsOf(bubble, state);
+        const judgedOn = figuresOf(bubble, state);
         const why =
             items.counts.length && items.counts.every((id) => settled.has(id))
                 ? "a deal-breaker already settles it"
+                : !items.counts.length && judgedOn.length && judgedOn.every((id) => figures.has(id))
+                  ? "you picked electric only, and FINN lists every electric car at 0 g/km of CO₂, so there's nothing left for it to tell apart"
                 : items.removed.length && !items.counts.length
                   ? "you took out what I'd check"
                   : lowerFirst((bubble.empty ?? "there's nothing I can check for it").replace(/\.$/, ""));

@@ -13,7 +13,7 @@ import type { Recommendation } from "@/lib/reasoning-engine/types";
 import type { ScopeKind } from "@/lib/lens-ai/contract";
 import { carLabel } from "@/lib/lens-ai/outcome";
 import { configurationName } from "@/lib/car-labels";
-import type { PinnedFinnCar } from "@/lib/types";
+import type { FinnCar, PinnedFinnCar } from "@/lib/types";
 
 import type { Answers } from "@/lib/reasoning-engine/answers";
 import { evidenceMet, type EvidenceId } from "./evidence";
@@ -93,7 +93,7 @@ const NEAR_LIMIT_SHARE = 0.1;
  * ruled out, so it stays. Shared with the recommendation page, which has to
  * rank the same cars the chat did.
  */
-export function allowedByRules(cars: PinnedFinnCar[], rules: Rule[]): PinnedFinnCar[] {
+export function allowedByRules<T extends FinnCar>(cars: T[], rules: Rule[]): T[] {
     if (!rules.length) return cars;
 
     return cars.filter((car) =>
