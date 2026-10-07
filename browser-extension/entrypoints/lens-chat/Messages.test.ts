@@ -77,7 +77,7 @@ describe("here's what you told me, and what I understood", () => {
         const words = text(render(understood().messages));
 
         expect(words).toContain("Here's what you told me, and what I understood:");
-        expect(words).toMatch(/What you told me You have kids · a baby or toddler seat Top priority I'll check: Rear doors/);
+        expect(words).toMatch(/What you told me You have kids · a baby or toddler seat Top priority · 4 pts I.ll check: Rear doors/);
         expect(words).toMatch(/Money & time Monthly limit €500 all in .* Deal-breakers & sealers Runs on Any Deal-breakers None Deal-sealers None/);
         /* Standard equipment each answer calls for, said so it doesn't look forgotten. */
         expect(words).toMatch(/You live in the city · you park on the street .*Also making sure it has: Automatic gearbox · Parking sensors · Automatic emergency braking/);
@@ -455,17 +455,18 @@ describe("answers of the reader's own", () => {
     });
 });
 
-describe("what Lens understood: how much each counts", () => {
-    it("says what Top priority, Important and Nice to have mean, and marks a level that's only Lens's guess", () => {
+describe("what Lens understood: how much it counts", () => {
+    it("says the scale in one sentence, gives each level its points, and marks a level that's only Lens's guess", () => {
         const summary = summaryOf(withBubbles(EMPTY_UNDERSTANDING, { kids: ["baby"], night: [] }), "s1", cars());
         const html = render([summary]);
         const words = text(html);
 
-        expect(words).toContain("How much each counts");
-        expect(words).toMatch(/Top priority Counts the most — twice as much as Important\./);
-        expect(words).toMatch(/Important Counts fully, alongside everything else you've said is important\./);
-        expect(words).toMatch(/Nice to have Counts half as much as Important/);
-        expect(words).toContain("None of them rules a car out — that's what deal-breakers are for.");
+        expect(words).toContain(
+            "How much it counts: Top priority counts twice as much as Important, and Important twice as much as Nice to have. None of them rules a car out — that's what deal-breakers are for.",
+        );
+        /* The engine's own weights, as points: 4 · 2 · 1. */
+        expect(words).toContain("Top priority · 4 pts Important · 2 pts Nice to have · 1 pt");
+        expect(words).toMatch(/You have kids · a baby or toddler seat Top priority · 4 pts/);
         /* Kids with a baby seat is a top priority the reader said; driving at night is Important only because Lens guessed. */
         expect(words).toContain("A dashed outline is my guess, where you didn't say how much it counts.");
         expect(html.match(/outline-dashed/g)?.length).toBe(1);
