@@ -44,10 +44,11 @@ export function parkingContext(car: FinnCar): string | null {
 
     const spare = TYPICAL_BAY.lengthM - metres(mm);
 
-    if (spare >= 0.15) return `about ${round(spare)} m shorter than a typical ${TYPICAL_BAY.lengthM} m parking bay`;
-    if (spare <= -0.05) return `about ${round(Math.abs(spare))} m longer than a typical ${TYPICAL_BAY.lengthM} m parking bay`;
+    /* A bay of that length, to picture — not a claim about what's typical, which nothing here sources. */
+    if (spare >= 0.15) return `about ${round(spare)} m shorter than a ${TYPICAL_BAY.lengthM} m parking bay`;
+    if (spare <= -0.05) return `about ${round(Math.abs(spare))} m longer than a ${TYPICAL_BAY.lengthM} m parking bay`;
 
-    return `within a few centimetres of a typical ${TYPICAL_BAY.lengthM} m parking bay`;
+    return `within a few centimetres of a ${TYPICAL_BAY.lengthM} m parking bay`;
 }
 
 /** What the width leaves either side of the car in a common bay. */
@@ -58,9 +59,10 @@ export function widthContext(car: FinnCar): string | null {
 
     const spare = (TYPICAL_BAY.widthM - metres(mm)) / 2;
 
-    if (spare <= 0) return `wider than a ${TYPICAL_BAY.widthM} m bay before the mirrors are counted`;
+    /* By FINN's width — which FINN doesn't say includes the mirrors or not, so neither does this. */
+    if (spare <= 0) return `wider than a ${TYPICAL_BAY.widthM} m bay, by FINN's width`;
 
-    return `about ${Math.round(spare * 100)} cm either side in a ${TYPICAL_BAY.widthM} m bay, before the mirrors`;
+    return `about ${Math.round(spare * 100)} cm either side in a ${TYPICAL_BAY.widthM} m bay, by FINN's width`;
 }
 
 /** Where this car sits among the ones in front of the reader, by length. */

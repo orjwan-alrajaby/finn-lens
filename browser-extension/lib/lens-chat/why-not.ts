@@ -142,7 +142,9 @@ export function whyNot(run: LensRun, carId: number): WhyNot | null {
     }
 
     if (ahead.length) {
-        sentences.push(`The ${name(match)} is ahead on ${joined(ahead.slice(0, 2))}.`);
+        /* One a sentence: two that each carry "where it lists … and …" ran into "…doesn't and city & parking". */
+        sentences.push(`The ${name(match)} is ahead on ${ahead[0]}.`);
+        if (ahead[1]) sentences.push(`It's also ahead on ${ahead[1]}.`);
     } else if (!level && !higher) {
         sentences.push(`Nothing you ${rankedByReader(context) ? "ranked" : "asked for"} separates them by much; the ${name(match)} simply covers a little more of it.`);
     }

@@ -83,6 +83,13 @@ function featureGap(
     .map((preference) => featureFact(preference.key, preference.importance));
 }
 
+/** Within the reader's limit and dates, as far as FINN's data says: a car they could take instead. */
+const withinLimits = (vehicle: PinnedFinnCar, context: ReasoningContext): boolean => {
+  const cost = context.costs[vehicle.id];
+
+  return cost?.budgetStatus !== "over" && cost?.contract.status !== "doesNotFit";
+};
+
 /** Why the reader should care, said in their own ranking. */
 const relevanceFor = (label: string, rank: number): string =>
   `You ranked ${phraseLabel(label)} #${rank}.`;
@@ -113,9 +120,13 @@ function missingSelected(
 
   const labels = joinCapped(missing.map((fact) => fact.phrase), 5);
 
-  /* Which alternative would give the reader the missing piece back. */
-  const rescuer = alternatives.find((candidate) =>
-    missing.some((fact) => hasSignal(candidate, fact.key)),
+  /*
+   * Which alternative would give the reader the missing piece back — one they
+   * could take: "the E-Klasse has it" named a €1,059 car under a €500 limit,
+   * beside a catch saying no car within it does.
+   */
+  const rescuer = alternatives.find(
+    (candidate) => withinLimits(candidate, context) && missing.some((fact) => hasSignal(candidate, fact.key)),
   );
 
   const rescued = rescuer
@@ -141,24 +152,29 @@ function missingSelected(
   const high = missing.filter((fact) => fact.importance === "high");
   const who = emphasisClause(missing.map((fact) => fact.source));
 
-  /* In a chat the reader named needs, not a ranking of priorities. */
+  /*
+   * In a chat the reader named needs, not a ranking of priorities: "you
+   * raised it under safety & driver assistance" named an engine category for
+   * something they asked for about parking. So only a ranked reader hears
+   * where it sits.
+   */
   const under = rankedByReader(context)
-    ? `${phraseLabel(reasoning.label)}, your #${reasoning.rank} priority,`
-    : `${phraseLabel(reasoning.label)},`;
+    ? ` under ${phraseLabel(reasoning.label)}, your #${reasoning.rank} priority,`
+    : ",";
 
   const relevance = high.length
     ? sentence(
         toSentenceStart(who),
-        high.length === missing.length && missing.length === 1
-          ? "it as counting highly under"
-          : `${joinCapped(high.map((fact) => fact.phrase), 5)} as counting highly under`,
-        under,
+        `${
+          high.length === missing.length && missing.length === 1
+            ? "it as counting highly"
+            : `${joinCapped(high.map((fact) => fact.phrase), 5)} as counting highly`
+        }${under}`,
         "so this is the compromise here most worth weighing",
       )
     : sentence(
         toSentenceStart(who),
-        `${missing.length === 1 ? "it" : "them"} under`,
-        under,
+        `${missing.length === 1 ? "it" : "them"}${under}`,
         "so it's worth weighing before you decide",
       );
 
@@ -261,7 +277,8 @@ function priorityDeficit(
     (item) => item.id === behind.vehicleId,
   );
 
-  if (!rival) return null;
+  /* A realistic alternative: one past the reader's limit or dates is no compromise they could make. */
+  if (!rival || !withinLimits(rival, context)) return null;
 
   /*
    * The measurement is the better evidence when there is one: "1,726 L
@@ -310,12 +327,19 @@ function priorityDeficit(
   /* No concrete difference to point at means no claim worth making. */
   if (!evidence) return null;
 
-  const relevance = sentence(
-    relevanceFor(reasoning.label, reasoning.rank).replace(/\.$/, ""),
-    reasoning.rank === 1
-      ? ", so this is the most significant thing you'd be giving up"
-      : `, so this is one of the main compromises in choosing ${evaluation.vehicle.name}`,
-  );
+  /* "You ranked … #2" only to a reader who ranked: a chat's order comes from the needs they named. */
+  const relevance = rankedByReader(context)
+    ? sentence(
+        relevanceFor(reasoning.label, reasoning.rank).replace(/\.$/, ""),
+        reasoning.rank === 1
+          ? ", so this is the most significant thing you'd be giving up"
+          : `, so this is one of the main compromises in choosing ${evaluation.vehicle.name}`,
+      )
+    : sentence(
+        reasoning.rank === 1
+          ? "It's where most of what you asked for is weighed, so this is the most significant thing you'd be giving up"
+          : `It's part of what you asked for, so this is one of the main compromises in choosing ${evaluation.vehicle.name}`,
+      );
 
   return {
     kind: measured ? "measurementDeficit" : "priorityDeficit",

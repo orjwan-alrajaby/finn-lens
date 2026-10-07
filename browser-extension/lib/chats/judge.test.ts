@@ -5,6 +5,7 @@ import { BASELINE, GARAGE, garageCar } from "@/lib/reasoning-engine/test-garage"
 import { EVIDENCE } from "@/lib/lens-chat/evidence";
 import { tellFitStory } from "@/lib/lens-chat/fit-story";
 import { whyNot } from "@/lib/lens-chat/why-not";
+import { parkingContext, widthContext } from "@/lib/lens-chat/dimensions";
 import { applyChoices, guideSteps } from "@/lib/lens-chat/guide";
 import { EMPTY_UNDERSTANDING, withBudget, withRental, withSuggestion, type Understanding } from "@/lib/lens-chat/understanding";
 import type { PinnedFinnCar } from "@/lib/types";
@@ -434,5 +435,39 @@ describe("the drawer's story about a car that isn't the pick", () => {
         expect(sealer.title).toBe("It has an automatic");
         expect(sealer.short).toBe("An automatic gearbox would seal it");
         expect(JSON.stringify(story)).not.toMatch(/the basics for an automatic|It has automatic gearbox/);
+    });
+});
+
+describe("what the pick gives up, in a chat", () => {
+    const page = fleet().slice(0, 24);
+    const u = withBudget(withBubbles(EMPTY_UNDERSTANDING, { city: ["open"], comfort: ["keyless", "sound"] }), 500, "Up to €500 a month.");
+    const { run } = judgeWith(u, page, "24 cars")!;
+    const { context } = run.recommendation;
+
+    it("names an alternative only where the reader could take it", () => {
+        for (const tradeoff of run.narrative.tradeoffs) {
+            if (!tradeoff.rival) continue;
+            const cost = context.costs[tradeoff.rival.vehicleId];
+            expect(cost?.budgetStatus, tradeoff.headline).not.toBe("over");
+            expect(cost?.contract.status, tradeoff.headline).not.toBe("doesNotFit");
+        }
+    });
+
+    it("says why it matters in what the reader asked for, never an engine category or a ranking they didn't give", () => {
+        const said = run.narrative.tradeoffs.map((tradeoff) => tradeoff.relevance).join(" ");
+
+        expect(run.narrative.tradeoffs.length).toBeGreaterThan(0);
+        expect(said).not.toMatch(/raised it under|You ranked|your #\d/);
+    });
+});
+
+describe("a car's size beside a parking bay", () => {
+    it("is arithmetic against a bay to picture — not a typical one, and nothing about the mirrors FINN doesn't say", () => {
+        const car = fleet()[0]!;
+        const said = [parkingContext(car), widthContext(car)].join(" ");
+
+        expect(said).toMatch(/m (shorter|longer) than a 5 m parking bay|a few centimetres of a 5 m parking bay/);
+        expect(said).toMatch(/by FINN's width$/);
+        expect(said).not.toMatch(/typical|before the mirrors/);
     });
 });
