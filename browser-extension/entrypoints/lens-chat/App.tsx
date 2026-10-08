@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ArrowLeft, ArrowUp, MessagesSquare, SquarePen, X } from "lucide-react";
 
 import { BetaTag, BrandMark, IconButton } from "@/components/lens-parts";
-import { onPageChanged, onTipClosed, requestChatWide, requestCloseChat, requestOpenDrawer, requestPageContext, requestTip, requestTipHide, requestTipMove } from "@/lib/chats/bridge";
+import { onPageChanged, onTipClosed, requestChatWide, requestCloseChat, requestOpenDrawer, requestPageContext, requestShowCar, requestTip, requestTipHide, requestTipMove } from "@/lib/chats/bridge";
 import { rewindable } from "@/lib/chats/flow";
 import { loadedCars, pageCars } from "@/lib/chats/scope";
 import { ACTIVE_CHAT_KEY, activeChatId } from "@/lib/chats/store";
@@ -220,6 +220,7 @@ export function App() {
                                 editable={rewindable(chat)}
                                 onEdit={() => void conversation.takeBack()}
                                 onOpenCar={(id, judgement) => chat && void requestOpenDrawer(chat.id, id, judgement)}
+                                onLocateCar={requestShowCar}
                                 onNeverMind={chat.beforeChange ? () => void conversation.keepAnswers() : undefined}
                             />
                         ) : null}

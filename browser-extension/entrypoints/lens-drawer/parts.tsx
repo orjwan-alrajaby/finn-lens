@@ -2,8 +2,10 @@ import type { ReactNode } from "react";
 import { Check, ChevronDown, CircleHelp, Info, Minus, X } from "lucide-react";
 
 import { EnvironmentalResult, UsageResult } from "@/components/EnvironmentalResult";
+import { LocateButton } from "@/components/LocateButton";
 import { BandChip, CarPhoto, euros, WinnerChip } from "@/components/lens-parts";
 import { configurationName } from "@/lib/car-labels";
+import { requestShowCar } from "@/lib/chats/bridge";
 import { bandForScore } from "@/lib/reasoning-engine/bands";
 import { assessEnvironment } from "@/lib/reasoning-engine/environmental";
 import { FIT_BANDS, type FitBand, type FitLevel } from "@/lib/reasoning-engine/fit";
@@ -177,15 +179,23 @@ export function UsageSection({ value, folded = false, title = "How much it uses"
 export function Catch({ story }: { story: FitStory }) {
     if (!story.catch) return null;
 
+    const { car } = story.catch;
+
     return (
         <div className="flex gap-2.5 rounded-xl bg-finn-warning-lift/50 p-3 text-[12.5px] leading-snug text-finn-warning-ink">
             <Info aria-hidden="true" className="mt-0.5 h-4 w-4 shrink-0" />
             <div>
                 <p className="font-semibold">{story.catch.text}</p>
                 {story.catch.alternative ? <p className="mt-1">{story.catch.alternative}</p> : null}
+                {car ? <LocateCar id={car.id} name={car.name} /> : null}
             </div>
         </div>
     );
+}
+
+/** Wherever the drawer names another car: a button that finds it on FINN's page. */
+export function LocateCar({ id, name, size = "text" }: { id: number; name: string; size?: "sm" | "text" }) {
+    return <LocateButton name={name} size={size} label={size === "text" ? `Show the ${name}` : undefined} onLocate={() => requestShowCar(id)} />;
 }
 
 /** Where the money goes, line by line, and what's estimated rather than FINN's own figure. */

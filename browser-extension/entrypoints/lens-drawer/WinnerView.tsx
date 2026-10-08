@@ -14,7 +14,7 @@ import { sameJudgement } from "./useJudgedCar";
 import { alternativesWithinLimits } from "@/lib/lens-chat/run";
 import { whyNot } from "@/lib/lens-chat/why-not";
 
-import { Catch, CostTable, Section, StoryList, UsageSection } from "./parts";
+import { Catch, CostTable, LocateCar, Section, StoryList, UsageSection } from "./parts";
 import type { JudgedCar } from "./useJudgedCar";
 
 /**
@@ -163,6 +163,7 @@ export function WinnerView({ value, print = false }: { value: JudgedCar; print?:
                                         </p>
                                     </div>
                                     <BandChip band={line.band} label={line.bandLabel} />
+                                    {!print ? <LocateCar id={line.id} name={line.name} size="sm" /> : null}
                                 </div>
                                 {versus ? <p className="mt-2 text-[12.5px] leading-snug text-finn-black">{versus.sentences.slice(0, 2).join(" ")}</p> : null}
                                 {!print ? (

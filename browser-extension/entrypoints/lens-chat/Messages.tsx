@@ -3,6 +3,7 @@ import { ArrowUpRight, Check, ChevronDown, ChevronRight, Info, PencilLine, Plus,
 
 import { ImportanceBadge, ImportanceKey } from "@/components/ImportanceKey";
 import { BandChip, BrandMark, CarPhoto, euros, WinnerChip } from "@/components/lens-parts";
+import { LocateButton } from "@/components/LocateButton";
 import { activeFollowUp, allChips, followUps, IMPORTANCE_LABEL } from "@/lib/chats/flow";
 import { IMPORTANCE, IMPORTANCE_LEVELS, SCALE_EXPLAINED } from "@/lib/lens-chat/importance";
 import { DEAL_MEANS } from "@/lib/lens-chat/deals";
@@ -1821,11 +1822,14 @@ function Result({
     message,
     long,
     onOpenCar,
+    onLocateCar,
     onWhy,
     onSeeWhy,
     onKeepShort,
 }: {
     message: Extract<ChatMessage, { kind: "result" }>;
+    /** Scrolls FINN's page to a car Lens names. */
+    onLocateCar?: (id: number) => Promise<{ shown: boolean } | null> | void;
     /** Open with everything shown: the reader opened "See why" on two results in a row. */
     long: boolean;
     onOpenCar: (id: number) => void;
@@ -1888,6 +1892,10 @@ function Result({
                         <div className="mt-2.5 rounded-lg bg-finn-warning-lift/60 px-2.5 py-2">
                             <p className="text-[10.5px] font-black uppercase tracking-wide text-finn-warning-ink">One thing to know</p>
                             <p className="mt-0.5 text-[12px] leading-snug text-finn-warning-ink">{know}</p>
+                            {/* Only where the note is the trade-off that names it. */}
+                            {onLocateCar && message.knowCar && know === message.know ? (
+                                <LocateButton name={message.knowCar.name} size="text" label={`Show the ${message.knowCar.name}`} onLocate={() => onLocateCar(message.knowCar!.id)} />
+                            ) : null}
                         </div>
                     ) : null}
 
@@ -2001,6 +2009,7 @@ export function MessageList({
     typing,
     onAnswer,
     onOpenCar,
+    onLocateCar,
     busy,
     editable = null,
     onEdit,
@@ -2014,6 +2023,8 @@ export function MessageList({
     onAnswer: (askId: string, chosen: string[], extra?: AnswerExtra) => void;
     /** A car's drawer, read out of the judgement its result came from. */
     onOpenCar: (id: number, judgement?: string) => void;
+    /** Scrolls FINN's page to a car Lens names. */
+    onLocateCar?: (id: number) => Promise<{ shown: boolean } | null> | void;
     busy: boolean;
     /** Results open with everything shown, after "See why" on two in a row. */
     longResults?: boolean;
@@ -2094,6 +2105,7 @@ export function MessageList({
                         message={message}
                         long={longResults}
                         onOpenCar={(id) => onOpenCar(id, message.judgement)}
+                        onLocateCar={onLocateCar}
                         onWhy={() => message.winner && onOpenCar(message.winner.id, message.judgement)}
                         onSeeWhy={() => onSeeWhy(message.id)}
                         onKeepShort={onKeepShort}

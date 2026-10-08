@@ -353,6 +353,7 @@ export function resultMessage(
     const closest = closestMatch(run);
     const [tradeoff] = run.narrative.tradeoffs;
     const know = limit ?? (tradeoff ? `${tradeoff.headline}. ${tradeoff.sentences[0] ?? tradeoff.evidence}` : note);
+    const knowCar = !limit && tradeoff?.rival ? { id: tradeoff.rival.vehicleId, name: tradeoff.rival.name } : null;
 
     return {
         id,
@@ -374,6 +375,7 @@ export function resultMessage(
         tradeoffs: run.narrative.tradeoffs.map((tradeoff) => ({ headline: tradeoff.headline, text: tradeoff.sentences[0] ?? tradeoff.evidence })),
         note,
         know,
+        ...(knowCar ? { knowCar } : {}),
         /*
          * The ones that respect the reader's limits first: "closest by score"
          * put a €1,638 car under a €500 limit's pick, which answers a question

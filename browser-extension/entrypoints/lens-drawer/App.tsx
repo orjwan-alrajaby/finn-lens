@@ -1,15 +1,16 @@
 import { useEffect } from "react";
 
 import { adviceFileName } from "@/lib/advice-pdf";
-import { ExternalLink, History, LocateFixed, X } from "lucide-react";
+import { ExternalLink, History, X } from "lucide-react";
 
 import { BrandMark, IconButton } from "@/components/lens-parts";
+import { LocateButton } from "@/components/LocateButton";
 import { LoadingScreen } from "@/components/Spinner";
 import { requestCloseDrawer, requestOpenDrawer, requestShowCar } from "@/lib/chats/bridge";
 import { closestMatch } from "@/lib/chats/judge";
 import { theHeadline } from "@/lib/chats/scope";
 
-import { Catch, CarHeader, CostTable, Section, StoryList, UsageSection } from "./parts";
+import { Catch, CarHeader, CostTable, LocateCar, Section, StoryList, UsageSection } from "./parts";
 import { ExportButton, usePdfExport } from "./usePdfExport";
 import { sameJudgement, useJudgedCar, type JudgedCar } from "./useJudgedCar";
 import { WinnerView } from "./WinnerView";
@@ -126,13 +127,16 @@ function CarView({ value }: { value: JudgedCar }) {
                             <p key={sentence}>{sentence}</p>
                         ))}
                     </div>
-                    <button
-                        type="button"
-                        onClick={() => void requestOpenDrawer(value.chat.id, winnerId, sameJudgement(value))}
-                        className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-finn-pale-blue px-3.5 py-2 text-[12.5px] font-black text-finn-accent-blue transition-colors hover:bg-finn-accent-blue hover:text-white"
-                    >
-                        See the {versus.match}
-                    </button>
+                    <div className="mt-3 flex flex-wrap items-center gap-2">
+                        <button
+                            type="button"
+                            onClick={() => void requestOpenDrawer(value.chat.id, winnerId, sameJudgement(value))}
+                            className="inline-flex items-center gap-1.5 rounded-full bg-finn-pale-blue px-3.5 py-2 text-[12.5px] font-black text-finn-accent-blue transition-colors hover:bg-finn-accent-blue hover:text-white"
+                        >
+                            See the {versus.match}
+                        </button>
+                        <LocateCar id={winnerId} name={versus.match} size="sm" />
+                    </div>
                 </Section>
             ) : null}
 
@@ -178,14 +182,7 @@ function Footer({ value, children }: { value: JudgedCar; children?: React.ReactN
     return (
         <footer className="flex shrink-0 items-center gap-2 border-t border-finn-cotton px-4 py-3">
             {children}
-            <button
-                type="button"
-                onClick={() => void requestShowCar(value.car.id)}
-                aria-label="Show this car on the page"
-                className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-finn-cotton text-finn-black transition-colors hover:bg-finn-pale-blue hover:text-finn-accent-blue"
-            >
-                <LocateFixed aria-hidden="true" className="h-4 w-4" />
-            </button>
+            <LocateButton onLocate={() => requestShowCar(value.car.id)} />
             {value.url ? (
                 <a
                     href={value.url}

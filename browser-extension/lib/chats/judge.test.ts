@@ -94,6 +94,18 @@ describe("judging", () => {
         expect(message.count).toBe(5);
     });
 
+    it("names the car its one thing to know is about, so the reader can find it on the page", () => {
+        const page = fleet().slice(0, 24);
+        const u = withBudget(withBubbles(EMPTY_UNDERSTANDING, { kids: ["baby"], city: ["street"], environment: ["moderate"] }), 700, "Up to €700 a month.");
+        const result = judgeWith(u, page, "24 cars")!;
+        const message = resultMessage(result, page, "24 cars", {}, "m1", "at", u);
+        const [tradeoff] = result.run.narrative.tradeoffs;
+
+        expect(tradeoff?.rival).toBeTruthy();
+        expect(message.know).toContain(tradeoff!.rival!.name);
+        expect(message.knowCar).toEqual({ id: tradeoff!.rival!.vehicleId, name: tradeoff!.rival!.name });
+    });
+
     it("comes out the same every time, so the drawer can re-run what the chat judged", () => {
         const first = judgementFrom(judged(EMPTY_UNDERSTANDING), cars(), EMPTY_UNDERSTANDING, "", "", {}, "");
         const again = judgementFrom(judged(EMPTY_UNDERSTANDING), cars(), EMPTY_UNDERSTANDING, "", "", {}, "");

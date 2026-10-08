@@ -348,6 +348,8 @@ export type ChatMessage =
           tradeoffs?: { headline: string; text: string }[];
           /** One thing to know, short: a limit note, else the biggest trade-off, else the engine's note. */
           know?: string | null;
+          /** The car that trade-off names — "€224/month more than Toyota Yaris" — so the reader can find it. */
+          knowCar?: { id: number; name: string };
           /**
            * How much each thing said counted: "You have kids — top priority,
            * 50% of the decision". `into` is what Lens looked at for it; on

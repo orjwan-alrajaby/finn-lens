@@ -109,7 +109,8 @@ export interface FitStory {
     /** What the band means, in human terms. */
     bandMeaning: string;
     sections: StorySection[];
-    catch: { text: string; alternative: string | null; alternativeId?: number | null } | null;
+    /** `car` is the one `alternative` (or, failing one, `text`) names, so the reader can find it. */
+    catch: { text: string; alternative: string | null; car?: { id: number; name: string } | null } | null;
     /** What Lens still needs to know, if the conversation left something open. */
     stillToKnow: WireQuestion | null;
 }
@@ -951,14 +952,14 @@ export function tellFitStory(
                       : measuredDisplay(winner, gap.entry.id)
                         ? "None of the other cars that fit your constraints does better on it."
                         : "None of the other cars that fit your constraints lists it either.",
-                alternativeId: rival?.id ?? null,
+                car: rival ? { id: rival.id, name: rival.name } : null,
             };
         }
 
         /* The engine's trade-offs are the match's: another car's drawer doesn't borrow them. */
         if (!catchNote && !other && narrative.tradeoffs[0]) {
             const [tradeoff] = narrative.tradeoffs;
-            catchNote = { text: tradeoff.sentences[0] ?? tradeoff.evidence, alternative: null, alternativeId: tradeoff.rival?.vehicleId ?? null };
+            catchNote = { text: tradeoff.sentences[0] ?? tradeoff.evidence, alternative: null, car: tradeoff.rival ? { id: tradeoff.rival.vehicleId, name: tradeoff.rival.name } : null };
         }
     }
 

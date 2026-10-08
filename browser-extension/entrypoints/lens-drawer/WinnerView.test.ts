@@ -20,7 +20,7 @@ import { WinnerView } from "./WinnerView";
  */
 
 /* The drawer talks to the page through the bridge, which listens for it as soon as it loads; here there's no page. */
-vi.mock("@/lib/chats/bridge", () => ({ requestOpenDrawer: () => Promise.resolve() }));
+vi.mock("@/lib/chats/bridge", () => ({ requestOpenDrawer: () => Promise.resolve(), requestShowCar: () => Promise.resolve({ shown: true }) }));
 
 /* Lens's avatar and the drawer's links ask the extension for things; outside the browser there is none. */
 (globalThis as unknown as { browser: unknown }).browser = { runtime: { getURL: (path: string) => path } };
@@ -72,6 +72,17 @@ describe("the winner's drawer", () => {
         expect(weighed).not.toMatch(/counts \d+%|\b(Highly|Moderately|Somewhat)\b|Practicality|Climate Suitability/);
         /* And the car's total, out of 100, with its band and where the bands start. */
         expect(weighed).toMatch(/Total: this car scored (\d+) out of 100 (Strong|Good|Partial|Limited) match \1\/100 How it did on each of the above, by their share\. Strong match from 65, Good from 45, Partial from 25\./);
+    });
+
+    it("lets the reader find each of the next cars on the page, but not in the PDF", () => {
+        const value = winner();
+        const html = renderToStaticMarkup(createElement(WinnerView, { value }));
+        const others = html.slice(html.indexOf("Why not the others"));
+        const names = [...others.matchAll(/aria-label="Show the ([^"]+) on the page"/g)].map((match) => match[1]);
+
+        expect(names.length).toBeGreaterThan(0);
+        expect(names.every((name) => others.includes(`>${name}</p>`))).toBe(true);
+        expect(renderToStaticMarkup(createElement(WinnerView, { value, print: true }))).not.toMatch(/aria-label="Show the [^"]+ on the page"/);
     });
 
     it("has everything open in the PDF", () => {

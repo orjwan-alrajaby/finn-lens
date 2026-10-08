@@ -80,7 +80,8 @@ describe("a car that has what this one lacks", () => {
         const told = story(u).story;
 
         expect(told.catch?.alternative).toBeTruthy();
-        expect(told.catch?.alternative?.startsWith(page.find((car) => car.id === told.catch!.alternativeId)!.name.split(" ")[0]!)).toBe(true);
+        expect(told.catch?.alternative?.startsWith(told.catch!.car!.name)).toBe(true);
+        expect(page.some((car) => car.id === told.catch!.car!.id)).toBe(true);
     });
 
     it("doesn't lend the match's trade-off to another car's drawer", () => {
