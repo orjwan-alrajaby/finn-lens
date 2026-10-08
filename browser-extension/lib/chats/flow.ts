@@ -456,7 +456,7 @@ function dealsStep(u: Understanding, cars: FinnCar[]): ChatStep | null {
         }
     }
 
-    const rows: DealRow[] = dealsHere(u, cars).map(({ deal, options }) => ({
+    const rows: DealRow[] = dealsHere(u, cars).map(({ deal, options, noSeal }) => ({
         id: deal.id,
         label: deal.label,
         kind: deal.kind,
@@ -464,7 +464,7 @@ function dealsStep(u: Understanding, cars: FinnCar[]): ChatStep | null {
         /* Where its "i" says anything that isn't FINN's, the source. */
         ...(deal.sources ? { sources: deal.sources } : {}),
         /* A row that can't seal the deal says why, so the missing "Seals it" isn't a puzzle. */
-        description: options.includes("seal") ? deal.description : `${deal.description} I can only rule on this, not weigh it — so it can't seal the deal.`,
+        description: noSeal ? `${deal.description} ${noSeal}` : deal.description,
         options,
         ...(deal.labels ? { labels: deal.labels } : {}),
         ...(because.has(deal.id) ? { suggested: `Recommended because ${because.get(deal.id)}.` } : {}),

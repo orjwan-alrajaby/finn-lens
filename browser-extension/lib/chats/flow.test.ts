@@ -1555,4 +1555,21 @@ describe("deal-breakers for what nearly every car has", () => {
 
         expect(rows([...twoDoor, ...fourDoor])).toContain("doors");
     });
+
+    it("keep the gearbox as a deal-breaker but don't offer it as a sealer where nearly every car here is automatic", () => {
+        const manual = inventory.filter((car) => readEvidence(car, "hasAutomaticTransmission") === "notListed").slice(0, 1);
+        const automatic = inventory.filter((car) => readEvidence(car, "hasAutomaticTransmission") === "listed").slice(0, 23);
+        const options = (cars: typeof inventory) => stepFor("deals", cars, EMPTY_UNDERSTANDING)!.deals!.find((row) => row.id === "automatic")!.options;
+
+        expect(options([...manual, ...automatic])).toEqual(["must"]);
+        /* Its "i" says why, from the cars — not that Lens can only rule on it, which isn't so. */
+        expect(stepFor("deals", [...manual, ...automatic], EMPTY_UNDERSTANDING)!.deals!.find((row) => row.id === "automatic")!.description).toMatch(
+            /Nearly every car here has it, so it can't seal the deal\.$/,
+        );
+        /* Sealed already — after letting it go — so it can be undone. */
+        expect(
+            stepFor("deals", [...manual, ...automatic], withDeals(EMPTY_UNDERSTANDING, ["automatic"], { automatic: "seal" }))!.deals!.find((row) => row.id === "automatic")!.options,
+        ).toContain("seal");
+        expect(options([...inventory.filter((car) => readEvidence(car, "hasAutomaticTransmission") === "notListed").slice(0, 6), ...automatic.slice(0, 18)])).toContain("seal");
+    });
 });

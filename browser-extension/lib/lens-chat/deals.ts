@@ -5,7 +5,7 @@ import type { FinnCar } from "@/lib/types";
 
 import { assessEnvironment, efficiencyScore } from "@/lib/reasoning-engine/environmental";
 
-import { barePhrase, coverage, EVIDENCE, NEARLY_EVERY, type EvidenceId } from "./evidence";
+import { barePhrase, coverage, EVIDENCE, NEARLY_EVERY, setsApart, type EvidenceId } from "./evidence";
 import { allowedByRules } from "./run";
 import { applyChoices, explain, guideSteps } from "./guide";
 import { ruledOut, type Need, type Rule, type Understanding } from "./understanding";
@@ -210,23 +210,35 @@ export const stateLabel = (deal: Pick<Deal, "kind">, state: DealState): string =
 
 /**
  * What each row can do here: a rule only where it would keep some cars and
- * set some aside, sealing only where the cars here differ on it (or it's a
- * figure every car has). "Over my limit" needs a limit, and not one the
- * budget bubble already said how firm it is.
+ * set some aside, sealing only where the cars here differ on it — on some,
+ * not nearly all — or, for a figure, where they differ on that. "Over my
+ * limit" needs a limit, and not one the budget bubble already said how firm
+ * it is.
  */
-export function dealsHere(u: Understanding, cars: FinnCar[]): { deal: Deal; options: DealState[] }[] {
+export function dealsHere(u: Understanding, cars: FinnCar[]): { deal: Deal; options: DealState[]; noSeal?: string }[] {
     const rules = new Set((guideSteps(cars).find((step) => step.id === "rules")?.choices ?? []).map((choice) => choice.id));
     const ruleHere = (id?: string) => Boolean(id) && (id === "firm-budget" ? Boolean(u.budget) && !u.bubbles?.budget?.chips.length : rules.has(id!));
     /* The cars what it can run on leaves in, since that's asked first: a figure is judged among them. */
     const fuelled = allowedByRules(cars, ruledOut(u).filter((rule) => FUEL_RULES.has(rule.id)));
+    const set = dealStates(u);
     const sealHere = (deal: Deal) => {
         if (!deal.seal) return false;
-        if (!cars.length) return true;
+        /* Sealed already, so it can be undone. */
+        if (!cars.length || set[deal.id] === "seal") return true;
         if (deal.seal.figure) return figureDiffers(fuelled, deal.seal.figure);
 
-        const { listed, notListed, unknown } = coverage(cars, deal.seal.evidence!);
-        return listed > 0 && notListed + unknown > 0;
+        /* Sealing on what nearly every car here has can't tell them apart: the gearbox's row stays, without it. */
+        return setsApart(cars, deal.seal.evidence!);
     };
+    /* Why a row that could seal the deal elsewhere can't here: said from the cars, so the missing "Seals it" isn't a puzzle. */
+    const noSeal = (deal: Deal): string =>
+        !deal.seal
+            ? "I can only rule on this, not weigh it — so it can't seal the deal."
+            : deal.seal.figure
+              ? "The cars here don't differ on it, so it can't seal the deal."
+              : coverage(cars, deal.seal.evidence!).listed === 0
+                ? "None of the cars here list it, so it can't seal the deal."
+                : "Nearly every car here has it, so it can't seal the deal.";
 
     /*
      * Something nearly every car here has — rear doors on 641 of FINN's 698 —
@@ -236,7 +248,6 @@ export function dealsHere(u: Understanding, cars: FinnCar[]): { deal: Deal; opti
      * whose licence is automatic-only can't take a manual at all, however
      * few there are.
      */
-    const set = dealStates(u);
     const nearlyEvery = (deal: Deal) => {
         if (!cars.length || !deal.rule || deal.id === "automatic" || set[deal.id]) return false;
 
@@ -246,17 +257,20 @@ export function dealsHere(u: Understanding, cars: FinnCar[]): { deal: Deal; opti
     };
 
     /* Electric or not is asked on its own now — "What can it run on?" — so it isn't a row here too. */
-    return DEALS.filter((deal) => deal.id !== "electric" && !nearlyEvery(deal)).map((deal) => ({
-        deal,
-        options:
-            deal.id === "dates"
-                ? u.rental
-                    ? (["must", "flex"] as DealState[])
-                    : []
-                : ([ruleHere(deal.must) ? "must" : null, ruleHere(deal.mustNot) ? "mustNot" : null, sealHere(deal) ? "seal" : null] as (DealState | null)[]).filter(
-                      (state): state is DealState => state != null,
-                  ),
-    })).filter((row) => row.options.length > 0);
+    return DEALS.filter((deal) => deal.id !== "electric" && !nearlyEvery(deal))
+        .map((deal) => {
+            const options =
+                deal.id === "dates"
+                    ? u.rental
+                        ? (["must", "flex"] as DealState[])
+                        : []
+                    : ([ruleHere(deal.must) ? "must" : null, ruleHere(deal.mustNot) ? "mustNot" : null, sealHere(deal) ? "seal" : null] as (DealState | null)[]).filter(
+                          (state): state is DealState => state != null,
+                      );
+
+            return { deal, options, ...(options.length && !options.includes("seal") ? { noSeal: noSeal(deal) } : {}) };
+        })
+        .filter((row) => row.options.length > 0);
 }
 
 /** How each deal stands now: the rules the reader set, and what they said would seal it. */
