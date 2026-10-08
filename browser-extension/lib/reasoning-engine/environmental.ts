@@ -599,7 +599,7 @@ function cohortFor(fuel: FuelType): Cohort | null {
         `FINN Lens uses ${formatNumber(ELECTRIC_FLEET_KWH)} kWh/100km instead: a rounded figure a ` +
         `little above the ${formatNumber(ELECTRIC_MEDIUM_SEGMENT_KWH)} kWh/100km that mid-size ` +
         `electric cars sold in the EU in 2023 used on average in the official test, according to ` +
-        `the ICCT. It's a comparison point used by Lens, not an official average.`,
+        `the ICCT. It's Lens's own benchmark, not an official average.`,
     };
   }
 
@@ -639,13 +639,13 @@ function cohortFor(fuel: FuelType): Cohort | null {
     origin:
       `FINN Lens uses about ${COMBUSTION_FLEET_CO2} g of CO₂ per km as a comparison point, based on ` +
       `European data analysed by the ICCT, an independent research organisation.\n\n` +
-      `Lens converts that figure into an equivalent ${noun}-use figure, giving us the ` +
+      `Lens converts that figure into an equivalent ${noun}-use figure, which gives the ` +
       `${formatNumber(reference)} L/100km benchmark.` +
       (fuel === "Diesel"
         ? ` It's lower than the ${formatNumber(petrol)} L/100km petrol benchmark because ` +
           `burning a litre of diesel produces more CO₂ than burning a litre of petrol.`
         : "") +
-      ` It's a comparison point used by Lens, not an official average, legal limit, or target.`,
+      ` It's Lens's own benchmark, not an official average, legal limit, or target.`,
   };
 }
 

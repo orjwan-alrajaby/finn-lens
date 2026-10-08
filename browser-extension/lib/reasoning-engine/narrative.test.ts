@@ -474,8 +474,10 @@ describe("financial reasoning is specific", () => {
     const money = narrative.tradeoffs.find((item) => item.kind === "cost");
 
     if (money) {
-      expect(money.headline).toMatch(/€\d/);
-      expect(money.sentences.join(" ")).toMatch(/€\d+.*more than/);
+      /* The difference in the headline; the two prices it's between in the sentence, not the difference again. */
+      expect(money.headline).toMatch(/€\d+\/month more than/);
+      expect(money.sentences[0]).toMatch(/estimated at €[\d,]+\/month, against €[\d,]+ for /);
+      expect(money.sentences[0]).not.toMatch(/more than/);
     }
   });
 

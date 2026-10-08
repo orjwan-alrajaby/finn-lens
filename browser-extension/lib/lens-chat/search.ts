@@ -322,10 +322,10 @@ export function searchStart(search: FinnSearch | null, today = new Date()): Sear
  * and the things it only noted. Read off the understanding, so what the chat
  * says is exactly what Lens holds.
  */
-export function heardFromSearch(u: Understanding, search: FinnSearch | null = null): { used: string[]; noted: string[] } {
+export function heardFromSearch(u: Understanding, search: FinnSearch | null = null, today = new Date()): { used: string[]; noted: string[] } {
     const used: string[] = [];
     const term = searchTerm(search);
-    const start = searchStart(search);
+    const start = searchStart(search, today);
 
     if (u.budget && fromFilters(u.budget.said)) used.push(`Around ${formatEUR(u.budget.monthly)} a month`);
     if (u.monthlyKm && fromFilters(u.monthlyKm.said)) used.push(`${u.monthlyKm.value.toLocaleString("en-GB")} km a month`);
@@ -346,15 +346,15 @@ export function heardFromSearch(u: Understanding, search: FinnSearch | null = nu
 }
 
 /** One sentence for the start of a conversation, or nothing when there were no filters. */
-export function searchSentence(u: Understanding, search: FinnSearch | null): string {
-    const parts = heardFromSearch(u, search).used.map((item) =>
+export function searchSentence(u: Understanding, search: FinnSearch | null, today = new Date()): string {
+    const parts = heardFromSearch(u, search, today).used.map((item) =>
         /^\d+-month contract$/.test(item) ? `a ${item}` : /^(By|From) /.test(item) ? `needed ${lower(item)}` : lower(item),
     );
 
     if (!parts.length) return "";
 
     /* Dates are filled in for the reader to check, not taken as said: a filter's window isn't a day. */
-    const dates = Boolean(searchStart(search) || searchTerm(search));
+    const dates = Boolean(searchStart(search, today) || searchTerm(search));
 
     return `From your filters I already know: ${joined(parts)}. ${
         dates ? "I'll fill the dates in for you to check, and won't ask about the rest again" : "I won't ask about those again"

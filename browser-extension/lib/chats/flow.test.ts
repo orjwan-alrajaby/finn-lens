@@ -1102,7 +1102,7 @@ describe("fuels, said only as FINN's data has them", () => {
         const petrol = step.choices.find((choice) => choice.id === "fuel-petrolCar")!;
         const named = page.filter((car) => car.fuelType === "Petrol" && /\bhybrid\b/i.test(car.engine));
 
-        expect(petrol.description).toMatch(/^Cars FINN lists as petrol\. I price each on the fuel use FINN lists for it\./);
+        expect(petrol.description).toMatch(/^Cars FINN lists as petrol, each priced on its listed fuel use\./);
         expect(petrol.description).toContain(`FINN files ${named.length} cars here with “Hybrid” in the engine name under petrol`);
         for (const choice of stepFor("fuel", fleet())!.choices) expect(choice.description).not.toMatch(/you don't plug in|battery you charge|charged at home|petrol engine and/i);
 

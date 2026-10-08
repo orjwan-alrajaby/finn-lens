@@ -78,7 +78,7 @@ describe("what the filters tell Lens", () => {
     it("knows the contract length but not when it starts, and doesn't guess", () => {
         expect(u.rental).toBeNull();
         expect(searchTerm(SUV_SEARCH)).toBe(6);
-        expect(searchSentence(u, SUV_SEARCH)).toMatch(/6-month contract/);
+        expect(searchSentence(u, SUV_SEARCH, TODAY)).toMatch(/6-month contract/);
     });
 
     it("notes what it can't rank on, and says it only noted it", () => {
@@ -102,9 +102,9 @@ describe("what the filters tell Lens", () => {
         expect(searchStart(CABRIO_SEARCH, TODAY)).toMatchObject({ month: "2026-10", day: 7, chip: "By 7 October" });
         /* Half a period isn't a period Lens can price on: it asks for the end alone. */
         expect(cabrio.rental).toBeNull();
-        expect(heardFromSearch(cabrio, CABRIO_SEARCH).used).toContain("By 7 October");
-        expect(heardFromSearch(cabrio, CABRIO_SEARCH).noted.join(" ")).not.toMatch(/Available/);
-        expect(searchSentence(cabrio, CABRIO_SEARCH)).toMatch(/needed by 7 October/);
+        expect(heardFromSearch(cabrio, CABRIO_SEARCH, TODAY).used).toContain("By 7 October");
+        expect(heardFromSearch(cabrio, CABRIO_SEARCH, TODAY).noted.join(" ")).not.toMatch(/Available/);
+        expect(searchSentence(cabrio, CABRIO_SEARCH, TODAY)).toMatch(/needed by 7 October/);
     });
 
     it("reads 'from November' as a month with no day", () => {

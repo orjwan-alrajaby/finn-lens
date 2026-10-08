@@ -442,9 +442,9 @@ function costTradeoff(
   );
 
   const evidence = sentence(
+    /* The difference is the headline's; this says the two prices it's between. */
     `At ${context.preferences.monthlyKm.toLocaleString("en-GB")} km a month this is estimated at ${formatEUR(cost.subject.total)}/month,`,
-    `about ${formatEUR(difference)} more than ${alternative.name} at`,
-    formatEUR(alternative.total),
+    `against ${formatEUR(alternative.total)} for ${alternative.name}`,
   );
 
   const relevance = buys.length

@@ -56,7 +56,7 @@ export const FOLLOW_UPS: Record<string, FollowUp> = {
                 label: "A baby or toddler seat",
                 said: "The youngest is in a baby or toddler seat.",
                 importance: "essential",
-                add: [{ id: "hasElectricTailgate", why: "so you can open the boot while holding a child or a pram" }],
+                add: [{ id: "hasElectricTailgate", why: "for when you're holding a child or a pram" }],
                 reply: "Then travelling with children is a top priority. I'll also count an electric tailgate, which opens the boot at the press of a button while you're holding a child or a pram.",
             },
             {
@@ -70,7 +70,7 @@ export const FOLLOW_UPS: Record<string, FollowUp> = {
                 label: "No, they're older",
                 said: "No, they're past child seats.",
                 remove: ["hasIsofix"],
-                add: [{ id: "hasThreeZoneAutomaticClimateControls", why: "so children in the back can set their own temperature" }],
+                add: [{ id: "hasThreeZoneAutomaticClimateControls", why: "so children aren't stuck with your setting" }],
                 reply: "Then I won't count ISOFIX anchors. I'll count rear USB ports and 3-zone climate control, which gives the back seats their own temperature setting.",
             },
         ],
@@ -114,9 +114,9 @@ export const FOLLOW_UPS: Record<string, FollowUp> = {
                 importance: "essential",
                 add: [
                     { id: "hasAllWheelDrive", why: "for grip pulling away and climbing on snow and ice — it doesn't shorten braking" },
-                    { id: "hasAuxiliaryHeater", why: "so the car is warm and the windows clear before you set off" },
+                    { id: "hasAuxiliaryHeater", why: "so the windows are clear on frozen mornings" },
                     { id: "hasRainSlashLightSensors", why: "so you aren't reaching for switches in snow and early winter darkness" },
-                    { id: "hasFogLights", why: "for heavy snowfall, when the road edge disappears" },
+                    { id: "hasFogLights", why: "for heavy snowfall" },
                 ],
                 reply: "Snow and ice: cold winters are a top priority. I'll also count all-wheel drive, an auxiliary heater, rain and light sensors, and fog lights.",
             },
@@ -126,8 +126,8 @@ export const FOLLOW_UPS: Record<string, FollowUp> = {
                 label: "Rain & fog",
                 said: "Mostly rain and fog.",
                 add: [
-                    { id: "hasRainSlashLightSensors", why: "so the wipers and headlights come on by themselves in rain and gloom" },
-                    { id: "hasFogLights", why: "so the road edge stays lit when fog closes in" },
+                    { id: "hasRainSlashLightSensors", why: "for sudden showers and gloomy days" },
+                    { id: "hasFogLights", why: "for misty mornings" },
                 ],
                 reply: "Rain and fog: I'll also count rain and light sensors, and fog lights.",
             },
@@ -148,7 +148,7 @@ export const FOLLOW_UPS: Record<string, FollowUp> = {
                     { id: "hasParkingSensors", why: "so you know how much room is left" },
                 ], reply: "a 360° camera and parking sensors" },
             { id: "traffic", label: "Busy traffic, changing lanes", said: "Busy traffic and changing lanes.", add: [
-                    { id: "hasBlindSpotAssist", why: "for the cars you can't see when changing lanes" },
+                    { id: "hasBlindSpotAssist", why: "as you change lanes" },
                     { id: "hasLaneKeepingAssist", why: "for a moment's inattention" },
                     /*
                      * Not adaptive cruise control: Lens scores it under Long
@@ -158,7 +158,7 @@ export const FOLLOW_UPS: Record<string, FollowUp> = {
                      */
                 ], reply: "blind spot warning and lane keeping assist" },
             { id: "reversing", label: "Reversing out", said: "Reversing out of spaces.", add: [
-                    { id: "hasRearCrosswalkWarning", why: "for reversing out between parked cars, where you can't see traffic coming" },
+                    { id: "hasRearCrosswalkWarning", why: "when parked cars block your view" },
                     { id: "hasOneEightyDegreesReversingCamera", why: "so you aren't reversing on mirrors alone" },
                 ], reply: "a reversing camera and rear cross-traffic alert" },
         ],
@@ -211,12 +211,12 @@ export function applyFollowUp(u: Understanding, followUp: FollowUp, chosen: stri
  */
 export const WORTH_A_LOOK: Record<string, { id: EvidenceId; why: string }[]> = {
     kids: [
-        { id: "hasElectricTailgate", why: "so you can open the boot while holding a child or a pram" },
-        { id: "hasThreeZoneAutomaticClimateControls", why: "so children in the back can set their own temperature" },
+        { id: "hasElectricTailgate", why: "for when you're holding a child or a pram" },
+        { id: "hasThreeZoneAutomaticClimateControls", why: "so children aren't stuck with your setting" },
     ],
     commute: [
         { id: "hasWirelessAppleCarPlaySlashAndroidAuto", why: "since you'd otherwise plug it in twice a day" },
-        { id: "hasWirelessChargingStation", why: "so your phone charges on the daily drive" },
+        { id: "hasWirelessChargingStation", why: "for the daily drive" },
         { id: "driverAssistLevel2", why: "for slow motorway traffic on the way to work" },
     ],
     motorway: [
@@ -225,15 +225,15 @@ export const WORTH_A_LOOK: Record<string, { id: EvidenceId; why: string }[]> = {
     ],
     roadtrips: [
         { id: "hasTowbar", why: "so you can take a bike rack or trailer on holiday" },
-        { id: "hasElectricTailgate", why: "so you can open the boot with bags in your hands" },
+        { id: "hasElectricTailgate", why: "for when your hands are full of bags" },
     ],
     night: [
         /* Not a head-up display: scored under Long Distance Travel, it brings an electric car's range into a need about the dark. */
-        { id: "hasHeadlightCleaningSystem", why: "because dirt on the headlights dims them" },
+        { id: "hasHeadlightCleaningSystem", why: "for spray and grime on night drives" },
     ],
     winter: [
         { id: "hasHeatPump", why: "so an electric car loses less range heating the cabin in winter" },
-        { id: "hasAuxiliaryHeater", why: "so the car is warm and the windows clear before you set off" },
+        { id: "hasAuxiliaryHeater", why: "so the windows are clear on frozen mornings" },
         { id: "hasAllWheelDrive", why: "for grip pulling away and climbing on snow and ice — it doesn't shorten braking" },
         { id: "hasHeadlightCleaningSystem", why: "because winter roads coat them in salt" },
     ],

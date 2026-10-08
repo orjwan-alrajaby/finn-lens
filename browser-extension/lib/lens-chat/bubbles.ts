@@ -152,7 +152,7 @@ export const BUBBLES: Bubble[] = [
         cantCheck: "",
         why: {
             rearDoors: "so children get in and out without folding a front seat",
-            hasElectricTailgate: "so you can open the boot while holding a child",
+            hasElectricTailgate: "for when you're holding a child",
             hasBackUSBPorts: "so devices in the back stay charged",
             hasSplitFoldingRearSeats: "so a pram or a big load fits beside a child seat",
         },
@@ -171,7 +171,7 @@ export const BUBBLES: Bubble[] = [
         cantCheck: "",
         why: {
             rearDoors: "so passengers get into the back without climbing past the front",
-            hasThreeZoneAutomaticClimateControls: "so the back can set its own temperature",
+            hasThreeZoneAutomaticClimateControls: "so passengers aren't stuck with your setting",
             hasBackUSBPorts: "so phones in the back stay charged",
         },
     },
@@ -188,7 +188,7 @@ export const BUBBLES: Bubble[] = [
         cantCheck: "",
         why: {
             hasSplitFoldingRearSeats: "so a crate or a big dog fits",
-            hasElectricTailgate: "so the boot opens while you hold the lead",
+            hasElectricTailgate: "for when you're holding the lead",
             rearDoors: "so a dog gets onto the back seat without climbing over the front",
         },
     },
@@ -221,7 +221,7 @@ export const BUBBLES: Bubble[] = [
             compactLength: "so it fits shorter spaces",
             hasOneEightyDegreesReversingCamera: "so you can see the kerb and the car behind when you park on the street",
             hasThreeSixtyDegreesCamera: "so you can see every pillar and wall in a tight car park",
-            hasRearCrosswalkWarning: "for reversing out into passing traffic",
+            hasRearCrosswalkWarning: "in busy car parks",
             hasBlindSpotAssist: "for changing lanes in busy traffic",
         },
     },
@@ -264,9 +264,9 @@ export const BUBBLES: Bubble[] = [
         why: {
             hasThreeSixtyDegreesCamera: "so you can check every side before you move",
             compactLength: "a shorter car fits a shorter gap at the kerb",
-            hasParkingAssistant: "a parking assistant, as FINN lists it — FINN doesn't say which spaces it handles",
-            hasBlindSpotAssist: "for the cars you can't see when changing lanes",
-            hasRearCrosswalkWarning: "for reversing out between parked cars, where you can't see traffic coming",
+            hasParkingAssistant: "for squeezing into the gap at the kerb",
+            hasBlindSpotAssist: "as you change lanes",
+            hasRearCrosswalkWarning: "when parked cars block your view",
             hasOneEightyDegreesReversingCamera: "so you aren't reversing on mirrors alone",
         },
     },
@@ -284,10 +284,10 @@ export const BUBBLES: Bubble[] = [
         distance: true,
         cantCheck: "",
         why: {
-            driverAssistLevel2: "so the car keeps its lane and distance while you supervise",
+            driverAssistLevel2: "for long stretches on the motorway",
             hasLumbarSupport: "for your back over hours",
             hasMatrixLedHeadlights: "for long drives after dark",
-            hasRoofRails: "for a roof box on holidays",
+            hasRoofRails: "for the extra luggage of a holiday",
         },
     },
     {
@@ -304,7 +304,7 @@ export const BUBBLES: Bubble[] = [
         distance: true,
         cantCheck: "",
         why: {
-            driverAssistLevel2: "so the car keeps its speed, distance and lane together in stop-and-go traffic",
+            driverAssistLevel2: "for stop-and-go traffic",
         },
     },
     {
@@ -362,11 +362,11 @@ export const BUBBLES: Bubble[] = [
             hasHeatedSteeringWheel: "so the wheel is warm to hold on a frozen morning",
             hasSeatCooling: "so your back doesn't stick to the seat in the heat",
             hasAllWheelDrive: "for grip pulling away and climbing on snow and ice — it doesn't shorten braking",
-            hasAuxiliaryHeater: "so the car is warm and the windows clear before you set off",
+            hasAuxiliaryHeater: "so the windows are clear on frozen mornings",
             hasHeatPump: "so an electric car keeps more of its range in the cold",
-            hasHeadlightCleaningSystem: "because road salt dims headlights",
-            hasRainSlashLightSensors: "so the wipers and headlights come on by themselves in rain and gloom",
-            hasFogLights: "so the road edge stays lit when fog closes in",
+            hasHeadlightCleaningSystem: "for winter roads",
+            hasRainSlashLightSensors: "for sudden showers and gloomy days",
+            hasFogLights: "for misty mornings",
         },
     },
     {
@@ -381,8 +381,8 @@ export const BUBBLES: Bubble[] = [
         worth: ["hasHeadlightCleaningSystem", "hasRainSlashLightSensors", "hasFogLights"],
         cantCheck: "",
         why: {
-            hasMatrixLedHeadlights: "so full beam stays on without dazzling anyone",
-            hasCorneringLights: "so you can see into the bend",
+            hasMatrixLedHeadlights: "for dark roads with oncoming traffic",
+            hasCorneringLights: "for unlit country roads",
         },
     },
     {
@@ -409,10 +409,10 @@ export const BUBBLES: Bubble[] = [
         },
         cantCheck: "FINN lists a boot size, but not whether it's measured with the rear seats up or folded, so Lens doesn't compare boots on it.",
         why: {
-            hasElectricTailgate: "so the boot opens when your hands are full",
-            hasSplitFoldingRearSeats: "so long or bulky things fit with part of the back seat down",
-            hasRoofRails: "for a roof box, a bike carrier or a ski rack",
-            hasTowbar: "for the trailer or caravan — and a bike rack can go on it",
+            hasElectricTailgate: "for when your hands are full",
+            hasSplitFoldingRearSeats: "so long or bulky things fit",
+            hasRoofRails: "so bikes, skis and luggage that don't fit inside ride on top",
+            hasTowbar: "and a bike rack can go on it too",
             towingCapacity1500: "enough to pull most small caravans",
         },
     },

@@ -56,7 +56,7 @@ const USE: Partial<Record<EvidenceId, string>> = {
     rearDoors: "separate doors for the back seats",
     seatsFivePlus: "at least five seats",
     seatsSixPlus: "six or more seats",
-    hasSplitFoldingRearSeats: "rear seats that fold down in parts to make the boot longer",
+    hasSplitFoldingRearSeats: "a back seat that folds down in sections to make the boot longer",
     hasElectricTailgate: "a boot lid that opens and closes at the press of a button",
     hasBackUSBPorts: "USB ports at the back seats",
     hasRoofRails: "rails on the roof for mounting a roof box or a bike rack",
@@ -82,14 +82,14 @@ const USE: Partial<Record<EvidenceId, string>> = {
     hasLumbarSupport: "an adjustable lower-back support (FINN doesn't say in which seats)",
     hasHeadUpDisplay: "driving information, such as your speed, shown on the windscreen",
     hasMatrixLedHeadlights: "full beam that stays on but dims the part that would dazzle other drivers",
-    hasBlindSpotAssist: "a warning when a car is in your blind spot",
+    hasBlindSpotAssist: "a warning when another car is where your mirrors don't show it",
     hasRearCrosswalkWarning: "a warning when a car is coming as you reverse out of a space",
     hasLaneKeepingAssist: "steering that nudges the car back if you drift out of your lane",
     hasEmergencyBrakingAssist: "the car braking by itself if it detects an obstacle ahead",
     hasTrafficSignRecognition: "the speed limit shown on the dashboard, read from road signs",
     hasHeatedSeats: "seats that heat up (FINN doesn't say which ones)",
-    hasHeatedSteeringWheel: "a steering wheel that heats up",
-    hasRainSlashLightSensors: "wipers that switch on when rain hits the windscreen, and headlights that switch on when it gets dark",
+    hasHeatedSteeringWheel: "heating built into the rim",
+    hasRainSlashLightSensors: "wipers that start when rain hits the windscreen, and headlights that come on when it gets dark",
     hasFogLights: "extra lights low on the front of the car that light the road edge in fog",
     hasCorneringLights: "a light that shines into the bend as you turn",
     hasHeadlightCleaningSystem: "washers that spray salt and dirt off the headlights",
@@ -97,10 +97,10 @@ const USE: Partial<Record<EvidenceId, string>> = {
     hasAuxiliaryHeater: "a heater that warms the car before you get in, with the engine off",
     hasHeatPump: "heating that uses less battery power",
     hasSeatCooling: "seat cooling, which FINN lists as “Sitzkühlung”",
-    hasElectricFrontSeatAdjustment: "front seats adjusted with buttons instead of levers (FINN doesn't say whether both or only the driver's)",
+    hasElectricFrontSeatAdjustment: "adjusting with buttons instead of levers (FINN doesn't say whether both or only the driver's)",
     hasKeylessEntryAndStart: "unlocking and starting the car with the key still in your pocket",
     hasWirelessChargingStation: "a pad that charges your phone without a cable",
-    hasWirelessAppleCarPlaySlashAndroidAuto: "Apple CarPlay or Android Auto without plugging your phone in",
+    hasWirelessAppleCarPlaySlashAndroidAuto: "your phone's maps and music on the car's screen, without plugging it in",
     hasAppleCarPlaySlashAndroidAuto: "your phone's maps and music on the car's screen, through Apple CarPlay or Android Auto",
     hasThreeZoneAutomaticClimateControls: "separate temperature settings for the driver, the front passenger and the back",
     hasPremiumSoundSystem: "an upgraded speaker system",
@@ -261,8 +261,8 @@ const PASSENGERS: GuideChoice[] = [
     },
     passengersNeed(2, "2", "Usually two other people.", "Someone sits in the back, so I'll check for rear doors.", "Two passengers", []),
     passengersNeed(3, "3", "Usually three other people.", "Someone sits in the back, so I'll check for rear doors.", "Three passengers", []),
-    passengersNeed(4, "4", "Usually four other people.", "Room for everyone: rear doors, and five seats.", "Four passengers", [["seatsFivePlus", "so all five of you have a seat"]]),
-    passengersNeed(5, "5 or more", "Usually five or more other people.", "Room for everyone: rear doors, and six or more seats.", "Five or more passengers", [["seatsSixPlus", "so everyone has a seat"]]),
+    passengersNeed(4, "4", "Usually four other people.", "Room for everyone: rear doors, and five seats.", "Four passengers", [["seatsFivePlus", "for you and your four passengers"]]),
+    passengersNeed(5, "5 or more", "Usually five or more other people.", "Room for everyone: rear doors, and six or more seats.", "Five or more passengers", [["seatsSixPlus", "for you and five or more passengers"]]),
 ];
 
 const CHOICES: GuideChoice[] = [
@@ -273,10 +273,10 @@ const CHOICES: GuideChoice[] = [
         /* Where its equipment is scored: ISOFIX under Practicality, rear USB ports under Comfort. */
         ["practicality", "comfort"],
         [
-            ["hasIsofix", "so the seat is held by the car's frame, not only by a seat belt"],
+            ["hasIsofix", "rather than relying on a seat belt alone"],
             /* A child seat goes in the back even when the child is the only passenger. */
             ["rearDoors", "so children get in and out, and seats get fitted, without climbing past the front seats"],
-            ["hasSplitFoldingRearSeats", "so you can fold one part for a pram and still seat a child"],
+            ["hasSplitFoldingRearSeats", "so a pram fits beside a child in the back"],
             ["hasBackUSBPorts", "so children can charge tablets and phones on longer drives"],
         ],
         "Travelling with children"),
@@ -290,7 +290,7 @@ const CHOICES: GuideChoice[] = [
         "A temperature setting of their own in the back, and USB ports there to charge their phones.",
         ["comfort"],
         [
-            ["hasThreeZoneAutomaticClimateControls", "so passengers in the back can set their own temperature"],
+            ["hasThreeZoneAutomaticClimateControls", "so passengers aren't stuck with your setting"],
             ["hasBackUSBPorts", "so passengers in the back can charge their phones"],
         ],
         "Adult passengers"),
@@ -298,7 +298,7 @@ const CHOICES: GuideChoice[] = [
         "An electric tailgate that opens the boot at the press of a button, rear seats that fold down for more floor space, and rear doors.",
         ["practicality"],
         [
-            ["hasElectricTailgate", "so you can open the boot while holding a lead or a carrier"],
+            ["hasElectricTailgate", "for when you're holding a lead or a carrier"],
             ["hasSplitFoldingRearSeats", "so a bigger pet or a crate gets more floor space"],
             ["rearDoors", "so a pet can get in and out of the back seat directly"],
         ],
@@ -357,7 +357,7 @@ const CHOICES: GuideChoice[] = [
         "Rear cross-traffic alert, a reversing camera and parking sensors.",
         ["cityParking", "safetyAssistance"],
         [
-            ["hasRearCrosswalkWarning", "for reversing out between parked cars, where you can't see traffic coming"],
+            ["hasRearCrosswalkWarning", "when parked cars block your view"],
             ["hasOneEightyDegreesReversingCamera", "so you aren't reversing out on mirrors alone"],
             ["hasParkingSensors", "so you know when you're about to touch another car"],
         ],
@@ -375,7 +375,7 @@ const CHOICES: GuideChoice[] = [
         [
             ["hasAdaptiveCruiseControl", "so in stop-and-go traffic you aren't braking and accelerating yourself"],
             ["hasAutomaticTransmission", "so stop-and-go traffic doesn't mean constant clutch work"],
-            ["hasKeylessEntryAndStart", "so you don't take the key out of your pocket twice a day"],
+            ["hasKeylessEntryAndStart", "for getting in and out twice every working day"],
             ["hasAppleCarPlaySlashAndroidAuto", "so navigation with live traffic is on screen for the daily route"],
         ]),
     need("motorway", "driving", "Long motorway drives", "I do long motorway drives.",
@@ -391,7 +391,7 @@ const CHOICES: GuideChoice[] = [
         "Roof rails for a roof box, rear seats that fold for longer luggage, Level 2 driver assistance for the motorway, and adjustable lower-back support.",
         ["practicality", "longDistance"],
         [
-            ["hasRoofRails", "so a roof box can take the luggage that doesn't fit in the boot"],
+            ["hasRoofRails", "for luggage that doesn't fit in the boot"],
             ["hasSplitFoldingRearSeats", "so long items fit while a rear seat stays free"],
             ["driverAssistLevel2", "for the long motorway stretches of a trip"],
             ["hasLumbarSupport", "for hours in the driver's seat"],
@@ -401,10 +401,10 @@ const CHOICES: GuideChoice[] = [
         "Matrix LED headlights that keep full beam on without dazzling other drivers, cornering lights, headlights that switch on when it gets dark, and fog lights.",
         ["safetyAssistance", "climateSuitability"],
         [
-            ["hasMatrixLedHeadlights", "so you can drive unlit roads with full beam on"],
-            ["hasCorneringLights", "so bends on unlit roads are lit before you drive into them"],
+            ["hasMatrixLedHeadlights", "for unlit roads"],
+            ["hasCorneringLights", "for unlit country roads"],
             ["hasRainSlashLightSensors", "so you can't forget the headlights at dusk"],
-            ["hasFogLights", "which matters most at night, when fog hides the road edge completely"],
+            ["hasFogLights", "for foggy nights"],
         ]),
     /* The cold alone; what kind of winter it is — snow, rain and fog, or dry — is the next question. */
     need("winter", "weather", "Cold winters", "Our winters get cold.",
@@ -419,8 +419,8 @@ const CHOICES: GuideChoice[] = [
         "Ventilated seats that blow air through the seat, and 3-zone climate control with separate temperatures for the driver, the front passenger and the back.",
         ["climateSuitability", "comfort"],
         [
-            ["hasSeatCooling", "so the seat cools down after the car has stood in the sun"],
-            ["hasThreeZoneAutomaticClimateControls", "so passengers in the back can set a cooler temperature for themselves"],
+            ["hasSeatCooling", "for after the car has stood in the sun"],
+            ["hasThreeZoneAutomaticClimateControls", "for hot days, when people want different settings"],
         ],
         "Staying cool in summer"),
     /* What's carried, named outright: each load has its own equipment, and "a lot" says none of it. */
@@ -429,14 +429,14 @@ const CHOICES: GuideChoice[] = [
         ["practicality"],
         [
             ["hasSplitFoldingRearSeats", "so long or bulky things fit"],
-            ["hasElectricTailgate", "so you can open the boot with your hands full"],
+            ["hasElectricTailgate", "for when your hands are full"],
         ],
         "Bulky loads"),
     need("bikes", "loads", "Bikes, skis or a roof box", "Bikes, skis or a roof box.",
         "Roof rails for a roof box or rack, and a towbar for a bike rack.",
         ["practicality"],
         [
-            ["hasRoofRails", "so a roof box or rack can take what doesn't fit inside"],
+            ["hasRoofRails", "for what doesn't fit inside"],
             ["hasTowbar", "for a bike rack on the towbar"],
         ],
         "Bikes and roof loads"),
@@ -452,8 +452,8 @@ const CHOICES: GuideChoice[] = [
         "Blind spot warning, rear cross-traffic alert when reversing out, a 360° camera and parking sensors for parking, and lane keeping assist.",
         ["safetyAssistance", "cityParking"],
         [
-            ["hasBlindSpotAssist", "so you're warned about cars you can't see when changing lanes"],
-            ["hasRearCrosswalkWarning", "for reversing out between parked cars, where you can't see traffic coming"],
+            ["hasBlindSpotAssist", "as you change lanes"],
+            ["hasRearCrosswalkWarning", "when parked cars block your view"],
             ["hasThreeSixtyDegreesCamera", "so you can check every side before you move"],
             ["hasParkingSensors", "so you know how much room is left"],
             ["hasLaneKeepingAssist", "for a moment's inattention"],
@@ -466,9 +466,9 @@ const CHOICES: GuideChoice[] = [
         ["safetyAssistance"],
         [
             ["hasEmergencyBrakingAssist", "which can prevent a collision, or make it less severe, if you react too late"],
-            ["hasBlindSpotAssist", "which covers what the mirrors don't show"],
+            ["hasBlindSpotAssist", "on motorways and busy roads"],
             ["hasLaneKeepingAssist", "for a moment's inattention"],
-            ["hasRearCrosswalkWarning", "for reversing out between parked cars, where you can't see traffic coming"],
+            ["hasRearCrosswalkWarning", "when parked cars block your view"],
             ["hasTrafficSignRecognition", "so you always know the current limit"],
         ],
         /* "It partly covers safety", not "It partly covers safety above all". */
@@ -477,9 +477,9 @@ const CHOICES: GuideChoice[] = [
         "Apple CarPlay or Android Auto (wired or wireless), and a wireless charging pad for your phone.",
         ["comfort"],
         [
-            ["hasWirelessAppleCarPlaySlashAndroidAuto", "so your phone connects to the car's screen as soon as you get in"],
+            ["hasWirelessAppleCarPlaySlashAndroidAuto", "as soon as you get in"],
             ["hasAppleCarPlaySlashAndroidAuto", "so the apps you already use run on the car's screen"],
-            ["hasWirelessChargingStation", "so your phone charges while it runs maps and music"],
+            ["hasWirelessChargingStation", "so it lasts through maps and music"],
         ]),
     need("comfort", "you", "Everyday comfort", "I want comfort features I'd use every day.",
         "Front seats adjusted with buttons, keyless entry and start, a wireless charging pad, and 3-zone climate control.",
@@ -487,8 +487,8 @@ const CHOICES: GuideChoice[] = [
         [
             ["hasElectricFrontSeatAdjustment", "so you can set your seating position precisely"],
             ["hasKeylessEntryAndStart", "which saves taking the key out every time"],
-            ["hasWirelessChargingStation", "so your phone is charged when you arrive"],
-            ["hasThreeZoneAutomaticClimateControls", "so each passenger sets their own temperature"],
+            ["hasWirelessChargingStation", "so it doesn't run flat on daily trips"],
+            ["hasThreeZoneAutomaticClimateControls", "so nobody has to agree on one setting"],
         ],
         "Everyday comfort"),
     /*

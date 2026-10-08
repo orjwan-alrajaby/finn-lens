@@ -431,7 +431,7 @@ function dealsStep(u: Understanding, cars: FinnCar[]): ChatStep | null {
  * FINN lists, and what Lens prices it on. Nothing about how the cars work.
  */
 const FUELS: { id: EvidenceId; fuel: FinnCar["fuelType"]; label: string; description: string }[] = [
-    { id: "electricCar", fuel: "Electric", label: "Electric", description: "Cars FINN lists as electric. I price each on the electricity use FINN lists for it." },
+    { id: "electricCar", fuel: "Electric", label: "Electric", description: "Cars FINN lists as electric, each priced on its listed electricity use." },
     {
         id: "plugInHybrid",
         fuel: "Plug-in Hybrid",
@@ -439,8 +439,8 @@ const FUELS: { id: EvidenceId; fuel: FinnCar["fuelType"]; label: string; descrip
         description:
             "Cars FINN lists as plug-in hybrids. FINN gives only their official fuel figure, so for the electricity I use the EU's official figure for the same car, from its registration data — where I can match it, and I say when I can't. Both figures assume the EU test's mix of electric and fuel driving; yours depends on how you drive and charge.",
     },
-    { id: "petrolCar", fuel: "Petrol", label: "Petrol", description: "Cars FINN lists as petrol. I price each on the fuel use FINN lists for it." },
-    { id: "dieselCar", fuel: "Diesel", label: "Diesel", description: "Cars FINN lists as diesel. I price each on the fuel use FINN lists for it." },
+    { id: "petrolCar", fuel: "Petrol", label: "Petrol", description: "Cars FINN lists as petrol, each priced on its listed fuel use." },
+    { id: "dieselCar", fuel: "Diesel", label: "Diesel", description: "Cars FINN lists as diesel, each priced on its listed fuel use." },
 ];
 
 /**

@@ -777,7 +777,7 @@ describe("what the efficiency reference is, and isn't", () => {
         "FINN Lens's comparison point, not an official average",
       );
       expect(reading.provenance.body).toMatch(
-        /It's a comparison point used by Lens, not an official average(, legal limit, or target)?\.$/,
+        /It's Lens's own benchmark, not an official average(, legal limit, or target)?\.$/,
       );
       expect(
         `${reading.referenceLabel} ${reading.referenceNote} ${reading.provenance.body} ${reading.reasoning}`,
@@ -793,11 +793,11 @@ describe("what the efficiency reference is, and isn't", () => {
     expect(petrolSource.title).toBe("Where does the FINN Lens benchmark come from?");
     expect(petrolSource.body).toBe(
       "FINN Lens uses about 136 g of CO₂ per km as a comparison point, based on European data analysed by the ICCT, an independent research organisation.\n\n" +
-        "Lens converts that figure into an equivalent petrol-use figure, giving us the 5.8 L/100km benchmark. It's a comparison point used by Lens, not an official average, legal limit, or target.",
+        "Lens converts that figure into an equivalent petrol-use figure, which gives the 5.8 L/100km benchmark. It's Lens's own benchmark, not an official average, legal limit, or target.",
     );
 
     /* Diesel: the same method in its own terms, never a measured diesel average. */
-    expect(dieselSource.body).toMatch(/equivalent diesel-use figure, giving us the 5.2 L\/100km benchmark\./);
+    expect(dieselSource.body).toMatch(/equivalent diesel-use figure, which gives the 5.2 L\/100km benchmark\./);
     expect(dieselSource.body).toMatch(
       /lower than the 5.8 L\/100km petrol benchmark because burning a litre of diesel produces more CO₂ than burning a litre of petrol/,
     );
