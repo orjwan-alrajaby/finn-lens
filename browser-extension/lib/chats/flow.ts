@@ -3,6 +3,7 @@ import { formatEUR } from "@/lib/reasoning-engine";
 import { FINN_INCLUDED_MONTHLY_KM } from "@/lib/reasoning-engine/constants";
 import { addMonths, monthLabel, type MonthString } from "@/lib/reasoning-engine/contract";
 import type { NeedImportance } from "@/lib/lens-ai/contract";
+import type { CategoryId } from "@/lib/reasoning-engine/types";
 import {
     BUBBLE_GROUPS,
     BUBBLES,
@@ -294,7 +295,7 @@ const RULE_GROUP: Record<string, string> = {
     "electric-only": "energy",
     "not-electric": "energy",
     "low-co2": "energy",
-    frugal: "energy",
+    frugal: "money",
 };
 
 /** "kids:baby" → the bubble and the chip; "kids" → the bubble alone. */
@@ -399,18 +400,21 @@ const SUGGESTED_AS: Partial<Record<EvidenceId, string>> = {
  * deal-breaker with no row here. Said from the cars: " Nearly every car
  * here has 3-zone climate, so I won't suggest it."
  */
-function unsuggested(description: string, worth: EvidenceId[], suggests: string | null | undefined, u: Understanding, cars: FinnCar[]): string {
+function unsuggested(description: string, worth: EvidenceId[], suggests: string | string[] | null | undefined, u: Understanding, cars: FinnCar[]): string {
     if (!cars.length) return "";
 
-    const why = (id: EvidenceId, phrase: string) => (coverage(cars, id).listed === 0 ? `None of the cars here list ${phrase}` : `Nearly every car here has ${phrase}`);
+    const why = (id: EvidenceId, phrase: string, kind = false) =>
+        coverage(cars, id).listed === 0 ? `None of the cars here ${kind ? "is" : "list"} ${phrase}` : `Nearly every car here ${kind ? "is" : "has"} ${phrase}`;
     const notes = worth
         .filter((id) => SUGGESTED_AS[id] && description.includes(SUGGESTED_AS[id]!) && !setsApart(cars, id))
         .map((id) => `${why(id, SUGGESTED_AS[id]!)}, so I won't suggest it.`);
-    const deal = suggests ? dealForRule(suggests) : undefined;
 
-    /* No row for it: what none or nearly all of the cars here have (dealsHere), unless the reader has set it. */
-    if (deal?.rule && description.includes(deal.phrase) && !setsApart(cars, deal.rule) && !dealStates(u)[deal.id]) {
-        notes.push(`${why(deal.rule, deal.phrase)}, so I won't offer it as a deal-breaker here.`);
+    for (const rule of suggests == null ? [] : typeof suggests === "string" ? [suggests] : suggests) {
+        const deal = dealForRule(rule);
+        /* No row for it: what none or nearly all of the cars here have (dealsHere), unless the reader has set it. */
+        if (deal?.rule && description.includes(deal.phrase) && !setsApart(cars, deal.rule) && !dealStates(u)[deal.id]) {
+            notes.push(`${why(deal.rule, deal.phrase, deal.kind)}, so I won't offer it as a deal-breaker here.`);
+        }
     }
 
     return notes.map((note) => ` ${note}`).join("");
@@ -1083,6 +1087,27 @@ const FIGURE_DOES: Partial<Record<string, string>> = {
     efficiency: "how much fuel or electricity each car uses as FINN lists it, against FINN Lens's benchmark for cars that run on the same thing",
 };
 
+/** What weighing a figure does, said beside it: it ranks, it sets nothing aside. */
+const FIGURE_RANKS: Partial<Record<string, string>> = {
+    environmental: "lower CO₂ ranks higher",
+    efficiency: "using less for its kind ranks higher",
+};
+
+/**
+ * A figure's bubble on the summary, beside the deal-breaker on the same
+ * figure: the bubble ranks, the rule sets aside — said so the two read as
+ * the two things they are.
+ */
+function figureNote(figure: CategoryId, u: Understanding): string | undefined {
+    const ranks = FIGURE_RANKS[figure];
+    if (!ranks) return undefined;
+
+    const deal = DEALS.find((item) => item.seal?.figure === figure);
+    const ruled = deal?.rule && ruledOut(u).some((rule) => rule.id === deal.rule && rule.mode === "must");
+
+    return ruled ? `Your deal-breaker sets aside ${deal!.seal!.aside}; among the rest, ${ranks}.` : `${ranks.replace(/^./, (c) => c.toUpperCase())}; no car is set aside for it.`;
+}
+
 const FIGURE: Partial<Record<string, string>> = {
     environmental: "Each car's CO₂ per km",
     efficiency: "Each car's fuel or electricity use, for its kind",
@@ -1147,7 +1172,13 @@ function summaryBubbles(u: Understanding, cars: FinnCar[]): SummaryBubble[] {
                 return here ? { ...item, here } : item;
             }),
             worth: named(worth, bubble.why),
-            ...(figure ? { figure, figureDoes: figures.filter((id) => !settledFigure.has(id)).map((id) => FIGURE_DOES[id]).find(Boolean) } : {}),
+            ...(figure
+                ? {
+                      figure,
+                      figureDoes: figures.filter((id) => !settledFigure.has(id)).map((id) => FIGURE_DOES[id]).find(Boolean),
+                      figureNote: figures.filter((id) => !settledFigure.has(id)).map((id) => figureNote(id, u)).find(Boolean),
+                  }
+                : {}),
             cantCheck: bubble.cantCheck,
             ...(!live.length && !figure && !settledHere.length && !figureSettled
                 ? { empty: emptyNote(bubble, items) }

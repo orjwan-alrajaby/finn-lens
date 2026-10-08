@@ -161,6 +161,8 @@ export interface SummaryBubble {
     figure?: string;
     /** What that figure is, for its "i". */
     figureDoes?: string;
+    /** What weighing it does, beside any deal-breaker on it: "Lower CO₂ ranks higher; no car is set aside for it." */
+    figureNote?: string;
     /** What matters for this life that FINN's data can't tell Lens. */
     cantCheck: string;
     /** Said when it counts nothing yet: "Tell me which, and I'll count them." */

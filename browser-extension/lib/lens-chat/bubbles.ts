@@ -57,11 +57,11 @@ export interface BubbleChip {
     /** How much the bubble counts, when this chip says so. */
     importance?: NeedImportance;
     /**
-     * A deal-breaker this suggests, by the rules question's own id. Null:
+     * The deal-breakers this suggests, by the rules question's own ids. Null:
      * none — not even the bubble's own ("clean for its fuel type" is no
      * reason to suggest low CO₂).
      */
-    suggests?: string | null;
+    suggests?: string | string[] | null;
     /** The figure this answer judges on, in place of the bubble's own: "clean for its fuel type" is consumption, not CO₂. */
     figures?: CategoryId[];
 }
@@ -101,7 +101,7 @@ export interface Bubble {
     often?: OftenId;
     /** Asks how far they drive, with the limit. */
     distance?: boolean;
-    suggests?: string;
+    suggests?: string | string[];
     /**
      * What FINN's data can't tell Lens that changes how an answer should be
      * read, as one whole sentence — said on the summary and in the drawer as
@@ -479,9 +479,9 @@ export const BUBBLES: Bubble[] = [
                     label: "Clean for its fuel type",
                     detail: "clean for its fuel type",
                     description:
-                        "Any fuel — petrol and diesel too — as long as it uses little for its kind. I compare each car's fuel or electricity use, as FINN lists it, with FINN Lens's benchmark for cars that run on the same thing. A plug-in hybrid can't be judged on it.",
+                        "Any fuel — petrol and diesel too — as long as it uses little for its kind. I compare each car's fuel or electricity use, as FINN lists it, with FINN Lens's benchmark for cars that run on the same thing, and suggest “frugal for its kind” as a deal-breaker. A plug-in hybrid can't be judged on it.",
                     figures: ["efficiency"],
-                    suggests: null,
+                    suggests: "frugal",
                 },
                 {
                     id: "moderate",
@@ -531,8 +531,12 @@ export const BUBBLES: Bubble[] = [
                 { id: "soft", label: "Some give", detail: "a little over is fine", description: "Cars up to about 15% over still count as within it." },
             ],
         },
-        /* With no chip, "Nothing over my limit" is offered with the deal-breakers. */
-        suggests: "firm-budget",
+        /*
+         * With no chip, "Nothing over my limit" is offered with the
+         * deal-breakers; and frugal for its kind, since what a car uses is
+         * part of what it costs.
+         */
+        suggests: ["firm-budget", "frugal"],
         cantCheck: "",
     },
 ];
@@ -771,10 +775,13 @@ export function figuresOf(bubble: Bubble, state: BubbleState): CategoryId[] {
 export function suggestedRules(bubble: Bubble, state: BubbleState): string[] {
     const picked = pickedChips(bubble, state);
     /* An answer that says what to suggest speaks for the bubble; one that doesn't adds to it. */
-    const own = picked.some((chip) => chip.suggests !== undefined) ? undefined : bubble.suggests;
+    const own = picked.some((chip) => chip.suggests !== undefined) ? [] : listOf(bubble.suggests);
 
-    return unique([own, ...picked.map((chip) => chip.suggests)].filter((id): id is string => Boolean(id)));
+    return unique([...own, ...picked.flatMap((chip) => listOf(chip.suggests))]);
 }
+
+/** One suggestion or several, as a list. */
+const listOf = (suggests: string | string[] | null | undefined): string[] => (suggests == null ? [] : typeof suggests === "string" ? [suggests] : suggests);
 
 /**
  * Each deal-breaker a bubble's answers point to, with the answer that does:
@@ -783,10 +790,10 @@ export function suggestedRules(bubble: Bubble, state: BubbleState): string[] {
  */
 export function suggestedBecause(bubble: Bubble, state: BubbleState): [rule: string, because: string][] {
     const picked = pickedChips(bubble, state);
-    const own = picked.some((chip) => chip.suggests !== undefined) ? undefined : bubble.suggests;
+    const own = picked.some((chip) => chip.suggests !== undefined) ? [] : listOf(bubble.suggests);
     const pairs: [string, string][] = [
-        ...picked.filter((chip) => chip.suggests).map((chip): [string, string] => [chip.suggests!, `you said ${chip.detail}`]),
-        ...(own ? [[own, bubble.you.replace(/^./, (c) => c.toLowerCase())] as [string, string]] : []),
+        ...picked.flatMap((chip) => listOf(chip.suggests).map((rule): [string, string] => [rule, `you said ${chip.detail}`])),
+        ...own.map((rule): [string, string] => [rule, bubble.you.replace(/^./, (c) => c.toLowerCase())]),
     ];
 
     return pairs.filter(([rule], index) => pairs.findIndex(([other]) => other === rule) === index);
@@ -833,6 +840,25 @@ export function settledFigures(u: Understanding): Set<CategoryId> {
     const electricOnly = rules.some((rule) => rule.id === "electricCar" && rule.mode === "must") || NOT_ELECTRIC.every((id) => without.has(id));
 
     return new Set<CategoryId>(electricOnly ? ["environmental"] : []);
+}
+
+/**
+ * The figures the bubbles tapped weigh, each with the answer that does:
+ * CO₂ → "you said moderately green", fuel use → "you're on a budget". A
+ * figure a rule already settles isn't weighed by anything.
+ */
+export function figureReasons(u: Understanding): Map<CategoryId, string> {
+    const settled = settledFigures(u);
+    const reasons = new Map<CategoryId, string>();
+
+    for (const { bubble, state } of bubblesIn(u)) {
+        const chip = pickedChips(bubble, state).find((option) => option.figures?.length);
+        const because = chip ? `you said ${chip.detail}` : bubble.you.replace(/^./, (c) => c.toLowerCase());
+
+        for (const id of figuresOf(bubble, state)) if (!settled.has(id) && !reasons.has(id)) reasons.set(id, because);
+    }
+
+    return reasons;
 }
 
 /** The need a bubble stands for: null when it counts nothing yet (comforts with none picked), or nothing a rule hasn't settled. */

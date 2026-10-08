@@ -1462,6 +1462,7 @@ function UnderstoodBubble({
                             <Item key={item.id} label={item.label} kind="counts" does={item.does} onClick={live ? () => onRemove(item.id) : undefined} />
                         ))}
                     </div>
+                    {bubble.figureNote ? <p className="mt-1.5 text-[11.5px] leading-snug text-finn-iron">{bubble.figureNote}</p> : null}
                     {bubble.shared?.length ? (
                         <p className="mt-1.5 text-[11.5px] leading-snug text-finn-iron">
                             {bubble.counts.length || bubble.figure ? "Also " : ""}

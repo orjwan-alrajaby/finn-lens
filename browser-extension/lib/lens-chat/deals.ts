@@ -8,6 +8,7 @@ import { assessEnvironment, efficiencyScore } from "@/lib/reasoning-engine/envir
 import { barePhrase, coverage, EVIDENCE, NEARLY_EVERY, setsApart, type EvidenceId } from "./evidence";
 import { allowedByRules } from "./run";
 import { applyChoices, explain, guideSteps } from "./guide";
+import { figureReasons } from "./bubbles";
 import { ruledOut, type Need, type Rule, type Understanding } from "./understanding";
 
 /** The fuels, as "What can it run on?" rules on them. */
@@ -59,8 +60,13 @@ export interface Deal {
     must?: string;
     /** The rule a "mustn't" sets. */
     mustNot?: string;
-    /** What sealing it counts: a piece of equipment, or a figure. */
-    seal?: { evidence?: EvidenceId; figure?: CategoryId; need: string };
+    /**
+     * What sealing it counts: a piece of equipment, or a figure. For a
+     * figure, what a bubble weighing it already does ("lower CO₂ counts"),
+     * and who a "must" sets aside ("every car above class C") — said on the
+     * row in place of "Seals it", so it asks only what the bubble didn't.
+     */
+    seal?: { evidence?: EvidenceId; figure?: CategoryId; need: string; counts?: string; aside?: string };
     /** Its own words for its options, where "Must have" doesn't fit: "My dates only". */
     labels?: Partial<Record<DealState, string>>;
 }
@@ -109,7 +115,7 @@ export const DEALS: Deal[] = [
         kind: false,
         group: "energy",
         must: "low-co2",
-        seal: { figure: "environmental", need: "Low CO₂ emissions" },
+        seal: { figure: "environmental", need: "Low CO₂ emissions", counts: "lower CO₂ already ranks higher", aside: "every car above class C" },
         description: "Class A to C on the German CO₂ label: 115 g/km or less. Every electric car is class A.",
         sources: [SOURCES.co2Label],
     },
@@ -119,10 +125,11 @@ export const DEALS: Deal[] = [
         phrase: "frugal for its kind",
         label: "Frugal for its kind",
         kind: true,
-        group: "energy",
+        /* Money first: using less is cheaper to run, before it's anything else. */
+        group: "money",
         must: "frugal",
-        seal: { figure: "efficiency", need: "Using little fuel or electricity" },
-        description: `Fuel or electricity use ${EFFICIENCY_BAND_WORDS} or more below FINN Lens's benchmark for cars that run on the same thing. A plug-in hybrid can't be judged on it.`,
+        seal: { figure: "efficiency", need: "Using little fuel or electricity", counts: "using less for its kind already ranks higher", aside: "every car that isn't" },
+        description: `Cheaper to run than cars on the same fuel, since it uses less of it — and for petrol and diesel, less CO₂ too. That's fuel or electricity use ${EFFICIENCY_BAND_WORDS} or more below FINN Lens's benchmark for cars that run on the same thing. A plug-in hybrid can't be judged on it.`,
     },
     {
         id: "automatic",
@@ -223,10 +230,14 @@ export function dealsHere(u: Understanding, cars: FinnCar[]): { deal: Deal; opti
     /* The cars what it can run on leaves in, since that's asked first: a figure is judged among them. */
     const fuelled = allowedByRules(cars, ruledOut(u).filter((rule) => FUEL_RULES.has(rule.id)));
     const set = dealStates(u);
+    /* The figures a bubble already weighs: sealing one would count it twice, under two names. */
+    const weighed = figureReasons(u);
     const sealHere = (deal: Deal) => {
         if (!deal.seal) return false;
         /* Sealed already, so it can be undone. */
-        if (!cars.length || set[deal.id] === "seal") return true;
+        if (set[deal.id] === "seal") return true;
+        if (deal.seal.figure && weighed.has(deal.seal.figure)) return false;
+        if (!cars.length) return true;
         if (deal.seal.figure) return figureDiffers(fuelled, deal.seal.figure);
 
         /* Sealing on what nearly every car here has can't tell them apart: the gearbox's row stays, without it. */
@@ -236,7 +247,9 @@ export function dealsHere(u: Understanding, cars: FinnCar[]): { deal: Deal; opti
     const noSeal = (deal: Deal): string =>
         !deal.seal
             ? "I can only rule on this, not weigh it — so it can't seal the deal."
-            : deal.seal.figure
+            : deal.seal.figure && weighed.has(deal.seal.figure)
+              ? `${weighed.get(deal.seal.figure)!.replace(/^./, (c) => c.toUpperCase())}, so ${deal.seal.counts}. “${stateLabel(deal, "must")}” sets aside ${deal.seal.aside}.`
+              : deal.seal.figure
               ? "The cars here don't differ on it, so it can't seal the deal."
               : coverage(cars, deal.seal.evidence!).listed === 0
                 ? "None of the cars here list it, so it can't seal the deal."

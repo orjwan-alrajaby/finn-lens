@@ -233,7 +233,8 @@ describe("how green", () => {
         const none = env([]);
 
         expect(needOf(clean.bubble, clean.state)?.priorities).toEqual(["efficiency"]);
-        expect(suggestedRules(clean.bubble, clean.state)).toEqual([]);
+        /* Clean for its kind suggests frugal for its kind, never low CO₂. */
+        expect(suggestedRules(clean.bubble, clean.state)).toEqual(["frugal"]);
         expect(needOf(moderate.bubble, moderate.state)?.priorities).toEqual(["environmental"]);
         expect(suggestedRules(moderate.bubble, moderate.state)).toEqual(["low-co2"]);
         expect(needOf(zero.bubble, zero.state)).toMatchObject({ priorities: ["environmental"], importance: "essential" });

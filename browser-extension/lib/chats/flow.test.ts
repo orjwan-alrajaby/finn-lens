@@ -294,8 +294,13 @@ describe("deal-breakers and deal-sealers", () => {
         const yours = step.deals!.filter((item) => item.group === "yours");
 
         expect(step.ask).toBe("Any deal-breakers or deal-sealers?");
-        expect(step.groups?.map((group) => group.title)).toEqual(["From what you told me", "Fuel & emissions", "The car itself"]);
+        expect(step.groups?.map((group) => group.title)).toEqual(["From what you told me", "Money & time", "The car itself"]);
         expect(yours.map((item) => item.id).sort()).toEqual(["co2", "towbar"]);
+        /* The environment already weighs CO₂: the row asks only whether it's a line, and says so. */
+        expect(yours.find((item) => item.id === "co2")).toMatchObject({
+            options: ["must"],
+            description: expect.stringMatching(/ You care about the environment, so lower CO₂ already ranks higher\. “Must have” sets aside every car above class C\.$/),
+        });
         expect(yours.find((item) => item.id === "towbar")?.suggested).toBe("Recommended because you said a trailer or caravan.");
         expect(step.deals!.slice(0, 2).map((item) => item.group)).toEqual(["yours", "yours"]);
     });
@@ -327,6 +332,29 @@ describe("deal-breakers and deal-sealers", () => {
 
         expect(stepFor("deals", page, EMPTY_UNDERSTANDING)!.deals!.some((item) => item.id === "co2")).toBe(true);
         expect(stepFor("deals", page, u)!.deals!.some((item) => item.id === "co2")).toBe(false);
+    });
+
+    it("star frugal for its kind for a budget, as money: what a car uses is part of what it costs", () => {
+        const page = fleet().sort((a, b) => a.id - b.id).slice(100, 124);
+        const deal = (u: Understanding) => stepFor("deals", page, u)!.deals!.find((item) => item.id === "frugal")!;
+        const budget = deal(withBubbles(EMPTY_UNDERSTANDING, { budget: [] }));
+
+        expect(budget).toMatchObject({ group: "yours", suggested: "Recommended because you're on a budget.", options: ["must"] });
+        expect(budget.description).toMatch(/^Cheaper to run than cars on the same fuel/);
+        expect(budget.description).toMatch(/ You're on a budget, so using less for its kind already ranks higher\. “Must be” sets aside every car that isn't\.$/);
+        /* With nothing weighing it already, it can seal the deal, and sits with the money. */
+        expect(deal(withBubbles(EMPTY_UNDERSTANDING, { dog: [] }))).toMatchObject({ group: "money", options: ["must", "seal"] });
+    });
+
+    it("on the summary, say the bubble ranks and the deal-breaker sets aside", () => {
+        const moderate = withBubbles(EMPTY_UNDERSTANDING, { environment: ["moderate"] });
+        const note = (u: Understanding) => summaryOf(u, "summary", cars()).bubbles!.find((item) => item.id === "environment")!.figureNote;
+
+        expect(note(moderate)).toBe("Lower CO₂ ranks higher; no car is set aside for it.");
+        expect(note(withDeals(moderate, ["co2"], { co2: "must" }))).toBe("Your deal-breaker sets aside every car above class C; among the rest, lower CO₂ ranks higher.");
+        expect(summaryOf(withBubbles(EMPTY_UNDERSTANDING, { budget: [] }), "summary", cars()).bubbles!.find((item) => item.id === "budget")!.figureNote).toBe(
+            "Using less for its kind ranks higher; no car is set aside for it.",
+        );
     });
 
     it("keeps only SUVs, or none, as the reader says", () => {
@@ -717,7 +745,7 @@ describe("questions in sections, and the changes to them", () => {
 
         expect(environment.ask).toBe("How green should the car be?");
         expect(environment.options.map((option) => option.label)).toEqual(["Clean for its fuel type", "Moderately green", "Totally green"]);
-        expect(environment.options[0]!.description).toMatch(/petrol and diesel too.*FINN Lens's benchmark for cars that run on the same thing\. A plug-in hybrid can't be judged on it\.$/);
+        expect(environment.options[0]!.description).toMatch(/petrol and diesel too.*FINN Lens's benchmark for cars that run on the same thing, and suggest “frugal for its kind” as a deal-breaker\. A plug-in hybrid can't be judged on it\. None of the cars here is frugal for its kind, so I won't offer it as a deal-breaker here\.$/);
         expect(environment.options[1]!.description).toMatch(/^Low CO₂ on the German label: class A to C, 115 g\/km or less\./);
         expect(environment.options[2]!.description).toMatch(/^Electric: FINN lists them in CO₂ class A, which on the German label is 0 g\/km\..*FINN's CO₂ figure says nothing about making the electricity\.$/);
     });
