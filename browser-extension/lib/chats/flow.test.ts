@@ -1480,3 +1480,27 @@ describe("dates as a rule", () => {
         expect(withDeals(flex, ["dates"], {}).rental).toMatchObject({ firm: false, flexMonths: 0 });
     });
 });
+
+describe("deal-breakers for what nearly every car has", () => {
+    const inventory = fleet();
+    const rows = (cars = inventory, u = EMPTY_UNDERSTANDING) => stepFor("deals", cars, u)!.deals!.map((row) => row.id);
+
+    it("aren't offered: rear doors are on 641 of FINN's 698 cars", () => {
+        expect(rows()).not.toContain("doors");
+    });
+
+    it("keep the gearbox, which an automatic-only licence can't do without however few manuals there are", () => {
+        expect(rows()).toContain("automatic");
+    });
+
+    it("stay where the reader has set one, so it can be undone", () => {
+        expect(rows(inventory, withDeals(EMPTY_UNDERSTANDING, ["doors"], { doors: "must" }))).toContain("doors");
+    });
+
+    it("come back on a page where enough cars go without", () => {
+        const twoDoor = inventory.filter((car) => readEvidence(car, "rearDoors") === "notListed").slice(0, 6);
+        const fourDoor = inventory.filter((car) => readEvidence(car, "rearDoors") === "listed").slice(0, 18);
+
+        expect(rows([...twoDoor, ...fourDoor])).toContain("doors");
+    });
+});

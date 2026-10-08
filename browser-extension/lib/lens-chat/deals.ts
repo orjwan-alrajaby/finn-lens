@@ -10,6 +10,9 @@ import { allowedByRules } from "./run";
 import { applyChoices, explain, guideSteps } from "./guide";
 import { ruledOut, type Need, type Rule, type Understanding } from "./understanding";
 
+/** Lens's "nearly every car": a share of the cars here past which something can't tell them apart. */
+const NEARLY_EVERY = 0.9;
+
 /** The fuels, as "What can it run on?" rules on them. */
 const FUEL_RULES = new Set<EvidenceId>(["electricCar", "petrolCar", "dieselCar", "plugInHybrid"]);
 
@@ -228,8 +231,25 @@ export function dealsHere(u: Understanding, cars: FinnCar[]): { deal: Deal; opti
         return listed > 0 && notListed + unknown > 0;
     };
 
+    /*
+     * Something nearly every car here has — rear doors on 641 of FINN's 698 —
+     * is no decision worth a row: ruling on it sets aside a handful, and
+     * sealing it can't tell the cars apart. Hidden, unless the reader has
+     * set it already (so they can undo it), or it's the gearbox: someone
+     * whose licence is automatic-only can't take a manual at all, however
+     * few there are.
+     */
+    const set = dealStates(u);
+    const nearlyEvery = (deal: Deal) => {
+        if (!cars.length || !deal.rule || deal.id === "automatic" || set[deal.id]) return false;
+
+        const { listed, notListed, total } = coverage(cars, deal.rule);
+        /* What a "must" keeps, or a "mustn't" sets aside: nearly all of them either way. */
+        return (deal.mustNot && !deal.must ? notListed : listed) / total >= NEARLY_EVERY;
+    };
+
     /* Electric or not is asked on its own now — "What can it run on?" — so it isn't a row here too. */
-    return DEALS.filter((deal) => deal.id !== "electric").map((deal) => ({
+    return DEALS.filter((deal) => deal.id !== "electric" && !nearlyEvery(deal)).map((deal) => ({
         deal,
         options:
             deal.id === "dates"
