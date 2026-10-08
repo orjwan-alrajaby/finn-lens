@@ -73,6 +73,18 @@ function bandOn(value: JudgedCar, priority: CategoryId): FitBand {
 }
 
 /**
+ * Who a row answers, where one reading counts for several things the reader
+ * said: "Counts for both “A greener car” and “Using little fuel”".
+ */
+export function saidFor(need: string, alsoFor: string[] = []): string {
+    if (!alsoFor.length) return `You said: ${need}`;
+
+    const all = [need, ...alsoFor].map((item) => `“${item}”`);
+
+    return all.length === 2 ? `Counts for both ${all[0]} and ${all[1]}` : `Counts for ${all.slice(0, -1).join(", ")} and ${all.at(-1)}`;
+}
+
+/**
  * A need judged on a figure: under the need the reader named, the figure
  * against its benchmark, as the playground's environmental section drew it —
  * the verdict in its colour, the bar, and why.
@@ -82,7 +94,7 @@ function FigureRow({ section, value }: { section: StorySection; value: JudgedCar
 
     return (
         <li className="rounded-xl bg-finn-snow p-3 ring-1 ring-black/[0.03]">
-            <p className="mb-2.5 text-[11px] text-finn-iron">You said: {figure.need}</p>
+            <p className="mb-2.5 text-[11px] text-finn-iron">{saidFor(figure.need, section.alsoFor)}</p>
             {figure.kind === "co2" ? (
                 <EnvironmentalResult assessment={assessEnvironment(value.car)} band={bandOn(value, "environmental")} />
             ) : (
@@ -102,7 +114,7 @@ export function StoryRow({ section, value }: { section: StorySection; value?: Ju
                 <ToneDot tone={section.tone} size="md" />
                 <div className="min-w-0 flex-1">
                     <p className="text-[13px] font-black leading-snug text-finn-black">{section.title}</p>
-                    <p className="text-[11px] text-finn-iron">You said: {section.short}</p>
+                    <p className="text-[11px] text-finn-iron">{saidFor(section.short, section.alsoFor)}</p>
                 </div>
             </div>
             <ul className="mt-2 space-y-1.5 pl-[34px]">
@@ -113,6 +125,9 @@ export function StoryRow({ section, value }: { section: StorySection; value?: Ju
                         </span>
                         <span className={line.tone === "note" ? "text-finn-iron" : ""}>
                             {line.text}
+                            {line.alsoFor?.length ? (
+                                <span className="mt-0.5 block text-[11px] text-finn-iron">Also counts for {line.alsoFor.map((need) => `“${need}”`).join(" and ")}</span>
+                            ) : null}
                             {line.sources?.length ? (
                                 <span className="mt-0.5 block text-[10.5px] text-finn-iron/70">
                                     Source{line.sources.length > 1 ? "s" : ""}:{" "}

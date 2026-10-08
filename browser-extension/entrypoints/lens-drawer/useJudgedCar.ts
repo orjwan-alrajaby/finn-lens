@@ -6,7 +6,7 @@ import { judgementAt, judgeWith, type Judged } from "@/lib/chats/judge";
 import { judgedCars, loadedCars } from "@/lib/chats/scope";
 import { loadChat } from "@/lib/chats/store";
 import type { Chat, Judgement, Verdict } from "@/lib/chats/types";
-import { tellFitStory, type FitStory } from "@/lib/lens-chat/fit-story";
+import { sayOnce, tellFitStory, type FitStory } from "@/lib/lens-chat/fit-story";
 import { whyNot, type WhyNot } from "@/lib/lens-chat/why-not";
 import type { PinnedFinnCar } from "@/lib/types";
 
@@ -85,7 +85,8 @@ export function useJudgedCar(chatId: string | null, carId: number | null, at: st
                         car,
                         verdict,
                         isWinner,
-                        story: ranked ? tellFitStory(run, judgement.understanding, translation.lessRelevant, null, carId) : null,
+                        /* Each reading once: a figure two needs judge on is drawn once, and says it counts for both. */
+                        story: ranked ? sayOnce(tellFitStory(run, judgement.understanding, translation.lessRelevant, null, carId)) : null,
                         versus: ranked && !isWinner ? whyNot(run, carId) : null,
                         cost: buildCostAnalysis(car, run.answers.preferences, breakdown),
                         missing,

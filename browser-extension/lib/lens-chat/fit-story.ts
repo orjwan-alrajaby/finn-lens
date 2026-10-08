@@ -58,6 +58,24 @@ export interface StoryLine {
     text: string;
     /** Where a figure or rule in it comes from, when it isn't FINN's. */
     sources?: Source[];
+    /**
+     * What the line reads off the car — an evidence id, or a figure's line
+     * ("co2#0") — so a reading two needs share is said once.
+     */
+    reads?: string;
+    /** Whether the car meets what the line reads: false where it falls short. */
+    met?: boolean | null;
+    /** A car within the reader's limits that has what this one lacks, said as a sentence. */
+    rival?: StoryRival;
+    /** The other needs this same reading counts for, where it's said once for all of them. */
+    alsoFor?: string[];
+}
+
+export interface StoryRival {
+    id: number;
+    name: string;
+    /** "MG ZS has it, at about €419/month — still within your maximum." */
+    text: string;
 }
 
 export interface StorySection {
@@ -79,6 +97,8 @@ export interface StorySection {
      * place of the lines, under the need the reader named.
      */
     figure?: { kind: "co2" | "efficiency"; need: string };
+    /** The other needs this whole row answers too, where it's said once for all of them. */
+    alsoFor?: string[];
 }
 
 export interface FitStory {
@@ -89,7 +109,7 @@ export interface FitStory {
     /** What the band means, in human terms. */
     bandMeaning: string;
     sections: StorySection[];
-    catch: { text: string; alternative: string | null } | null;
+    catch: { text: string; alternative: string | null; alternativeId?: number | null } | null;
     /** What Lens still needs to know, if the conversation left something open. */
     stillToKnow: WireQuestion | null;
 }
@@ -449,6 +469,30 @@ export function tellFitStory(
 
     const sections: StorySection[] = [];
 
+    const met = (car: PinnedFinnCar, entry: { id: EvidenceId; unwanted?: boolean }) =>
+        evidenceMet(car, entry.id, entry.unwanted ?? EVIDENCE[entry.id].undesirable === true);
+
+    /*
+     * Another car the reader could take that has what this one lacks: within
+     * their limits, the highest ranked, with its price and how it differs —
+     * so "a car here has it" comes with which one.
+     */
+    const rivalFor = (entry: { id: EvidenceId; unwanted?: boolean }): StoryRival | undefined => {
+        const car = recommendation.ranked.find((item) => item.id !== winner.id && isValid(run, item) && met(item, entry) === true);
+        if (!car) return undefined;
+
+        const unwanted = entry.unwanted ?? EVIDENCE[entry.id].undesirable === true;
+        const theirs = context.costs[car.id];
+        const shorter = lengthGap(car, winner, "this one");
+        const does = unwanted ? (isKind(entry.id) ? "isn't one" : "doesn't have it") : measuredDisplay(winner, entry.id) ? "does better on it" : "has it";
+
+        return {
+            id: car.id,
+            name: name(car),
+            text: `${name(car)} ${does}${theirs ? `, at about ${formatEUR(theirs.totalMonthly)}/month` : ""}${u.budget?.kind === "hardMax" ? " — still within your maximum" : ""}${shorter ? `, and it's ${shorter}` : ""}.`,
+        };
+    };
+
     /* -- The budget ------------------------------------------------------ */
 
     if (u.budget && cost) {
@@ -707,7 +751,13 @@ export function tellFitStory(
 
         const evidence = need.evidence.filter((entry) => !lessRelevant.includes(entry.id));
         const read = evidence
-            .map((entry) => ({ entry, line: evidenceLine(winner, entry, cars), share: share(entry) }))
+            .map((entry) => {
+                const has = met(winner, entry);
+                const rival = has === false ? rivalFor(entry) : undefined;
+                const line: StoryLine = { ...evidenceLine(winner, entry, cars), reads: entry.id, met: has, ...(rival ? { rival } : {}) };
+
+                return { entry, line, share: share(entry) };
+            })
             .sort((a, b) => orderOf[a.line.tone] - orderOf[b.line.tone] || a.share - b.share);
 
         /*
@@ -758,7 +808,9 @@ export function tellFitStory(
               ? efficiencyReading(winner, cars)
               : null;
 
-        if (emissions) lines.unshift(...emissions.lines);
+        /* Each of the figure's lines by its place, so a figure two needs judge on is said once. */
+        const figureKind = need.priorities.includes("environmental") ? "co2" : "efficiency";
+        if (emissions) lines.unshift(...emissions.lines.map((line, index) => ({ ...line, reads: `${figureKind}#${index}` })));
 
         /*
          * Only a bubble's own caveat — boot space, for lots to carry. What the
@@ -772,8 +824,6 @@ export function tellFitStory(
             lines.push({ tone: "note", text: "Lens has nothing on this car it can check for this, so it didn't count toward the ranking." });
         }
 
-        const met = (car: PinnedFinnCar, entry: { id: EvidenceId; unwanted?: boolean }) =>
-            evidenceMet(car, entry.id, entry.unwanted ?? EVIDENCE[entry.id].undesirable === true);
         const good = evidence.filter((entry) => met(winner, entry) === true);
         const missing = evidence.filter((entry) => met(winner, entry) === false);
 
@@ -793,7 +843,7 @@ export function tellFitStory(
         sections.push({
             key: need.id,
             said: need.said,
-            figure: byFigure ? { kind: need.priorities.includes("environmental") ? "co2" : "efficiency", need: need.label } : undefined,
+            figure: byFigure ? { kind: figureKind, need: need.label } : undefined,
             title: byFigure
                 ? byFigure.label
                 : sealed
@@ -879,7 +929,7 @@ export function tellFitStory(
         const gap = gaps[0];
 
         if (gap) {
-            const altCost = gap.alternative ? context.costs[gap.alternative.id] : null;
+            const rival = gap.alternative ? rivalFor(gap.entry) : undefined;
 
             catchNote = {
                 /* Named by the need's own label, so the sentence can't inherit a paraphrase's grammar. */
@@ -894,20 +944,21 @@ export function tellFitStory(
                          */
                         `${MEASURED_LEAD[gap.entry.id] ?? "It's"} ${measuredDisplay(winner, gap.entry.id)} — worth weighing for ${lower(gap.need.label)}.`
                       : `${absent(gap.entry.id)} — worth weighing for ${lower(gap.need.label)}.`,
-                alternative: gap.alternative
-                    ? `${name(gap.alternative)} ${gap.entry.unwanted ?? EVIDENCE[gap.entry.id].undesirable ? "isn't one" : measuredDisplay(winner, gap.entry.id) ? "does better on it" : "has it"}${altCost ? `, at about ${formatEUR(altCost.totalMonthly)}/month` : ""}${u.budget?.kind === "hardMax" ? " — still within your maximum" : ""}${
-                          lengthGap(gap.alternative, winner, "this one") ? `, and it's ${lengthGap(gap.alternative, winner, "this one")}` : ""
-                      }.`
+                alternative: rival
+                    ? rival.text
                     : single
                       ? null
                       : measuredDisplay(winner, gap.entry.id)
                         ? "None of the other cars that fit your constraints does better on it."
                         : "None of the other cars that fit your constraints lists it either.",
+                alternativeId: rival?.id ?? null,
             };
         }
 
-        if (!catchNote && narrative.tradeoffs[0]) {
-            catchNote = { text: narrative.tradeoffs[0].sentences[0] ?? narrative.tradeoffs[0].evidence, alternative: null };
+        /* The engine's trade-offs are the match's: another car's drawer doesn't borrow them. */
+        if (!catchNote && !other && narrative.tradeoffs[0]) {
+            const [tradeoff] = narrative.tradeoffs;
+            catchNote = { text: tradeoff.sentences[0] ?? tradeoff.evidence, alternative: null, alternativeId: tradeoff.rival?.vehicleId ?? null };
         }
     }
 
@@ -967,6 +1018,67 @@ export function tellFitStory(
         catch: catchNote,
         stillToKnow,
     };
+}
+
+const STRENGTH: Record<StorySection["importance"], number> = { constraint: 3, essential: 2, important: 1, niceToHave: 0 };
+
+/**
+ * The story with each reading said once.
+ *
+ * Two needs can be answered by the same thing: "a greener car" and "using
+ * little fuel" both by the fuel-use figure, "long distances" and "time in
+ * traffic" both by Level 2 driver assistance. Told under each, the same
+ * figure was drawn twice and the same line read twice, saying nothing new
+ * the second time. So it's said under the first need that reads it, and
+ * marked as counting for the others; a need left with nothing of its own is
+ * named there instead of being a row of its own.
+ */
+export function sayOnce(story: FitStory): FitStory {
+    const sections: StorySection[] = [];
+    /* Each reading, with the line that says it and the row that line is in. */
+    const said = new Map<string, { line: StoryLine; section: StorySection }>();
+
+    const credit = (kept: { line: StoryLine; section: StorySection }, need: string) => {
+        /* A figure's row is drawn as the figure, not as its lines: the row carries who else it counts for. */
+        const target = kept.section.figure ? kept.section : kept.line;
+        if (target.alsoFor?.includes(need) || (kept.section.figure?.need ?? kept.section.short) === need) return;
+        target.alsoFor = [...(target.alsoFor ?? []), need];
+    };
+
+    for (const section of story.sections) {
+        if (section.kind !== "need") {
+            sections.push(section);
+            continue;
+        }
+
+        const need = section.figure?.need ?? section.short;
+        const lines: StoryLine[] = [];
+        /* Named once in each row it shares with: a figure's three lines are one reading. */
+        const credited = new Set<StorySection>();
+
+        for (const line of section.lines) {
+            const kept = line.reads ? said.get(line.reads) : undefined;
+
+            if (kept) {
+                if (!credited.has(kept.section)) credit(kept, need);
+                credited.add(kept.section);
+                /* What matters more to the reader, in either need, is how much the reading counts. */
+                if (STRENGTH[section.importance] > STRENGTH[kept.section.importance]) kept.section.importance = section.importance;
+                continue;
+            }
+
+            lines.push({ ...line });
+        }
+
+        /* A figure's row is the figure: once any of it has been said, all of it has. */
+        if (!lines.length || (section.figure && lines.length < section.lines.length)) continue;
+
+        const kept: StorySection = { ...section, lines };
+        for (const line of lines) if (line.reads) said.set(line.reads, { line, section: kept });
+        sections.push(kept);
+    }
+
+    return { ...story, sections };
 }
 
 /** For the model: what each ranked car has for each of the person's needs. */
