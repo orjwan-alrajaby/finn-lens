@@ -100,7 +100,7 @@ const AS_NEED: Record<string, string> = { efficient: "efficiency-matters" };
  * automatic row set to "Must have", shown and changed there — a rule of its
  * own beside the row stayed in force when the row said "Doesn't matter".
  */
-const AS_RULE: Record<string, string> = { automatic: "automatic", "no-suv": "no-suv" };
+const AS_RULE: Record<string, string> = { automatic: "automatic", "suv-only": "suv-only", "no-suv": "no-suv" };
 
 /** The fuels "What can it run on?" sets aside for each typed wish: electric only, or anything but. */
 const AS_FUEL: Record<string, EvidenceId[]> = { electric: ["plugInHybrid", "petrolCar", "dieselCar"], "not-electric": ["electricCar"] };

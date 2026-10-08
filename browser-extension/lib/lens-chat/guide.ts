@@ -544,6 +544,7 @@ const RULES: GuideChoice[] = [
     { id: "electric-only", label: "Electric only", said: "It has to be electric.", rule: { id: "electricCar", mode: "must", label: "Electric" } },
     { id: "not-electric", label: "Not electric", said: "I don't want an electric car.", rule: { id: "electricCar", mode: "without", label: "Not electric" } },
     { id: "automatic", label: "Automatic only", said: "It has to be an automatic.", rule: { id: "hasAutomaticTransmission", mode: "must", label: "Automatic gearbox" } },
+    { id: "suv-only", label: "SUV only", said: "It has to be an SUV.", rule: { id: "suvBody", mode: "must", label: "SUV" } },
     { id: "no-suv", label: "No SUV", said: "I don't want an SUV.", rule: { id: "suvBody", mode: "without", label: "Not an SUV" } },
     { id: "must-tow", label: "Must tow", said: "It has to be able to tow.", rule: { id: "hasTowbar", mode: "must", label: "Towbar" } },
     { id: "six-seats", label: "Six seats or more", said: "I need six seats or more.", rule: { id: "seatsSixPlus", mode: "must", label: "Six or more seats" } },

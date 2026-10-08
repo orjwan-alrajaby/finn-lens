@@ -142,6 +142,8 @@ export const DEALS: Deal[] = [
         label: "SUV",
         kind: true,
         group: "car",
+        /* Wanted or not, either way a rule: Lens reads body type, it doesn't score it. */
+        must: "suv-only",
         mustNot: "no-suv",
         description: "Cars FINN files as SUVs: FINN's body type, not a measurement.",
     },
@@ -215,7 +217,7 @@ export const stateLabel = (deal: Pick<Deal, "kind">, state: DealState): string =
  * limit" needs a limit, and not one the budget bubble already said how firm
  * it is.
  */
-export function dealsHere(u: Understanding, cars: FinnCar[]): { deal: Deal; options: DealState[]; noSeal?: string }[] {
+export function dealsHere(u: Understanding, cars: FinnCar[]): { deal: Deal; options: DealState[]; note?: string }[] {
     const rules = new Set((guideSteps(cars).find((step) => step.id === "rules")?.choices ?? []).map((choice) => choice.id));
     const ruleHere = (id?: string) => Boolean(id) && (id === "firm-budget" ? Boolean(u.budget) && !u.bubbles?.budget?.chips.length : rules.has(id!));
     /* The cars what it can run on leaves in, since that's asked first: a figure is judged among them. */
@@ -246,15 +248,22 @@ export function dealsHere(u: Understanding, cars: FinnCar[]): { deal: Deal; opti
      * sealing it can't tell the cars apart. Hidden, unless the reader has
      * set it already (so they can undo it), or it's the gearbox: someone
      * whose licence is automatic-only can't take a manual at all, however
-     * few there are.
+     * few there are. Judged among the cars what it runs on leaves: low CO₂
+     * beside electric only is every car left. A row with both sides — an
+     * SUV, or not — is a choice whichever way most cars here go.
      */
     const nearlyEvery = (deal: Deal) => {
-        if (!cars.length || !deal.rule || deal.id === "automatic" || set[deal.id]) return false;
+        if (!fuelled.length || !deal.rule || deal.id === "automatic" || set[deal.id] || (deal.must && deal.mustNot)) return false;
 
-        const { listed, notListed, total } = coverage(cars, deal.rule);
+        const { listed, notListed, total } = coverage(fuelled, deal.rule);
         /* What a "must" keeps, or a "mustn't" sets aside: nearly all of them either way. */
-        return (deal.mustNot && !deal.must ? notListed : listed) / total >= NEARLY_EVERY;
+        return (deal.mustNot ? notListed : listed) / total >= NEARLY_EVERY;
     };
+    /* Why a row's "Must have" isn't there: none of the cars here would be left. */
+    const noMust = (deal: Deal): string | null =>
+        deal.must && deal.rule && coverage(cars, deal.rule).listed === 0
+            ? `None of the cars here ${deal.kind ? "is" : "has"} ${deal.phrase}, so “${stateLabel(deal, "must")}” would set every car aside.`
+            : null;
 
     /* Electric or not is asked on its own now — "What can it run on?" — so it isn't a row here too. */
     return DEALS.filter((deal) => deal.id !== "electric" && !nearlyEvery(deal))
@@ -268,7 +277,12 @@ export function dealsHere(u: Understanding, cars: FinnCar[]): { deal: Deal; opti
                           (state): state is DealState => state != null,
                       );
 
-            return { deal, options, ...(options.length && !options.includes("seal") ? { noSeal: noSeal(deal) } : {}) };
+            const notes = [
+                deal.must && !options.includes("must") ? noMust(deal) : null,
+                options.length && !options.includes("seal") ? noSeal(deal) : null,
+            ].filter((note): note is string => Boolean(note));
+
+            return { deal, options, ...(notes.length ? { note: notes.join(" ") } : {}) };
         })
         .filter((row) => row.options.length > 0);
 }

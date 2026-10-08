@@ -306,10 +306,34 @@ describe("deal-breakers and deal-sealers", () => {
         /* What Lens can only rule on can't seal the deal, and says so. */
         /* Electric or not is "What can it run on?" now, not a row. */
         expect(row(chat, "electric")).toBeUndefined();
-        expect(row(chat, "suv")).toMatchObject({ label: "SUV", options: ["mustNot"] });
+        /* Wanted or not: "Must be" and "Mustn't be" an SUV, both rules. */
+        expect(row(chat, "suv")).toMatchObject({ label: "SUV", options: ["must", "mustNot"] });
         expect(row(chat, "suv")?.description).toMatch(/I can only rule on this, not weigh it — so it can't seal the deal\.$/);
         expect(row(chat, "automatic")?.options).toEqual(["must", "seal"]);
         expect(row(chat, "co2")).toMatchObject({ label: "Low CO₂ emissions", options: ["must", "seal"] });
+    });
+
+    it("says why “Must be” is missing where no car here would be left", () => {
+        const page = fleet().sort((a, b) => a.id - b.id).slice(300, 324);
+        const frugal = stepFor("deals", page, EMPTY_UNDERSTANDING)!.deals!.find((item) => item.id === "frugal")!;
+
+        expect(frugal.options).toEqual(["seal"]);
+        expect(frugal.description).toMatch(/None of the cars here is frugal for its kind, so “Must be” would set every car aside\.$/);
+    });
+
+    it("leaves out low CO₂ where only electric cars are left: every one is class A", () => {
+        const page = fleet().sort((a, b) => a.id - b.id).slice(0, 48);
+        const u = { ...EMPTY_UNDERSTANDING, needs: [{ id: "fuel", label: "What it runs on", importance: "essential", said: "", priorities: [], evidence: (["petrolCar", "dieselCar", "plugInHybrid"] as const).map((id) => ({ id, use: "", unwanted: true, mustHave: false })), notInData: null, status: "active" }] } as unknown as Understanding;
+
+        expect(stepFor("deals", page, EMPTY_UNDERSTANDING)!.deals!.some((item) => item.id === "co2")).toBe(true);
+        expect(stepFor("deals", page, u)!.deals!.some((item) => item.id === "co2")).toBe(false);
+    });
+
+    it("keeps only SUVs, or none, as the reader says", () => {
+        const suv = (state: "must" | "mustNot") => ruledOut(withDeals(EMPTY_UNDERSTANDING, ["suv"], { suv: state }));
+
+        expect(suv("must")).toEqual([expect.objectContaining({ id: "suvBody", mode: "must" })]);
+        expect(suv("mustNot")).toEqual([expect.objectContaining({ id: "suvBody", mode: "without" })]);
     });
 
     it("sets cars aside for a deal-breaker, and counts a deal-sealer as a top priority without setting any aside", () => {
