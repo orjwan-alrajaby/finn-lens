@@ -1679,6 +1679,17 @@ function answerStep(
             return { chat: askNext(touch(base, [reader(tapped)], { queue: ["period", "from"], revising: true, kept: null }), cars), after: "wait" };
         }
 
+        /* The nearest dates a car here can be had for, as offered: those exact dates, still a rule. */
+        const [kind, from, to] = (choice ?? "").split(":");
+
+        if (kind === "nearest" && from && to) {
+            const rental = base.understanding.rental;
+            const period = `${monthLabel(from)} to ${monthLabel(to)}`;
+            const understanding = { ...base.understanding, rental: { ...rental, from, to, firm: true, flexMonths: 0, said: period, startDay: from === rental.from ? rental.startDay : null } };
+
+            return { chat: touch(base, [reader(tapped), lens(`${period}, then. Judging again…`)], { understanding, phase: "ready" }), after: "judge" };
+        }
+
         /* Kept: no car here can be had, so there's no pick here — rather than one they can't have. */
         return {
             chat: touch(

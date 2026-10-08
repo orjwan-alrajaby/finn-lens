@@ -136,6 +136,61 @@ export function fitContract(
     return exact;
 }
 
+/**
+ * How far, in months moved at either end, Lens looks for dates a car here
+ * can be had for: far enough to bring the longest period Lens accepts down
+ * to a 12-month term, with room to move its start.
+ */
+const NEAREST_REACH = 36;
+
+export interface NearestPeriod extends RentalPeriod {
+    /** The cars that can be rented for it, on its exact dates. */
+    ids: number[];
+    /** Months its start is from the reader's: +2 two months later. */
+    startMoved: number;
+}
+
+/**
+ * When no car fits the reader's period: the nearest one some car here does
+ * fit, on its exact dates. Nearest is the fewest months moved at the start
+ * and the end together — 36 months asked of cars whose longest term is 24
+ * keeps the start and ends a year sooner — with the start moved least, then
+ * the shorter period, first among equals. Null without a period, or when no
+ * car fits anything within reach.
+ */
+export function nearestPeriod(vehicles: Pick<PinnedFinnCar, "id" | "contract">[], preferences: LensPreferences): NearestPeriod | null {
+    const asked = rentalPeriodOf(preferences);
+
+    if (!asked) return null;
+
+    for (const [start, end] of movesNearestFirst()) {
+        const from = addMonths(asked.from, start);
+        const to = addMonths(asked.to, end);
+        const months = monthsInclusive(from, to);
+
+        if (months < 1 || months > MAX_RENTAL_MONTHS) continue;
+
+        const moved = { ...preferences, rentalFrom: from, rentalTo: to, rentalFlexMonths: 0 };
+        const ids = vehicles.filter((vehicle) => fitExactly(vehicle, moved).status === "fits").map((vehicle) => vehicle.id);
+
+        if (ids.length) return { from, to, months, ids, startMoved: start };
+    }
+
+    return null;
+}
+
+/** [months the start moves, months the end moves], nearest first: the start moved least, then the end earlier. */
+function* movesNearestFirst(): Generator<[number, number]> {
+    /* `n` then `-n`, or 0 once. */
+    const either = (n: number) => (n ? [n, -n] : [0]);
+
+    for (let distance = 1; distance <= NEAREST_REACH; distance += 1) {
+        for (let startMoved = 0; startMoved <= distance; startMoved += 1) {
+            for (const start of either(startMoved)) for (const end of either(startMoved - distance)) yield [start, end];
+        }
+    }
+}
+
 /** The fit on exactly the reader's dates. */
 function fitExactly(
     vehicle: Pick<PinnedFinnCar, "contract">,

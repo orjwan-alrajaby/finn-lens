@@ -1569,19 +1569,32 @@ describe("dates as a rule", () => {
         expect(cost.caveats[0]).toMatch(/^Not on your exact dates: it can be rented a month later, December 2026 to November 2027, which you said is fine\./);
     });
 
-    it("asks before any result when no car here can be had — and keeping the dates means no pick, not one they can't have", () => {
+    it("asks before any result when no car here can be had, offering the nearest dates one can — and keeping the dates means no pick, not one they can't have", () => {
         const u = dated("2027-06", true);
         const judged = judgeWith(u, page(), "cars")!;
         const chat = { ...startChat(null, page(), TODAY), understanding: u, queue: [], phase: "ready" as const };
         const ask = askBeforeResult(chat, judged.run, "d1", "")!;
 
         expect(judged.run.offDates?.nothingLeft).toBe(true);
-        expect(ask.step).toMatchObject({ id: "datesOff", ask: "No car here can be rented for June 2027 to May 2028. Would a month earlier or later work?", none: "Keep my dates" });
+        expect(ask.step).toMatchObject({
+            id: "datesOff",
+            ask: "No car here can be rented for June 2027 to May 2028. The nearest dates any car here can be rented for are March 2027 to February 2028. What would you like to do?",
+            none: "Keep my dates",
+        });
+        /* A month either way would find nothing here, so it isn't offered. */
+        expect(ask.step.choices).toEqual([
+            { id: "nearest:2027-03:2028-02", label: "Make it March 2027 to February 2028", said: "March 2027 to February 2028 works.", description: "Starts 3 months earlier, same length. 1 car here can be rented then." },
+            { id: "change", label: "Change my dates", said: "I'd like to change my dates." },
+        ]);
 
         const asked = { ...chat, messages: [...chat.messages, ask] };
-        const flex = answer(asked, "d1", ["flex"], page(), TODAY);
-        expect(flex.after).toBe("judge");
-        expect(flex.chat.understanding.rental).toMatchObject({ firm: true, flexMonths: 1 });
+        const nearest = answer(asked, "d1", ["nearest:2027-03:2028-02"], page(), TODAY);
+        expect(nearest.after).toBe("judge");
+        expect(nearest.chat.understanding.rental).toMatchObject({ from: "2027-03", to: "2028-02", firm: true, flexMonths: 0 });
+        expect(texts(nearest.chat).at(-1)).toBe("March 2027 to February 2028, then. Judging again…");
+        const again = judgeWith(nearest.chat.understanding, page(), "cars")!;
+        expect(again.run.offDates?.nothingLeft).toBe(false);
+        expect(again.run.recommendation.winner.id).toBe(page()[3]!.id);
 
         const keep = answer(asked, "d1", [], page(), TODAY);
         expect(keep.after).toBe("wait");
@@ -1589,6 +1602,31 @@ describe("dates as a rule", () => {
 
         const change = answer(asked, "d1", ["change"], page(), TODAY);
         expect(openAsk(change.chat)?.step.id).toBe("period");
+    });
+
+    it("asks about a month either way when that would find a car, rather than offering the same move twice", () => {
+        const u = dated("2027-04", true);
+        const judged = judgeWith(u, page(), "cars")!;
+        const chat = { ...startChat(null, page(), TODAY), understanding: u, queue: [], phase: "ready" as const };
+        const ask = askBeforeResult(chat, judged.run, "d1", "")!;
+
+        expect(ask.step.ask).toBe("No car here can be rented for April 2027 to March 2028. The nearest dates any car here can be rented for are March 2027 to February 2028. Would a month earlier or later work?");
+        expect(ask.step.choices.map((choice) => choice.id)).toEqual(["flex", "change"]);
+
+        const flex = answer({ ...chat, messages: [...chat.messages, ask] }, "d1", ["flex"], page(), TODAY);
+        expect(flex.after).toBe("judge");
+        expect(flex.chat.understanding.rental).toMatchObject({ firm: true, flexMonths: 1 });
+    });
+
+    it("offers a shorter period, with the same start, when the one asked for is longer than any term here", () => {
+        const u = { ...dated("2026-12", true), rental: { ...dated("2026-12", true).rental!, to: "2029-11" } };
+        const judged = judgeWith(u, page(), "cars")!;
+        const chat = { ...startChat(null, page(), TODAY), understanding: u, queue: [], phase: "ready" as const };
+        const ask = askBeforeResult(chat, judged.run, "d1", "")!;
+
+        expect(ask.step.ask).toBe("No car here can be rented for December 2026 to November 2029. The nearest dates any car here can be rented for are December 2026 to November 2027. What would you like to do?");
+        expect(ask.step.choices[0]).toMatchObject({ id: "nearest:2026-12:2027-11", description: "Same start, 12 months instead of 36. 2 cars here can be rented then." });
+        expect(ask.step.choices.map((choice) => choice.id)).not.toContain("flex");
     });
 
     it("is offered as a deal-breaker once there are dates: my dates only, or a month either way", () => {

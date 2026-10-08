@@ -5,7 +5,7 @@ import { extractAvailability, extractContract, extractPricing } from "@/lib/help
 
 import { buildAdviceNarrative, buildRecommendation, migratePreferences } from "./index";
 import { calculateCost, buildCostAnalysis } from "./cost";
-import { fitContract, monthsInclusive } from "./contract";
+import { fitContract, monthsInclusive, nearestPeriod } from "./contract";
 import { makeCar, prefs } from "./test-fixtures";
 import type { CategoryId } from "./types";
 
@@ -263,5 +263,25 @@ describe("the rental period as a hard rule", () => {
         expect(result.winner.id).toBe(7);
         expect(note).toMatch(/over your €700 limit, and it only offers terms up to 6 months/);
         expect(note).toMatch(/Fair Long is the strongest car here that fits both\.$/);
+    });
+});
+
+describe("the nearest dates a car here can be had for", () => {
+    /* Delivered in November only, on 12- and 24-month terms. */
+    const november = (id: number) => withTerms(makeCar({ id }), [12, 24].map((months) => term(months, { deliveryFrom: "2026-11-01", deliveryTo: "2026-11-30", deviationWeeks: 0 })));
+
+    it("keeps the start and ends sooner when the period is longer than any term", () => {
+        const cars = [november(1), november(2)];
+
+        expect(nearestPeriod(cars, prefs({ rentalFrom: "2026-11", rentalTo: "2029-10" }))).toEqual({ from: "2026-11", to: "2028-10", months: 24, ids: [1, 2], startMoved: 0 });
+    });
+
+    it("moves as few months as it can: starting earlier and keeping the end beats moving the whole year", () => {
+        expect(nearestPeriod([november(1)], prefs({ rentalFrom: "2027-01", rentalTo: "2027-12" }))).toMatchObject({ from: "2026-11", to: "2027-12", months: 14, startMoved: -2 });
+    });
+
+    it("says nothing without a period, or when no car's terms come within reach", () => {
+        expect(nearestPeriod([november(1)], prefs({}))).toBeNull();
+        expect(nearestPeriod([withTerms(makeCar({ id: 1 }), [])], prefs({ rentalFrom: "2026-11", rentalTo: "2027-10" }))).toBeNull();
     });
 });

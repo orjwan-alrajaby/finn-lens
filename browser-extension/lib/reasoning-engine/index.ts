@@ -81,10 +81,13 @@ export {
   addMonths,
   fitContract,
   monthLabel,
+  monthsInclusive,
+  nearestPeriod,
   periodLabel,
   rentalPeriodOf,
   describeRentalProblem,
   type ContractFit,
+  type NearestPeriod,
   type RentalPeriod,
 } from "./contract";
 

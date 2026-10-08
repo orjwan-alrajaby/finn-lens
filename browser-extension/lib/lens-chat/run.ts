@@ -3,6 +3,9 @@ import {
     buildAdviceNarrative,
     buildRecommendation,
     describeRentalProblem,
+    fitContract,
+    nearestPeriod,
+    type NearestPeriod,
 } from "@/lib/reasoning-engine";
 import { bandForScore } from "@/lib/reasoning-engine/bands";
 import { pickEligible } from "@/lib/reasoning-engine/decision";
@@ -72,9 +75,10 @@ export interface LensRun {
      * Cars set aside because they can't be had for the reader's dates, held
      * as a rule — `unconfirmed` where FINN's data can't say. `nothingLeft`
      * when no car here can be: then nothing is set aside, and the reader is
-     * asked before any result.
+     * asked before any result — with the `nearest` dates some car here can
+     * be had for, and whether a month either way (`aMonthOut`) would find one.
      */
-    offDates: { ids: number[]; unconfirmed: number[]; nothingLeft: boolean } | null;
+    offDates: { ids: number[]; unconfirmed: number[]; nothingLeft: boolean; nearest?: NearestPeriod | null; aMonthOut?: boolean } | null;
     /** "Comparing 12 cars on this page". */
     scopeHeadline: string;
     answers: Answers;
@@ -164,7 +168,13 @@ export function runLens(
         const unconfirmed = off.filter((car) => costs[car.id]?.contract.status !== "doesNotFit").map((car) => car.id);
 
         if (off.length === pool.length) {
-            offDates = { ids: off.map((car) => car.id), unconfirmed, nothingLeft: true };
+            offDates = {
+                ids: off.map((car) => car.id),
+                unconfirmed,
+                nothingLeft: true,
+                nearest: nearestPeriod(pool, answers.preferences),
+                aMonthOut: pool.some((car) => fitContract(car, { ...answers.preferences, rentalFlexMonths: 1 }).status === "fits"),
+            };
         } else if (off.length) {
             pool = pool.filter((car) => !off.includes(car));
             recommendation = rank(pool) ?? recommendation;

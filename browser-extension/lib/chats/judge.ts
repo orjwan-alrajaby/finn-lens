@@ -1,4 +1,4 @@
-import { buildRecommendation, describeRentalProblem, formatEUR, monthLabel } from "@/lib/reasoning-engine";
+import { buildRecommendation, describeRentalProblem, formatEUR, monthLabel, monthsInclusive, type NearestPeriod } from "@/lib/reasoning-engine";
 import { calculateCost, missingPiece } from "@/lib/reasoning-engine/cost";
 import type { Answers } from "@/lib/reasoning-engine/answers";
 import { bandForScore } from "@/lib/reasoning-engine/bands";
@@ -435,7 +435,8 @@ export function askBeforeResult(from: Chat, run: LensRun, id: string, at: string
 /**
  * No car here can be had for the reader's dates, which they made a rule: a
  * car they can't have is no pick, so the question comes before any result —
- * a month either way (if they haven't said so already), other dates, or
+ * the nearest dates a car here can be had for, a month either way (where
+ * that would find one and they haven't said so already), other dates, or
  * keep these and have no pick here.
  */
 export function datesAsk(run: LensRun, u: Understanding, id: string, at: string): Extract<ChatMessage, { kind: "ask" }> | null {
@@ -443,6 +444,11 @@ export function datesAsk(run: LensRun, u: Understanding, id: string, at: string)
 
     const flexed = (u.rental.flexMonths ?? 0) > 0;
     const dates = `${monthLabel(u.rental.from)} to ${monthLabel(u.rental.to)}`;
+    const offerFlex = !flexed && run.offDates.aMonthOut !== false;
+    const nearest = run.offDates.nearest ?? null;
+    /* A month later or earlier on the same length is what "a month either way" already offers. */
+    const sameAsFlex = nearest && offerFlex && Math.abs(nearest.startMoved) === 1 && nearest.months === monthsInclusive(u.rental.from, u.rental.to);
+    const nearestLabel = nearest ? `${monthLabel(nearest.from)} to ${monthLabel(nearest.to)}` : "";
 
     return {
         id,
@@ -452,16 +458,41 @@ export function datesAsk(run: LensRun, u: Understanding, id: string, at: string)
         answered: false,
         step: {
             id: "datesOff",
-            ask: flexed ? `No car here can be rented within a month of ${dates}. What would you like to do?` : `No car here can be rented for ${dates}. Would a month earlier or later work?`,
+            ask: [
+                `No car here can be rented ${flexed ? "within a month of" : "for"} ${dates}.`,
+                nearest ? `The nearest dates any car here can be rented for are ${nearestLabel}.` : "",
+                offerFlex && (!nearest || sameAsFlex) ? "Would a month earlier or later work?" : "What would you like to do?",
+            ]
+                .filter(Boolean)
+                .join(" "),
             why: "A car you can't have for your dates isn't a pick, so I'm asking before showing one.",
             multiple: false,
             choices: [
-                ...(flexed ? [] : [{ id: "flex", label: "A month either way is fine", said: "A month either way is fine." }]),
+                ...(nearest && !sameAsFlex
+                    ? [
+                          {
+                              id: `nearest:${nearest.from}:${nearest.to}`,
+                              label: `Make it ${nearestLabel}`,
+                              said: `${nearestLabel} works.`,
+                              description: `${howMoved(nearest, monthsInclusive(u.rental.from, u.rental.to))} ${nearest.ids.length} ${nearest.ids.length === 1 ? "car" : "cars"} here can be rented then.`,
+                          },
+                      ]
+                    : []),
+                ...(offerFlex ? [{ id: "flex", label: "A month either way is fine", said: "A month either way is fine." }] : []),
                 { id: "change", label: "Change my dates", said: "I'd like to change my dates." },
             ],
             none: "Keep my dates",
         },
     };
+}
+
+/** "Same start, 24 months instead of 36." */
+function howMoved(nearest: NearestPeriod, asked: number): string {
+    const by = Math.abs(nearest.startMoved);
+    const start = nearest.startMoved ? `Starts ${by} ${by === 1 ? "month" : "months"} ${nearest.startMoved > 0 ? "later" : "earlier"}` : "Same start";
+    const length = nearest.months === asked ? "same length" : `${nearest.months} months instead of ${asked}`;
+
+    return `${start}, ${length}.`;
 }
 
 /** The fuels, as "What can it run on?" sets them aside. */
