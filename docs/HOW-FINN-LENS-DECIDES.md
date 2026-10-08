@@ -494,9 +494,23 @@ keeps whichever they chose.
   before the limit is applied, each saying why from FINN's terms. A car the reader can't have is never the pick.
 - **A month either way**: the same, but a car also counts if it fits with the start a month later or earlier
   (`rentalFlexMonths`, `fitContract`), and its cost says it isn't the exact dates.
-- **No car here can be had**: Lens asks before showing any result (`datesAsk`, judge.ts) — a month either way,
-  change the dates, or keep them. Keeping them means **no pick on this page**, said plainly, rather than a car
-  they can't have.
+- **No car here can be had**: Lens asks before showing any result (`datesAsk`, judge.ts). Keeping the dates
+  means **no pick on this page**, said plainly, rather than a car they can't have. The choices:
+  - **The nearest dates a car here can be had for** (`nearestPeriod`, contract.ts). On the first 24 cars of the
+    fleet snapshot: "No car here can be rented for December 2026 to November 2029. The nearest dates any car
+    here can be rented for are November 2026 to October 2028." — offered as "Make it November 2026 to October
+    2028", saying how it differs and how many cars fit: "Starts 1 month earlier, 24 months instead of 36. 4
+    cars here can be rented then." (None of them can start in December on a 24-month term.) Found by trying periods
+    against each car's own FINN terms and delivery windows, with the same check as the dates themselves, so
+    every date offered has a car behind it. **Nearest** is the fewest months moved at the start and the end
+    together, up to 36 (§14); among equals, the start moved least, then the shorter period. So a period
+    longer than any term keeps its start and ends sooner, and a start no car can make moves the start and
+    keeps the end where a term covers it ("Starts 2 months earlier, 14 months instead of 12"). Taking it sets
+    those exact dates, still as a rule, and judges again. Not offered when nothing is found within reach.
+  - **A month either way** — only where it would find a car (`aMonthOut`, run.ts), and only if the reader
+    hasn't already said so. When the nearest dates are just that (the start a month out, the same length), the
+    nearest isn't offered as well: the question is the month either way.
+  - **Change my dates**, or **keep them**.
 
 ---
 
@@ -636,6 +650,7 @@ Numbers with no source to take them from. Each is labelled where it's shown.
 | Measurement anchors | §6 | Size, range, charging | Set from FINN's fleet distribution |
 | Standard-equipment line | 90% of FINN's cars | §5.2 | Re-checked against the fleet on every calibration run |
 | Assessed share | 50% of a priority's weight known | §5.1 | Lens's design |
+| How far Lens looks for the nearest dates | 36 months moved at the start and end together (`NEAREST_REACH`); the start moved least, then the shorter period, among equals | §9.5 | Lens's design: enough to bring the longest period Lens accepts (48 months) down to a 12-month term, with room to move its start |
 
 ---
 
@@ -653,6 +668,7 @@ Numbers with no source to take them from. Each is labelled where it's shown.
 | Recommending warmth for rain alone | **No** | Rain asks for lights and wipers, not heat. |
 | Scoring boot space | **Off** | FINN's figure mixes seats-up and seats-folded. |
 | "Starred because studies say…" style claims without a link | **No** | Every non-FINN claim is named and linked, or not made. |
+| Offering "a month either way" whenever no car fits the dates | **Only where it finds a car** | Asked for 36 months of cars whose longest term is 24, it could never help, and led to a second "no car here" with nothing more to offer. The nearest dates a car here can be had for are offered instead (§9.5). |
 
 ---
 
