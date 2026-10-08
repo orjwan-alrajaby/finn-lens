@@ -745,8 +745,10 @@ describe("questions in sections, and the changes to them", () => {
 
 describe("comforts recommended by earlier answers", () => {
     it("puts the recommended ones first, each saying why, and picks none of them", () => {
-        let chat = startChat(null, cars(), TODAY);
-        for (const picks of [[], ["long", "traffic"], ["weekly"], ["medium"], ["weather", "weather:snow"]]) chat = answer(chat, openAsk(chat)!.id, picks, cars(), TODAY).chat;
+        /* A page where each of them is on some cars and not others. */
+        const page = fleet().sort((a, b) => a.id - b.id).slice(0, 40);
+        let chat = startChat(null, page, TODAY);
+        for (const picks of [[], ["long", "traffic"], ["weekly"], ["medium"], ["weather", "weather:snow"]]) chat = answer(chat, openAsk(chat)!.id, picks, page, TODAY).chat;
 
         const ask = openAsk(chat)!;
         const comfort = ask.step.bubbleChips!.comfort!.options;
@@ -758,6 +760,27 @@ describe("comforts recommended by earlier answers", () => {
         expect(comfort.find((option) => option.id === "wheel")?.recommended).toBe("Recommended because you said winters bring snow and ice, and you spend a lot of time on the road.");
         expect(comfort.find((option) => option.id === "sunroof")?.recommended).toBeUndefined();
         expect(ask.step.selected).toEqual([]);
+    });
+
+    it("aren't recommended where they can't tell the cars here apart, and say why", () => {
+        const inventory = fleet();
+        const has = (id: Parameters<typeof readEvidence>[1]) => inventory.filter((car) => readEvidence(car, id) === "listed");
+        const lacks = (id: Parameters<typeof readEvidence>[1]) => inventory.filter((car) => readEvidence(car, id) === "notListed");
+        const u = withBubbles(EMPTY_UNDERSTANDING, { weather: ["snow"], long: [] });
+        const option = (cars: typeof inventory, id: string) => stepFor("bubbles-matters", cars, u)!.bubbleChips!.comfort!.options.find((item) => item.id === id)!;
+
+        /* A heated wheel on every car here: snow and ice would recommend it anywhere else. */
+        const everyOne = option(has("hasHeatedSteeringWheel").slice(0, 12), "wheel");
+        expect(everyOne.recommended).toBeUndefined();
+        expect(everyOne.description).toBe("A heated steering wheel. Nearly every car here has it, so it won't set the cars apart.");
+
+        const noOne = option(lacks("hasHeatedSteeringWheel").slice(0, 12), "wheel");
+        expect(noOne.recommended).toBeUndefined();
+        expect(noOne.description).toBe("A heated steering wheel. None of the cars here list it.");
+
+        const some = option([...has("hasHeatedSteeringWheel").slice(0, 6), ...lacks("hasHeatedSteeringWheel").slice(0, 6)], "wheel");
+        expect(some.recommended).toMatch(/^Recommended because you said winters bring snow and ice/);
+        expect(some.description).toBe("A heated steering wheel.");
     });
 });
 

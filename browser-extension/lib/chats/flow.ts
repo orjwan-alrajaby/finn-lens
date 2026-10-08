@@ -369,6 +369,22 @@ function standardHere(id: EvidenceId, cars: FinnCar[]): string | undefined {
     return standardOnPage([id], cars) === "fewer" ? `On ${coverage(cars, id).listed} of the ${cars.length} cars here.` : undefined;
 }
 
+/**
+ * What a chip's equipment comes to on this page, where it can't tell the
+ * cars apart: none of them lists it, or nearly every one does. Picking it is
+ * still the reader's to make — it's what they want — but Lens says so, and
+ * doesn't recommend it.
+ */
+function chipHere(counts: EvidenceId[], cars: FinnCar[]): string | null {
+    if (!cars.length || !counts.length) return null;
+
+    const one = counts.length === 1;
+    if (counts.every((id) => coverage(cars, id).listed === 0)) return `None of the cars here list ${one ? "it" : "them"}.`;
+    if (counts.every((id) => onNearlyEvery(cars, id))) return `Nearly every car here has ${one ? "it" : "them"}, so ${one ? "it won't" : "they won't"} set the cars apart.`;
+
+    return null;
+}
+
 function bubblesStep(group?: (typeof BUBBLE_GROUPS)[number], u: Understanding = EMPTY_UNDERSTANDING, cars: FinnCar[] = []): ChatStep {
     const bubbles = group ? BUBBLES.filter((bubble) => group.bubbles.includes(bubble.id)) : BUBBLES;
 
@@ -407,8 +423,16 @@ function bubblesStep(group?: (typeof BUBBLE_GROUPS)[number], u: Understanding = 
                         /* What earlier answers recommend comes first, saying why — never picked for the reader. */
                         options: bubble.chips!.options
                             .map(({ id, label, description, counts, sources }) => {
-                                const recommended = (counts ?? []).map((item) => recommendedBecause(item, u, bubble.id)).find(Boolean);
-                                return { id, label, description, ...(recommended ? { recommended } : {}), ...(sources ? { sources } : {}) };
+                                const here = chipHere(counts ?? [], cars);
+                                /* Never recommended where it can't tell the cars here apart. */
+                                const recommended = here ? undefined : (counts ?? []).map((item) => recommendedBecause(item, u, bubble.id)).find(Boolean);
+                                return {
+                                    id,
+                                    label,
+                                    description: here && description ? `${description} ${here}` : (description ?? here ?? undefined),
+                                    ...(recommended ? { recommended } : {}),
+                                    ...(sources ? { sources } : {}),
+                                };
                             })
                             .sort((a, b) => Number(Boolean(b.recommended)) - Number(Boolean(a.recommended))),
                     },
