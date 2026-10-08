@@ -1,5 +1,5 @@
 import type { NeedImportance } from "@/lib/lens-ai/contract";
-import { EVIDENCE, type EvidenceId } from "@/lib/lens-chat/evidence";
+import { EVIDENCE, NEARLY_EVERY, type EvidenceId } from "@/lib/lens-chat/evidence";
 import { explain } from "@/lib/lens-chat/guide";
 import type { Understanding } from "@/lib/lens-chat/understanding";
 
@@ -253,9 +253,6 @@ export const WORTH_A_LOOK: Record<string, { id: EvidenceId; why: string }[]> = {
     ],
 };
 
-/** Equipment this common can't tell the cars apart, and so isn't worth a question. */
-const TOO_COMMON = 0.85;
-
 /**
  * What to offer: for the reader's needs, most important first, equipment
  * from that need's list that some cars here list and others don't — the only
@@ -284,7 +281,7 @@ export function worthALook(
 
             const { listed, total } = count(id);
 
-            if (!total || listed === 0 || listed / total > TOO_COMMON) continue;
+            if (!total || listed === 0 || listed / total >= NEARLY_EVERY) continue;
 
             taken.add(id);
             offers.push({ id, needId: need.id, why });

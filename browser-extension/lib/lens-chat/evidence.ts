@@ -470,6 +470,14 @@ export function measuredDisplay(car: FinnCar, id: EvidenceId): string | null {
     return null;
 }
 
+/**
+ * Lens's "nearly every car": something listed on at least this share of the
+ * cars in hand can't tell them apart. It's the one line everywhere — what's
+ * offered, suggested, asked about or given as a reason, and the only place
+ * the chat says "nearly every car".
+ */
+export const NEARLY_EVERY = 0.9;
+
 export interface Coverage {
     id: EvidenceId;
     listed: number;
@@ -490,6 +498,18 @@ export function coverage(cars: FinnCar[], id: EvidenceId): Coverage {
     }
 
     return result;
+}
+
+/** Whether it's listed on nearly every one of these cars. */
+export function onNearlyEvery(cars: FinnCar[], id: EvidenceId): boolean {
+    const { listed, total } = coverage(cars, id);
+    return total > 0 && listed / total >= NEARLY_EVERY;
+}
+
+/** Whether it can tell these cars apart: listed on some, and not on nearly every one. */
+export function setsApart(cars: FinnCar[], id: EvidenceId): boolean {
+    const { listed, total } = coverage(cars, id);
+    return listed > 0 && listed / total < NEARLY_EVERY;
 }
 
 /** The catalogue as the model sees it: what each piece is, and how common it is here. */

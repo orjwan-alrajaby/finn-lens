@@ -5,13 +5,10 @@ import type { FinnCar } from "@/lib/types";
 
 import { assessEnvironment, efficiencyScore } from "@/lib/reasoning-engine/environmental";
 
-import { barePhrase, coverage, EVIDENCE, type EvidenceId } from "./evidence";
+import { barePhrase, coverage, EVIDENCE, NEARLY_EVERY, type EvidenceId } from "./evidence";
 import { allowedByRules } from "./run";
 import { applyChoices, explain, guideSteps } from "./guide";
 import { ruledOut, type Need, type Rule, type Understanding } from "./understanding";
-
-/** Lens's "nearly every car": a share of the cars here past which something can't tell them apart. */
-const NEARLY_EVERY = 0.9;
 
 /** The fuels, as "What can it run on?" rules on them. */
 const FUEL_RULES = new Set<EvidenceId>(["electricCar", "petrolCar", "dieselCar", "plugInHybrid"]);

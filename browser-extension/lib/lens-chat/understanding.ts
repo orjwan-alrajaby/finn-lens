@@ -20,7 +20,7 @@ import type {
 import type { Answers } from "@/lib/reasoning-engine/answers";
 import type { FinnCar } from "@/lib/types";
 
-import { AMBIGUOUS_FIGURES, coverage, EVIDENCE, isEvidenceId, withoutLabel, type EvidenceId } from "./evidence";
+import { AMBIGUOUS_FIGURES, coverage, EVIDENCE, isEvidenceId, setsApart, withoutLabel, type EvidenceId } from "./evidence";
 
 /** A quantity in a use clause: "four seats", "2 USB ports". */
 const COUNTS = /\d|\b(one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve)\b/i;
@@ -28,10 +28,10 @@ const COUNTS = /\d|\b(one|two|three|four|five|six|seven|eight|nine|ten|eleven|tw
 /** A message that says anything about money: a figure, a currency, or the words for it. */
 const MONEY = /\d|€|\beur(o|os)?\b|budget|spend|afford|pay\b|paying|cost|price|cheap|expensive|money|\bmax(imum)?\b|limit|stretch|a month\b|monthly/i;
 
-/** Evidence on at least this share of the cars in scope can't tell them apart. */
-const UNIVERSAL_SHARE = 0.9;
-
-/** A question's answer has to turn on evidence no more common than this. */
+/**
+ * A question's answer has to turn on evidence no more common than this —
+ * stricter than NEARLY_EVERY, since a question holds up the comparison.
+ */
 const QUESTION_SPLIT = 0.85;
 
 /**
@@ -451,9 +451,7 @@ export function readSuggestions(
 
             if (cars.length < 2) return true;
 
-            const { listed, total } = coverage(cars, item.id);
-
-            return listed > 0 && listed / total < UNIVERSAL_SHARE;
+            return setsApart(cars, item.id);
         })
         .slice(0, 2);
 }

@@ -11,7 +11,7 @@ import type { WireQuestion } from "@/lib/lens-ai/contract";
 import { carLabel } from "@/lib/lens-ai/outcome";
 import type { PinnedFinnCar } from "@/lib/types";
 
-import { AMBIGUOUS_FIGURES, asPhrase, isKind, barePhrase, EVIDENCE, evidenceMet, measuredDisplay, readEvidence, type EvidenceId } from "./evidence";
+import { AMBIGUOUS_FIGURES, asPhrase, isKind, barePhrase, EVIDENCE, evidenceMet, measuredDisplay, NEARLY_EVERY, readEvidence, type EvidenceId } from "./evidence";
 import { lengthAmong, lengthGap, parkingContext, widthContext } from "./dimensions";
 
 /** How a measured figure is introduced, and what to say when FINN has none. */
@@ -134,9 +134,6 @@ function absent(id: EvidenceId): string {
 
     return isStatedFact(id as SignalId) ? `It doesn't have ${named}` : `FINN doesn't list ${named} for this car`;
 }
-
-/** Equipment on at least this share of the cars in scope can't be why one of them was chosen. */
-const COMMON_SHARE = 0.9;
 
 const joinNames = (names: string[]): string =>
     names.length <= 1 ? (names[0] ?? "") : `${names.slice(0, -1).join(", ")} and ${names.at(-1)}`;
@@ -725,7 +722,7 @@ export function tellFitStory(
             ? read.filter(
                   (item) =>
                       item.line.tone === "good" &&
-                      item.share / cars.length >= COMMON_SHARE &&
+                      item.share / cars.length >= NEARLY_EVERY &&
                       /* A rule's own evidence is on every car left because of the rule. */
                       !item.entry.unwanted &&
                       !item.entry.mustHave &&

@@ -3,8 +3,9 @@ import { describe, expect, it } from "vitest";
 import { chatAnswers } from "@/lib/chats/judge";
 import { CATEGORIES } from "@/lib/reasoning-engine/constants";
 
-import { BUBBLES, bubbleById, EMPTY_BUBBLE, importanceOf, itemsOf, needOf, OFTEN, recommendedBecause, suggestedRules, withBubbles, withBubbleState, withItem, withoutItem } from "./bubbles";
-import { EVIDENCE, type EvidenceId } from "./evidence";
+import { BUBBLES, bubbleById, EMPTY_BUBBLE, importanceOf, itemsOf, needOf, OFTEN, recommendedBecause, suggestedRules, withBubbles, withBubbleState, withItem, withoutItem, worthHere } from "./bubbles";
+import { EVIDENCE, NEARLY_EVERY, readEvidence, type EvidenceId } from "./evidence";
+import { fleet } from "@/lib/reasoning-engine/test-data/fleet";
 import { EMPTY_UNDERSTANDING, ruledOut } from "./understanding";
 import { applyChoices, guideSteps } from "./guide";
 
@@ -276,5 +277,28 @@ describe("overlaps, handled quietly", () => {
 
         expect(u.bubbles?.weather?.chips).toEqual(["snow", "cold"]);
         expect(items.filter((id) => id === "hasHeatedSeats")).toHaveLength(1);
+    });
+});
+
+describe("suggestions for this page", () => {
+    const inventory = fleet();
+    /* A page of `have` cars listing it and `without` that FINN says don't. */
+    const page = (id: EvidenceId, have: number, without: number) => [
+        ...inventory.filter((car) => readEvidence(car, id) === "listed").slice(0, have),
+        ...inventory.filter((car) => readEvidence(car, id) === "notListed").slice(0, without),
+    ];
+
+    it("aren't made for what nearly every car here has: adding it would move nothing", () => {
+        expect(22 / 24).toBeGreaterThanOrEqual(NEARLY_EVERY);
+        expect(worthHere(["hasElectricTailgate"], page("hasElectricTailgate", 22, 2))).toEqual([]);
+        expect(worthHere(["hasElectricTailgate"], page("hasElectricTailgate", 21, 3))).toEqual(["hasElectricTailgate"]);
+    });
+
+    it("nor for what none of them has", () => {
+        expect(worthHere(["hasElectricTailgate"], page("hasElectricTailgate", 0, 24))).toEqual([]);
+    });
+
+    it("are all shown with no cars in hand", () => {
+        expect(worthHere(["hasElectricTailgate"], [])).toEqual(["hasElectricTailgate"]);
     });
 });

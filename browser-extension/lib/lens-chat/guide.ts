@@ -5,7 +5,7 @@ import type { CategoryId } from "@/lib/reasoning-engine/types";
 import type { NeedImportance } from "@/lib/lens-ai/contract";
 import type { FinnCar } from "@/lib/types";
 
-import { coverage, EVIDENCE, listedUpTo, withoutLabel, type EvidenceId } from "./evidence";
+import { coverage, EVIDENCE, listedUpTo, setsApart, withoutLabel, type EvidenceId } from "./evidence";
 import { LENGTH_ANCHORS, WIDTH_ANCHORS } from "@/lib/reasoning-engine/evidence";
 import type { LensRun } from "./run";
 import { budgetCeiling, type Need, type Understanding } from "./understanding";
@@ -806,9 +806,6 @@ export function saidFor(step: GuideStep, chosen: string[]): string {
 /* What else is worth knowing about these cars                                */
 /* -------------------------------------------------------------------------- */
 
-/** Equipment this common tells the cars apart too weakly to be worth a question. */
-const TOO_COMMON = 0.85;
-
 export interface GuideOffer {
     id: EvidenceId;
     why: string;
@@ -847,10 +844,7 @@ export function offersFor(u: Understanding, cars: FinnCar[], limit = 2): GuideOf
                 if (offers.length >= limit) return offers;
                 if (niche.has(id) || taken.has(id) || u.declined.includes(id) || !EVIDENCE[id]?.raisable) continue;
 
-                const counts = coverage(cars, id);
-                const share = counts.total ? counts.listed / counts.total : 0;
-
-                if (counts.listed === 0 || share > TOO_COMMON) continue;
+                if (!setsApart(cars, id)) continue;
 
                 taken.add(id);
                 offers.push({

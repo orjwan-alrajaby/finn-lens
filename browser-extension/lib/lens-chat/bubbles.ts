@@ -3,7 +3,7 @@ import { SOURCES, type Source } from "@/lib/sources";
 import type { CategoryId, FeatureImportance } from "@/lib/reasoning-engine/types";
 import type { FinnCar } from "@/lib/types";
 
-import { coverage, EVIDENCE, type EvidenceId } from "./evidence";
+import { EVIDENCE, setsApart, type EvidenceId } from "./evidence";
 import { explain } from "./guide";
 import { ruledOut, type BubbleState, type Need, type Understanding } from "./understanding";
 
@@ -970,14 +970,13 @@ export function withItem(u: Understanding, id: BubbleId, item: EvidenceId): Unde
 }
 
 /**
- * Suggestions worth showing for these cars: something they differ on. With
- * no cars in hand every one is shown, and the judgement narrows later.
+ * Suggestions worth showing for these cars: something they differ on — not
+ * on none of them, and not on nearly every one, where adding it would move
+ * nothing. With no cars in hand every one is shown, and the judgement
+ * narrows later.
  */
 export function worthHere(ids: EvidenceId[], cars: FinnCar[]): EvidenceId[] {
     if (!cars.length) return ids;
 
-    return ids.filter((id) => {
-        const { listed, notListed, unknown } = coverage(cars, id);
-        return listed > 0 && notListed + unknown > 0;
-    });
+    return ids.filter((id) => setsApart(cars, id));
 }
