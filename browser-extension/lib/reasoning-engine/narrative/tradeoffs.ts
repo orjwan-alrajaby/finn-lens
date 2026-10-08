@@ -453,7 +453,8 @@ function costTradeoff(
         `${buys.join("; and ")} — which is what put this car ahead of it`,
       )
     : sentence(
-        `Nothing you ranked separates the two by much, so that extra`,
+        /* "Ranked" only to a reader who ranked: a chat's reader named needs. */
+        `Nothing you ${rankedByReader(context) ? "ranked" : "asked for"} separates the two by much, so that extra`,
         `${formatEUR(difference)} a month isn't buying you anything you told Lens you wanted`,
       );
 
