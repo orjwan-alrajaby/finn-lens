@@ -67,7 +67,7 @@ describe("the winner's drawer", () => {
         const words = text(renderToStaticMarkup(createElement(WinnerView, { value: winner(), print: true })));
         const weighed = words.slice(words.indexOf("How I weighed it"));
 
-        expect(weighed).toMatch(/What counted, strongest first, and each one's part of the decision\. You have kids · a baby or toddler seat Top priority \d+% Looked at: Rear doors/);
+        expect(weighed).toMatch(/What counted, by the questions I asked — the biggest part of the decision first\. Who rides with you (\d+)% You have kids · a baby or toddler seat Top priority \1% Looked at: Rear doors/);
         expect(weighed).not.toMatch(/counts \d+%|\b(Highly|Moderately|Somewhat)\b|Practicality|Climate Suitability/);
         /* And the car's total, out of 100, with its band and where the bands start. */
         expect(weighed).toMatch(/Total: this car scored (\d+) out of 100 (Strong|Good|Partial|Limited) match \1\/100 How it did on each of the above, by their share\. Strong match from 65, Good from 45, Partial from 25\./);

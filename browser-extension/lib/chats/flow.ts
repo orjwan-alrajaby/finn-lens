@@ -116,10 +116,7 @@ const saidAnything = (u: Understanding) => bubblesIn(u).length > 0 || lifeNeeds(
 const CHANGEABLE: StepId[] = [...BUBBLE_STEPS, "budget", "period", "from", "distance", "fuel", "deals"];
 
 const CHANGE_LABEL: Partial<Record<StepId, string>> = {
-    "bubbles-people": "Who rides with you",
-    "bubbles-driving": "Where and how you drive",
-    "bubbles-copes": "What the car copes with",
-    "bubbles-matters": "What else matters",
+    ...Object.fromEntries(BUBBLE_GROUPS.map((group) => [`bubbles-${group.id}`, group.title])),
     from: "When you need it from",
     fuel: "What it runs on",
     deals: "Deal-breakers & sealers",

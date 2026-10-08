@@ -5,7 +5,7 @@ import { ImportanceBadge } from "@/components/ImportanceKey";
 import { BandChip, CarPhoto, euros } from "@/components/lens-parts";
 import { configurationName } from "@/lib/car-labels";
 import { IMPORTANCE_LABEL, summaryOf } from "@/lib/chats/flow";
-import { weighingOf, type Weighing } from "@/lib/chats/weighing";
+import { weighingOf, type GroupedNeed, type Weighing } from "@/lib/chats/weighing";
 import { fitFor } from "@/lib/reasoning-engine";
 import { GOOD_FROM, PARTIAL_FROM, STRONG_FROM } from "@/lib/reasoning-engine/bands";
 import { requestOpenDrawer } from "@/lib/chats/bridge";
@@ -279,29 +279,42 @@ function worthIntro(items: Shortfall[]): string {
 }
 
 /**
- * How the pick was weighed, in the reader's terms: each thing they said,
- * strongest first, with how much it counted, its share of the decision as a
- * bar, and what Lens looked at for it; then what set cars aside, and the
- * money and dates. One scale — the one they set — and no percentages.
+ * How the pick was weighed, in the reader's terms: the questions the chat
+ * asked, the one that took most of the decision first, each with its share
+ * as a bar; under each, what the reader said, how much it counted and what
+ * Lens looked at for it; then what set cars aside, and the money and dates.
+ * One scale — the one they set.
  */
 function Weighed({ weighing, total, bandLabel }: { weighing: Weighing; total: number; bandLabel: string }) {
     return (
         <div className="space-y-4">
-            {weighing.needs.length ? (
+            {weighing.groups.length ? (
                 <div>
-                    <p className="mb-2 text-[12px] leading-snug text-finn-iron">What counted, strongest first, and each one's part of the decision.</p>
-                    <ul className="space-y-3">
-                        {weighing.needs.map((need) => (
-                            <li key={need.id}>
+                    <p className="mb-2 text-[12px] leading-snug text-finn-iron">What counted, by the questions I asked — the biggest part of the decision first.</p>
+                    <ul className="space-y-2.5">
+                        {weighing.groups.map((group) => (
+                            <li key={group.id} className="rounded-xl p-3 ring-1 ring-finn-cotton">
                                 <div className="flex items-baseline justify-between gap-2">
-                                    <p className="min-w-0 text-[12.5px] font-bold leading-snug text-finn-black">{need.label}</p>
-                                    <span className="shrink-0 rounded-full bg-finn-pale-blue px-2 py-0.5 text-[10.5px] font-black text-finn-accent-blue">{IMPORTANCE_LABEL[need.importance]}</span>
+                                    <p className="min-w-0 text-[13px] font-black leading-snug text-finn-black">{group.title}</p>
+                                    <span className="shrink-0 text-[12.5px] font-black tabular-nums text-finn-black">{group.percent}%</span>
                                 </div>
-                                <div className="mt-1 flex items-center gap-2">
-                                    <Pips percent={need.percent} />
-                                    <span className="text-[12px] font-black tabular-nums text-finn-black">{need.percent}%</span>
+                                <div className="mt-1">
+                                    <Pips percent={group.percent} />
                                 </div>
-                                {need.looksAt.length ? <p className="mt-0.5 text-[11.5px] leading-snug text-finn-iron">Looked at: {need.looksAt.join(" · ")}</p> : null}
+                                <ul className="mt-2.5 space-y-2 border-t border-finn-cotton pt-2.5">
+                                    {group.needs.map((need) => (
+                                        <li key={need.id}>
+                                            <div className="flex items-baseline justify-between gap-2">
+                                                <p className="min-w-0 text-[12.5px] font-bold leading-snug text-finn-black">{need.label}</p>
+                                                <span className="shrink-0 text-[11.5px] tabular-nums text-finn-iron">
+                                                    <span className="mr-1.5 rounded-full bg-finn-pale-blue px-2 py-0.5 text-[10.5px] font-black text-finn-accent-blue">{IMPORTANCE_LABEL[need.importance]}</span>
+                                                    {need.percent}%
+                                                </span>
+                                            </div>
+                                            {need.looksAt.length || need.sharedWith.length ? <p className="mt-0.5 text-[11.5px] leading-snug text-finn-iron">Looked at: {lookedAt(need)}</p> : null}
+                                        </li>
+                                    ))}
+                                </ul>
                             </li>
                         ))}
                     </ul>
@@ -356,6 +369,17 @@ function Weighed({ weighing, total, bandLabel }: { weighing: Weighing; total: nu
             ) : null}
         </div>
     );
+}
+
+/**
+ * What a need looked at, with anything a need above it looked at too named
+ * once, by that need: "Level 2 driver assistance, as for “You drive long
+ * distances”".
+ */
+function lookedAt(need: GroupedNeed): string {
+    const shared = need.sharedWith.map((entry) => `${entry.items.join(" · ")}, as for “${entry.need}”`);
+
+    return [need.looksAt.join(" · "), ...shared].filter(Boolean).join("; and ");
 }
 
 /** A share as ten short segments, one per 10% — at least one lit, so nothing that counted reads as nothing. */

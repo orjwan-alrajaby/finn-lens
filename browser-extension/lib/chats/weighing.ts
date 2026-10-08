@@ -1,4 +1,5 @@
 import type { NeedImportance } from "@/lib/lens-ai/contract";
+import { BUBBLE_GROUPS, bubbleById, groupOf } from "@/lib/lens-chat/bubbles";
 import { NEED_WEIGHT, type Understanding } from "@/lib/lens-chat/understanding";
 
 import type { ChatMessage } from "./types";
@@ -18,6 +19,12 @@ import type { ChatMessage } from "./types";
  * NEED_WEIGHT) over the weights of everything that counted: exactly what the
  * engine is given (`priorityShares`), summed per need rather than per
  * priority.
+ *
+ * The needs are grouped as the chat asked about them — who rides with you,
+ * where and how you drive, … — each group with the needs' shares added up,
+ * so the reader sees which part of what they told Lens took most of the
+ * decision. Something two needs both looked at is listed under the first and
+ * named as shared under the other, not listed twice.
  */
 
 type Summary = Extract<ChatMessage, { kind: "summary" }>;
@@ -32,10 +39,28 @@ export interface WeighedNeed {
     percent: number;
     /** What Lens looked at for it, by name. */
     looksAt: string[];
+    /** The question it answers, as the chat asked it. */
+    group: { id: string; title: string };
+}
+
+/** A need as "How I weighed it" shows it in its group: what it looked at that no need above did, and what it shares with one. */
+export interface GroupedNeed extends WeighedNeed {
+    sharedWith: { need: string; items: string[] }[];
+}
+
+export interface WeighedGroup {
+    id: string;
+    title: string;
+    /** Its needs' shares added up; all the groups add up to 1, and their percentages to exactly 100. */
+    share: number;
+    percent: number;
+    needs: GroupedNeed[];
 }
 
 export interface Weighing {
     needs: WeighedNeed[];
+    /** The same needs by the question they answer, the group with the biggest part of the decision first. */
+    groups: WeighedGroup[];
     /** What set cars aside before anything was scored: "Runs on — Electric or plug-in hybrid". Empty when nothing did. */
     setAside: { label: string; value: string }[];
     /** The money and the dates, as the summary says them. */
@@ -64,6 +89,19 @@ export function wholePercents(shares: number[]): number[] {
     return floors;
 }
 
+/** Where a need that didn't come from a bubble sits: what the reader typed, and the deal-sealers. */
+const OWN_WORDS = { id: "own", title: "In your own words" };
+const SEALERS = { id: "sealers", title: "Deal-sealers" };
+/* The order the chat asks in, for groups that count the same. */
+const ASKED = [...BUBBLE_GROUPS.map((group) => group.id as string), OWN_WORDS.id, SEALERS.id];
+
+function questionOf(bubbleId: string): { id: string; title: string } {
+    const bubble = bubbleById(bubbleId);
+    const group = bubble ? BUBBLE_GROUPS.find((item) => item.id === groupOf(bubble.id)) : undefined;
+
+    return group ? { id: group.id, title: group.title } : OWN_WORDS;
+}
+
 export function weighingOf(u: Understanding, summary: Summary): Weighing {
     const counted: Omit<WeighedNeed, "share" | "percent">[] = [
         ...(summary.bubbles ?? [])
@@ -73,12 +111,13 @@ export function weighingOf(u: Understanding, summary: Summary): Weighing {
                 label: bubble.heading,
                 importance: bubble.importance,
                 looksAt: [...(bubble.figure ? [bubble.figure] : []), ...bubble.counts.map((item) => item.label), ...(bubble.shared ?? []).map((item) => item.label)],
+                group: questionOf(bubble.id),
             })),
-        ...(summary.needs ?? []).map((need) => ({ id: need.id, label: need.label, importance: need.importance, looksAt: need.looksFor })),
+        ...(summary.needs ?? []).map((need) => ({ id: need.id, label: need.label, importance: need.importance, looksAt: need.looksFor, group: OWN_WORDS })),
         /* Deal-sealers: a top priority each, counting the one thing that seals it. */
         ...u.needs
             .filter((need) => need.status === "active" && need.id.startsWith("sealer-"))
-            .map((need) => ({ id: need.id, label: `${need.label} would seal it`, importance: need.importance, looksAt: [need.label] })),
+            .map((need) => ({ id: need.id, label: `${need.label} would seal it`, importance: need.importance, looksAt: [need.label], group: SEALERS })),
     ];
     const total = counted.reduce((sum, need) => sum + NEED_WEIGHT[need.importance], 0);
 
@@ -98,5 +137,51 @@ export function weighingOf(u: Understanding, summary: Summary): Weighing {
         (item) => ["budget", "period", "from", "distance"].includes(item.step ?? "") && !(u.budget?.firm && item.label === "Monthly limit") && !(u.rental?.firm && item.label === "For"),
     );
 
-    return { needs, setAside: setAside.map(({ label, value }) => ({ label, value })), terms: terms.map(({ label, value }) => ({ label, value })) };
+    return { needs, groups: grouped(needs), setAside: setAside.map(({ label, value }) => ({ label, value })), terms: terms.map(({ label, value }) => ({ label, value })) };
+}
+
+/**
+ * The needs by the question they answer, each group's share the sum of its
+ * needs' — so its percentage is theirs added up, and the groups' come to 100
+ * as the needs' do. Biggest first; groups that count the same, in the order
+ * the chat asks them.
+ */
+function grouped(needs: WeighedNeed[]): WeighedGroup[] {
+    const groups = new Map<string, WeighedGroup>();
+
+    for (const need of needs) {
+        const group = groups.get(need.group.id) ?? { ...need.group, share: 0, percent: 0, needs: [] };
+
+        group.share += need.share;
+        group.percent += need.percent;
+        group.needs.push({ ...need, sharedWith: [] });
+        groups.set(need.group.id, group);
+    }
+
+    const ordered = [...groups.values()].sort((a, b) => b.share - a.share || ASKED.indexOf(a.id) - ASKED.indexOf(b.id));
+
+    /* Each thing looked at under the first need to look at it, in the order they're shown; later ones say they share it. */
+    const firstLooked = new Map<string, string>();
+
+    for (const need of ordered.flatMap((group) => group.needs)) {
+        const own: string[] = [];
+
+        for (const item of need.looksAt) {
+            const first = firstLooked.get(item);
+
+            if (!first) {
+                firstLooked.set(item, need.label);
+                own.push(item);
+                continue;
+            }
+
+            const shared = need.sharedWith.find((entry) => entry.need === first);
+            if (shared) shared.items.push(item);
+            else need.sharedWith.push({ need: first, items: [item] });
+        }
+
+        need.looksAt = own;
+    }
+
+    return ordered;
 }

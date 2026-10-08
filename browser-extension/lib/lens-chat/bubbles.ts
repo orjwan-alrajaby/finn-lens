@@ -619,9 +619,11 @@ export type BubbleGroupId = "people" | "driving" | "copes" | "matters";
  * drive, what the car has to cope with, and what else matters. Each is a
  * short screen of its own rather than thirteen bubbles at once.
  */
-export const BUBBLE_GROUPS: { id: BubbleGroupId; ask: string; why: string; none: string; bubbles: BubbleId[] }[] = [
+/** Each question, with `title` its name wherever it's referred to after it's asked: "Who rides with you". */
+export const BUBBLE_GROUPS: { id: BubbleGroupId; title: string; ask: string; why: string; none: string; bubbles: BubbleId[] }[] = [
     {
         id: "people",
+        title: "Who rides with you",
         ask: "First, who rides with you?",
         why: "Children in child seats, older passengers and a dog each need different things from a car. The “i” on each says what I'd check.",
         none: "Just me",
@@ -629,6 +631,7 @@ export const BUBBLE_GROUPS: { id: BubbleGroupId; ask: string; why: string; none:
     },
     {
         id: "driving",
+        title: "Where and how you drive",
         ask: "Where and how do you drive?",
         why: "Tap what's a regular part of your driving. City streets, traffic, long drives and dark roads each call for different help.",
         none: "Nothing in particular",
@@ -636,6 +639,7 @@ export const BUBBLE_GROUPS: { id: BubbleGroupId; ask: string; why: string; none:
     },
     {
         id: "copes",
+        title: "What the car copes with",
         ask: "What does the car have to cope with?",
         why: "The weather and what you carry each need their own equipment.",
         none: "Nothing out of the ordinary",
@@ -643,6 +647,7 @@ export const BUBBLE_GROUPS: { id: BubbleGroupId; ask: string; why: string; none:
     },
     {
         id: "matters",
+        title: "What else matters",
         ask: "What else matters to you?",
         why: "Each adds what I check — or, for CO₂ and a budget, a figure each car is judged on.",
         none: "Nothing else",
