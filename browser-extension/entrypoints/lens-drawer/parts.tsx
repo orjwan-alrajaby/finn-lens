@@ -11,7 +11,7 @@ import { assessEnvironment } from "@/lib/reasoning-engine/environmental";
 import { FIT_BANDS, type FitBand, type FitLevel } from "@/lib/reasoning-engine/fit";
 import type { CategoryId } from "@/lib/reasoning-engine/types";
 import type { CostAnalysis } from "@/lib/reasoning-engine/types";
-import type { FitStory, StorySection, Tone } from "@/lib/lens-chat/fit-story";
+import type { FitStory, StoryLine, StorySection, Tone } from "@/lib/lens-chat/fit-story";
 
 import type { JudgedCar } from "./useJudgedCar";
 
@@ -106,8 +106,11 @@ function FigureRow({ section, value }: { section: StorySection; value: JudgedCar
     );
 }
 
-/** One thing the reader asked for, and what this car does about it. */
-export function StoryRow({ section, value }: { section: StorySection; value?: JudgedCar }) {
+/**
+ * One thing the reader asked for, and what this car does about it. With
+ * `rivals`, a line it falls short on names the car here that has it.
+ */
+export function StoryRow({ section, value, rivals = false, print = false }: { section: StorySection; value?: JudgedCar; rivals?: boolean; print?: boolean }) {
     if (section.figure && value) return <FigureRow section={section} value={value} />;
 
     return (
@@ -119,35 +122,48 @@ export function StoryRow({ section, value }: { section: StorySection; value?: Ju
                     <p className="text-[11px] text-finn-iron">{saidFor(section.short, section.alsoFor)}</p>
                 </div>
             </div>
-            <ul className="mt-2 space-y-1.5 pl-[34px]">
-                {section.lines.map((line, index) => (
-                    <li key={index} className="flex items-start gap-2 text-[12.5px] leading-snug text-finn-black">
-                        <span className="mt-px">
-                            <ToneDot tone={line.tone} />
-                        </span>
-                        <span className={line.tone === "note" ? "text-finn-iron" : ""}>
-                            {line.text}
-                            {line.alsoFor?.length ? (
-                                <span className="mt-0.5 block text-[11px] text-finn-iron">Also counts for {line.alsoFor.map((need) => `“${need}”`).join(" and ")}</span>
-                            ) : null}
-                            {line.sources?.length ? (
-                                <span className="mt-0.5 block text-[10.5px] text-finn-iron/70">
-                                    Source{line.sources.length > 1 ? "s" : ""}:{" "}
-                                    {line.sources.map((source, index) => (
-                                        <span key={source.url}>
-                                            {index ? " · " : ""}
-                                            <a href={source.url} target="_blank" rel="noreferrer" className="text-finn-iron/80 underline decoration-finn-iron/30 underline-offset-2 hover:text-finn-accent-blue hover:decoration-finn-accent-blue/50">
-                                                {source.name}
-                                            </a>
-                                        </span>
-                                    ))}
-                                </span>
-                            ) : null}
-                        </span>
-                    </li>
-                ))}
-            </ul>
+            <StoryLines lines={section.lines} value={rivals ? value : undefined} print={print} className="mt-2 pl-[34px]" />
         </li>
+    );
+}
+
+/** What a row says, line by line: each with its tone, who else it counts for, its sources — and, given `value`, the car that has what this one lacks. */
+export function StoryLines({ lines, value, print = false, className = "" }: { lines: StoryLine[]; value?: JudgedCar; print?: boolean; className?: string }) {
+    return (
+        <ul className={`space-y-1.5 ${className}`}>
+            {lines.map((line, index) => (
+                <li key={index} className="flex items-start gap-2 text-[12.5px] leading-snug text-finn-black">
+                    <span className="mt-px">
+                        <ToneDot tone={line.tone} />
+                    </span>
+                    <span className={line.tone === "note" ? "text-finn-iron" : ""}>
+                        {line.text}
+                        {line.alsoFor?.length ? (
+                            <span className="mt-0.5 block text-[11px] text-finn-iron">Also counts for {line.alsoFor.map((need) => `“${need}”`).join(" and ")}</span>
+                        ) : null}
+                        {line.sources?.length ? (
+                            <span className="mt-0.5 block text-[10.5px] text-finn-iron/70">
+                                Source{line.sources.length > 1 ? "s" : ""}:{" "}
+                                {line.sources.map((source, index) => (
+                                    <span key={source.url}>
+                                        {index ? " · " : ""}
+                                        <a href={source.url} target="_blank" rel="noreferrer" className="text-finn-iron/80 underline decoration-finn-iron/30 underline-offset-2 hover:text-finn-accent-blue hover:decoration-finn-accent-blue/50">
+                                            {source.name}
+                                        </a>
+                                    </span>
+                                ))}
+                            </span>
+                        ) : null}
+                        {value && line.rival ? (
+                            <>
+                                <span className="mt-1 block text-finn-black">{line.rival.text}</span>
+                                <LocateCar id={line.rival.id} name={line.rival.name} value={value} print={print} />
+                            </>
+                        ) : null}
+                    </span>
+                </li>
+            ))}
+        </ul>
     );
 }
 
@@ -193,8 +209,22 @@ export function Catch({ story }: { story: FitStory }) {
     );
 }
 
-/** Wherever the drawer names another car: a button that finds it on FINN's page. */
-export function LocateCar({ id, name, size = "text" }: { id: number; name: string; size?: "sm" | "text" }) {
+/**
+ * Wherever the drawer names another car: a button that finds it on FINN's
+ * page — or, in the PDF, where there's no page to scroll, a link to the car
+ * on FINN, where Lens has its address.
+ */
+export function LocateCar({ id, name, size = "text", value, print = false }: { id: number; name: string; size?: "sm" | "text"; value?: JudgedCar; print?: boolean }) {
+    if (print) {
+        const url = value?.judgement.urls[id];
+
+        return url && size === "text" ? (
+            <a href={url} className="mt-1 block text-[11.5px] font-bold text-finn-accent-blue">
+                See the {name} on FINN
+            </a>
+        ) : null;
+    }
+
     return <LocateButton name={name} size={size} label={size === "text" ? `Show the ${name}` : undefined} onLocate={() => requestShowCar(id)} />;
 }
 

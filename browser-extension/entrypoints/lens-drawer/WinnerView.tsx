@@ -1,6 +1,7 @@
 import { useMemo } from "react";
-import { ChevronRight, Scale, Trophy } from "lucide-react";
+import { ChevronRight, Trophy } from "lucide-react";
 
+import { ImportanceBadge } from "@/components/ImportanceKey";
 import { BandChip, CarPhoto, euros } from "@/components/lens-parts";
 import { configurationName } from "@/lib/car-labels";
 import { IMPORTANCE_LABEL, summaryOf } from "@/lib/chats/flow";
@@ -12,18 +13,21 @@ import { closestMatch } from "@/lib/chats/judge";
 
 import { sameJudgement } from "./useJudgedCar";
 import { alternativesWithinLimits } from "@/lib/lens-chat/run";
+import { fitCase, type Shortfall } from "@/lib/lens-chat/fit-case";
+import type { StorySection, Tone } from "@/lib/lens-chat/fit-story";
 import { whyNot } from "@/lib/lens-chat/why-not";
 
-import { Catch, CostTable, LocateCar, Section, StoryList, UsageSection } from "./parts";
+import { CostTable, LocateCar, Section, StoryLines, StoryRow, ToneDot, UsageSection } from "./parts";
 import type { JudgedCar } from "./useJudgedCar";
 
 /**
  * The case for the car with the trophy.
  *
  * Where a car's drawer says how that car fits, this one argues: why it won
- * and what it costs, open; then, a tap each, how it answers each thing the
- * reader said, what they give up by choosing it, why each of the next cars
- * lost, how it was weighed, and what it costs to run. Every sentence is the
+ * and what it costs, open; then, a tap each, what it meets of what the reader
+ * said in full and in part, where it falls short — and of that, what's worth
+ * considering — why each of the next cars lost, how it was weighed, and what
+ * it costs to run. Every sentence is the
  * engine's — read off the same run that put the trophy on the card.
  *
  * `print` lays the same argument out for the PDF: wider, with a masthead, and
@@ -44,6 +48,7 @@ export function WinnerView({ value, print = false }: { value: JudgedCar; print?:
 
     const told = useMemo(() => summaryOf(judgement.understanding), [judgement.understanding]);
     const weighing = useMemo(() => weighingOf(judgement.understanding, told), [judgement.understanding, told]);
+    const fit = useMemo(() => (story ? fitCase(run, story) : null), [run, story]);
     const notes = [verdict.budgetNote, verdict.marginNote, verdict.dependsNote].filter((note): note is string => Boolean(note));
 
     return (
@@ -115,31 +120,43 @@ export function WinnerView({ value, print = false }: { value: JudgedCar; print?:
             ) : null}
 
             {/* -- The rest, a tap away: the PDF has all of it open ---------------- */}
-            {story?.sections.length ? (
+            {fit && (fit.complete.length || fit.partial.length || fit.unclear.length) ? (
                 <Section title="How it fits what you told me" folded={!print}>
-                    <StoryList story={story} value={value} />
-                    {story.catch ? (
-                        <div className="mt-2">
-                            <Catch story={story} />
-                        </div>
-                    ) : null}
+                    <div className="space-y-4">
+                        <FitGroup title="Complete match" tone="good" sections={fit.complete} value={value} />
+                        <FitGroup
+                            title="Partial match"
+                            tone="note"
+                            sections={fit.partial}
+                            value={value}
+                            /* Only where a row's gaps were moved: said once, there. */
+                            hint={fit.partial.some((section) => [...fit.shortfalls, ...fit.worth].some((item) => !item.section && item.key === section.key)) ? "What it lacks for these is under “Where it falls short”." : undefined}
+                        />
+                        <FitGroup title="What Lens couldn't check" tone="unknown" sections={fit.unclear} value={value} />
+                    </div>
                 </Section>
             ) : null}
 
-            {narrative.tradeoffs.length ? (
-                <Section title="What you'd give up" folded={!print}>
-                    <ul className="space-y-2">
-                        {narrative.tradeoffs.map((tradeoff) => (
-                            <li key={tradeoff.headline} className="flex gap-2.5 rounded-xl bg-finn-snow p-3">
-                                <Scale aria-hidden="true" className="mt-0.5 h-4 w-4 shrink-0 text-finn-fit-partial" />
-                                <div className="text-[12.5px] leading-snug text-finn-black">
-                                    <p className="font-black">{tradeoff.headline}</p>
-                                    <p className="mt-0.5">{tradeoff.evidence}</p>
-                                    <p className="mt-0.5 text-finn-iron">{tradeoff.relevance}</p>
-                                </div>
-                            </li>
-                        ))}
-                    </ul>
+            {fit && (fit.shortfalls.length || fit.worth.length) ? (
+                <Section title="Where it falls short" folded={!print}>
+                    {fit.shortfalls.length ? (
+                        <ul className="space-y-2">
+                            {fit.shortfalls.map((item) => (
+                                <ShortfallRow key={item.key} item={item} value={value} print={print} />
+                            ))}
+                        </ul>
+                    ) : null}
+                    {fit.worth.length ? (
+                        <div className={fit.shortfalls.length ? "mt-4" : ""}>
+                            <h3 className="text-[12.5px] font-black text-finn-warning-ink">Worth considering</h3>
+                            <p className="mb-2 text-[12px] leading-snug text-finn-iron">{worthIntro(fit.worth)}</p>
+                            <ul className="space-y-2">
+                                {fit.worth.map((item) => (
+                                    <ShortfallRow key={item.key} item={item} value={value} print={print} />
+                                ))}
+                            </ul>
+                        </div>
+                    ) : null}
                 </Section>
             ) : null}
 
@@ -206,6 +223,59 @@ export function WinnerView({ value, print = false }: { value: JudgedCar; print?:
             ) : null}
         </article>
     );
+}
+
+/** One group of rows under "How it fits": a heading in the rows' own colour, then the rows. */
+function FitGroup({ title, tone, sections, value, hint }: { title: string; tone: Tone; sections: StorySection[]; value: JudgedCar; hint?: string }) {
+    if (!sections.length) return null;
+
+    return (
+        <div>
+            <h3 className="flex items-center gap-2 text-[12.5px] font-black text-finn-black">
+                <ToneDot tone={tone} />
+                {title}
+            </h3>
+            {hint ? <p className="mt-0.5 text-[11.5px] leading-snug text-finn-iron">{hint}</p> : null}
+            <ul className="mt-2 space-y-2">
+                {sections.map((section) => (
+                    <StoryRow key={section.key} section={section} value={value} />
+                ))}
+            </ul>
+        </div>
+    );
+}
+
+/**
+ * Something it falls short on: a whole row, drawn as the row; the gaps in a
+ * row it partly meets, under what the reader said; or a comparison with
+ * another car. A car it names can be found on the page.
+ */
+function ShortfallRow({ item, value, print }: { item: Shortfall; value: JudgedCar; print: boolean }) {
+    if (item.section) return <StoryRow section={item.section} value={value} rivals print={print} />;
+
+    return (
+        <li className="rounded-xl bg-finn-snow p-3 ring-1 ring-black/[0.03]">
+            <div className="flex items-start justify-between gap-2">
+                <p className="min-w-0 text-[13px] font-black leading-snug text-finn-black">{item.about ?? item.title}</p>
+                {item.importance && item.importance !== "constraint" ? <ImportanceBadge importance={item.importance} /> : null}
+            </div>
+            <StoryLines lines={item.lines} value={value} print={print} className="mt-2" />
+            {item.rival ? (
+                <div className="pl-[26px]">
+                    <LocateCar id={item.rival.id} name={item.rival.name} value={value} print={print} />
+                </div>
+            ) : null}
+        </li>
+    );
+}
+
+/** Why these are worth considering, from what they fall short on: a limit the reader set, or the levels they marked them. */
+function worthIntro(items: Shortfall[]): string {
+    const levels = (["essential", "important"] as const).filter((level) => items.some((item) => item.importance === level)).map((level) => IMPORTANCE_LABEL[level]);
+    const limit = items.some((item) => item.importance === "constraint");
+    const on = [limit ? "a limit you set" : null, levels.length ? `what you marked ${levels.join(" and ")}` : null].filter(Boolean).join(", and on ");
+
+    return `It falls short on ${on} — worth weighing before you decide.`;
 }
 
 /**

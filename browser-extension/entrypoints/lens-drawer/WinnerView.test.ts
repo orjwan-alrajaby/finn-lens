@@ -6,8 +6,8 @@ import { rentalFor, startChat } from "@/lib/chats/flow";
 import { judgementFrom, judgeWith } from "@/lib/chats/judge";
 import { withBubbles } from "@/lib/lens-chat/bubbles";
 import { withDeals } from "@/lib/lens-chat/deals";
-import { tellFitStory } from "@/lib/lens-chat/fit-story";
-import { EMPTY_UNDERSTANDING, withBudget } from "@/lib/lens-chat/understanding";
+import { sayOnce, tellFitStory } from "@/lib/lens-chat/fit-story";
+import { EMPTY_UNDERSTANDING, withBudget, type Understanding } from "@/lib/lens-chat/understanding";
 import { buildCostAnalysis } from "@/lib/reasoning-engine";
 import { fleet } from "@/lib/reasoning-engine/test-data/fleet";
 
@@ -28,8 +28,7 @@ vi.mock("@/lib/chats/bridge", () => ({ requestOpenDrawer: () => Promise.resolve(
 const page = fleet().slice(0, 24);
 const text = (html: string) => html.replace(/<[^>]+>/g, " ").replace(/&#x27;/g, "'").replace(/&amp;/g, "&").replace(/\s+/g, " ");
 
-function winner(): JudgedCar {
-    const u = withBudget(withBubbles(EMPTY_UNDERSTANDING, { kids: ["baby"], city: ["street"] }), 700, "Up to €700 a month.");
+function winner(u: Understanding = withBudget(withBubbles(EMPTY_UNDERSTANDING, { kids: ["baby"], city: ["street"] }), 700, "Up to €700 a month.")): JudgedCar {
     const judged = judgeWith(u, page, "24 cars")!;
     const id = judged.run.recommendation.winner.id;
     const car = page.find((item) => item.id === id)!;
@@ -43,7 +42,7 @@ function winner(): JudgedCar {
         car,
         verdict: judgement.verdicts[id]!,
         isWinner: true,
-        story: tellFitStory(judged.run, u, judged.translation.lessRelevant, null, id),
+        story: sayOnce(tellFitStory(judged.run, u, judged.translation.lessRelevant, null, id)),
         versus: null,
         cost: buildCostAnalysis(car, judged.run.answers.preferences, judged.run.recommendation.context.costs[id]),
         missing: 0,
@@ -72,6 +71,19 @@ describe("the winner's drawer", () => {
         expect(weighed).not.toMatch(/counts \d+%|\b(Highly|Moderately|Somewhat)\b|Practicality|Climate Suitability/);
         /* And the car's total, out of 100, with its band and where the bands start. */
         expect(weighed).toMatch(/Total: this car scored (\d+) out of 100 (Strong|Good|Partial|Limited) match \1\/100 How it did on each of the above, by their share\. Strong match from 65, Good from 45, Partial from 25\./);
+    });
+
+    it("sorts how it fits into what it meets in full and in part, and says where it falls short — never what you'd give up", () => {
+        const u = withBudget(withBubbles(EMPTY_UNDERSTANDING, { help: ["traffic", "parking"], long: [], city: ["street"], comfort: ["warm"] }), 600, "Up to €600 a month.");
+        const words = text(renderToStaticMarkup(createElement(WinnerView, { value: winner(u), print: true })));
+        /* The section's own heading: the last time it's named before the next section, after the hint that points to it. */
+        const fallsShort = words.lastIndexOf("Where it falls short", words.indexOf("Why not the others"));
+        const fits = words.slice(words.indexOf("How it fits what you told me"), fallsShort);
+        const short = words.slice(fallsShort, words.indexOf("Why not the others"));
+
+        expect(fits).toMatch(/Complete match .* Partial match What it lacks for these is under “Where it falls short”\./);
+        expect(short).toMatch(/Worth considering It falls short on what you marked Important — worth weighing before you decide\. City driving Important/);
+        expect(words).not.toContain("What you'd give up");
     });
 
     it("lets the reader find each of the next cars on the page, but not in the PDF", () => {
