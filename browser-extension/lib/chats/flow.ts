@@ -29,7 +29,7 @@ import {
     type BubbleId,
     type OftenId,
 } from "@/lib/lens-chat/bubbles";
-import { asPhrase, barePhrase, coverage, EVIDENCE, evidenceMet, isKind, onNearlyEvery, readEvidence, type EvidenceId } from "@/lib/lens-chat/evidence";
+import { asPhrase, barePhrase, coverage, EVIDENCE, evidenceMet, isKind, onNearlyEvery, readEvidence, setsApart, type EvidenceId } from "@/lib/lens-chat/evidence";
 import { IMPORTANCE, IMPORTANCE_LABEL } from "@/lib/lens-chat/importance";
 import { SOURCES } from "@/lib/sources";
 import { DEALS, dealForRule, dealsHere, dealStates, letGo, stateLabel, withDeals, type DealState } from "@/lib/lens-chat/deals";
@@ -385,6 +385,37 @@ function chipHere(counts: EvidenceId[], cars: FinnCar[]): string | null {
     return null;
 }
 
+/** How a chip's "i" names what it suggests: "suggest pre-heating". */
+const SUGGESTED_AS: Partial<Record<EvidenceId, string>> = {
+    hasAuxiliaryHeater: "pre-heating",
+    hasThreeZoneAutomaticClimateControls: "3-zone climate",
+    hasTowbar: "a towbar",
+    hasElectricTailgate: "an electric tailgate",
+};
+
+/**
+ * What a chip's "i" promises that this page won't keep: a suggestion the
+ * cars here can't differ on — the summary leaves those out — or a
+ * deal-breaker with no row here. Said from the cars: " Nearly every car
+ * here has 3-zone climate, so I won't suggest it."
+ */
+function unsuggested(description: string, worth: EvidenceId[], suggests: string | null | undefined, u: Understanding, cars: FinnCar[]): string {
+    if (!cars.length) return "";
+
+    const why = (id: EvidenceId, phrase: string) => (coverage(cars, id).listed === 0 ? `None of the cars here list ${phrase}` : `Nearly every car here has ${phrase}`);
+    const notes = worth
+        .filter((id) => SUGGESTED_AS[id] && description.includes(SUGGESTED_AS[id]!) && !setsApart(cars, id))
+        .map((id) => `${why(id, SUGGESTED_AS[id]!)}, so I won't suggest it.`);
+    const deal = suggests ? dealForRule(suggests) : undefined;
+
+    /* No row for it: what none or nearly all of the cars here have (dealsHere), unless the reader has set it. */
+    if (deal?.rule && description.includes(deal.phrase) && !setsApart(cars, deal.rule) && !dealStates(u)[deal.id]) {
+        notes.push(`${why(deal.rule, deal.phrase)}, so I won't offer it as a deal-breaker here.`);
+    }
+
+    return notes.map((note) => ` ${note}`).join("");
+}
+
 function bubblesStep(group?: (typeof BUBBLE_GROUPS)[number], u: Understanding = EMPTY_UNDERSTANDING, cars: FinnCar[] = []): ChatStep {
     const bubbles = group ? BUBBLES.filter((bubble) => group.bubbles.includes(bubble.id)) : BUBBLES;
 
@@ -422,8 +453,9 @@ function bubblesStep(group?: (typeof BUBBLE_GROUPS)[number], u: Understanding = 
                         exclusive: bubble.chips!.exclusive,
                         /* What earlier answers recommend comes first, saying why — never picked for the reader. */
                         options: bubble.chips!.options
-                            .map(({ id, label, description, counts, sources }) => {
+                            .map(({ id, label, description: said, counts, worth, suggests, sources }) => {
                                 const here = chipHere(counts ?? [], cars);
+                                const description = said ? `${said}${unsuggested(said, worth ?? [], suggests, u, cars)}` : said;
                                 /* Never recommended where it can't tell the cars here apart. */
                                 const recommended = here ? undefined : (counts ?? []).map((item) => recommendedBecause(item, u, bubble.id)).find(Boolean);
                                 return {

@@ -784,6 +784,27 @@ describe("comforts recommended by earlier answers", () => {
     });
 });
 
+describe("what a chip's “i” promises to suggest", () => {
+    const inventory = fleet();
+    const has = (id: Parameters<typeof readEvidence>[1]) => inventory.filter((car) => readEvidence(car, id) === "listed");
+    const lacks = (id: Parameters<typeof readEvidence>[1]) => inventory.filter((car) => readEvidence(car, id) === "notListed");
+    const snow = (cars: typeof inventory) => stepFor("bubbles-copes", cars)!.bubbleChips!.weather!.options.find((option) => option.id === "snow")!.description!;
+
+    it("says where the cars here won't keep it, and why", () => {
+        const page = [...lacks("hasAuxiliaryHeater").filter((car) => readEvidence(car, "hasAllWheelDrive") === "notListed").slice(0, 10)];
+
+        expect(snow(page)).toMatch(/ None of the cars here list pre-heating, so I won't suggest it\. None of the cars here list all-wheel drive, so I won't offer it as a deal-breaker here\.$/);
+    });
+
+    it("says nothing more where they will", () => {
+        const page = [...has("hasAuxiliaryHeater").slice(0, 4), ...lacks("hasAuxiliaryHeater").slice(0, 8)];
+        const mixed = [...page.filter((car) => readEvidence(car, "hasAllWheelDrive") !== "listed"), ...has("hasAllWheelDrive").slice(0, 3)];
+
+        expect(snow(mixed)).toMatch(/though no help braking\.$/);
+        expect(snow([])).toMatch(/though no help braking\.$/);
+    });
+});
+
 describe("the intro", () => {
     it("says how it works, then waits for “Got it — let's start” before the first question", () => {
         const chat = beginChat(null, cars(), TODAY);
