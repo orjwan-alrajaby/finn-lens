@@ -1370,7 +1370,7 @@ describe("standard equipment, said where it's asked for", () => {
         expect(weather.standard?.short).toMatch(/^On (every car here\.|nearly every car here; one without it loses a little\.)$/);
     });
 
-    it("names what each answer makes sure of, with a hint from the cars here that it won't set them apart", () => {
+    it("names what each answer makes sure of, with a hint that says what's true of the cars here", () => {
         const page = fleet().sort((a, b) => a.id - b.id).slice(0, 40);
         const copes = stepFor("bubbles-copes", page)!;
         const driving = stepFor("bubbles-driving", page)!;
@@ -1380,7 +1380,11 @@ describe("standard equipment, said where it's asked for", () => {
         expect(weather.standard?.labels).toEqual(["Air conditioning"]);
         expect(weather.standard?.hint).toMatch(/^(Every|Nearly every) car here has it, so it won't set the cars apart/);
         expect(traffic.standard?.labels).toEqual(expect.arrayContaining(["Adaptive cruise control"]));
-        expect(traffic.standard?.hint).toMatch(/these, so they won't set the cars apart/);
+        /* An automatic gearbox and adaptive cruise are standard across FINN, but not on 9 of these 40: said as it is. */
+        expect(traffic.standard?.hint).toBe(
+            "Standard on nearly every car FINN lists, but 9 of the 40 cars here don't list them all: a car FINN says is missing one loses a little, and having one earns nothing.",
+        );
+        expect(traffic.standard?.short).toBe("9 of the 40 cars here don't list them all; one without them loses a little.");
         expect(copes.bubbleChips!.weather!.options.find((option) => option.id === "hot")?.description).toMatch(/make sure it has air conditioning/);
     });
 
@@ -1392,6 +1396,31 @@ describe("standard equipment, said where it's asked for", () => {
         expect(stepFor("bubbles-copes", [...withAc, without])!.choices.find((choice) => choice.id === "weather")!.standard!.hint).toBe(
             "Nearly every car here has it, so it won't set the cars apart — but a car without it would lose out.",
         );
+    });
+
+    it("says how many cars here have it where that's fewer than nearly all, and never “nearly every car here”", () => {
+        const inventory = fleet();
+        const withAc = inventory.filter((car) => readEvidence(car, "hasAirConditioning") === "listed").slice(0, 8);
+        const without = inventory.filter((car) => readEvidence(car, "hasAirConditioning") === "notListed").slice(0, 2);
+        const weather = stepFor("bubbles-copes", [...withAc, ...without])!.choices.find((choice) => choice.id === "weather")!;
+
+        expect(weather.standard!.hint).toBe(
+            "Standard on nearly every car FINN lists, but on only 8 of the 10 cars here: a car FINN says is missing it loses a little, and having it earns nothing.",
+        );
+        expect(weather.standard!.short).toBe("On 8 of the 10 cars here; one without it loses a little.");
+        /* With no cars in hand, the fleet is all it can speak for. */
+        expect(stepFor("bubbles-copes", [])!.choices.find((choice) => choice.id === "weather")!.standard!.short).toBe("On nearly every car FINN lists; one without it loses a little.");
+    });
+
+    it("on the summary, gives the count beside a standard item fewer cars here have", () => {
+        const inventory = fleet();
+        const withAc = inventory.filter((car) => readEvidence(car, "hasAirConditioning") === "listed").slice(0, 8);
+        const without = inventory.filter((car) => readEvidence(car, "hasAirConditioning") === "notListed").slice(0, 2);
+        const u = withBubbles(EMPTY_UNDERSTANDING, { weather: ["hot"] });
+        const checks = (cars: typeof inventory) => summaryOf(u, "summary", cars).bubbles!.find((item) => item.id === "weather")!.checks;
+
+        expect(checks([...withAc, ...without]).find((item) => item.id === "hasAirConditioning")?.here).toBe("On 8 of the 10 cars here.");
+        expect(checks(withAc).find((item) => item.id === "hasAirConditioning")?.here).toBeUndefined();
     });
 });
 

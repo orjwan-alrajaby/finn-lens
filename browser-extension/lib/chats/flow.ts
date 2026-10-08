@@ -29,7 +29,7 @@ import {
     type BubbleId,
     type OftenId,
 } from "@/lib/lens-chat/bubbles";
-import { asPhrase, barePhrase, coverage, EVIDENCE, evidenceMet, isKind, type EvidenceId } from "@/lib/lens-chat/evidence";
+import { asPhrase, barePhrase, coverage, EVIDENCE, evidenceMet, isKind, onNearlyEvery, readEvidence, type EvidenceId } from "@/lib/lens-chat/evidence";
 import { IMPORTANCE, IMPORTANCE_LABEL } from "@/lib/lens-chat/importance";
 import { SOURCES } from "@/lib/sources";
 import { DEALS, dealForRule, dealsHere, dealStates, letGo, stateLabel, withDeals, type DealState } from "@/lib/lens-chat/deals";
@@ -306,31 +306,67 @@ const CHIP = ":";
  * before them — every bubble at once.
  */
 /**
+ * Where a bubble's standard equipment stands on this page. It's on nearly
+ * every car FINN lists — the fleet calibration holds it there — but a page
+ * can be the exception: an automatic gearbox was on 19 of 24 cars on one.
+ * So the chat says what's true of the cars here, and only the cars here.
+ */
+function standardOnPage(ids: EvidenceId[], cars: FinnCar[]): "fleet" | "every" | "nearly" | "fewer" {
+    if (!cars.length) return "fleet";
+    if (cars.every((car) => ids.every((id) => readEvidence(car, id) === "listed"))) return "every";
+
+    return ids.every((id) => onNearlyEvery(cars, id)) ? "nearly" : "fewer";
+}
+
+/** "19 of the 24 cars here" for one item; how many go without any of several. */
+const fewerHere = (ids: EvidenceId[], cars: FinnCar[]): number =>
+    ids.length === 1 ? coverage(cars, ids[0]!).listed : cars.filter((car) => ids.some((id) => readEvidence(car, id) !== "listed")).length;
+
+/**
  * What a bubble's standard equipment means on this page: the reader expects
- * air conditioning for hot summers, and Lens checks it — but it's on (nearly)
- * every car here, so it won't set them apart. Said as a hint, from the cars
- * themselves; nothing about other pages.
+ * air conditioning for hot summers, and Lens checks it — and where it's on
+ * (nearly) every car here, it won't set them apart. Where it's on fewer,
+ * the hint says how many.
  */
 function standardHint(ids: EvidenceId[], cars: FinnCar[]): string {
     const one = ids.length === 1;
-    const counts = cars.length ? ids.map((id) => coverage(cars, id)) : [];
-    const everyCar = counts.length > 0 && counts.every((count) => count.notListed === 0 && count.unknown === 0);
-    const where = !cars.length ? "nearly every car FINN lists" : everyCar ? "every car here" : "nearly every car here";
+    const where = standardOnPage(ids, cars);
+    const without = `a car without ${one ? "it" : "them"} would lose out`;
 
-    return `${where.charAt(0).toUpperCase()}${where.slice(1)} has ${one ? "it" : "these"}, so ${one ? "it won't" : "they won't"} set the cars apart${everyCar ? "" : ` — but a car without ${one ? "it" : "them"} would lose out`}.`;
+    if (where === "fewer") {
+        const n = fewerHere(ids, cars);
+        return one
+            ? `Standard on nearly every car FINN lists, but on only ${n} of the ${cars.length} cars here: a car FINN says is missing it loses a little, and having it earns nothing.`
+            : `Standard on nearly every car FINN lists, but ${n} of the ${cars.length} cars here don't list them all: a car FINN says is missing one loses a little, and having one earns nothing.`;
+    }
+
+    const who = where === "fleet" ? "Nearly every car FINN lists" : where === "every" ? "Every car here" : "Nearly every car here";
+
+    return `${who} has ${one ? "it" : "these"}, so ${one ? "it won't" : "they won't"} set the cars apart${where === "every" ? "" : ` — but ${without}`}.`;
 }
 
 /** The same in a few words, for the one quiet line under the "i"'s panel: "On nearly every car here; one without it loses a little." */
 function standardShort(ids: EvidenceId[], cars: FinnCar[]): string {
     const one = ids.length === 1;
-    const everyCar = cars.length > 0 && ids.every((id) => {
-        const count = coverage(cars, id);
-        return count.notListed === 0 && count.unknown === 0;
-    });
+    const loses = `one without ${one ? "it" : "them"} loses a little.`;
 
-    return everyCar
-        ? "On every car here."
-        : `On nearly every ${cars.length ? "car here" : "car FINN lists"}; one without ${one ? "it" : "them"} loses a little.`;
+    switch (standardOnPage(ids, cars)) {
+        case "every":
+            return "On every car here.";
+        case "fleet":
+            return `On nearly every car FINN lists; ${loses}`;
+        case "nearly":
+            return `On nearly every car here; ${loses}`;
+        case "fewer":
+            return one
+                ? `On ${fewerHere(ids, cars)} of the ${cars.length} cars here; ${loses}`
+                : `${fewerHere(ids, cars)} of the ${cars.length} cars here don't list them all; ${loses}`;
+    }
+}
+
+/** For one standard item on the summary, where the page is the exception: "On 19 of the 24 cars here." */
+function standardHere(id: EvidenceId, cars: FinnCar[]): string | undefined {
+    return standardOnPage([id], cars) === "fewer" ? `On ${coverage(cars, id).listed} of the ${cars.length} cars here.` : undefined;
 }
 
 function bubblesStep(group?: (typeof BUBBLE_GROUPS)[number], u: Understanding = EMPTY_UNDERSTANDING, cars: FinnCar[] = []): ChatStep {
@@ -1046,7 +1082,11 @@ function summaryBubbles(u: Understanding, cars: FinnCar[]): SummaryBubble[] {
             /* What a deal-breaker already settles isn't checked: every car left has it. */
             counts: named(own, bubble.why),
             ...(shared.length ? { shared: named(shared, bubble.why) } : {}),
-            checks: named(items.checks.filter((id) => !settled.has(id)), bubble.why),
+            /* Standard equipment, with how many cars here have it where that's fewer than nearly all. */
+            checks: named(items.checks.filter((id) => !settled.has(id)), bubble.why).map((item) => {
+                const here = standardHere(item.id, cars);
+                return here ? { ...item, here } : item;
+            }),
             worth: named(worth, bubble.why),
             ...(figure ? { figure, figureDoes: figures.filter((id) => !settledFigure.has(id)).map((id) => FIGURE_DOES[id]).find(Boolean) } : {}),
             cantCheck: bubble.cantCheck,

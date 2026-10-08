@@ -98,7 +98,7 @@ describe("here's what you told me, and what I understood", () => {
         expect(words).toMatch(/^ ?Adjust Take out what's wrong/);
         expect(html.match(/<li class="space-y-3 rounded-2xl p-3\.5 ring-1 bg-finn-pale-blue/g)).toHaveLength(1);
         expect(html.match(/<li class="space-y-3 rounded-2xl p-3\.5 ring-1 bg-finn-snow/g)).toHaveLength(1);
-        expect(words).toContain("I'll check — tap × to take one out Rear doors On nearly every car ISOFIX child seat anchors Might matter — tap + to add");
+        expect(words).toContain("I'll check — tap × to take one out Rear doors Standard equipment ISOFIX child seat anchors Might matter — tap + to add");
         /* No unasked-for list of what Lens can't check. */
         expect(words).not.toContain("I can't check");
         expect(words).toContain("My guess — tap to change. Counts fully, alongside everything else you've said is important.");

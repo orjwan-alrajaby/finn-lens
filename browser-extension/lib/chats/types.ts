@@ -136,6 +136,8 @@ export interface SummaryItem {
     id: EvidenceId;
     label: string;
     does?: string;
+    /** For standard equipment fewer cars here have than nearly all: "On 19 of the 24 cars here." */
+    here?: string;
 }
 
 export interface SummaryBubble {
@@ -151,7 +153,7 @@ export interface SummaryBubble {
     counts: SummaryItem[];
     /** What it counts that a bubble above already shows. */
     shared?: SummaryItem[];
-    /** Standard equipment it checks; nearly every car has it. */
+    /** Standard equipment it checks: on nearly every car FINN lists, if not always here. */
     checks: SummaryItem[];
     /** Suggestions the cars here differ on; each can be added. */
     worth: SummaryItem[];

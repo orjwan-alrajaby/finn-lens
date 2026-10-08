@@ -1351,7 +1351,7 @@ function ImportancePicker({ label, value, onPick, guess = false }: { label: stri
 }
 
 /** One item on a bubble's block: what Lens checks (×), standard (✓), or might matter (+). */
-function Item({ label, kind, onClick, does }: { label: string; kind: "counts" | "checks" | "worth"; onClick?: () => void; does?: string }) {
+function Item({ label, kind, onClick, does, here }: { label: string; kind: "counts" | "checks" | "worth"; onClick?: () => void; does?: string; here?: string }) {
     const tone =
         kind === "checks"
             ? "bg-white text-finn-iron ring-1 ring-finn-cotton font-semibold"
@@ -1391,7 +1391,7 @@ function Item({ label, kind, onClick, does }: { label: string; kind: "counts" | 
                         body: [`${does.replace(/^./, (c) => c.toUpperCase())}.`],
                         note:
                             kind === "checks"
-                                ? "Nearly every car has it: a car FINN says is missing it loses a little, and having it earns nothing."
+                                ? `${here ? `${here} ` : ""}Standard on nearly every car FINN lists: a car FINN says is missing it loses a little, and having it earns nothing.`
                                 : kind === "worth"
                                   ? "Not checked yet — tap it to add it."
                                   : undefined,
@@ -1417,9 +1417,9 @@ const CARD_TONE = ["bg-finn-pale-blue/55 ring-finn-accent-blue/15", "bg-finn-sno
 
 /**
  * One bubble as Lens understood it, as a card of its own: its heading and
- * how much it counts; what Lens will check, each can be taken out; what
- * nearly every car has; what might matter too, each can be added; and,
- * last and quietest, what it can't check.
+ * how much it counts; what Lens will check, each can be taken out; the
+ * standard equipment it checks too; what might matter too, each can be
+ * added; and, last and quietest, what it can't check.
  */
 function UnderstoodBubble({
     bubble,
@@ -1474,15 +1474,15 @@ function UnderstoodBubble({
             {bubble.checks.length ? (
                 <div>
                     <p className="mb-1 flex items-center gap-0.5 text-[10.5px] font-black uppercase tracking-wide text-finn-iron">
-                        On nearly every car
+                        Standard equipment
                         <InfoTip
-                            label="On nearly every car"
-                            tip={{ title: "On nearly every car", body: ["Standard equipment I still check: a car FINN says is missing one loses a little, and having one earns nothing."] }}
+                            label="Standard equipment"
+                            tip={{ title: "Standard equipment", body: ["On nearly every car FINN lists, and I still check it: a car FINN says is missing one loses a little, and having one earns nothing."] }}
                         />
                     </p>
                     <div className="flex flex-wrap gap-1.5">
                         {bubble.checks.map((item) => (
-                            <Item key={item.id} label={item.label} kind="checks" does={item.does} />
+                            <Item key={item.id} label={item.label} kind="checks" does={item.does} here={item.here} />
                         ))}
                     </div>
                 </div>
