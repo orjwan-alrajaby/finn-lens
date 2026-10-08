@@ -9,6 +9,7 @@ import { withDeals } from "@/lib/lens-chat/deals";
 import { sayOnce, tellFitStory } from "@/lib/lens-chat/fit-story";
 import { EMPTY_UNDERSTANDING, withBudget, type Understanding } from "@/lib/lens-chat/understanding";
 import { buildCostAnalysis } from "@/lib/reasoning-engine";
+import { alternativesWithinLimits } from "@/lib/lens-chat/run";
 import { fleet } from "@/lib/reasoning-engine/test-data/fleet";
 
 import type { JudgedCar } from "./useJudgedCar";
@@ -95,6 +96,19 @@ describe("the winner's drawer", () => {
         expect(names.length).toBeGreaterThan(0);
         expect(names.every((name) => others.includes(`>${name}</p>`))).toBe(true);
         expect(renderToStaticMarkup(createElement(WinnerView, { value, print: true }))).not.toMatch(/aria-label="Show the [^"]+ on the page"/);
+    });
+
+    it("links each car the PDF names to it on FINN, where the screen finds it on the page", () => {
+        const base = winner(withBudget(withBubbles(EMPTY_UNDERSTANDING, { help: ["traffic", "parking"], long: [], city: ["street"], comfort: ["warm"] }), 600, "Up to €600 a month."));
+        const urls = Object.fromEntries(page.map((car) => [car.id, `https://www.finn.com/de-DE/car/${car.id}`]));
+        const value = { ...base, judgement: { ...base.judgement, urls } };
+        const html = renderToStaticMarkup(createElement(WinnerView, { value, print: true }));
+        const linked = [...html.matchAll(/<a href="https:\/\/www\.finn\.com\/de-DE\/car\/(\d+)"[^>]*>See the ([^<]+) on FINN<\/a>/g)].map((match) => Number(match[1]));
+
+        /* The car that does better on a gap, and each of the next cars. */
+        expect(linked).toEqual(expect.arrayContaining(alternativesWithinLimits(value.judged.run, 3).map((line) => line.id)));
+        expect(linked.length).toBeGreaterThan(alternativesWithinLimits(value.judged.run, 3).length);
+        expect(html).not.toMatch(/aria-label="Show the [^"]+ on the page"/);
     });
 
     it("has everything open in the PDF", () => {

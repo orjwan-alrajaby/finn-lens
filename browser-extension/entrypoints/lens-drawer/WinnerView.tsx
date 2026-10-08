@@ -31,7 +31,8 @@ import type { JudgedCar } from "./useJudgedCar";
  * engine's — read off the same run that put the trophy on the card.
  *
  * `print` lays the same argument out for the PDF: wider, with a masthead, and
- * without the buttons that only mean something on screen.
+ * without the buttons that only mean something on screen — a car the
+ * argument names links to it on FINN instead of finding it on the page.
  */
 
 
@@ -183,6 +184,8 @@ export function WinnerView({ value, print = false }: { value: JudgedCar; print?:
                                     {!print ? <LocateCar id={line.id} name={line.name} size="sm" /> : null}
                                 </div>
                                 {versus ? <p className="mt-2 text-[12.5px] leading-snug text-finn-black">{versus.sentences.slice(0, 2).join(" ")}</p> : null}
+                                {/* In the file, where there's no page to find it on: a link to it on FINN. */}
+                                {print ? <LocateCar id={line.id} name={line.name} value={value} print /> : null}
                                 {!print ? (
                                     <button
                                         type="button"
