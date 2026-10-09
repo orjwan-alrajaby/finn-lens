@@ -2,7 +2,7 @@ import { buildRecommendation, describeRentalProblem, formatEUR, monthLabel, mont
 import { calculateCost, missingPiece } from "@/lib/reasoning-engine/cost";
 import type { Answers } from "@/lib/reasoning-engine/answers";
 import { bandForScore } from "@/lib/reasoning-engine/bands";
-import { CATEGORIES, DEFAULT_CATEGORY_FEATURES, DEFAULT_PREFERENCES, DEFAULT_PRIORITIES } from "@/lib/reasoning-engine/constants";
+import { DEFAULT_CATEGORY_FEATURES, DEFAULT_PREFERENCES, DEFAULT_PRIORITIES } from "@/lib/reasoning-engine/constants";
 import { assessEnvironment } from "@/lib/reasoning-engine/environmental";
 import { lowerFirst } from "@/lib/reasoning-engine/format";
 import type { NeedImportance } from "@/lib/lens-ai/contract";
@@ -12,11 +12,10 @@ import { FIT_BANDS, type FitLevel } from "@/lib/reasoning-engine/fit";
 import { totalFor } from "@/lib/reasoning-engine/scoring";
 import { asPhrase, EVIDENCE, evidenceMet, measuredDisplay } from "@/lib/lens-chat/evidence";
 import { allowedByRules, alternativesWithinLimits, compareRows, runLens, summariseMatch, type CarLine, type LensRun } from "@/lib/lens-chat/run";
-import { NEED_WEIGHT, ruledOut, toAnswers, type Translation, type Understanding } from "@/lib/lens-chat/understanding";
+import { ruledOut, toAnswers, type Translation, type Understanding } from "@/lib/lens-chat/understanding";
 import type { PinnedFinnCar } from "@/lib/types";
 
 import type { CarSnapshot, Chat, ChatMessage, Judgement, Verdict } from "./types";
-import { wholePercents } from "./weighing";
 
 /**
  * A chat's judgement: the reader's answers, run through the real engine over
@@ -263,36 +262,6 @@ export function whyLines(car: PinnedFinnCar, u: Understanding): { said: string; 
 }
 
 /**
- * How much each thing the reader said counted, in their own terms: what they
- * said, how much it counts, its share of the decision and what Lens looked at
- * for it — the drawer's "How I weighed it" in brief, and never the engine's
- * priority names ("Comfort → Climate Suitability" read as nonsense). The
- * share is the one the engine is given: a need's weight over every need's.
- */
-export function becauseOf(u: Understanding): { said: string; importance: NeedImportance; into: string[]; share: number }[] {
-    const counted = u.needs.filter((need) => need.status === "active" && need.priorities.length > 0);
-    const total = counted.reduce((sum, need) => sum + NEED_WEIGHT[need.importance], 0);
-    const percents = wholePercents(counted.map((need) => (total ? NEED_WEIGHT[need.importance] / total : 0)));
-
-    return counted
-        .map((need, index) => {
-            const bubble = need.id.startsWith("bubble-") ? bubblesIn(u).find((item) => `bubble-${item.bubble.id}` === need.id)?.bubble : null;
-            const figures = need.priorities.filter((id) => CATEGORIES[id].numericOnly).map((id) => FIGURE_WORDS[id] ?? CATEGORIES[id].label.toLowerCase());
-
-            return {
-                said: bubble ? bubble.you : need.id.startsWith("sealer-") ? `${need.label} would seal it` : need.label,
-                importance: need.importance,
-                into: [...figures, ...need.evidence.filter((entry) => !entry.unwanted).map((entry) => lowerFirst(EVIDENCE[entry.id].label))],
-                share: percents[index]!,
-            };
-        })
-        .sort((a, b) => b.share - a.share);
-}
-
-/** A figure Lens judges on, as "because you said" names it. */
-const FIGURE_WORDS: Partial<Record<string, string>> = { environmental: "CO₂ per km", efficiency: "fuel or electricity use for its kind" };
-
-/**
  * Whether the pick is past one of the reader's limits — nothing within the
  * budget, nothing for their dates, a deal-breaker no car has and they kept —
  * so it's the closest match, not the strongest. The chat's result and the
@@ -368,7 +337,6 @@ export function resultMessage(
         ...(u
             ? {
                   why: whyLines(cars.find((car) => car.id === run.recommendation.winner.id) ?? run.recommendation.winner, u),
-                  because: becauseOf(u),
               }
             : {}),
         reasons: run.narrative.verdict.reasons,

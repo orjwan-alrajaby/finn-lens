@@ -356,12 +356,6 @@ export type ChatMessage =
           know?: string | null;
           /** The car that trade-off names — "€224/month more than Toyota Yaris" — so the reader can find it. */
           knowCar?: { id: number; name: string };
-          /**
-           * How much each thing said counted: "You have kids — top priority,
-           * 50% of the decision". `into` is what Lens looked at for it; on
-           * results from before `share`, the priorities it went into.
-           */
-          because?: { said: string; importance: NeedImportance; into: string[]; share?: number }[];
           note: string | null;
           runnersUp: CarSnapshot[];
           setAside: number;

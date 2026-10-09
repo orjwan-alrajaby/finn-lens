@@ -1969,8 +1969,8 @@ function Result({
                     {open ? (
                         /*
                          * Only what the car got right: everything it has for each thing the
-                         * reader said, and how what they said was weighed. What it lacks, and
-                         * what choosing it gives up, is for "The whole case" — not here.
+                         * reader said. How what they said was weighed, what it lacks, and
+                         * what choosing it gives up are for "The whole case" — not here.
                          */
                         <div className="mt-3 space-y-3 border-t border-[#f5d78a]/60 pt-3">
                             {why.length ? (
@@ -1991,23 +1991,6 @@ function Result({
                                 </div>
                             ) : null}
 
-                            {message.because?.length ? (
-                                <div>
-                                    <p className="text-[10.5px] font-black uppercase tracking-wide text-finn-iron">Because you said…</p>
-                                    <ul className="mt-1 space-y-0.5">
-                                        {message.because.map((item) => (
-                                            <li key={item.said} className="text-[12px] leading-snug text-finn-black">
-                                                {item.said}{" "}
-                                                <span className="text-finn-iron">
-                                                    {/* Its share of the decision, as the drawer's "How I weighed it" says it; older results named the engine's priorities. */}
-                                                    — {IMPORTANCE_LABEL[item.importance].toLowerCase()}
-                                                    {item.share != null ? `, ${item.share}% of the decision` : ` → ${item.into.join(", ")}`}
-                                                </span>
-                                            </li>
-                                        ))}
-                                    </ul>
-                                </div>
-                            ) : null}
                         </div>
                     ) : null}
 

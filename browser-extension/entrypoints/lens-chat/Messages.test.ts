@@ -136,7 +136,6 @@ describe("the result", () => {
             { said: "You have kids", has: ["rear doors"] },
         ],
         tradeoffs: [{ headline: "€44/month more than MG S5", text: "At your mileage it's about €44 more." }],
-        because: [{ said: "You have kids", importance: "essential", into: ["Practicality"] }],
         note: null,
         runnersUp: [{ id: 2, name: "MG S5", configuration: "", image: null, monthly: 476, band: "good", bandLabel: "Good match", url: null, overLimit: false }],
         setAside: 0,
@@ -160,9 +159,11 @@ describe("the result", () => {
             ),
         );
 
-        /* Only what it got right: what it has for each thing said, and how that was weighed — no gaps, no trade-offs. */
+        /* Only what it got right: what it has for each thing said — no gaps, no trade-offs, and the weighing is the drawer's. */
         const seeWhy = words.slice(words.indexOf("What it got right"));
-        expect(seeWhy).toMatch(/^What it got right You live in the city → 4\.18 m long, reversing camera You have kids → rear doors Because you said… You have kids — top priority → Practicality/);
+        expect(seeWhy).toMatch(/^What it got right You live in the city → 4\.18 m long, reversing camera You have kids → rear doors/);
+        expect(seeWhy).not.toContain("Because you said");
+        expect(seeWhy).not.toContain("of the decision");
         expect(seeWhy).not.toContain("What you'd give up");
         expect(seeWhy).not.toContain("What decided it");
         expect(seeWhy).not.toContain("€44/month more");
@@ -181,7 +182,6 @@ describe("the result, past a limit and on a shared model", () => {
         count: 7,
         winner: { id: 1, name: "Toyota Yaris Teamplayer 1.5 Hybrid", configuration: "Teamplayer 1.5 Hybrid", image: null, monthly: 384, band: "strong", bandLabel: "Strong match", url: null, overLimit: false },
         reason: null,
-        because: [{ said: "You have kids", importance: "essential", into: ["rear doors"], share: 50 }],
         note: null,
         runnersUp: [
             { id: 2, name: "MG 3", configuration: "", image: null, monthly: 224, band: "good", bandLabel: "Good match", url: null, overLimit: true, over: "period" },
@@ -210,10 +210,6 @@ describe("the result, past a limit and on a shared model", () => {
 
         expect(said).toContain("MG 3 about €224/month · not for your dates");
         expect(said).toContain("Audi Q3 about €980/month · over your limit");
-    });
-
-    it("says how much each thing counted as its share of the decision", () => {
-        expect(words(base())).toContain("Because you said… You have kids — top priority, 50% of the decision");
     });
 });
 

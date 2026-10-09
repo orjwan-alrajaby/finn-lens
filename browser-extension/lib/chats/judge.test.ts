@@ -11,7 +11,7 @@ import { EMPTY_UNDERSTANDING, withBudget, withRental, withSuggestion, type Under
 import type { PinnedFinnCar } from "@/lib/types";
 
 import { applyFollowUp, FOLLOW_UPS, WORTH_A_LOOK } from "./follow-ups";
-import { BASE_ANSWERS, becauseOf, chatAnswers, judgementAt, judgementFrom, judgeWith, resultMessage, whyLines, withJudgement } from "./judge";
+import { BASE_ANSWERS, chatAnswers, judgementAt, judgementFrom, judgeWith, resultMessage, whyLines, withJudgement } from "./judge";
 import { withBubbles } from "@/lib/lens-chat/bubbles";
 import { withDeals } from "@/lib/lens-chat/deals";
 import { readEvidence } from "@/lib/lens-chat/evidence";
@@ -342,17 +342,13 @@ describe("why, in the reader's words", () => {
         expect(lines.find((line) => line.said === "You care about the environment")?.has[0]).toMatch(/g\/km · Class [A-G]/);
     });
 
-    it("goes into the result with every reason, the trade-offs and which bubbles put weight where", () => {
+    it("goes into the result with every reason and the trade-offs — how each thing was weighed is the drawer's", () => {
         const judged = judgeWith(u, page, "24 cars")!;
         const message = resultMessage(judged, page, "24 cars", {}, "m1", "at", u);
 
         expect(message.reasons?.[0]).toBe(message.reason);
         expect(message.tradeoffs?.length).toBe(judged.run.narrative.tradeoffs.length);
-        expect(message.because).toEqual(becauseOf(u));
-        /* In the reader's terms — what it counted, and its share of the decision, as the drawer says it — never the engine's priorities. */
-        expect(message.because?.[0]).toEqual({ said: "You have kids", importance: "essential", into: ["rear doors"], share: 50 });
-        expect(message.because?.map((item) => item.share)).toEqual([50, 25, 25]);
-        expect(JSON.stringify(message.because)).not.toMatch(/Practicality|City & Parking|Environmental Impact/);
+        expect(message).not.toHaveProperty("because");
     });
 
     it("says one thing to know: a limit first, else the biggest trade-off — never the engine's uncertainty first", () => {
