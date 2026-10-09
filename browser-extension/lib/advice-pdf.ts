@@ -33,6 +33,9 @@ const MM_TO_PX = 3.77952755906;
 /** The margin the capture is placed inside, in mm, on every edge. */
 export const PDF_MARGIN_MM = 8;
 
+/** The sheet the file is laid out on, in mm: A4 portrait, as `advicePdfOptions` asks for. */
+export const A4 = { width: 210, height: 297 } as const;
+
 /** One anchor, measured against the top-left of the captured element. */
 export interface LinkRect {
   url: string;
@@ -94,29 +97,42 @@ function worthLinking(link: LinkRect): boolean {
  * the button dead, which is the kind of thing nobody reports and everybody
  * notices.
  */
-export function placeLinks(
-  links: LinkRect[],
-  geometry: CaptureGeometry,
-): LinkPlacement[] {
+/**
+ * How the capture is scaled onto a sheet, and how much of it, in its own CSS
+ * pixels, one sheet holds. Wider than the sheet, so everything is scaled down
+ * to fit — the same decision react-to-pdf makes, expressed the same way,
+ * because the two have to agree to the pixel. Null when nothing fits.
+ */
+function scaleOf(geometry: CaptureGeometry): { fit: number; sheet: number } | null {
   const { elementWidth, pageWidth, pageHeight, margin } = geometry;
 
   const availableWidth = (pageWidth - margin * 2) * MM_TO_PX;
   const availableHeight = (pageHeight - margin * 2) * MM_TO_PX;
 
-  if (availableWidth <= 0 || availableHeight <= 0) return [];
+  if (availableWidth <= 0 || availableHeight <= 0) return null;
 
-  /*
-   * Wider than the sheet, so everything is scaled down to fit — the same
-   * decision react-to-pdf makes, expressed the same way, because the two
-   * have to agree to the pixel.
-   */
   const fit =
     elementWidth > availableWidth ? elementWidth / availableWidth : 1;
 
-  const toMm = (px: number) => px / (MM_TO_PX * fit);
+  return { fit, sheet: availableHeight * fit };
+}
 
-  /** How much of the page, in its own pixels, one sheet holds. */
-  const sheet = availableHeight * fit;
+/** How much of the captured element, in its own CSS pixels, one sheet holds — where every page break falls. */
+export function sheetHeight(geometry: CaptureGeometry): number {
+  return scaleOf(geometry)?.sheet ?? 0;
+}
+
+export function placeLinks(
+  links: LinkRect[],
+  geometry: CaptureGeometry,
+): LinkPlacement[] {
+  const { margin } = geometry;
+  const scale = scaleOf(geometry);
+
+  if (!scale) return [];
+
+  const { fit, sheet } = scale;
+  const toMm = (px: number) => px / (MM_TO_PX * fit);
 
   const placements: LinkPlacement[] = [];
 
@@ -142,6 +158,88 @@ export function placeLinks(
   }
 
   return placements;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Clean page breaks                                                          */
+/* -------------------------------------------------------------------------- */
+
+/** Room left above a block moved to a new sheet, so it doesn't sit hard against the top. */
+const BREAK_GAP = 12;
+/** A block up to this share of a sheet is kept whole; a bigger one breaks between its own parts instead. */
+const KEEP_WHOLE = 0.5;
+/** A heading needs this much room under it on its sheet, or it moves on with what it heads. */
+const UNDER_HEADING = 72;
+
+/**
+ * How far to move a block down so it starts on the next sheet, rather than
+ * being cut across a page break — 0 when it fits where it is, or is too big
+ * to keep whole (then its own parts are kept whole instead). A heading moves
+ * on too when there isn't room for some of what it heads under it.
+ */
+export function breakPush(top: number, height: number, sheet: number, heading = false): number {
+  if (sheet <= 0 || height <= 0 || height > sheet * KEEP_WHOLE) return 0;
+
+  const end = (Math.floor(top / sheet) + 1) * sheet;
+  const needs = heading ? height + UNDER_HEADING : height;
+
+  if (top + needs <= end) return 0;
+
+  return end - top + BREAK_GAP;
+}
+
+type Measure = (element: Element) => { top: number; height: number };
+type StyleOf = (element: Element) => Pick<CSSStyleDeclaration, "display" | "position" | "flexDirection" | "gridTemplateColumns">;
+
+/** Whether an element stacks under the one before it, so space above it moves it down rather than across. */
+function stacked(element: Element, styleOf: StyleOf): boolean {
+  const own = styleOf(element);
+  if (own.display.startsWith("inline") || own.display === "none" || own.display === "contents" || own.display.startsWith("table")) return false;
+  if (own.position === "absolute" || own.position === "fixed") return false;
+
+  const parent = element.parentElement;
+  if (!parent) return false;
+
+  const around = styleOf(parent);
+  if (around.display.includes("flex")) return around.flexDirection.startsWith("column");
+  if (around.display.includes("grid")) return around.gridTemplateColumns.trim().split(/\s+/).length <= 1;
+
+  return !around.display.startsWith("inline");
+}
+
+/**
+ * Keeps the PDF's blocks whole across its page breaks.
+ *
+ * The capture is one long picture, cut every `sheet` pixels whatever is
+ * there — through a line of text, a button, a card's heading. So before it's
+ * taken, each block that would straddle a break and is small enough to keep
+ * whole gets space above it that moves it to the next sheet, outermost first:
+ * a row of the cost table, a reason, a card. A block too big to move breaks
+ * between its own parts instead, each of which is kept whole the same way.
+ *
+ * Only what stacks: space before a chip in a row would move it sideways.
+ * Measured afresh each time, since every space added moves what follows.
+ */
+export function keepBlocksWhole(
+  root: HTMLElement,
+  sheet: number,
+  measure: Measure = (element) => element.getBoundingClientRect(),
+  styleOf: StyleOf = (element) => getComputedStyle(element),
+): void {
+  for (const block of root.querySelectorAll("*")) {
+    if (!stacked(block, styleOf)) continue;
+
+    const { top, height } = measure(block);
+    const push = breakPush(top - measure(root).top, height, sheet, /^H[1-6]$/.test(block.tagName));
+    if (!push) continue;
+
+    const list = block.parentElement?.tagName === "UL" || block.parentElement?.tagName === "OL";
+    const space = block.ownerDocument.createElement(list ? "li" : "div");
+    space.setAttribute("aria-hidden", "true");
+    space.setAttribute("data-page-break", "");
+    space.style.cssText = `display:block;height:${push}px;margin:0;padding:0;border:0;list-style:none;`;
+    block.before(space);
+  }
 }
 
 /** Everything a filename may contain, once the car's name has been through it. */

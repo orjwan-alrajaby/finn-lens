@@ -1,9 +1,16 @@
 import { describe, expect, it } from "vitest";
 
+import { parseHTML } from "linkedom";
+
 import {
+  A4,
   adviceFileName,
   advicePdfOptions,
+  breakPush,
   fitFileName,
+  keepBlocksWhole,
+  PDF_MARGIN_MM,
+  sheetHeight,
   placeLinks,
   type LinkRect,
 } from "./advice-pdf";
@@ -195,5 +202,60 @@ describe("placeLinks", () => {
     });
 
     expect(placed?.width).toBeCloseTo(200 / 3.77952755906, 4);
+  });
+});
+
+describe("clean page breaks", () => {
+  const sheet = sheetHeight({ elementWidth: 760, pageWidth: A4.width, pageHeight: A4.height, margin: PDF_MARGIN_MM });
+
+  it("break where the links are placed: one sheet holds the same pixels for both", () => {
+    const [onSecond] = placeLinks([{ url: "https://finn.com", x: 0, y: sheet + 1, width: 10, height: 10 }], {
+      elementWidth: 760, pageWidth: A4.width, pageHeight: A4.height, margin: PDF_MARGIN_MM,
+    });
+
+    expect(sheet).toBeGreaterThan(1000);
+    expect(onSecond!.page).toBe(2);
+  });
+
+  it("move a block that would be cut to the top of the next sheet, and leave one that fits", () => {
+    expect(breakPush(100, 200, sheet)).toBe(0);
+    /* 40px from the end, 120px tall: moved to the next sheet, with a little room above it. */
+    expect(breakPush(sheet - 40, 120, sheet)).toBe(40 + 12);
+    expect(breakPush(sheet * 2 - 10, 50, sheet)).toBe(10 + 12);
+  });
+
+  it("let a block bigger than half a sheet break between its own parts instead", () => {
+    expect(breakPush(sheet - 40, sheet * 0.6, sheet)).toBe(0);
+  });
+
+  it("move a heading on with what it heads, when there's no room for it under the heading", () => {
+    expect(breakPush(sheet - 50, 20, sheet)).toBe(0);
+    expect(breakPush(sheet - 50, 20, sheet, true)).toBe(50 + 12);
+  });
+
+  it("add the room before a block that stacks, and never before one in a row", () => {
+    const { document } = parseHTML(`<div id="root"><p id="fits">a</p><ul id="list"><li id="cut">b</li></ul><div id="row"><span id="chip">c</span></div></div>`);
+    const root = document.getElementById("root") as unknown as HTMLElement;
+    const place: Record<string, { top: number; height: number }> = {
+      root: { top: 0, height: 3000 },
+      fits: { top: 10, height: 40 },
+      list: { top: 60, height: sheet * 2 },
+      cut: { top: sheet - 30, height: 80 },
+      row: { top: 2 * sheet - 20, height: 60 },
+      chip: { top: 2 * sheet - 20, height: 60 },
+    };
+    const display: Record<string, string> = { row: "flex", chip: "inline-flex" };
+
+    keepBlocksWhole(
+      root,
+      sheet,
+      (element) => place[element.id] ?? { top: 0, height: 0 },
+      (element) => ({ display: display[element.id] ?? "block", position: "static", flexDirection: "row", gridTemplateColumns: "none" }),
+    );
+
+    const spaces = [...document.querySelectorAll("[data-page-break]")];
+    /* Before the list item cut by the first break — as a list item — and before the row cut by the second, not inside it. */
+    expect(spaces.map((space) => [space.tagName, space.nextElementSibling?.id])).toEqual([["LI", "cut"], ["DIV", "row"]]);
+    expect((spaces[0] as unknown as HTMLElement).style.height).toBe("42px");
   });
 });

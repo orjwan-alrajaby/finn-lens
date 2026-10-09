@@ -4,9 +4,12 @@ import { Download } from "lucide-react";
 import { Spinner } from "@/components/Spinner";
 
 import {
+    A4,
     advicePdfOptions,
+    keepBlocksWhole,
     PDF_MARGIN_MM,
     placeLinks,
+    sheetHeight,
     type LinkRect,
 } from "@/lib/advice-pdf";
 
@@ -30,6 +33,12 @@ export function usePdfExport(fileName: string | null) {
 
         void (async () => {
             try {
+                /* Nothing cut across a page break: each block that would be moves to the next sheet. */
+                const element = printable.current;
+                if (element) {
+                    keepBlocksWhole(element, sheetHeight({ elementWidth: element.getBoundingClientRect().width, pageWidth: A4.width, pageHeight: A4.height, margin: PDF_MARGIN_MM }));
+                }
+
                 const { default: generatePDF } = await import("react-to-pdf");
 
                 const pdf = await generatePDF(
