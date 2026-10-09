@@ -1531,7 +1531,12 @@ const ITEM_NOTE: Record<ListKind, (item: Reasoned) => string | undefined> = {
     worth: () => "Not checked yet — tap + to add it.",
 };
 
-/** The round × or + at a line's end: taking it out, or adding it. */
+/**
+ * Taking a line out, or adding one, as soft as the marks beside them: a pale
+ * disc with a × at the end of a line Lens looks for, and — on what might
+ * matter — the dashed + itself, in the mark's place, so the + is the button
+ * that adds it rather than a second + beside it.
+ */
 function ListAction({ label, kind, onClick }: { label: string; kind: "remove" | "add"; onClick: () => void }) {
     return (
         <button
@@ -1539,11 +1544,16 @@ function ListAction({ label, kind, onClick }: { label: string; kind: "remove" | 
             onClick={onClick}
             aria-label={kind === "remove" ? `Stop checking ${label}` : `Check ${label} too`}
             className={[
-                "-my-0.5 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-white ring-1 transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-finn-accent-blue",
-                kind === "remove" ? "text-finn-black/70 ring-black/15 hover:text-finn-black hover:ring-black/35" : "text-finn-accent-blue ring-finn-accent-blue/40 hover:bg-finn-pale-blue",
+                "inline-flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full transition-colors",
+                /* A bigger target than it looks: the tap lands a few pixels round it too. */
+                "relative mt-px after:absolute after:-inset-1.5 after:content-['']",
+                "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-finn-accent-blue",
+                kind === "remove"
+                    ? "bg-black/[0.06] text-finn-black/65 hover:bg-black/[0.12] hover:text-finn-black"
+                    : "border border-dashed border-finn-accent-blue/60 text-finn-accent-blue hover:border-solid hover:border-finn-accent-blue hover:bg-finn-pale-blue",
             ].join(" ")}
         >
-            {kind === "remove" ? <X aria-hidden="true" className="h-3.5 w-3.5" strokeWidth={3} /> : <Plus aria-hidden="true" className="h-3.5 w-3.5" strokeWidth={3} />}
+            {kind === "remove" ? <X aria-hidden="true" className="h-3 w-3" strokeWidth={3} /> : <Plus aria-hidden="true" className="h-3 w-3" strokeWidth={3} />}
         </button>
     );
 }
@@ -1564,7 +1574,7 @@ function ReasonedList({ title, hint, tip, kind, items }: { title: string; hint?:
             <ul className="space-y-1.5">
                 {items.map((item) => (
                     <li key={item.label} className="flex items-start gap-2 text-[12.5px] leading-snug">
-                        <ListMark kind={kind} />
+                        {item.onAdd ? <ListAction label={item.label} kind="add" onClick={item.onAdd} /> : <ListMark kind={kind} />}
                         <span className="min-w-0 flex-1">
                             <span className={`font-bold ${kind === "worth" ? "text-finn-highlight-navy" : "text-finn-black"}`}>{item.label}</span>
                             {item.does ? (
@@ -1575,7 +1585,6 @@ function ReasonedList({ title, hint, tip, kind, items }: { title: string; hint?:
                             {item.because ? <span className="text-finn-black/75"> — because {item.because}</span> : null}
                         </span>
                         {item.onRemove ? <ListAction label={item.label} kind="remove" onClick={item.onRemove} /> : null}
-                        {item.onAdd ? <ListAction label={item.label} kind="add" onClick={item.onAdd} /> : null}
                     </li>
                 ))}
             </ul>
