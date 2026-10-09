@@ -825,13 +825,14 @@ function DealKey({ rows }: { rows: DealRow[] }) {
     ];
 
     return (
-        <dl className="mt-3 divide-y divide-black/5 overflow-hidden rounded-xl text-[12px] leading-snug ring-1 ring-black/5">
+        /* Edge to edge across Lens's bubble (its own px-3.5), the text kept where it would sit in a box inside it. */
+        <dl className="-mx-3.5 mt-3 divide-y divide-black/5 text-[12px] leading-snug">
             {entries.map((entry) => (
                 /*
                  * Each chip on its own line and what it means under it, so every meaning starts at the same edge;
-                 * white and grey by turns, so each pair reads as one.
+                 * grey and white by turns, so each pair reads as one.
                  */
-                <div key={entry.label} className="flex flex-col items-start gap-1 px-2.5 py-2 odd:bg-white even:bg-finn-cotton">
+                <div key={entry.label} className="flex flex-col items-start gap-1 px-6 py-2 odd:bg-finn-cotton even:bg-white">
                     {/* The same filled rectangle the option becomes when picked. */}
                     <dt className={`rounded-md px-2 py-0.5 text-[10.5px] font-black ${entry.tone}`}>{entry.label}</dt>
                     <dd className="text-finn-iron">{entry.means}</dd>
