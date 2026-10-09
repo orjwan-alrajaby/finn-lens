@@ -138,12 +138,16 @@ export interface SummaryItem {
     does?: string;
     /** For standard equipment fewer cars here have than nearly all: "On 19 of the 24 cars here." */
     here?: string;
+    /** Why it's on the list, after it: "you said snow and ice". Absent on suggestions, and on summaries from before it was kept. */
+    because?: string;
 }
 
 export interface SummaryBubble {
     id: string;
     /** "You have kids · a baby or toddler seat". */
     heading: string;
+    /** What Lens asked and what the reader answered, in order: "Who rides with you?" → "Kids". Absent on summaries from before it was kept. */
+    asked?: { ask: string; answer: string }[];
     importance: NeedImportance;
     /** How much it counts was said by the reader — a chip, how often, or the summary — not assumed. */
     importanceSaid: boolean;
@@ -161,6 +165,8 @@ export interface SummaryBubble {
     figure?: string;
     /** What that figure is, for its "i". */
     figureDoes?: string;
+    /** Why it's judged on that figure: "you said moderately green". */
+    figureBecause?: string;
     /** What weighing it does, beside any deal-breaker on it: "Lower CO₂ ranks higher; no car is set aside for it." */
     figureNote?: string;
     /** What matters for this life that FINN's data can't tell Lens. */

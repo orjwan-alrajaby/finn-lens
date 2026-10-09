@@ -7,12 +7,15 @@ import type { CategoryId } from "@/lib/reasoning-engine/types";
 import {
     BUBBLE_GROUPS,
     BUBBLES,
+    becauseOf,
     bubbleById,
     bubbleHeading,
+    bubbleQuestions,
     bubblesIn,
     importanceOf,
     importanceSaid,
     itemsOf,
+    figureBecause,
     figuresOf,
     joinedDetails,
     settledFigures,
@@ -51,7 +54,7 @@ import type { FinnCar } from "@/lib/types";
 import { applyFollowUp, offerReason } from "./follow-ups";
 import { BASE_ANSWERS, rulesSignature } from "./judge";
 import { messageId, newChatId } from "./store";
-import type { BubbleChips, Chat, ChatMessage, ChatStep, DealRow, Rewind, SavedSettings, StepId, SummaryBubble } from "./types";
+import type { BubbleChips, Chat, ChatMessage, ChatStep, DealRow, Rewind, SavedSettings, StepId, SummaryBubble, SummaryItem } from "./types";
 
 /**
  * How a conversation with Lens goes, as pure functions over a `Chat`.
@@ -1138,18 +1141,22 @@ function summaryBubbles(u: Understanding, cars: FinnCar[]): SummaryBubble[] {
         own.forEach((id) => shown.add(id));
         worth.forEach((id) => suggested.add(id));
 
+        /* Each with why it's there: the answer that put it on the list. */
+        const because = (list: SummaryItem[], kind: "counts" | "checks") => list.map((item) => ({ ...item, because: becauseOf(bubble, state, item.id, kind) }));
+
         return {
             id: bubble.id,
             heading: bubbleHeading(bubble, state),
+            asked: bubbleQuestions(bubble, state),
             importance: importanceOf(bubble, state),
             importanceSaid: importanceSaid(bubble, state),
             /* Whether it weighs anything: with nothing left to check, how much it counts means nothing. */
             counting: live.length > 0 || Boolean(figure),
             /* What a deal-breaker already settles isn't checked: every car left has it. */
-            counts: named(own, bubble.why),
-            ...(shared.length ? { shared: named(shared, bubble.why) } : {}),
+            counts: because(named(own, bubble.why), "counts"),
+            ...(shared.length ? { shared: because(named(shared, bubble.why), "counts") } : {}),
             /* Standard equipment, with how many cars here have it where that's fewer than nearly all. */
-            checks: named(items.checks.filter((id) => !settled.has(id)), bubble.why).map((item) => {
+            checks: because(named(items.checks.filter((id) => !settled.has(id)), bubble.why), "checks").map((item) => {
                 const here = standardHere(item.id, cars);
                 return here ? { ...item, here } : item;
             }),
@@ -1158,6 +1165,7 @@ function summaryBubbles(u: Understanding, cars: FinnCar[]): SummaryBubble[] {
                 ? {
                       figure,
                       figureDoes: figures.filter((id) => !settledFigure.has(id)).map((id) => FIGURE_DOES[id]).find(Boolean),
+                      figureBecause: figureBecause(bubble, state),
                       figureNote: figures.filter((id) => !settledFigure.has(id)).map((id) => figureNote(id, u)).find(Boolean),
                   }
                 : {}),

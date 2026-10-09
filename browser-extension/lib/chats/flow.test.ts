@@ -1334,6 +1334,31 @@ describe("the summary's headings", () => {
         expect(bubbles.find((bubble) => bubble.id === "city")?.heading).toBe("You live in the city · you park on the street and in a garage");
         expect(bubbles.find((bubble) => bubble.id === "weather")?.heading).toBe("The weather where you live is tough · rain and fog, and cold winters");
     });
+
+    it("keep what Lens asked and what the reader answered, in order", () => {
+        const bubbles = summaryOf(withBubbles(EMPTY_UNDERSTANDING, { kids: ["baby"], weather: ["snow", "wet"] }), "s", cars()).bubbles!;
+
+        expect(bubbles.find((bubble) => bubble.id === "kids")?.asked).toEqual([
+            { ask: "Who rides with you?", answer: "Kids" },
+            { ask: "Which child seat?", answer: "Baby or toddler seat" },
+        ]);
+        expect(bubbles.find((bubble) => bubble.id === "weather")?.asked).toEqual([
+            { ask: "What does the car have to cope with?", answer: "Tough weather" },
+            { ask: "What's it like?", answer: "Snow & ice · Rain & fog" },
+        ]);
+    });
+
+    it("say why each item is on the list: the chips that name it, else the bubble, and a comfort picked by name", () => {
+        const bubbles = summaryOf(withBubbles(EMPTY_UNDERSTANDING, { kids: ["baby"], weather: ["snow", "cold"], comfort: ["lumbar"] }), "s", cars()).bubbles!;
+        const because = (bubble: string, item: string) => {
+            const found = bubbles.find((each) => each.id === bubble)!;
+            return [...found.counts, ...(found.shared ?? [])].find((each) => each.id === item)?.because;
+        };
+
+        expect(because("kids", "rearDoors")).toBe("you have kids");
+        expect(because("weather", "hasHeatedSeats")).toBe("you said snow and ice, and cold winters");
+        expect(because("comfort", "hasLumbarSupport")).toBe("you picked it");
+    });
 });
 
 describe("changing how long, from the summary", () => {

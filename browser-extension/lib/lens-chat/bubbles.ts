@@ -807,6 +807,49 @@ export function suggestedBecause(bubble: Bubble, state: BubbleState): [rule: str
 }
 
 /**
+ * Why an item is on a bubble's list, as the summary says it after the item:
+ * "you said snow and ice" for the chips that name it, "you park on the
+ * street" where a chip already speaks to the reader, "you picked it" for a
+ * comfort picked by name, "you added it" for one the reader added — else the
+ * bubble's own: "you have kids".
+ */
+export function becauseOf(bubble: Bubble, state: BubbleState, id: EvidenceId, kind: "counts" | "checks"): string {
+    if (kind === "counts" && state.added.includes(id)) return "you added it";
+
+    const chips = (bubble.chips?.options ?? []).filter((option) => state.chips.includes(option.id) && (option[kind] ?? []).includes(id));
+    if (!chips.length) return bubble.you.replace(/^./, (c) => c.toLowerCase());
+    if (bubble.chips?.mode === "any") return "you picked it";
+
+    const details = chips.map((chip) => chip.detail);
+    return details.every((detail) => detail.startsWith("you ")) ? joinedDetails(details) : `you said ${joinedDetails(details)}`;
+}
+
+/** Why a bubble is judged on a figure: "you said moderately green", else the bubble's own. */
+export function figureBecause(bubble: Bubble, state: BubbleState): string {
+    const chip = (bubble.chips?.options ?? []).find((option) => state.chips.includes(option.id) && option.figures?.length);
+
+    return chip ? `you said ${chip.detail}` : bubble.you.replace(/^./, (c) => c.toLowerCase());
+}
+
+/**
+ * What Lens asked that led to a bubble, and what the reader answered, in
+ * order: its section's question and the bubble tapped, its chips' question
+ * and the chips picked, and how often.
+ */
+export function bubbleQuestions(bubble: Bubble, state: BubbleState): { ask: string; answer: string }[] {
+    const group = BUBBLE_GROUPS.find((item) => item.bubbles.includes(bubble.id));
+    const chips = (bubble.chips?.options ?? []).filter((option) => state.chips.includes(option.id));
+    const often = bubble.often ? OFTEN[bubble.often].choices.find((choice) => choice.id === state.often) : undefined;
+
+    return [
+        /* "First, who rides with you?" leads into the chat; on its own it's "Who rides with you?". */
+        ...(group ? [{ ask: group.ask.replace(/^First, (.)/, (_, c: string) => c.toUpperCase()), answer: bubble.label }] : []),
+        ...(chips.length ? [{ ask: bubble.chips!.ask, answer: chips.map((chip) => chip.label).join(" · ") }] : []),
+        ...(often ? [{ ask: OFTEN[bubble.often!].ask, answer: often.label }] : []),
+    ];
+}
+
+/**
  * Chips' details in one phrase, the words they start with said once: "you
  * park on the street and in a garage", not "you park on the street, you park
  * in a garage".
