@@ -44,6 +44,12 @@ async function openOnFinn(url: string | null = null) {
     window.close();
 }
 
+/** Settings, open on the beta guide: what Lens is, how it decides, and what this beta can't do yet. */
+async function openGuide() {
+    await browser.tabs.create({ url: `${browser.runtime.getURL("/options.html")}#guide` });
+    window.close();
+}
+
 const winnerOf = (chat: Chat): Extract<ChatMessage, { kind: "result" }>["winner"] => {
     const result = [...chat.messages].reverse().find((message) => message.kind === "result");
     return result?.kind === "result" ? result.winner : null;
@@ -233,9 +239,14 @@ export function App() {
                         </a>
                         .
                     </p>
-                    <button type="button" onClick={() => void browser.runtime.openOptionsPage()} className="shrink-0 font-bold text-finn-accent-blue hover:underline">
-                        Your data
-                    </button>
+                    <span className="flex shrink-0 items-center gap-3">
+                        <button type="button" onClick={() => void openGuide()} className="font-bold text-finn-accent-blue hover:underline">
+                            Beta guide
+                        </button>
+                        <button type="button" onClick={() => void browser.runtime.openOptionsPage()} className="font-bold text-finn-accent-blue hover:underline">
+                            Your data
+                        </button>
+                    </span>
                 </footer>
             </div>
         </main>
