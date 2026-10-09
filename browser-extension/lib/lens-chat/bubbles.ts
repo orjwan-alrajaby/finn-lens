@@ -430,6 +430,8 @@ export const BUBBLES: Bubble[] = [
             ask: "Which comforts?",
             mode: "any",
             multiple: true,
+            /* Half of them: enough for every comfort they'd use, few enough that each one is chosen. */
+            max: 7,
             options: [
                 /* Each named as FINN lists it, with what it does where the name doesn't say. */
                 { id: "warm", label: "Heated seats", detail: "heated seats", description: "Seats that warm up — FINN doesn't say which ones.", counts: ["hasHeatedSeats"] },
