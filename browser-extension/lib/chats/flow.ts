@@ -53,7 +53,7 @@ import type { FinnCar } from "@/lib/types";
 
 import { applyFollowUp, offerReason } from "./follow-ups";
 import { BASE_ANSWERS, rulesSignature } from "./judge";
-import { messageId, newChatId } from "./store";
+import { messageId, newChatId, newChatName } from "./store";
 import type { BubbleChips, Chat, ChatMessage, ChatStep, DealRow, Rewind, SavedSettings, StepId, SummaryBubble, SummaryItem } from "./types";
 
 /**
@@ -1283,24 +1283,12 @@ export function summaryOf(u: Understanding, id: string = messageId(), cars: Finn
     };
 }
 
-/** A name for the chat the reader will recognise in a list. */
-export function titleFor(u: Understanding): string {
-    const needs = lifeNeeds(u).map((need) => need.label);
-
-    if (needs.length) return needs.slice(0, 2).join(" · ");
-    if (u.budget) return `Up to ${formatEUR(u.budget.monthly)} a month`;
-
-    return "New chat";
-}
-
 /* -------------------------------------------------------------------------- */
 /* Moving the conversation on                                                 */
 /* -------------------------------------------------------------------------- */
 
 const touch = (chat: Chat, messages: ChatMessage[], patch: Partial<Chat> = {}): Chat => {
-    const next = { ...chat, ...patch, messages: [...chat.messages, ...messages], updatedAt: now() };
-
-    return { ...next, title: titleFor(next.understanding) };
+    return { ...chat, ...patch, messages: [...chat.messages, ...messages], updatedAt: now() };
 };
 
 /** Retires every question still open: a new one, or a typed answer, supersedes them. */
@@ -1486,15 +1474,21 @@ export function askNext(chat: Chat, cars: FinnCar[]): Chat {
     );
 }
 
-/** A brand-new chat, from nothing or from the reader's saved settings. */
+/** How it works, said first in every new chat. */
 const INTRO =
     "Here's how it works: tap what fits your life, and answer a few short questions — tap, or say it in your own words. I'll show you what I understood before I judge anything. Then every car on this page gets a chip saying how well it fits you, and my top pick gets a trophy.";
 
-export function startChat(settings: SavedSettings | null, cars: FinnCar[], today = new Date()): Chat {
+/**
+ * A brand-new chat, from nothing or from the reader's saved settings, named with a random code — "Chat 7KQ-M4X" — none of
+ * `taken`, the names already in use. Named from its answers, chats read
+ * alike ("You have kids · You live in the city"); a code tells them apart,
+ * and stays the same as the answers change.
+ */
+export function startChat(settings: SavedSettings | null, cars: FinnCar[], today = new Date(), taken: string[] = []): Chat {
     const at = today.toISOString();
     const base: Chat = {
         id: newChatId(),
-        title: "New chat",
+        title: newChatName(taken),
         createdAt: at,
         updatedAt: at,
         messages: [],
@@ -1608,7 +1602,6 @@ export function rewind(chat: Chat): Chat {
         kept: last.kept,
         adjusting: false,
         history: history.slice(0, -1),
-        title: titleFor(last.understanding),
         updatedAt: now(),
     };
 }
@@ -1722,7 +1715,7 @@ function answerStep(
                         `${sealers.length ? `${joined(sealers)} ${sealers.length === 1 ? "isn't a deal-breaker now, but it still counts" : "aren't deal-breakers now, but they still count"} as a top priority. ` : "Done. "}Judging again…${saved}`,
                     ),
                 ],
-                { understanding, title: titleFor(understanding), phase: "ready" },
+                { understanding, phase: "ready" },
             ),
             after: "judge",
         };
@@ -2017,7 +2010,6 @@ function redrawn(chat: Chat, understanding: Understanding, cars: FinnCar[]): Cha
     return {
         ...chat,
         understanding,
-        title: titleFor(understanding),
         updatedAt: now(),
         messages: chat.messages.map((message) => (message === lastSummary ? summaryOf(understanding, message.id, cars) : message)),
     };

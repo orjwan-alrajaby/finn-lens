@@ -34,7 +34,28 @@ async function read<T>(key: string, fallback: T): Promise<T> {
 export async function loadChats(): Promise<Record<string, Chat>> {
     const chats = await read<Record<string, Chat>>(CHATS_KEY, {});
 
-    return chats && typeof chats === "object" ? chats : {};
+    return chats && typeof chats === "object" ? named(chats) : {};
+}
+
+/**
+ * Each chat with a name of its own. Chats from before names were codes were
+ * titled from their answers — "You have kids · You live in the city", the
+ * same for half of them — and get one made from their id: the same each
+ * time they're read, oldest first, so two can't end up with one.
+ */
+function named(chats: Record<string, Chat>): Record<string, Chat> {
+    const taken = new Set(Object.values(chats).filter((chat) => isChatName(chat.title)).map((chat) => chat.title));
+    const out = { ...chats };
+
+    for (const chat of Object.values(chats).sort((a, b) => a.createdAt.localeCompare(b.createdAt))) {
+        if (isChatName(chat.title)) continue;
+
+        const title = nameFromId(chat.id, taken);
+        taken.add(title);
+        out[chat.id] = { ...chat, title };
+    }
+
+    return out;
 }
 
 /** Newest activity first. */
@@ -60,7 +81,11 @@ function serially<T>(work: () => Promise<T>): Promise<T> {
 
 export function saveChat(chat: Chat): Promise<void> {
     return serially(async () => {
-        const chats = { ...(await loadChats()), [chat.id]: chat };
+        const stored = await loadChats();
+        /* Never two chats with one name: a clash, however unlikely, takes the name made from its id — the same on every save. */
+        const taken = new Set(Object.values(stored).filter((item) => item.id !== chat.id).map((item) => item.title));
+        const own = isChatName(chat.title) && !taken.has(chat.title) ? chat : { ...chat, title: nameFromId(chat.id, taken) };
+        const chats = { ...stored, [chat.id]: own };
         const kept = Object.values(chats)
             .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
             .slice(0, MAX_CHATS);
@@ -121,6 +146,48 @@ export async function takeOpenRequest(): Promise<boolean> {
     }
 
     return true;
+}
+
+/** Letters and digits that can't be misread for each other: no 0 and O, no 1, I and L. */
+const NAME_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
+
+/** A chat's name: "Chat 7KQ-M4X". */
+export const isChatName = (title: string | undefined): boolean => /^Chat [A-HJ-NP-Z2-9]{3}-[A-HJ-NP-Z2-9]{3}$/.test(title ?? "");
+
+/** Six characters as a name, three and three, so it can be read out and compared at a glance. */
+const nameOf = (values: ArrayLike<number>): string => {
+    const chars = Array.from({ length: 6 }, (_, index) => NAME_ALPHABET[values[index]! % NAME_ALPHABET.length]).join("");
+    return `Chat ${chars.slice(0, 3)}-${chars.slice(3)}`;
+};
+
+/**
+ * A new chat's name, random, and none of `taken`. 31⁶ — almost 900 million —
+ * names, against at most 40 chats kept: a clash is all but impossible, and
+ * is drawn again if it happens.
+ */
+export function newChatName(taken: Iterable<string> = []): string {
+    const used = new Set(taken);
+
+    for (;;) {
+        const name = nameOf(crypto.getRandomValues(new Uint32Array(6)));
+        if (!used.has(name)) return name;
+    }
+}
+
+/** A name made from a chat's id, the same every time — for chats from before names, and the rare clash — and none of `taken`. */
+export function nameFromId(id: string, taken: Iterable<string> = []): string {
+    const used = new Set(taken);
+
+    for (let salt = 0; ; salt += 1) {
+        /* FNV-1a, one hash per character, each seeded differently. */
+        const values = Array.from({ length: 6 }, (_, index) => {
+            let hash = 0x811c9dc5 ^ (index + 1) ^ (salt << 8);
+            for (const char of id) hash = Math.imul(hash ^ char.charCodeAt(0), 0x01000193);
+            return hash >>> 0;
+        });
+        const name = nameOf(values);
+        if (!used.has(name)) return name;
+    }
 }
 
 export const newChatId = (): string => `chat-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;

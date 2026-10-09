@@ -22,7 +22,7 @@ import {
 } from "@/lib/chats/flow";
 import { askBeforeResult, judgementFrom, judgeWith, resultMessage, withJudgement } from "@/lib/chats/judge";
 import { addedToJudgement, judgedCars, loadedCars, theHeadline } from "@/lib/chats/scope";
-import { loadChat, loadSettings, messageId, saveChat, saveSettings, setActiveChat } from "@/lib/chats/store";
+import { listChats, loadChat, loadSettings, messageId, saveChat, saveSettings, setActiveChat } from "@/lib/chats/store";
 import type { Chat } from "@/lib/chats/types";
 import type { BubbleId } from "@/lib/lens-chat/bubbles";
 import type { EvidenceId } from "@/lib/lens-chat/evidence";
@@ -77,7 +77,9 @@ export function useConversation(page: PageCars) {
     /* -- Which chat --------------------------------------------------------- */
 
     const startNew = useCallback(async () => {
-        const next = startChat(await loadSettings(), pageRef.current.cars);
+        /* A name none of the reader's other chats has. */
+        const taken = (await listChats()).map((item) => item.title);
+        const next = startChat(await loadSettings(), pageRef.current.cars, new Date(), taken);
 
         await commit(next);
         /* A chat with no judgement takes the chips off the page: they belong to the chat on screen. */
