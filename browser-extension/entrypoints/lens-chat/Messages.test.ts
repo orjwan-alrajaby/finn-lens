@@ -78,11 +78,16 @@ describe("here's what you told me, and what I understood", () => {
 
         expect(words).toContain("Here's what you told me, and what I understood:");
         /* Each thing said a stripe of its own, edge to edge, grey and white by turns. */
-        expect(html.match(/<li class="px-3\.5 py-2\.5 odd:bg-finn-cotton even:bg-white">/g)?.length).toBe(2);
-        expect(words).toMatch(/What you told me You have kids · a baby or toddler seat Top priority · 4 pts I.ll check: Rear doors/);
+        expect(html.match(/<li class="space-y-3 px-3\.5 py-3\.5 odd:bg-finn-cotton even:bg-white">/g)?.length).toBe(2);
+        /* What Lens asked, what the reader answered, what Lens understood — then what it looks for, each with why. */
+        expect(words).toMatch(
+            /What you told me What I asked Who rides with you\? Which child seat\? What you answered Kids Baby or toddler seat What I understood You have kids · a baby or toddler seat Top priority · 4 pts I.ll look for: Rear doors — because you have kids/,
+        );
+        expect(html).toMatch(/bg-finn-fit-good-pale text-finn-fit-good"><svg[^>]*lucide-check/);
         expect(words).toMatch(/Money & time Monthly limit €500 all in .* Deal-breakers & sealers Runs on Any Deal-breakers None Deal-sealers None/);
         /* Standard equipment each answer calls for, said so it doesn't look forgotten. */
-        expect(words).toMatch(/You live in the city · you park on the street .*Also making sure it has: Automatic gearbox · Parking sensors · Automatic emergency braking/);
+        expect(words).toMatch(/You live in the city · you park on the street .*Also making sure it has: Automatic gearbox — because you live in the city Parking sensors — because .*Automatic emergency braking — because/);
+        expect(html).toMatch(/bg-finn-pale-blue text-finn-accent-blue"><svg[^>]*lucide-shield-check/);
         expect(words).toContain("Does that look right?");
         expect(words).toMatch(/Looks good to me — continue This doesn't look right/);
         /* Nothing to edit in the chat itself. */

@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { ArrowUpRight, Check, ChevronDown, ChevronRight, Info, PencilLine, Plus, Star, Undo2, X } from "lucide-react";
+import { ArrowUpRight, Check, ChevronDown, ChevronRight, Info, PencilLine, Plus, ShieldCheck, Star, Undo2, X } from "lucide-react";
 
 import { ImportanceBadge, ImportanceKey } from "@/components/ImportanceKey";
 import { BandChip, BrandMark, CarPhoto, euros, WinnerChip } from "@/components/lens-parts";
@@ -1512,26 +1512,81 @@ const LINE_GROUPS: { title: string; steps: StepId[] }[] = [
     { title: "Deal-breakers & sealers", steps: ["fuel", "deals", "rules"] },
 ];
 
+/** One line on the summary's lists: what it is, and why it's there. */
+type Reasoned = { label: string; because?: string };
+
+/** The mark before a line on the summary's lists: a tick for what Lens looks for, a shield for the standard equipment it makes sure of. */
+function ListMark({ kind }: { kind: "looks" | "standard" }) {
+    return (
+        <span
+            aria-hidden="true"
+            className={`mt-px inline-flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full ${kind === "looks" ? "bg-finn-fit-good-pale text-finn-fit-good" : "bg-finn-pale-blue text-finn-accent-blue"}`}
+        >
+            {kind === "looks" ? <Check className="h-3 w-3" strokeWidth={3} /> : <ShieldCheck className="h-3 w-3" strokeWidth={2.5} />}
+        </span>
+    );
+}
+
+/** "I'll look for:" and its lines, each with its mark and why it's there. */
+function ReasonedList({ title, kind, items }: { title: string; kind: "looks" | "standard"; items: Reasoned[] }) {
+    if (!items.length) return null;
+
+    return (
+        <div>
+            <p className="mb-1.5 text-[12.5px] font-black text-finn-black">{title}</p>
+            <ul className="space-y-1.5">
+                {items.map((item) => (
+                    <li key={item.label} className="flex items-start gap-2 text-[12.5px] leading-snug">
+                        <ListMark kind={kind} />
+                        <span>
+                            <span className="font-bold text-finn-black">{item.label}</span>
+                            {item.because ? <span className="text-finn-black/75"> — because {item.because}</span> : null}
+                        </span>
+                    </li>
+                ))}
+            </ul>
+        </div>
+    );
+}
+
+/** A small heading over part of a summary row: "What I asked". */
+const ROW_LABEL = "text-[11px] font-black uppercase tracking-wide text-finn-black/70";
+
 /**
- * What Lens understood, in the chat: read-only and to the point. Each thing
- * the reader said, how much it counts and what Lens will check for it; then
- * the money, the dates and the deal-breakers. Changing any of it is the
- * Adjust panel's job.
+ * What Lens understood, in the chat: read-only. Each thing the reader said
+ * as a row of its own — what Lens asked, what they answered, what Lens
+ * understood and how much it counts, then what it will look for and the
+ * standard equipment it makes sure of, each with why — then the money, the
+ * dates and the deal-breakers. Changing any of it is the Adjust panel's job.
  */
 function StaticSummary({ message }: { message: Extract<ChatMessage, { kind: "summary" }> }) {
     const said = [
         ...(message.bubbles ?? []).map((bubble) => ({
             id: bubble.id,
             heading: bubble.heading,
+            /* Absent on summaries from before it was kept: those start at what Lens understood. */
+            asked: bubble.asked ?? [],
             importance: bubble.counting === false ? null : bubble.importance,
             /* Lens's guess, where the reader never said how much it counts. */
             guess: !bubble.importanceSaid,
-            checks: [...(bubble.figure ? [bubble.figure] : []), ...bubble.counts.map((item) => item.label), ...(bubble.shared ?? []).map((item) => item.label)],
+            looksFor: [
+                ...(bubble.figure ? [{ label: bubble.figure, because: bubble.figureBecause }] : []),
+                ...[...bubble.counts, ...(bubble.shared ?? [])].map((item) => ({ label: item.label, because: item.because })),
+            ] as Reasoned[],
             /* Standard equipment it calls for: said, so air conditioning for hot summers doesn't look forgotten. */
-            standard: bubble.checks.map((item) => item.label),
+            standard: bubble.checks.map((item) => ({ label: item.label, because: item.because })) as Reasoned[],
             note: bubble.settled ?? bubble.empty ?? null,
         })),
-        ...(message.needs ?? []).map((need) => ({ id: need.id, heading: need.label, importance: need.importance, guess: false, checks: need.looksFor, standard: [] as string[], note: null })),
+        ...(message.needs ?? []).map((need) => ({
+            id: need.id,
+            heading: need.label,
+            asked: [] as { ask: string; answer: string }[],
+            importance: need.importance,
+            guess: false,
+            looksFor: need.looksFor.map((label) => ({ label })) as Reasoned[],
+            standard: [] as Reasoned[],
+            note: null,
+        })),
     ];
     const counted = said.filter((item) => item.importance);
 
@@ -1543,19 +1598,40 @@ function StaticSummary({ message }: { message: Extract<ChatMessage, { kind: "sum
                     {/* Edge to edge across the card, grey and white by turns, the text in line with the heading. */}
                     <ul className="-mx-3.5 mt-1.5 divide-y divide-black/5">
                         {said.map((item) => (
-                            <li key={item.id} className="px-3.5 py-2.5 odd:bg-finn-cotton even:bg-white">
-                                <div className="flex items-start justify-between gap-2">
-                                    <p className="text-[13px] font-black leading-snug text-finn-black">{item.heading}</p>
-                                    {item.importance ? <ImportanceBadge importance={item.importance} guess={item.guess} /> : null}
+                            <li key={item.id} className="space-y-3 px-3.5 py-3.5 odd:bg-finn-cotton even:bg-white">
+                                {item.asked.length ? (
+                                    <dl className="space-y-2 text-[12.5px] leading-snug">
+                                        <div>
+                                            <dt className={ROW_LABEL}>What I asked</dt>
+                                            {item.asked.map((pair) => (
+                                                <dd key={pair.ask} className="mt-0.5 text-finn-black/85">
+                                                    {pair.ask}
+                                                </dd>
+                                            ))}
+                                        </div>
+                                        <div>
+                                            <dt className={ROW_LABEL}>What you answered</dt>
+                                            {item.asked.map((pair) => (
+                                                <dd key={pair.ask} className="mt-0.5 font-bold text-finn-black">
+                                                    {pair.answer}
+                                                </dd>
+                                            ))}
+                                        </div>
+                                    </dl>
+                                ) : null}
+                                <div>
+                                    {item.asked.length ? <p className={ROW_LABEL}>What I understood</p> : null}
+                                    <div className="mt-0.5 flex items-start justify-between gap-2">
+                                        <p className="text-[13.5px] font-black leading-snug text-finn-black">{item.heading}</p>
+                                        {item.importance ? <ImportanceBadge importance={item.importance} guess={item.guess} /> : null}
+                                    </div>
                                 </div>
-                                {item.checks.length ? (
-                                    <p className="mt-1 text-[12.5px] leading-snug text-finn-black/80">I'll check: {item.checks.join(" · ")}</p>
+                                {item.looksFor.length ? (
+                                    <ReasonedList title="I'll look for:" kind="looks" items={item.looksFor} />
                                 ) : item.note ? (
-                                    <p className="mt-1 text-[12.5px] leading-snug text-finn-black/80">{item.note}</p>
+                                    <p className="text-[12.5px] leading-snug text-finn-black/80">{item.note}</p>
                                 ) : null}
-                                {item.standard.length ? (
-                                    <p className="mt-0.5 text-[12px] leading-snug text-finn-black/70">Also making sure it has: {item.standard.join(" · ")}</p>
-                                ) : null}
+                                <ReasonedList title="Also making sure it has:" kind="standard" items={item.standard} />
                             </li>
                         ))}
                     </ul>
