@@ -437,6 +437,10 @@ describe("why not that one", () => {
 
         expect(said).toContain(answer.match);
         expect(said).toContain(answer.car);
+        /* The pick is called the winner every time it's named. */
+        const named = said.split(answer.match).length - 1;
+        expect(named).toBeGreaterThan(0);
+        expect(said.split(`winner “${answer.match}”`).length - 1).toBe(named);
         /* The engine's own summary says "this car"; an answer about two cars may not. */
         expect(said).not.toMatch(/\bthis car\b/i);
         expect(answer.sentences.length).toBeGreaterThan(1);

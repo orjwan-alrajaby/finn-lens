@@ -77,6 +77,9 @@ export function whyNot(run: LensRun, carId: number): WhyNot | null {
     const cost = (vehicle: PinnedFinnCar) => context.costs[vehicle.id];
 
     const sentences: string[] = [];
+    /* The pick, called the winner every time it's named, so it's never mistaken for another car: the winner “Opel Astra”. */
+    const winner = `the winner “${name(match)}”`;
+    const Winner = `The winner “${name(match)}”`;
 
     /* -- What ruled it out, where something did ---------------------------- */
 
@@ -92,9 +95,9 @@ export function whyNot(run: LensRun, carId: number): WhyNot | null {
         sentences.push(`The ${name(car)} doesn't fit the dates you gave me, so it couldn't win.`);
     } else if (theirs?.budgetStatus === "unknown" && theirs.budget != null && mine?.budgetStatus === "within") {
         /* Not over the limit, but not confirmed within it: FINN's data leaves part of its cost out. */
-        sentences.push(`Part of the ${name(car)}'s cost can't be worked out from FINN's data, so it can't be confirmed within the ${formatEUR(theirs.budget)} you gave me — and the ${name(match)} can.`);
+        sentences.push(`Part of the ${name(car)}'s cost can't be worked out from FINN's data, so it can't be confirmed within the ${formatEUR(theirs.budget)} you gave me — and ${winner} can.`);
     } else if (theirs?.contract.status === "unknown" && mine?.contract.status === "fits") {
-        sentences.push(`FINN's data confirms the ${name(match)} for your dates, but not the ${name(car)}.`);
+        sentences.push(`FINN's data confirms ${winner} for your dates, but not the ${name(car)}.`);
     }
 
     /* -- The two scores, in the reader's own terms -------------------------- */
@@ -105,12 +108,12 @@ export function whyNot(run: LensRun, carId: number): WhyNot | null {
 
     if (level && difference != null && difference > 0) {
         sentences.push(
-            `Lens can't tell them apart on what it checks — the ${name(match)} and the ${name(car)} both come out at ${score(match)} out of 100 — so it took the cheaper: ${formatEUR(mine!.totalMonthly)} a month against ${formatEUR(theirs!.totalMonthly)}.`,
+            `Lens can't tell them apart on what it checks — ${winner} and the ${name(car)} both come out at ${score(match)} out of 100 — so it took the cheaper: ${formatEUR(mine!.totalMonthly)} a month against ${formatEUR(theirs!.totalMonthly)}.`,
         );
     } else if (level) {
         sentences.push(`Both come out at ${score(match)} out of 100 on what Lens checks, so there's little in it.`);
     } else if (!sentences.length) {
-        sentences.push(`Lens took the ${name(match)} at ${score(match)} out of 100 against the ${name(car)}'s ${score(car)}.`);
+        sentences.push(`Lens took ${winner} at ${score(match)} out of 100 against the ${name(car)}'s ${score(car)}.`);
     }
 
     /* -- Where the match is ahead, and what carries it ---------------------- */
@@ -143,10 +146,10 @@ export function whyNot(run: LensRun, carId: number): WhyNot | null {
 
     if (ahead.length) {
         /* One a sentence: two that each carry "where it lists … and …" ran into "…doesn't and city & parking". */
-        sentences.push(`The ${name(match)} is ahead on ${ahead[0]}.`);
+        sentences.push(`${Winner} is ahead on ${ahead[0]}.`);
         if (ahead[1]) sentences.push(`It's also ahead on ${ahead[1]}.`);
     } else if (!level && !higher) {
-        sentences.push(`Nothing you ${rankedByReader(context) ? "ranked" : "asked for"} separates them by much; the ${name(match)} simply covers a little more of it.`);
+        sentences.push(`Nothing you ${rankedByReader(context) ? "ranked" : "asked for"} separates them by much; ${winner} simply covers a little more of it.`);
     }
 
     /* -- What the reader would gain by taking it anyway --------------------- */

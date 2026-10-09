@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 
 import { adviceFileName } from "@/lib/advice-pdf";
-import { ExternalLink, History, X } from "lucide-react";
+import { ExternalLink, History, Trophy, X } from "lucide-react";
 
 import { BrandMark, IconButton } from "@/components/lens-parts";
 import { LocateButton } from "@/components/LocateButton";
@@ -117,12 +117,17 @@ function CarView({ value }: { value: JudgedCar }) {
                         ))}
                     </div>
                     <div className="mt-3 flex flex-wrap items-center gap-2">
+                        {/* The winner's own gold and trophy, as its chip has them: never mistaken for a button to another car. */}
                         <button
                             type="button"
                             onClick={() => void requestOpenDrawer(value.chat.id, winnerId, sameJudgement(value))}
-                            className="inline-flex items-center gap-1.5 rounded-full bg-finn-pale-blue px-3.5 py-2 text-[12.5px] font-black text-finn-accent-blue transition-colors hover:bg-finn-accent-blue hover:text-white"
+                            className="inline-flex items-center gap-1.5 rounded-full py-1.5 pr-3.5 pl-1.5 text-[12.5px] font-black text-[#5b3a00] transition-[filter] hover:brightness-105 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#d97706]"
+                            style={{ background: "linear-gradient(135deg, #fff3c4 0%, #fcd34d 45%, #f59e0b 100%)", boxShadow: "0 0 0 1px #fff, 0 0 0 3px rgba(245,158,11,.3)" }}
                         >
-                            See the {versus.match}
+                            <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-white text-[#b7791f] shadow-sm">
+                                <Trophy aria-hidden="true" className="h-3.5 w-3.5" strokeWidth={2.6} />
+                            </span>
+                            See the winner “{versus.match}”
                         </button>
                         <LocateCar id={winnerId} name={versus.match} size="sm" />
                     </div>
