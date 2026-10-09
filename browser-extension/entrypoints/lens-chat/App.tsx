@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ArrowLeft, ArrowUp, MessagesSquare, SquarePen, X } from "lucide-react";
+import { ArrowLeft, ArrowUp, Maximize2, MessagesSquare, Minimize2, SquarePen, X } from "lucide-react";
 
 import { BetaTag, BrandMark, IconButton } from "@/components/lens-parts";
 import { onPageChanged, onTipClosed, requestChatWide, requestCloseChat, requestOpenDrawer, requestPageContext, requestShowCar, requestTip, requestTipHide, requestTipMove } from "@/lib/chats/bridge";
@@ -131,9 +131,15 @@ export function App() {
     const adjusting = Boolean(chat?.adjusting) && view === "chat";
     const summary = useMemo(() => [...(chat?.messages ?? [])].reverse().find((message) => message.kind === "summary") ?? null, [chat?.messages]);
 
+    /* Expanded: the reader asked, with the header's button. */
+    const [expanded, setExpanded] = useState(false);
+    const [canExpand, setCanExpand] = useState(false);
+
     useEffect(() => {
-        void requestChatWide(adjusting).catch(() => {});
-    }, [adjusting]);
+        void requestChatWide(adjusting || expanded)
+            .then((answer) => setCanExpand(answer?.can === true))
+            .catch(() => {});
+    }, [adjusting, expanded]);
     const openAsk = chat?.messages.some((message) => message.kind === "ask" && !message.answered) ?? false;
 
     /* Cars on this page the chat's judgement didn't cover: a different page, or more cars since. */
@@ -175,6 +181,12 @@ export function App() {
                         {view === "list" ? "Every chat you've had" : (chat?.title ?? "Your car-choosing assistant")}
                     </p>
                 </div>
+                {/* Not while adjusting: the chat is expanded for the panel already. */}
+                {canExpand && !adjusting ? (
+                    <IconButton label={expanded ? "Shrink the chat" : "Expand the chat"} tone="dark" onClick={() => setExpanded((was) => !was)}>
+                        {expanded ? <Minimize2 aria-hidden="true" className="h-[18px] w-[18px]" /> : <Maximize2 aria-hidden="true" className="h-[18px] w-[18px]" />}
+                    </IconButton>
+                ) : null}
                 {view === "chat" ? (
                     <>
                         <IconButton label="Your chats" tone="dark" onClick={() => setView("list")}>
@@ -208,7 +220,9 @@ export function App() {
                 <div className="relative flex min-h-0 flex-1">
                 <div className={`flex min-h-0 min-w-0 flex-1 flex-col ${adjusting ? "min-[720px]:max-w-[420px] min-[720px]:border-r min-[720px]:border-finn-cotton" : ""}`}>
                     <div ref={scroller} className="min-h-0 flex-1 overflow-y-auto px-3 py-4">
+                        {/* Expanded wide, the chat keeps a readable width in the middle. */}
                         {chat ? (
+                            <div className="mx-auto w-full max-w-[760px]">
                             <MessageList
                                 messages={shown}
                                 typing={typing || busy}
@@ -223,6 +237,7 @@ export function App() {
                                 onLocateCar={requestShowCar}
                                 onNeverMind={chat.beforeChange ? () => void conversation.keepAnswers() : undefined}
                             />
+                            </div>
                         ) : null}
                     </div>
 

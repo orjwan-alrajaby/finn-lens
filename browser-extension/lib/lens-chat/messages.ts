@@ -56,7 +56,7 @@ export type ChatToPage = { token: string } & (
     /* `winner`: it's the winner, and its card is marked in the winner's gold. */
     | { type: "LENS_CHAT_SHOW_CAR"; carId: number; winner?: boolean }
     | { type: "LENS_CHAT_CLOSE" }
-    /* Wider for the Adjust panel beside the chat, then back to the reader's own size. */
+    /* Expanded — for the Adjust panel beside the chat, or because the reader asked — then back to the reader's own size. */
     | { type: "LENS_CHAT_WIDE"; wide: boolean }
     /* `judgement`: an earlier judgement to read the car out of, by when it was made; the latest when absent. */
     | { type: "LENS_OPEN_DRAWER"; chatId: string; carId: number; judgement?: string }

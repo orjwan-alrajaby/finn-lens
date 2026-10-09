@@ -7,7 +7,7 @@ import { CARD_SELECTORS, cardConfigId, cardForCar } from "../page/currentCar";
 import { highlightConfiguration } from "../page/highlight";
 import { currentSearch } from "../search";
 
-import { setChatOpen, setChatWide } from "./bubble";
+import { isWide, setChatOpen, setChatWide } from "./bubble";
 import { hideTip, moveTip, showTip } from "./companion";
 import { closeDrawer, openDrawer } from "./drawer";
 import { token } from "./frames";
@@ -112,7 +112,8 @@ async function handle(message: ChatToPage): Promise<unknown> {
             return { closed: true };
 
         case "LENS_CHAT_WIDE":
-            return { wide: setChatWide(message.wide) };
+            /* `can`: whether the chat can be expanded at all — not on a phone, where it fills the width already. */
+            return { wide: setChatWide(message.wide), can: isWide() };
 
         case "LENS_OPEN_DRAWER":
             await openDrawer(message.chatId, message.carId, message.judgement);

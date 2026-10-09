@@ -45,7 +45,7 @@ const MIN_SIZE = { width: 360, height: 420 };
 const EDGE = { x: 40, y: 100 };
 
 /* From 640px up the chat is a panel beside the bubble; below it, a sheet that fills the width. */
-const isWide = () => window.matchMedia("(min-width: 640px)").matches;
+export const isWide = () => window.matchMedia("(min-width: 640px)").matches;
 
 function clampSize(width: number, height: number): { width: number; height: number } {
     return {
@@ -71,17 +71,18 @@ function applySize(size: { width: number; height: number } | null): void {
 
 let savedSize: { width: number; height: number } | null = null;
 
-/** Wide for the Adjust panel: the chat and the panel side by side. */
+/** Expanded: for the Adjust panel beside the chat, or because the reader asked. */
 let widened = false;
 
-/** The chat and the Adjust panel side by side, as wide as fits up to this. */
-const WIDE = { width: 900, height: 760 };
+/** Expanded, the chat is as wide as fits up to this, and as tall as the window allows. */
+const WIDE = { width: 900 };
 
 /**
- * Wider while the reader adjusts what Lens understood, so the panel sits
- * beside the chat rather than over it; back to their own size after. Never
- * saved as their size. A phone's sheet is full width already, so it's left
- * be. Returns whether it's wide now.
+ * Expanded while the reader adjusts what Lens understood, so the panel sits
+ * beside the chat rather than over it, or while they've asked for it — the
+ * header's expand, or Lens showing what it understood; back to their own
+ * size after. Never saved as their size. A phone's sheet is full width
+ * already, so it's left be. Returns whether it's wide now.
  */
 export function setChatWide(wide: boolean): boolean {
     widened = wide;
@@ -93,7 +94,8 @@ export function setChatWide(wide: boolean): boolean {
     }
 
     const box = panel.getBoundingClientRect();
-    applySize({ width: Math.max(box.width, WIDE.width), height: Math.max(box.height, Math.min(WIDE.height, window.innerHeight - EDGE.y)) });
+    /* Clamped to the window: as tall as it allows. */
+    applySize({ width: Math.max(box.width, WIDE.width), height: window.innerHeight });
     return true;
 }
 
