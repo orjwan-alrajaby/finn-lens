@@ -103,6 +103,14 @@ describe("here's what you told me, and what I understood", () => {
 
         expect(words.match(/Who rides with you\?/g)?.length).toBe(1);
         expect(words).toMatch(/What I asked Who rides with you\? What you answered Kids .* What you answered Adults or teens .* What you answered A dog .* What I asked/);
+
+        /* The Adjust panel the same way, each answer still with its own picker. */
+        const adjust = text(
+            renderToStaticMarkup(createElement(AdjustPanel, { message: summary(chat), busy: false, onImportance: noop, onChange: noop, onRemove: noop, onAdd: noop, onDone: noop })),
+        );
+        expect(adjust.match(/Who rides with you\?/g)?.length).toBe(1);
+        expect(adjust).toMatch(/What I asked Who rides with you\? What you answered Kids Which child seat\? Baby or toddler seat What I understood You have kids .* What you answered Adults or teens .* What you answered A dog .* What I asked/);
+        expect(adjust.match(/How much it counts Top priority/g)?.length).toBeGreaterThanOrEqual(3);
     });
 
     it("is edited in the Adjust panel: cards to take out, add, and set how much each counts, a Change on each line, and Done", () => {

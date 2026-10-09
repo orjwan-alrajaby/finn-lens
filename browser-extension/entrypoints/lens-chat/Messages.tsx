@@ -1403,33 +1403,86 @@ function Label({ children, hint }: { children: React.ReactNode; hint?: string })
     );
 }
 
+/**
+ * Things said, under the question they answer, in the order first asked:
+ * "Who rides with you?" once, then kids, adults and a dog — not the question
+ * three times. Those no question led to stand alone.
+ */
+function byQuestion<T extends { asked?: { ask: string }[] }>(items: T[]): { ask: string | null; items: T[] }[] {
+    const groups: { ask: string | null; items: T[] }[] = [];
+    for (const item of items) {
+        const ask = item.asked?.[0]?.ask ?? null;
+        const group = ask ? groups.find((entry) => entry.ask === ask) : undefined;
+        if (group) group.items.push(item);
+        else groups.push({ ask, items: [item] });
+    }
+    return groups;
+}
+
+/** The question a row of answers is under: larger, and in navy, so it reads as their heading. */
+function AskedQuestion({ ask }: { ask: string }) {
+    return (
+        <div>
+            <p className={ROW_LABEL}>What I asked</p>
+            <p className="mt-0.5 text-[15px] font-black leading-snug text-finn-highlight-navy">{ask}</p>
+        </div>
+    );
+}
+
+/** Each answer to a question, set in under it; a rule between two. */
+function UnderQuestion({ ask, children }: { ask: string | null; children: React.ReactNode }) {
+    return <div className={ask ? "ml-1 space-y-3 border-l-2 border-finn-highlight-navy/20 pl-3.5" : "space-y-3"}>{children}</div>;
+}
+
+/** Where one answer starts under its question: a rule above all but the first. */
+const answerRule = (index: number) => `space-y-3 ${index ? "border-t border-black/10 pt-3" : ""}`;
+
+/** What the reader answered, and what was asked next because of it, beside its answer. */
+function YouAnswered({ asked }: { asked: { ask: string; answer: string }[] }) {
+    if (!asked.length) return null;
+
+    return (
+        <div className="text-[12.5px] leading-snug">
+            <p className={ROW_LABEL}>What you answered</p>
+            <p className="mt-0.5 font-bold text-finn-black">{asked[0]!.answer}</p>
+            {asked.slice(1).map((pair) => (
+                <p key={pair.ask} className="mt-0.5 text-finn-black/85">
+                    {pair.ask} <span className="font-bold text-finn-black">{pair.answer}</span>
+                </p>
+            ))}
+        </div>
+    );
+}
+
 /** Grey and white by turns, edge to edge, so one bubble is never mistaken for the next. */
 const CARD_TONE = ["bg-finn-cotton", "bg-white"];
 
 /**
- * One bubble as Lens understood it, as a card of its own: its heading and
- * how much it counts; what Lens will check, each can be taken out; the
+ * One bubble as Lens understood it, under the question it answers: what the
+ * reader answered, then its heading and how much it counts; what Lens will check, each can be taken out; the
  * standard equipment it checks too; what might matter too, each can be
  * added; and, last and quietest, what it can't check.
  */
 function UnderstoodBubble({
     bubble,
     live,
-    tone,
+    className,
     onImportance,
     onRemove,
     onAdd,
 }: {
     bubble: SummaryBubble;
     live: boolean;
-    tone: string;
+    className: string;
     onImportance: (level: NeedImportance) => void;
     onRemove: (item: string) => void;
     onAdd: (item: string) => void;
 }) {
     return (
-        <li className={`space-y-3 px-3.5 py-3.5 ${tone}`}>
+        <div className={className}>
+            <YouAnswered asked={bubble.asked ?? []} />
             <div className="space-y-1.5">
+                {bubble.asked?.length ? <p className={`${ROW_LABEL} -mb-1`}>What I understood</p> : null}
                 <div className="flex items-start justify-between gap-2">
                     <p className="text-[13.5px] font-black leading-snug text-finn-black">{bubble.heading}</p>
                     {bubble.counting !== false && !live ? (
@@ -1501,7 +1554,7 @@ function UnderstoodBubble({
                     <span>{bubble.cantCheck}</span>
                 </p>
             ) : null}
-        </li>
+        </div>
     );
 }
 
@@ -1589,14 +1642,7 @@ function StaticSummary({ message }: { message: Extract<ChatMessage, { kind: "sum
         })),
     ];
     const counted = said.filter((item) => item.importance);
-    /* Answers to the same question under it once: "Who rides with you?", then kids, adults and a dog — not the question three times. */
-    const asked: { ask: string | null; items: typeof said }[] = [];
-    for (const item of said) {
-        const ask = item.asked[0]?.ask ?? null;
-        const group = ask ? asked.find((entry) => entry.ask === ask) : undefined;
-        if (group) group.items.push(item);
-        else asked.push({ ask, items: [item] });
-    }
+    const asked = byQuestion(said);
 
     return (
         <div className="overflow-hidden rounded-2xl bg-white ring-1 ring-black/5 shadow-[0_1px_2px_rgba(0,0,0,0.06)]">
@@ -1607,28 +1653,11 @@ function StaticSummary({ message }: { message: Extract<ChatMessage, { kind: "sum
                     <ul className="-mx-3.5 mt-1.5 divide-y divide-black/5">
                         {asked.map((group) => (
                             <li key={group.items[0]!.id} className="space-y-3 px-3.5 py-3.5 odd:bg-finn-cotton even:bg-white">
-                                {group.ask ? (
-                                    <div>
-                                        <p className={ROW_LABEL}>What I asked</p>
-                                        <p className="mt-0.5 text-[15px] font-black leading-snug text-finn-highlight-navy">{group.ask}</p>
-                                    </div>
-                                ) : null}
-                                {/* Each answer to it, with what Lens made of it, set in under the question; a rule between two. */}
-                                <div className={group.ask ? "ml-1 space-y-3 border-l-2 border-finn-highlight-navy/20 pl-3.5" : "space-y-3"}>
+                                {group.ask ? <AskedQuestion ask={group.ask} /> : null}
+                                <UnderQuestion ask={group.ask}>
                                     {group.items.map((item, index) => (
-                                        <div key={item.id} className={`space-y-3 ${index ? "border-t border-black/10 pt-3" : ""}`}>
-                                            {item.asked.length ? (
-                                                <div className="text-[12.5px] leading-snug">
-                                                    <p className={ROW_LABEL}>What you answered</p>
-                                                    <p className="mt-0.5 font-bold text-finn-black">{item.asked[0]!.answer}</p>
-                                                    {/* What was asked next because of it, beside its answer. */}
-                                                    {item.asked.slice(1).map((pair) => (
-                                                        <p key={pair.ask} className="mt-0.5 text-finn-black/85">
-                                                            {pair.ask} <span className="font-bold text-finn-black">{pair.answer}</span>
-                                                        </p>
-                                                    ))}
-                                                </div>
-                                            ) : null}
+                                        <div key={item.id} className={answerRule(index)}>
+                                            <YouAnswered asked={item.asked} />
                                             <div>
                                                 {item.asked.length ? <p className={ROW_LABEL}>What I understood</p> : null}
                                                 <div className="mt-0.5 flex items-start justify-between gap-2">
@@ -1644,7 +1673,7 @@ function StaticSummary({ message }: { message: Extract<ChatMessage, { kind: "sum
                                             <ReasonedList title="Also making sure it has:" kind="standard" items={item.standard} />
                                         </div>
                                     ))}
-                                </div>
+                                </UnderQuestion>
                             </li>
                         ))}
                     </ul>
@@ -1748,6 +1777,7 @@ function Summary({
     onAdd: (bubble: string, item: string) => void;
 }) {
     const [weights, setWeights] = useState(false);
+    const asked = byQuestion(message.bubbles ?? []);
 
     return (
         <div className="overflow-hidden rounded-2xl bg-white ring-1 ring-black/5 shadow-[0_1px_2px_rgba(0,0,0,0.06)]">
@@ -1762,16 +1792,23 @@ function Summary({
                         ) : null}
                     </div>
                     <ul className="divide-y divide-black/5">
-                        {message.bubbles.map((bubble, index) => (
-                            <UnderstoodBubble
-                                key={bubble.id}
-                                bubble={bubble}
-                                live={live}
-                                tone={CARD_TONE[index % CARD_TONE.length]!}
-                                onImportance={(level) => onImportance(`bubble-${bubble.id}`, level)}
-                                onRemove={(item) => onRemove(bubble.id, item)}
-                                onAdd={(item) => onAdd(bubble.id, item)}
-                            />
+                        {asked.map((group, row) => (
+                            <li key={group.items[0]!.id} className={`space-y-3 px-3.5 py-3.5 ${CARD_TONE[row % CARD_TONE.length]}`}>
+                                {group.ask ? <AskedQuestion ask={group.ask} /> : null}
+                                <UnderQuestion ask={group.ask}>
+                                    {group.items.map((bubble, index) => (
+                                        <UnderstoodBubble
+                                            key={bubble.id}
+                                            bubble={bubble}
+                                            live={live}
+                                            className={answerRule(index)}
+                                            onImportance={(level) => onImportance(`bubble-${bubble.id}`, level)}
+                                            onRemove={(item) => onRemove(bubble.id, item)}
+                                            onAdd={(item) => onAdd(bubble.id, item)}
+                                        />
+                                    ))}
+                                </UnderQuestion>
+                            </li>
                         ))}
                     </ul>
                 </div>
@@ -1789,7 +1826,7 @@ function Summary({
                     </div>
                     <ul className="mt-2 divide-y divide-black/5">
                         {message.needs.map((need, index) => (
-                            <li key={need.id} className={`px-3.5 py-3.5 ${CARD_TONE[((message.bubbles?.length ?? 0) + index) % CARD_TONE.length]}`}>
+                            <li key={need.id} className={`px-3.5 py-3.5 ${CARD_TONE[(asked.length + index) % CARD_TONE.length]}`}>
                                 <div className={live ? "space-y-1" : "flex items-center justify-between gap-2"}>
                                     <span className="block text-[13px] font-black text-finn-black">{need.label}</span>
                                     {live ? (
