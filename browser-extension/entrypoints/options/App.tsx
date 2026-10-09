@@ -172,7 +172,7 @@ export function App() {
                             <li key={group.id} className="rounded-2xl bg-white p-4 ring-1 ring-finn-cotton">
                                 {confirming?.length === 1 && confirming[0] === group.id ? (
                                     <Confirm
-                                        title={`Delete “${group.title.toLowerCase()}”?`}
+                                        title={`Delete “${group.title.charAt(0).toLowerCase()}${group.title.slice(1)}”?`}
                                         body={group.consequence}
                                         onConfirm={() => void clear([group.id])}
                                         onCancel={() => setConfirming(null)}
