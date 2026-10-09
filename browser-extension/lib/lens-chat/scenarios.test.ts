@@ -609,6 +609,18 @@ describe("the one caveat kept", () => {
         const said = story.sections.flatMap((section) => section.lines.map((line) => `${section.key}: ${line.text}`)).filter((line) => /FINN (doesn't publish|lists a boot size)/.test(line));
 
         expect(said).toHaveLength(1);
-        expect(said[0]).toBe("bubble-carry: FINN lists a boot size, but not whether it's measured with the rear seats up or folded, so Lens doesn't compare boots on it.");
+        /* With this car's own figure, as FINN lists it. */
+        const winner = cars.find((car) => car.id === run.recommendation.winner.id)!;
+        const litres = Number.parseFloat(String(winner.capacity.trunk)).toLocaleString("en-GB");
+        expect(said[0]).toBe(`bubble-carry: FINN lists a boot size of ${litres} L for this vehicle, but not whether it's measured with the rear seats up or folded, so Lens doesn't compare boots on it.`);
+    });
+
+    it("says it as written where FINN lists no boot size", async () => {
+        const { bubbleById } = await import("./bubbles");
+        const carry = bubbleById("carry")!;
+        const car = { ...cars[0]!, capacity: { ...cars[0]!.capacity, trunk: "" } };
+
+        expect(carry.cantCheckFor?.(car)).toBeNull();
+        expect(carry.cantCheck).toBe("FINN lists a boot size, but not whether it's measured with the rear seats up or folded, so Lens doesn't compare boots on it.");
     });
 });

@@ -36,6 +36,7 @@ const MEASURED_UNKNOWN: Partial<Record<EvidenceId, string>> = {
     electricRange: "It isn't electric, so FINN publishes no range for it.",
 };
 import type { LensRun } from "./run";
+import { bubbleById } from "./bubbles";
 import { demandOf } from "./deals";
 import { budgetCeiling } from "./understanding";
 import type { Need, Understanding } from "./understanding";
@@ -818,8 +819,10 @@ export function tellFitStory(
          * reader of typed words notes Lens can't check stays out of the story:
          * unasked-for lists of gaps were noise.
          */
-        /* A bubble's own caveat, as the bubble words it. */
-        if (need.notInData && need.id.startsWith("bubble-")) lines.push({ tone: "unknown", text: need.notInData });
+        /* A bubble's own caveat, as the bubble words it — with this car's own figure, where FINN lists one: its boot size. */
+        if (need.notInData && need.id.startsWith("bubble-")) {
+            lines.push({ tone: "unknown", text: bubbleById(need.id.slice("bubble-".length))?.cantCheckFor?.(winner) ?? need.notInData });
+        }
 
         if (!lines.length) {
             lines.push({ tone: "note", text: "Lens has nothing on this car it can check for this, so it didn't count toward the ranking." });

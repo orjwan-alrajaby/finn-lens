@@ -1,6 +1,7 @@
 import type { NeedImportance } from "@/lib/lens-ai/contract";
 import { SOURCES, type Source } from "@/lib/sources";
 import type { CategoryId, FeatureImportance } from "@/lib/reasoning-engine/types";
+import { bootLitres } from "@/lib/reasoning-engine/evidence";
 import type { FinnCar } from "@/lib/types";
 
 import { EVIDENCE, setsApart, type EvidenceId } from "./evidence";
@@ -112,6 +113,8 @@ export interface Bubble {
      * FINN's figure can't be taken as the boot a reader would load.
      */
     cantCheck: string;
+    /** The same about one car, with the figure FINN lists for it — null where it lists none, and `cantCheck` is said as written. */
+    cantCheckFor?: (car: FinnCar) => string | null;
     /** Why each item is here, for this bubble. */
     why?: Partial<Record<EvidenceId, string>>;
     /** Said on the summary when an "any" bubble has nothing picked. */
@@ -408,6 +411,12 @@ export const BUBBLES: Bubble[] = [
             ],
         },
         cantCheck: "FINN lists a boot size, but not whether it's measured with the rear seats up or folded, so Lens doesn't compare boots on it.",
+        cantCheckFor: (car) => {
+            const litres = bootLitres(car);
+            return litres == null
+                ? null
+                : `FINN lists a boot size of ${litres.toLocaleString("en-GB")} L for this vehicle, but not whether it's measured with the rear seats up or folded, so Lens doesn't compare boots on it.`;
+        },
         why: {
             hasElectricTailgate: "for when your hands are full",
             hasSplitFoldingRearSeats: "so long or bulky things fit",
