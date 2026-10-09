@@ -158,7 +158,7 @@ export function StoryLines({ lines, value, print = false, className = "" }: { li
                         {value && line.rival ? (
                             <>
                                 <span className="mt-1 block text-finn-black">{line.rival.text}</span>
-                                <LocateCar id={line.rival.id} name={line.rival.name} value={value} print={print} />
+                                <LocateCar id={line.rival.id} name={line.rival.name} value={value} print={print} winner={line.rival.winner} />
                             </>
                         ) : null}
                     </span>
@@ -204,7 +204,7 @@ export function Catch({ story }: { story: FitStory }) {
             <div>
                 <p className="font-semibold">{story.catch.text}</p>
                 {story.catch.alternative ? <p className="mt-1">{story.catch.alternative}</p> : null}
-                {car ? <LocateCar id={car.id} name={car.name} /> : null}
+                {car ? <LocateCar id={car.id} name={car.name} winner={car.winner} /> : null}
             </div>
         </div>
     );
@@ -241,7 +241,7 @@ export function LocateCar({
         ) : null;
     }
 
-    return <LocateButton name={name} size={size} label={size === "text" ? `Show the ${name}` : undefined} winner={winner} onLocate={() => requestShowCar(id)} />;
+    return <LocateButton name={name} size={size} label={size === "text" ? `Show the ${name}` : undefined} winner={winner} onLocate={() => requestShowCar(id, winner)} />;
 }
 
 /** Where the money goes, line by line, and what's estimated rather than FINN's own figure. */

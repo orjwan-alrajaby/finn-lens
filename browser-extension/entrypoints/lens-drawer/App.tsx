@@ -188,7 +188,8 @@ function Footer({ value, children }: { value: JudgedCar; children?: React.ReactN
     return (
         <footer className="flex shrink-0 items-center gap-2 border-t border-finn-cotton px-4 py-3">
             {children}
-            <LocateButton onLocate={() => requestShowCar(value.car.id)} />
+            {/* In the winner's own drawer, the winner's gold. */}
+            <LocateButton winner={value.isWinner} onLocate={() => requestShowCar(value.car.id, value.isWinner)} />
             {value.url ? (
                 <a
                     href={value.url}

@@ -77,6 +77,8 @@ export interface StoryRival {
     name: string;
     /** "MG ZS has it, at about €419/month — still within your maximum." */
     text: string;
+    /** It's the winner: named so in `text`, and shown in the winner's gold. */
+    winner?: boolean;
 }
 
 export interface StorySection {
@@ -111,7 +113,7 @@ export interface FitStory {
     bandMeaning: string;
     sections: StorySection[];
     /** `car` is the one `alternative` (or, failing one, `text`) names, so the reader can find it. */
-    catch: { text: string; alternative: string | null; car?: { id: number; name: string } | null } | null;
+    catch: { text: string; alternative: string | null; car?: { id: number; name: string; winner?: boolean } | null } | null;
     /** What Lens still needs to know, if the conversation left something open. */
     stillToKnow: WireQuestion | null;
 }
@@ -488,10 +490,14 @@ export function tellFitStory(
         const shorter = lengthGap(car, winner, "this one");
         const does = unwanted ? (isKind(entry.id) ? "isn't one" : "doesn't have it") : measuredDisplay(winner, entry.id) ? "does better on it" : "has it";
 
+        /* About another car's drawer, the car that has it can be the winner: called so, as every mention of it is. */
+        const winning = car.id === match.id;
+
         return {
             id: car.id,
             name: name(car),
-            text: `${name(car)} ${does}${theirs ? `, at about ${formatEUR(theirs.totalMonthly)}/month` : ""}${u.budget?.kind === "hardMax" ? " — still within your maximum" : ""}${shorter ? `, and it's ${shorter}` : ""}.`,
+            ...(winning ? { winner: true } : {}),
+            text: `${winning ? `The winner “${name(car)}”` : name(car)} ${does}${theirs ? `, at about ${formatEUR(theirs.totalMonthly)}/month` : ""}${u.budget?.kind === "hardMax" ? " — still within your maximum" : ""}${shorter ? `, and it's ${shorter}` : ""}.`,
         };
     };
 
@@ -955,7 +961,7 @@ export function tellFitStory(
                       : measuredDisplay(winner, gap.entry.id)
                         ? "None of the other cars that fit your constraints does better on it."
                         : "None of the other cars that fit your constraints lists it either.",
-                car: rival ? { id: rival.id, name: rival.name } : null,
+                car: rival ? { id: rival.id, name: rival.name, ...(rival.winner ? { winner: true } : {}) } : null,
             };
         }
 
