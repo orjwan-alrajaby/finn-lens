@@ -71,6 +71,8 @@ describe("a car that didn't win", () => {
         const words = text(html);
 
         expect(words).toMatch(/^ ?Finn Lens · how this car fits you From your chat “Chat [A-Z2-9]{3}-[A-Z2-9]{3}”, judged 5 October 2026/);
+        expect(words).toContain(`Judged against ${value.judgement.carIds.length} cars`);
+        expect(words).not.toContain("on this page");
         expect(words).toContain("Why it didn't win");
         expect(html).toContain(`href="https://www.finn.com/de-DE/product/winner"`);
         expect(words).toContain(`See the ${winnerName} on FINN`);

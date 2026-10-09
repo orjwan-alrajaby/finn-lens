@@ -324,7 +324,8 @@ export function PrintMasthead({ value, kind }: { value: JudgedCar; kind: string 
                     From your chat “{chat.title}”, judged {new Date(judgement.at).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })}
                 </p>
             </div>
-            <p className="text-right text-[11px] text-finn-iron">{judgement.headline}</p>
+            {/* How many it was judged against, not where they were: "48 cars on this page" means nothing once the page is gone. */}
+            <p className="text-right text-[11px] text-finn-iron">Judged against {judgement.carIds.length} cars</p>
         </header>
     );
 }
