@@ -624,21 +624,6 @@ function fromStep(u: Understanding): ChatStep | null {
 }
 
 /**
- * What "Select all" picks under a bubble: every chip that can be true at
- * once, in order — a chip that can't be true beside an earlier one is left
- * out. Null where it isn't offered: one answer only, a limit on how
- * many, or too few chips to bother.
- */
-export function allChips(chips: BubbleChips): string[] | null {
-    if (!chips.multiple || chips.max || chips.options.length <= 2) return null;
-
-    return chips.options.reduce<string[]>((kept, option) => {
-        const clash = (chips.exclusive ?? []).some((set) => set.includes(option.id) && set.some((id) => id !== option.id && kept.includes(id)));
-        return clash ? kept : [...kept, option.id];
-    }, []);
-}
-
-/**
  * The follow-ups a section has opened: the chip row under each bubble
  * tapped, in order, and whether it has an answer yet — "Which comforts?",
  * answered. How far through a section the reader is.
@@ -650,8 +635,8 @@ export function followUps(step: ChatStep, picked: string[]): { bubble: string; a
 }
 
 /**
- * The follow-up the reader is on: the one they last touched — its bubble,
- * a chip, "Select all" — as long as it's still open. Not wherever the rows
+ * The follow-up the reader is on: the one they last touched — its bubble
+ * or a chip — as long as it's still open. Not wherever the rows
  * happen to sit on screen: opening the environment's follow-up under an
  * answered "Which comforts?" puts the reader on the environment's.
  */

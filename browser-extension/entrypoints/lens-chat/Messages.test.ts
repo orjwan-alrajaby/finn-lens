@@ -53,9 +53,8 @@ describe("the bubbles", () => {
         const words = text(html);
 
         expect(words).toContain("Tell me about your life. Tap everything that fits.");
-        /* Several weathers can be true; parking takes two at most; so only the weather offers them all. */
-        expect(words).toMatch(/What's it like\? Select all/);
-        expect(words).not.toMatch(/Where do you park most often\? Up to 2\. Select all/);
+        /* Every chip is the reader's own pick: nothing picks them all at once. */
+        expect(words).not.toMatch(/Select all/);
         expect(words).toContain("Where do you park most often? Up to 2.");
         expect(words).toContain("What's it like?");
         expect(words).toContain("Pick at least one, so I know what to check.");

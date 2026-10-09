@@ -4,7 +4,7 @@ import { ArrowUpRight, Check, ChevronDown, ChevronRight, Info, PencilLine, Plus,
 import { ImportanceBadge, ImportanceKey } from "@/components/ImportanceKey";
 import { BandChip, BrandMark, CarPhoto, euros, WinnerChip } from "@/components/lens-parts";
 import { LocateButton } from "@/components/LocateButton";
-import { activeFollowUp, allChips, followUps, IMPORTANCE_LABEL } from "@/lib/chats/flow";
+import { activeFollowUp, followUps, IMPORTANCE_LABEL } from "@/lib/chats/flow";
 import { IMPORTANCE, IMPORTANCE_LEVELS, SCALE_EXPLAINED } from "@/lib/lens-chat/importance";
 import { DEAL_MEANS } from "@/lib/lens-chat/deals";
 import type { Source } from "@/lib/sources";
@@ -922,33 +922,21 @@ function BubbleChipRow({
     picked,
     missing,
     onToggle,
-    onSetAll,
 }: {
     chips: BubbleChips;
     picked: string[];
     missing: boolean;
     onToggle: (id: string) => void;
-    onSetAll: (ids: string[]) => void;
 }) {
     const full = Boolean(chips.max && picked.length >= chips.max);
-    const all = allChips(chips) ?? [];
-    const canAll = all.length > 0;
-    const allPicked = all.every((id) => picked.includes(id));
 
     return (
         <div className="basis-full rounded-2xl bg-finn-pale-blue/60 px-3 py-2 ring-1 ring-finn-accent-blue/15">
-            <div className="flex items-baseline justify-between gap-2">
-                <p className="text-[11.5px] font-bold text-finn-highlight-navy">
-                    {picked.length ? <Check role="img" aria-label="Answered" className="mr-1 inline h-3 w-3 text-finn-fit-good" strokeWidth={3.5} /> : null}
-                    {chips.ask}
-                    {chips.max ? <span className="font-semibold text-finn-iron"> Up to {chips.max}.</span> : null}
-                </p>
-                {canAll ? (
-                    <button type="button" onClick={() => onSetAll(allPicked ? [] : all)} className="shrink-0 text-[11px] font-bold text-finn-accent-blue hover:underline">
-                        {allPicked ? "Unselect all" : "Select all"}
-                    </button>
-                ) : null}
-            </div>
+            <p className="text-[11.5px] font-bold text-finn-highlight-navy">
+                {picked.length ? <Check role="img" aria-label="Answered" className="mr-1 inline h-3 w-3 text-finn-fit-good" strokeWidth={3.5} /> : null}
+                {chips.ask}
+                {chips.max ? <span className="font-semibold text-finn-iron"> Up to {chips.max}.</span> : null}
+            </p>
             <div className="mt-1.5 flex flex-wrap gap-1">
                 {chips.options.map((option) => {
                     const on = picked.includes(option.id);
@@ -1273,10 +1261,6 @@ function Ask({
                                                   picked={picked.filter((item) => item.startsWith(`${choice.id}:`)).map((item) => item.slice(choice.id.length + 1))}
                                                   missing={unfinished.includes(choice.id)}
                                                   onToggle={(id) => toggleChip(choice.id, id)}
-                                                  onSetAll={(ids) => {
-                                                      setTouched(choice.id);
-                                                      setPicked((current) => [...current.filter((item) => !item.startsWith(`${choice.id}:`)), ...ids.map((id) => `${choice.id}:${id}`)]);
-                                                  }}
                                               />,
                                           ]
                                         : chip(choice);

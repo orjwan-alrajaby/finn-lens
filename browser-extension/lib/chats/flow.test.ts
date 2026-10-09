@@ -16,7 +16,7 @@ import { IMPORTANCE, IMPORTANCE_LABEL as LEVEL_LABEL } from "@/lib/lens-chat/imp
 import { SOURCES } from "@/lib/sources";
 import { addMonths } from "@/lib/reasoning-engine/contract";
 import { CATEGORIES } from "@/lib/reasoning-engine/constants";
-import { activeFollowUp, addItem, allChips, answer, doneAdjusting, followUps, neverMind, askNext, keepShort, openedWhy, changeAnswers, changeOne, removeItem, rentalMonths, rewind, rewindable, setImportance, startChat as beginChat, startMonth, stepFor, summaryOf } from "./flow";
+import { activeFollowUp, addItem, answer, doneAdjusting, followUps, neverMind, askNext, keepShort, openedWhy, changeAnswers, changeOne, removeItem, rentalMonths, rewind, rewindable, setImportance, startChat as beginChat, startMonth, stepFor, summaryOf } from "./flow";
 import type { Chat, ChatMessage, SavedSettings, StepId } from "./types";
 
 /** A first chat, past "Got it — let's start": most tests begin at the first question. */
@@ -643,12 +643,11 @@ describe("see why, remembered", () => {
 describe("answers that can't all be true", () => {
     const understood = (picks: Partial<Record<StepId, string[]>>) => walk(startChat(null, cars(), TODAY), picks);
 
-    it("takes every weather together — cold winters beside rain or snow — and selects all four", () => {
+    it("takes every weather together — cold winters beside rain or snow — and keeps all four", () => {
         const step = stepFor("bubbles-copes", cars())!;
         const all = throughBubbles(startChat(null, cars(), TODAY), ["weather", "weather:snow", "weather:wet", "weather:cold", "weather:hot"]);
 
         expect(step.bubbleChips?.weather?.exclusive).toBeUndefined();
-        expect(allChips(step.bubbleChips!.weather!)).toEqual(["snow", "wet", "cold", "hot"]);
         expect(all.understanding.bubbles?.weather?.chips).toEqual(["snow", "wet", "cold", "hot"]);
     });
 
@@ -709,18 +708,6 @@ describe("answers that can't all be true", () => {
 
 describe("questions in sections, and the changes to them", () => {
     const step = (id: StepId, u = EMPTY_UNDERSTANDING) => stepFor(id, cars(), u)!;
-
-    it("offers Select all only where several can be picked with no limit, and never two that can't both be true", () => {
-        const copes = step("bubbles-copes");
-        const matters = step("bubbles-matters");
-
-        expect(allChips(copes.bubbleChips!.weather!)).toEqual(["snow", "wet", "cold", "hot"]);
-        expect(allChips(copes.bubbleChips!.carry!)).toEqual(["shopping", "bulky", "bikes", "trailer"]);
-        expect(allChips(matters.bubbleChips!.comfort!)?.length).toBe(14);
-        /* One child seat; two places parked at most. */
-        expect(allChips(step("bubbles-people").bubbleChips!.kids!)).toBeNull();
-        expect(allChips(step("bubbles-driving").bubbleChips!.city!)).toBeNull();
-    });
 
     it("tells shopping apart from bulky things", () => {
         const carry = step("bubbles-copes").bubbleChips!.carry!;
