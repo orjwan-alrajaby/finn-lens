@@ -75,7 +75,8 @@ describe("a car that didn't win", () => {
         expect(words).not.toContain("on this page");
         expect(words).toContain("Why it didn't win");
         expect(html).toContain(`href="https://www.finn.com/de-DE/product/winner"`);
-        expect(words).toContain(`See the ${winnerName} on FINN`);
+        /* The winner's gold button, as a link to it on FINN, opening on its own. */
+        expect(html).toMatch(new RegExp(`<a href="https://www.finn.com/de-DE/product/winner" target="_blank" rel="noopener noreferrer" class="inline-flex[^"]*" style="background:linear-gradient\\(135deg, #fff3c4[^"]*"><span[^>]*><svg[^>]*lucide-trophy[^>]*>.*?</svg></span>See ${winnerName}</a>`));
         /* The drawer's own buttons are in the markup only to be dropped from the file. */
         expect(html).toMatch(/<div class="finn-lens-screen-only mt-3 [^"]*"><button/);
     });

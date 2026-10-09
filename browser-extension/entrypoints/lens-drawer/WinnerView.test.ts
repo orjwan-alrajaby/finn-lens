@@ -120,7 +120,8 @@ describe("the winner's drawer", () => {
         const urls = Object.fromEntries(page.map((car) => [car.id, `https://www.finn.com/de-DE/car/${car.id}`]));
         const value = { ...base, judgement: { ...base.judgement, urls } };
         const html = renderToStaticMarkup(createElement(WinnerView, { value, print: true }));
-        const linked = [...html.matchAll(/<a href="https:\/\/www\.finn\.com\/de-DE\/car\/(\d+)"[^>]*>See the ([^<]+) on FINN<\/a>/g)].map((match) => Number(match[1]));
+        /* Each the grey pill it is on screen, opening on its own. */
+        const linked = [...html.matchAll(/<a href="https:\/\/www\.finn\.com\/de-DE\/car\/(\d+)" target="_blank"[^>]*bg-finn-cotton[^>]*>(?:<svg.*?<\/svg>)?See the ([^<]+) on FINN<\/a>/g)].map((match) => Number(match[1]));
 
         /* The car that does better on a gap, and each of the next cars. */
         expect(linked).toEqual(expect.arrayContaining(alternativesWithinLimits(value.judged.run, 3).map((line) => line.id)));

@@ -1,9 +1,9 @@
 import type { ReactNode } from "react";
-import { Check, ChevronDown, CircleHelp, Info, Minus, X } from "lucide-react";
+import { Check, ChevronDown, CircleHelp, ExternalLink, Info, Minus, Trophy, X } from "lucide-react";
 
 import { EnvironmentalResult, UsageResult } from "@/components/EnvironmentalResult";
 import { LocateButton } from "@/components/LocateButton";
-import { BandChip, CarPhoto, euros, WinnerChip } from "@/components/lens-parts";
+import { BandChip, CarPhoto, euros, WINNER_GOLD, WinnerChip } from "@/components/lens-parts";
 import { configurationName } from "@/lib/car-labels";
 import { carTags, type CarTagTone } from "@/lib/car-tags";
 import { requestShowCar } from "@/lib/chats/bridge";
@@ -232,17 +232,57 @@ export function LocateCar({
     /** The car is the winner: the button takes its gold. */
     winner?: boolean;
 }) {
+    /*
+     * In the file, the same button as on screen — the winner's gold, or the grey
+     * pill — as a link to the car on FINN: there's no page to find it on.
+     */
     if (print) {
         const url = value?.judgement.urls[id];
+        if (!url || size !== "text") return null;
 
-        return url && size === "text" ? (
-            <a href={url} className="mt-1 block text-[11.5px] font-bold text-finn-accent-blue">
+        return winner ? (
+            <WinnerButton name={name} href={url} className="mt-1.5" />
+        ) : (
+            <a
+                href={url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-1.5 inline-flex items-center gap-1.5 rounded-full bg-finn-cotton px-3 py-1.5 text-[11.5px] font-black text-finn-black"
+            >
+                <ExternalLink aria-hidden="true" className="h-3.5 w-3.5" />
                 See the {name} on FINN
             </a>
-        ) : null;
+        );
     }
 
     return <LocateButton name={name} size={size} label={size === "text" ? `Show the ${name}` : undefined} winner={winner} onLocate={() => requestShowCar(id, winner)} />;
+}
+
+/**
+ * "See" and the winner's name, in its gold with its trophy, as its chip has
+ * them: never mistaken for a way to another car. A button on screen; given
+ * `href`, the same thing as a link — in the PDF, to the winner on FINN.
+ */
+export function WinnerButton({ name, href, onClick, className = "" }: { name: string; href?: string; onClick?: () => void; className?: string }) {
+    const look = `inline-flex items-center gap-1.5 rounded-full py-1.5 pr-3.5 pl-1.5 text-[12.5px] font-black text-[#5b3a00] transition-[filter] hover:brightness-105 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#d97706] ${className}`;
+    const body = (
+        <>
+            <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-white text-[#b7791f] shadow-sm">
+                <Trophy aria-hidden="true" className="h-3.5 w-3.5" strokeWidth={2.6} />
+            </span>
+            See {name}
+        </>
+    );
+
+    return href ? (
+        <a href={href} target="_blank" rel="noopener noreferrer" className={look} style={WINNER_GOLD}>
+            {body}
+        </a>
+    ) : (
+        <button type="button" onClick={onClick} className={look} style={WINNER_GOLD}>
+            {body}
+        </button>
+    );
 }
 
 /** Where the money goes, line by line, and what's estimated rather than FINN's own figure. */

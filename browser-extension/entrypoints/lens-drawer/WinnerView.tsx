@@ -211,7 +211,7 @@ export function WinnerView({ value, print = false }: { value: JudgedCar; print?:
                     {value.url ? (
                         <>
                             {" "}
-                            <a href={value.url} className="font-bold text-finn-accent-blue">
+                            <a href={value.url} target="_blank" rel="noopener noreferrer" className="font-bold text-finn-accent-blue">
                                 See this car on FINN
                             </a>
                             .

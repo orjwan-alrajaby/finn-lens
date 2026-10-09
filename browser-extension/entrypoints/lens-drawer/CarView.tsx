@@ -1,9 +1,6 @@
-import { Trophy } from "lucide-react";
-
-import { WINNER_GOLD } from "@/components/lens-parts";
 import { requestOpenDrawer } from "@/lib/chats/bridge";
 
-import { Catch, CarHeader, CostTable, LocateCar, PrintMasthead, Section, StoryList, UsageSection } from "./parts";
+import { Catch, CarHeader, CostTable, LocateCar, PrintMasthead, Section, StoryList, UsageSection, WinnerButton } from "./parts";
 import { sameJudgement, type JudgedCar } from "./useJudgedCar";
 
 /**
@@ -42,21 +39,14 @@ export function CarView({ value, print = false }: { value: JudgedCar; print?: bo
                             <p key={sentence}>{sentence}</p>
                         ))}
                     </div>
-                    {/* In the file, the winner on FINN: there's no drawer or page to go to. */}
-                    {print ? <LocateCar id={winnerId} name={versus.match} value={value} print /> : null}
+                    {/* In the file, the same gold button, as a link to the winner on FINN: there's no drawer or page to go to. */}
+                    {print ? (
+                        <div className="mt-3">
+                            <LocateCar id={winnerId} name={versus.match} value={value} print winner />
+                        </div>
+                    ) : null}
                     <div className="finn-lens-screen-only mt-3 flex flex-wrap items-center gap-2">
-                        {/* The winner's own gold and trophy, as its chip has them: never mistaken for a button to another car. */}
-                        <button
-                            type="button"
-                            onClick={() => void requestOpenDrawer(value.chat.id, winnerId, sameJudgement(value))}
-                            className="inline-flex items-center gap-1.5 rounded-full py-1.5 pr-3.5 pl-1.5 text-[12.5px] font-black text-[#5b3a00] transition-[filter] hover:brightness-105 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#d97706]"
-                            style={WINNER_GOLD}
-                        >
-                            <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-white text-[#b7791f] shadow-sm">
-                                <Trophy aria-hidden="true" className="h-3.5 w-3.5" strokeWidth={2.6} />
-                            </span>
-                            See {versus.match}
-                        </button>
+                        <WinnerButton name={versus.match} onClick={() => void requestOpenDrawer(value.chat.id, winnerId, sameJudgement(value))} />
                         <LocateCar id={winnerId} name={versus.match} size="sm" winner />
                     </div>
                 </Section>
