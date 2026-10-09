@@ -301,7 +301,7 @@ describe("deal-breakers and deal-sealers", () => {
         /* The environment already weighs CO₂: the row asks only whether it's a line, and says so. */
         expect(yours.find((item) => item.id === "co2")).toMatchObject({
             options: ["must"],
-            description: expect.stringMatching(/ You care about the environment, so lower CO₂ already ranks higher\. “Must have” sets aside every car above class C\.$/),
+            note: "You care about the environment, so lower CO₂ already ranks higher. “Must have” sets aside every car above class C.",
         });
         expect(yours.find((item) => item.id === "towbar")?.suggested).toBe("Recommended because you said a trailer or caravan.");
         expect(step.deals!.slice(0, 2).map((item) => item.group)).toEqual(["yours", "yours"]);
@@ -315,7 +315,7 @@ describe("deal-breakers and deal-sealers", () => {
         expect(row(chat, "electric")).toBeUndefined();
         /* Wanted or not: "Must be" and "Mustn't be" an SUV, both rules. */
         expect(row(chat, "suv")).toMatchObject({ label: "SUV", options: ["must", "mustNot"] });
-        expect(row(chat, "suv")?.description).toMatch(/I can only rule on this, not weigh it — so it can't seal the deal\.$/);
+        expect(row(chat, "suv")?.note).toBe("I can only rule on this, not weigh it — so it can't seal the deal.");
         expect(row(chat, "automatic")?.options).toEqual(["must", "seal"]);
         expect(row(chat, "co2")).toMatchObject({ label: "Low CO₂ emissions", options: ["must", "seal"] });
     });
@@ -325,7 +325,7 @@ describe("deal-breakers and deal-sealers", () => {
         const frugal = stepFor("deals", page, EMPTY_UNDERSTANDING)!.deals!.find((item) => item.id === "frugal")!;
 
         expect(frugal.options).toEqual(["seal"]);
-        expect(frugal.description).toMatch(/None of the cars here is frugal for its kind, so “Must be” would set every car aside\.$/);
+        expect(frugal.note).toBe("None of the cars here is frugal for its kind, so “Must be” would set every car aside.");
     });
 
     it("leaves out low CO₂ where only electric cars are left: every one is class A", () => {
@@ -343,7 +343,7 @@ describe("deal-breakers and deal-sealers", () => {
 
         expect(budget).toMatchObject({ group: "yours", suggested: "Recommended because you're on a budget.", options: ["must"] });
         expect(budget.description).toMatch(/^Cheaper to run than cars on the same fuel/);
-        expect(budget.description).toMatch(/ You're on a budget, so using less for its kind already ranks higher\. “Must be” sets aside every car that isn't\.$/);
+        expect(budget.note).toBe("You're on a budget, so using less for its kind already ranks higher. “Must be” sets aside every car that isn't.");
         /* With nothing weighing it already, it can seal the deal, and sits with the money. */
         expect(deal(withBubbles(EMPTY_UNDERSTANDING, { dog: [] }))).toMatchObject({ group: "money", options: ["must", "seal"] });
     });
@@ -1687,9 +1687,9 @@ describe("deal-breakers for what nearly every car has", () => {
         const options = (cars: typeof inventory) => stepFor("deals", cars, EMPTY_UNDERSTANDING)!.deals!.find((row) => row.id === "automatic")!.options;
 
         expect(options([...manual, ...automatic])).toEqual(["must"]);
-        /* Its "i" says why, from the cars — not that Lens can only rule on it, which isn't so. */
-        expect(stepFor("deals", [...manual, ...automatic], EMPTY_UNDERSTANDING)!.deals!.find((row) => row.id === "automatic")!.description).toMatch(
-            /Nearly every car here has it, so it can't seal the deal\.$/,
+        /* The row says why, from the cars — not that Lens can only rule on it, which isn't so. */
+        expect(stepFor("deals", [...manual, ...automatic], EMPTY_UNDERSTANDING)!.deals!.find((row) => row.id === "automatic")!.note).toBe(
+            "Nearly every car here has it, so it can't seal the deal.",
         );
         /* Sealed already — after letting it go — so it can be undone. */
         expect(

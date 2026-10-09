@@ -1103,6 +1103,13 @@ function Deals({
                                                 })}
                                             </span>
                                         </div>
+                                        {/* Why an option is missing — "Seals it", most often — on the row, not only behind its "i". */}
+                                        {row.note ? (
+                                            <p className="mt-2 flex gap-1.5 text-[12px] leading-snug text-finn-black/80">
+                                                <Info aria-hidden="true" className="mt-px h-3.5 w-3.5 shrink-0 text-finn-accent-blue" />
+                                                <span>{row.note}</span>
+                                            </p>
+                                        ) : null}
                                     </li>
                                 ))}
                             </ul>

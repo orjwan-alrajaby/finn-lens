@@ -116,6 +116,8 @@ export interface DealRow {
     labels?: Partial<Record<"must" | "mustNot" | "seal" | "flex", string>>;
     /** Why it's first: "Suggested because you carry a lot." */
     suggested?: string;
+    /** Why an option it could have isn't here, said on the row: "You care about the environment, so lower CO₂ already ranks higher." */
+    note?: string;
 }
 
 /** The chips a bubble opens under itself: "Where do you park most often?". */

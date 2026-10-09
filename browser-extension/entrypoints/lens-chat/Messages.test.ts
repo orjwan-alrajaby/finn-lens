@@ -142,6 +142,32 @@ describe("here's what you told me, and what I understood", () => {
     });
 });
 
+describe("the deal-breakers", () => {
+    it("say on the row why an option is missing, not only behind its “i”", () => {
+        const step = {
+            id: "deals",
+            ask: "Any deal-breakers or deal-sealers?",
+            multiple: true,
+            choices: [],
+            groups: [{ id: "yours", title: "From what you told me" }],
+            deals: [
+                {
+                    id: "co2",
+                    label: "Low CO₂ emissions",
+                    kind: false,
+                    group: "yours",
+                    description: "Class A to C on the German CO₂ label.",
+                    options: ["must"],
+                    note: "You care about the environment, so lower CO₂ already ranks higher. “Must have” sets aside every car above class C.",
+                },
+            ],
+        } as unknown as Extract<ChatMessage, { kind: "ask" }>["step"];
+        const words = text(render([{ id: "d1", at: "", from: "lens", kind: "ask", answered: false, step }]));
+
+        expect(words).toMatch(/Low CO₂ emissions .*Doesn't matter Must have You care about the environment, so lower CO₂ already ranks higher\./);
+    });
+});
+
 describe("the result", () => {
     const result = (): Extract<ChatMessage, { kind: "result" }> => ({
         id: "r1",

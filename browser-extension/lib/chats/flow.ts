@@ -499,8 +499,9 @@ function dealsStep(u: Understanding, cars: FinnCar[]): ChatStep | null {
         group: because.has(deal.id) ? "yours" : deal.group,
         /* Where its "i" says anything that isn't FINN's, the source. */
         ...(deal.sources ? { sources: deal.sources } : {}),
-        /* A row missing an option says why, so it isn't a puzzle. */
-        description: note ? `${deal.description} ${note}` : deal.description,
+        description: deal.description,
+        /* A row missing an option says why, on the row, so the missing "Seals it" isn't a puzzle. */
+        ...(note ? { note } : {}),
         options,
         ...(deal.labels ? { labels: deal.labels } : {}),
         ...(because.has(deal.id) ? { suggested: `Recommended because ${because.get(deal.id)}.` } : {}),
