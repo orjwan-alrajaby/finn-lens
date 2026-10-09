@@ -23,6 +23,8 @@ const HOST_ID = "finn-lens-chat";
 let host: HTMLElement | null = null;
 let frame: HTMLIFrameElement | null = null;
 let panel: HTMLElement | null = null;
+/** Inside the panel: what rounds the chat's corners, so the resize grip on the panel can sit over its edge. */
+let clip: HTMLElement | null = null;
 let bubbleLabel: HTMLElement | null = null;
 /** What the chat and the bubble sit in: the companion beside the chat is drawn here too. */
 let layer: HTMLElement | null = null;
@@ -109,17 +111,26 @@ function saveSize(size: { width: number; height: number } | null): void {
  *
  * The panel is pinned to the bottom-right beside the bubble, so the top-left
  * corner is the one free to move: dragging it up and left makes the chat
- * bigger. While dragging, the chat's iframe stops taking pointer events —
- * otherwise the pointer crosses into it and the drag stalls mid-way. Arrow
+ * bigger. It's a round white grip with arrows, sitting on the corner rather
+ * than inside it — on the navy header a small mark went unseen — and says
+ * "Drag to resize" when pointed at. While dragging, the chat's iframe stops
+ * taking pointer events — otherwise the pointer crosses into it and the drag
+ * stalls mid-way — and the size follows the pointer without easing. Arrow
  * keys resize it too, and a double-click puts it back to its usual size.
  */
 function resizeHandle(): HTMLElement {
     let start: { x: number; y: number; width: number; height: number } | null = null;
+    /* Easing is for the expand button and the keys; a drag follows the pointer as it goes. */
+    const dragging = (on: boolean) => {
+        if (frame) frame.style.pointerEvents = on ? "none" : "";
+        if (panel) panel.style.transition = on ? "none" : "";
+    };
 
     const handle = el("button", {
         class: [
-            "absolute left-0 top-0 z-10 hidden h-4 w-4 cursor-nwse-resize items-center justify-center rounded-br-lg",
-            "text-finn-iron/60 hover:bg-finn-snow hover:text-finn-accent-blue focus-visible:outline-2 focus-visible:outline-finn-accent-blue xs:flex",
+            "group absolute -left-3 -top-3 z-10 hidden h-7 w-7 cursor-nwse-resize items-center justify-center rounded-full",
+            "bg-white text-finn-highlight-navy shadow-md ring-1 ring-black/10 transition-colors",
+            "hover:bg-finn-pale-blue hover:text-finn-accent-blue focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-finn-accent-blue xs:flex",
         ].join(" "),
         attrs: {
             type: "button",
@@ -134,7 +145,7 @@ function resizeHandle(): HTMLElement {
                 const box = panel.getBoundingClientRect();
                 start = { x: pointer.clientX, y: pointer.clientY, width: box.width, height: box.height };
                 handle.setPointerCapture(pointer.pointerId);
-                if (frame) frame.style.pointerEvents = "none";
+                dragging(true);
             },
             pointermove: (event: Event) => {
                 const pointer = event as PointerEvent;
@@ -147,14 +158,14 @@ function resizeHandle(): HTMLElement {
 
                 start = null;
                 handle.releasePointerCapture((event as PointerEvent).pointerId);
-                if (frame) frame.style.pointerEvents = "";
+                dragging(false);
 
                 const box = panel.getBoundingClientRect();
                 saveSize({ width: box.width, height: box.height });
             },
             pointercancel: () => {
                 start = null;
-                if (frame) frame.style.pointerEvents = "";
+                dragging(false);
             },
             dblclick: () => {
                 applySize(null);
@@ -174,9 +185,19 @@ function resizeHandle(): HTMLElement {
         },
     });
 
-    /* Two short diagonal strokes, the usual "grab here to resize" mark, pointing at the corner. */
+    /* Arrows out to the corner and back: it pulls both ways. Then what it does, on hover and focus. */
     handle.innerHTML =
-        '<svg aria-hidden="true" width="10" height="10" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M2 8 8 2M2 11.5 11.5 2"/></svg>';
+        '<svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 13v6h-6M5 11V5h6M5 5l14 14"/></svg>';
+    handle.append(
+        el("span", {
+            class: [
+                "pointer-events-none absolute bottom-full left-0 mb-1.5 whitespace-nowrap rounded-md bg-finn-highlight-navy px-2 py-1",
+                "text-[12px] font-bold text-white opacity-0 shadow-md transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100",
+            ].join(" "),
+            attrs: { "aria-hidden": "true" },
+            text: "Drag to resize",
+        }),
+    );
 
     return handle;
 }
@@ -194,7 +215,7 @@ export function setChatOpen(next: boolean): void {
 
     if (next && !frame) {
         frame = lensFrame("/lens-chat.html", "Lens");
-        panel.append(frame);
+        clip?.append(frame);
     }
 
     panel.style.display = next ? "block" : "none";
@@ -257,14 +278,17 @@ async function mount(): Promise<void> {
      */
     panel = el("div", {
         class: [
-            "overflow-hidden rounded-[24px] bg-white shadow-2xl ring-1 ring-black/5",
+            "rounded-[24px] shadow-2xl",
             "fixed inset-x-3 bottom-[76px] h-[min(680px,calc(100dvh-96px))]",
             "xs:absolute xs:inset-x-auto xs:right-0 xs:bottom-16 xs:w-[420px] xs:h-[min(680px,calc(100vh-110px))]",
+            /* Expanding and shrinking ease into place, rather than jumping. */
+            "xs:transition-[width,height] xs:duration-300 xs:ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none",
         ].join(" "),
         attrs: { role: "dialog", "aria-label": "Lens", "aria-hidden": "true" },
     });
     panel.style.display = "none";
-    panel.append(resizeHandle());
+    clip = el("div", { class: "absolute inset-0 overflow-hidden rounded-[24px] bg-white ring-1 ring-black/5" });
+    panel.append(clip, resizeHandle());
 
     /* The size the reader last dragged it to, kept within whatever window this is. */
     void browser.storage.local
