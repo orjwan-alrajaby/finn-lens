@@ -465,17 +465,21 @@ export function reasonAboutVerdict(
    * narrowed the field belongs in `budgetNote`, said once, below.
    */
   const headline =
-    evaluation.rank > 1 && budget != null
-      ? context.costs[evaluation.vehicle.id]?.budgetStatus === "over"
-        ? /* Nothing that can win fits the budget, and the headline mustn't say otherwise. */
-          sentence(`${name} is the strongest match for what you told Lens, though it's over your ${formatEUR(budget)}/month budget`)
-        : sentence(
+    /*
+     * Nothing that can win fits the budget, and the headline mustn't say
+     * otherwise — whatever the winner's place: when every car is over, the
+     * winner is also the top-ranked car.
+     */
+    budget != null && context.costs[evaluation.vehicle.id]?.budgetStatus === "over"
+      ? sentence(`${name} is the strongest match for what you told Lens, though it's over your ${formatEUR(budget)}/month budget`)
+      : evaluation.rank > 1 && budget != null
+        ? sentence(
             `${name} is the strongest match for what you told Lens that`,
             fitsConfirmed(evaluation, context)
               ? `also fits your ${formatEUR(budget)}/month budget`
               : `isn't already over your ${formatEUR(budget)}/month budget`,
           )
-      : sentence(`${name} is the strongest match for what you told Lens`);
+        : sentence(`${name} is the strongest match for what you told Lens`);
 
   return {
     headline: judgeable(evaluation)

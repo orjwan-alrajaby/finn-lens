@@ -495,6 +495,20 @@ describe("financial reasoning is specific", () => {
     }
   });
 
+  it("says the winner is over budget when every car is, though it's also the top-ranked car", () => {
+    const result = buildRecommendation(
+      cars,
+      ["safetyAssistance", "practicality"],
+      prefs({ monthlyKm: 1000, monthlyBudget: 100 }),
+      DEFAULT_CATEGORY_FEATURES,
+    )!;
+    const narrative = buildAdviceNarrative(result.evaluation, result.context, result.alternatives);
+
+    expect(result.evaluation.rank).toBe(1);
+    expect(result.context.costs[result.evaluation.vehicle.id]?.budgetStatus).toBe("over");
+    expect(narrative.verdict.headline).toContain("though it's over your €100/month budget");
+  });
+
   it("scales its language to the size of the monthly difference", () => {
     expect(classifyMonthlyCostGap(0.4, 300)).toBe("tie");
     expect(classifyMonthlyCostGap(6, 300)).toBe("negligible");
