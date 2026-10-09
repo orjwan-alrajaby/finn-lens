@@ -1608,41 +1608,43 @@ function StaticSummary({ message }: { message: Extract<ChatMessage, { kind: "sum
                         {asked.map((group) => (
                             <li key={group.items[0]!.id} className="space-y-3 px-3.5 py-3.5 odd:bg-finn-cotton even:bg-white">
                                 {group.ask ? (
-                                    <div className="text-[12.5px] leading-snug">
+                                    <div>
                                         <p className={ROW_LABEL}>What I asked</p>
-                                        <p className="mt-0.5 text-finn-black/85">{group.ask}</p>
+                                        <p className="mt-0.5 text-[15px] font-black leading-snug text-finn-highlight-navy">{group.ask}</p>
                                     </div>
                                 ) : null}
-                                {/* Each answer to it, with what Lens made of it; a rule between two. */}
-                                {group.items.map((item, index) => (
-                                    <div key={item.id} className={`space-y-3 ${index ? "border-t border-black/10 pt-3" : ""}`}>
-                                        {item.asked.length ? (
-                                            <div className="text-[12.5px] leading-snug">
-                                                <p className={ROW_LABEL}>What you answered</p>
-                                                <p className="mt-0.5 font-bold text-finn-black">{item.asked[0]!.answer}</p>
-                                                {/* What was asked next because of it, beside its answer. */}
-                                                {item.asked.slice(1).map((pair) => (
-                                                    <p key={pair.ask} className="mt-0.5 text-finn-black/85">
-                                                        {pair.ask} <span className="font-bold text-finn-black">{pair.answer}</span>
-                                                    </p>
-                                                ))}
+                                {/* Each answer to it, with what Lens made of it, set in under the question; a rule between two. */}
+                                <div className={group.ask ? "ml-1 space-y-3 border-l-2 border-finn-highlight-navy/20 pl-3.5" : "space-y-3"}>
+                                    {group.items.map((item, index) => (
+                                        <div key={item.id} className={`space-y-3 ${index ? "border-t border-black/10 pt-3" : ""}`}>
+                                            {item.asked.length ? (
+                                                <div className="text-[12.5px] leading-snug">
+                                                    <p className={ROW_LABEL}>What you answered</p>
+                                                    <p className="mt-0.5 font-bold text-finn-black">{item.asked[0]!.answer}</p>
+                                                    {/* What was asked next because of it, beside its answer. */}
+                                                    {item.asked.slice(1).map((pair) => (
+                                                        <p key={pair.ask} className="mt-0.5 text-finn-black/85">
+                                                            {pair.ask} <span className="font-bold text-finn-black">{pair.answer}</span>
+                                                        </p>
+                                                    ))}
+                                                </div>
+                                            ) : null}
+                                            <div>
+                                                {item.asked.length ? <p className={ROW_LABEL}>What I understood</p> : null}
+                                                <div className="mt-0.5 flex items-start justify-between gap-2">
+                                                    <p className="text-[13.5px] font-black leading-snug text-finn-black">{item.heading}</p>
+                                                    {item.importance ? <ImportanceBadge importance={item.importance} guess={item.guess} /> : null}
+                                                </div>
                                             </div>
-                                        ) : null}
-                                        <div>
-                                            {item.asked.length ? <p className={ROW_LABEL}>What I understood</p> : null}
-                                            <div className="mt-0.5 flex items-start justify-between gap-2">
-                                                <p className="text-[13.5px] font-black leading-snug text-finn-black">{item.heading}</p>
-                                                {item.importance ? <ImportanceBadge importance={item.importance} guess={item.guess} /> : null}
-                                            </div>
+                                            {item.looksFor.length ? (
+                                                <ReasonedList title="I'll look for:" kind="looks" items={item.looksFor} />
+                                            ) : item.note ? (
+                                                <p className="text-[12.5px] leading-snug text-finn-black/80">{item.note}</p>
+                                            ) : null}
+                                            <ReasonedList title="Also making sure it has:" kind="standard" items={item.standard} />
                                         </div>
-                                        {item.looksFor.length ? (
-                                            <ReasonedList title="I'll look for:" kind="looks" items={item.looksFor} />
-                                        ) : item.note ? (
-                                            <p className="text-[12.5px] leading-snug text-finn-black/80">{item.note}</p>
-                                        ) : null}
-                                        <ReasonedList title="Also making sure it has:" kind="standard" items={item.standard} />
-                                    </div>
-                                ))}
+                                    ))}
+                                </div>
                             </li>
                         ))}
                     </ul>
