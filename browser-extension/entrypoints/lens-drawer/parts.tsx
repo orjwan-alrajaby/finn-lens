@@ -323,7 +323,6 @@ export function CarHeader({ value }: { value: JudgedCar }) {
                 <div className="min-w-0">
                     <h1 className="text-[19px] font-black leading-tight text-finn-black">{car.name}</h1>
                     <p className="text-[12.5px] text-finn-iron">{configurationName(car)}</p>
-                    <CarTags car={car} className="mt-2" />
                 </div>
                 {cost ? (
                     <p className="shrink-0 text-right text-[11px] text-finn-iron">
@@ -332,6 +331,9 @@ export function CarHeader({ value }: { value: JudgedCar }) {
                     </p>
                 ) : null}
             </div>
+
+            {/* Under the name and the price, across the whole width. */}
+            <CarTags car={car} className="mt-3" />
         </div>
     );
 }

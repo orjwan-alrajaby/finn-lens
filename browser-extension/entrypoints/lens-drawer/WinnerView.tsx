@@ -81,7 +81,6 @@ export function WinnerView({ value, print = false }: { value: JudgedCar; print?:
                         <p className="text-[12.5px] text-finn-iron">{configurationName(car)}</p>
                     </div>
                 </div>
-                <CarTags car={car} className="mt-3" />
 
                 <CarPhoto src={car.images?.thumbnail || null} alt={car.name} className="mt-4 h-44 w-full rounded-2xl ring-1 ring-[#f5d78a]/60" />
 
@@ -94,6 +93,9 @@ export function WinnerView({ value, print = false }: { value: JudgedCar; print?:
                         </p>
                     ) : null}
                 </div>
+
+                {/* Under the name and the price, across the whole width. */}
+                <CarTags car={car} className="mt-3" />
             </div>
 
             {/* -- Why ---------------------------------------------------------- */}
