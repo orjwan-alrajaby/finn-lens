@@ -53,7 +53,8 @@ export interface PageContext {
  */
 export type ChatToPage = { token: string } & (
     | { type: "LENS_CHAT_CONTEXT" }
-    | { type: "LENS_CHAT_SHOW_CAR"; carId: number }
+    /* `winner`: it's the winner, and its card is marked in the winner's gold. */
+    | { type: "LENS_CHAT_SHOW_CAR"; carId: number; winner?: boolean }
     | { type: "LENS_CHAT_CLOSE" }
     /* Wider for the Adjust panel beside the chat, then back to the reader's own size. */
     | { type: "LENS_CHAT_WIDE"; wide: boolean }

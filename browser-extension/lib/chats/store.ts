@@ -105,6 +105,14 @@ export function deleteChat(id: string): Promise<void> {
     });
 }
 
+/** The winner of a chat's judgement — an earlier one, by when it was made, or the latest. */
+export async function winnerOf(chatId: string, at?: string): Promise<number | null> {
+    const chat = await loadChat(chatId);
+    const judgement = at ? ([chat?.judgement, ...(chat?.earlier ?? [])].find((item) => item?.at === at) ?? chat?.judgement) : chat?.judgement;
+
+    return judgement?.winnerId ?? null;
+}
+
 export const activeChatId = (): Promise<string | null> => read<string | null>(ACTIVE_CHAT_KEY, null);
 
 export async function setActiveChat(id: string | null): Promise<void> {

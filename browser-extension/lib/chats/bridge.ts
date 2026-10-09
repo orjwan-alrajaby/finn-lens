@@ -63,7 +63,7 @@ async function send<T>(message: Request): Promise<T | null> {
 
 export const requestPageContext = () => send<PageContext>({ type: "LENS_CHAT_CONTEXT" });
 
-export const requestShowCar = (carId: number) => send<{ shown: boolean }>({ type: "LENS_CHAT_SHOW_CAR", carId });
+export const requestShowCar = (carId: number, winner = false) => send<{ shown: boolean }>({ type: "LENS_CHAT_SHOW_CAR", carId, winner });
 
 export const requestCloseChat = () => send<{ closed: boolean }>({ type: "LENS_CHAT_CLOSE" });
 

@@ -101,7 +101,7 @@ async function handle(message: ChatToPage): Promise<unknown> {
             if (!card) return { shown: false };
 
             card.scrollIntoView({ behavior: "smooth", block: "center" });
-            highlightConfiguration(message.carId);
+            highlightConfiguration(message.carId, message.winner === true);
             window.setTimeout(() => highlightConfiguration(null), 2400);
 
             return { shown: true };

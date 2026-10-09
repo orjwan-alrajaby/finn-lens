@@ -23,6 +23,7 @@ import { cardForCar, cardPhoto } from "./currentCar";
 const STYLE_ID = "finn-lens-highlight-style";
 const HIGHLIGHTING = "finn-lens-highlighting";
 const CURRENT = "finn-lens-current";
+const WINNER = "finn-lens-current-winner";
 
 /**
  * A wash of FINN's own pale blue across the photograph.
@@ -37,6 +38,10 @@ const CSS = `
   html.${HIGHLIGHTING} .${CURRENT} {
     background-color: #eaf4ff !important;
     transition: background-color 220ms ease !important;
+  }
+  /* The winner in its own gold, as its chip and every button to it are. */
+  html.${HIGHLIGHTING} .${CURRENT}.${WINNER} {
+    background-color: #fff3c4 !important;
   }
 `;
 
@@ -66,8 +71,13 @@ let marked: HTMLElement | null = null;
  * clicked — so with the chooser gone every remaining call just marks, and
  * moving someone's page under them is not a thing this can do any more.
  */
-export function highlightConfiguration(id: number | null): void {
+export function highlightConfiguration(id: number | null, winner = false): void {
   const card = id == null ? null : configurationCard(id);
+
+  if (card && card === marked) {
+    card.classList.toggle(WINNER, winner);
+    return;
+  }
 
   if (card === marked) return;
 
@@ -85,6 +95,7 @@ export function highlightConfiguration(id: number | null): void {
   }
 
   card.classList.add(CURRENT);
+  if (winner) card.classList.add(WINNER);
   document.documentElement.classList.add(HIGHLIGHTING);
 
   marked = card;
@@ -94,7 +105,7 @@ export function clearHighlight(): void {
   document.documentElement.classList.remove(HIGHLIGHTING);
 
   if (marked) {
-    marked.classList.remove(CURRENT);
+    marked.classList.remove(CURRENT, WINNER);
 
     /* The page is only exactly as we found it if this is true too. */
     if (!marked.getAttribute("class")) marked.removeAttribute("class");

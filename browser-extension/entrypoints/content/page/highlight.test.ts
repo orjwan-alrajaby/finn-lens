@@ -113,6 +113,22 @@ describe("highlightConfiguration", () => {
     expect(marked()[0]).toBe(photoOf(36918));
   });
 
+  it("marks the winner in its gold, and any other car in blue", () => {
+    const css = () => document.getElementById("finn-lens-highlight-style")?.textContent ?? "";
+
+    highlightConfiguration(34889, true);
+    expect(photoOf(34889)?.classList.contains("finn-lens-current-winner")).toBe(true);
+    expect(css()).toMatch(/\.finn-lens-current\.finn-lens-current-winner \{\s*background-color: #fff3c4/);
+
+    /* The same card, no longer the winner: back to blue. */
+    highlightConfiguration(34889);
+    expect(photoOf(34889)?.classList.contains("finn-lens-current-winner")).toBe(false);
+
+    highlightConfiguration(36918, true);
+    highlightConfiguration(null);
+    expect(photoOf(36918)?.getAttribute("class")).not.toContain("finn-lens-current-winner");
+  });
+
   it("clears the mark when the reader goes back to the list", () => {
     highlightConfiguration(34889);
     highlightConfiguration(null);

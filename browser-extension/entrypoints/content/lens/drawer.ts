@@ -1,4 +1,5 @@
 import { el, panelStyles } from "../page/dom";
+import { winnerOf } from "@/lib/chats/store";
 import { highlightConfiguration } from "../page/highlight";
 
 import { isChatOpen, setBubbleVisible, setChatOpen } from "./bubble";
@@ -73,7 +74,7 @@ export async function openDrawer(chatId: string, carId: number, judgement?: stri
     target.append(frame);
     frame.focus();
 
-    highlightConfiguration(carId);
+    highlightConfiguration(carId, (await winnerOf(chatId, judgement)) === carId);
 }
 
 export function closeDrawer(): void {
