@@ -826,7 +826,7 @@ function DealKey({ rows }: { rows: DealRow[] }) {
 
     return (
         /* Edge to edge across Lens's bubble (its own px-3.5), the text kept where it would sit in a box inside it. */
-        <dl className="-mx-3.5 mt-3 divide-y divide-black/5 text-[12px] leading-snug">
+        <dl className="-mx-3.5 mt-3 divide-y divide-black/5 text-[12.5px] leading-snug">
             {entries.map((entry) => (
                 /*
                  * Each chip on its own line and what it means under it, so every meaning starts at the same edge;
@@ -835,7 +835,7 @@ function DealKey({ rows }: { rows: DealRow[] }) {
                 <div key={entry.label} className="flex flex-col items-start gap-1 px-6 py-2 odd:bg-finn-cotton even:bg-white">
                     {/* The same filled rectangle the option becomes when picked. */}
                     <dt className={`rounded-md px-2 py-0.5 text-[10.5px] font-black ${entry.tone}`}>{entry.label}</dt>
-                    <dd className="text-finn-iron">{entry.means}</dd>
+                    <dd className="text-finn-black/85">{entry.means}</dd>
                 </div>
             ))}
         </dl>
@@ -1325,15 +1325,15 @@ function ImportancePicker({ label, value, onPick, guess = false }: { label: stri
                         aria-checked={value === level}
                         onClick={() => onPick(level)}
                         className={[
-                            "rounded-full px-2.5 py-1 text-[11px] font-black transition-colors",
-                            value === level ? "bg-finn-accent-blue text-white shadow-sm" : "text-finn-iron hover:text-finn-black",
+                            "rounded-full px-2.5 py-1 text-[11.5px] font-black transition-colors",
+                            value === level ? "bg-finn-accent-blue text-white shadow-sm" : "text-finn-black/70 hover:text-finn-black",
                         ].join(" ")}
                     >
                         {IMPORTANCE[level].label}
                     </button>
                 ))}
             </span>
-            <span className="block text-[11px] leading-snug text-finn-iron">
+            <span className="block text-[12px] leading-snug text-finn-black/80">
                 {guess ? <span className="font-bold italic">My guess — tap to change. </span> : null}
                 {IMPORTANCE[value].means}
             </span>
@@ -1345,7 +1345,7 @@ function ImportancePicker({ label, value, onPick, guess = false }: { label: stri
 function Item({ label, kind, onClick, does, here }: { label: string; kind: "counts" | "checks" | "worth"; onClick?: () => void; does?: string; here?: string }) {
     const tone =
         kind === "checks"
-            ? "bg-white text-finn-iron ring-1 ring-black/10 font-semibold"
+            ? "bg-white text-finn-black/75 ring-1 ring-black/10 font-semibold"
             : kind === "counts"
               ? "bg-white text-finn-highlight-navy ring-1 ring-finn-accent-blue/30 font-bold"
               : "bg-transparent text-finn-accent-blue ring-1 ring-dashed ring-finn-accent-blue/45 font-bold";
@@ -1361,7 +1361,7 @@ function Item({ label, kind, onClick, does, here }: { label: string; kind: "coun
 
     /* The chip — taking it out or adding it — and its "i", side by side: a button can't hold a button. */
     return (
-        <span className={`inline-flex items-center rounded-full text-[11.5px] ${does ? "pr-1" : ""} ${tone}`}>
+        <span className={`inline-flex items-center rounded-full text-[12px] ${does ? "pr-1" : ""} ${tone}`}>
             {onClick ? (
                 <button
                     type="button"
@@ -1396,9 +1396,9 @@ function Item({ label, kind, onClick, does, here }: { label: string; kind: "coun
 /** A small heading inside a summary card: "I'll check", "Might matter". */
 function Label({ children, hint }: { children: React.ReactNode; hint?: string }) {
     return (
-        <p className="mb-1 text-[10.5px] font-black uppercase tracking-wide text-finn-iron">
+        <p className="mb-1 text-[11px] font-black uppercase tracking-wide text-finn-black/70">
             {children}
-            {hint ? <span className="ml-1 font-semibold normal-case tracking-normal text-finn-iron/80">{hint}</span> : null}
+            {hint ? <span className="ml-1 text-[11.5px] font-semibold normal-case tracking-normal text-finn-black/65">{hint}</span> : null}
         </p>
     );
 }
@@ -1438,7 +1438,7 @@ function UnderstoodBubble({
                 </div>
                 {bubble.counting !== false && live ? (
                     <div>
-                        <span className="mb-1 block text-[11px] font-bold text-finn-iron">How much it counts</span>
+                        <span className="mb-1 block text-[12px] font-bold text-finn-black/75">How much it counts</span>
                         <ImportancePicker label={bubble.heading.toLowerCase()} value={bubble.importance} onPick={onImportance} guess={!bubble.importanceSaid} />
                     </div>
                 ) : null}
@@ -1453,9 +1453,9 @@ function UnderstoodBubble({
                             <Item key={item.id} label={item.label} kind="counts" does={item.does} onClick={live ? () => onRemove(item.id) : undefined} />
                         ))}
                     </div>
-                    {bubble.figureNote ? <p className="mt-1.5 text-[11.5px] leading-snug text-finn-iron">{bubble.figureNote}</p> : null}
+                    {bubble.figureNote ? <p className="mt-1.5 text-[12.5px] leading-snug text-finn-black/80">{bubble.figureNote}</p> : null}
                     {bubble.shared?.length ? (
-                        <p className="mt-1.5 text-[11.5px] leading-snug text-finn-iron">
+                        <p className="mt-1.5 text-[12.5px] leading-snug text-finn-black/80">
                             {bubble.counts.length || bubble.figure ? "Also " : ""}
                             {bubble.shared.map((item) => lowerFirst(item.label)).join(", ")}, from a card above.
                         </p>
@@ -1465,7 +1465,7 @@ function UnderstoodBubble({
 
             {bubble.checks.length ? (
                 <div>
-                    <p className="mb-1 flex items-center gap-0.5 text-[10.5px] font-black uppercase tracking-wide text-finn-iron">
+                    <p className="mb-1 flex items-center gap-0.5 text-[11px] font-black uppercase tracking-wide text-finn-black/70">
                         Standard equipment
                         <InfoTip
                             label="Standard equipment"
@@ -1481,7 +1481,7 @@ function UnderstoodBubble({
             ) : null}
 
             {bubble.settled || bubble.empty ? (
-                <p className="rounded-xl bg-white/80 px-2.5 py-2 text-[11.5px] leading-snug text-finn-black/80 ring-1 ring-black/5">{bubble.settled ?? bubble.empty}</p>
+                <p className="rounded-xl bg-white px-2.5 py-2 text-[12.5px] leading-snug text-finn-black/85 ring-1 ring-black/10">{bubble.settled ?? bubble.empty}</p>
             ) : null}
 
             {live && bubble.worth.length ? (
@@ -1496,7 +1496,7 @@ function UnderstoodBubble({
             ) : null}
 
             {bubble.cantCheck ? (
-                <p className="flex gap-1.5 border-t border-black/5 pt-2.5 text-[11px] leading-snug text-finn-iron">
+                <p className="flex gap-1.5 border-t border-black/10 pt-2.5 text-[12px] leading-snug text-finn-black/75">
                     <Info aria-hidden="true" className="mt-px h-3.5 w-3.5 shrink-0" />
                     <span>{bubble.cantCheck}</span>
                 </p>
@@ -1545,16 +1545,16 @@ function StaticSummary({ message }: { message: Extract<ChatMessage, { kind: "sum
                         {said.map((item) => (
                             <li key={item.id} className="px-3.5 py-2.5 odd:bg-finn-cotton even:bg-white">
                                 <div className="flex items-start justify-between gap-2">
-                                    <p className="text-[12.5px] font-black leading-snug text-finn-black">{item.heading}</p>
+                                    <p className="text-[13px] font-black leading-snug text-finn-black">{item.heading}</p>
                                     {item.importance ? <ImportanceBadge importance={item.importance} guess={item.guess} /> : null}
                                 </div>
                                 {item.checks.length ? (
-                                    <p className="mt-0.5 text-[11.5px] leading-snug text-finn-iron">I'll check: {item.checks.join(" · ")}</p>
+                                    <p className="mt-1 text-[12.5px] leading-snug text-finn-black/80">I'll check: {item.checks.join(" · ")}</p>
                                 ) : item.note ? (
-                                    <p className="mt-0.5 text-[11.5px] leading-snug text-finn-iron">{item.note}</p>
+                                    <p className="mt-1 text-[12.5px] leading-snug text-finn-black/80">{item.note}</p>
                                 ) : null}
                                 {item.standard.length ? (
-                                    <p className="mt-0.5 text-[11px] leading-snug text-finn-iron/80">Also making sure it has: {item.standard.join(" · ")}</p>
+                                    <p className="mt-0.5 text-[12px] leading-snug text-finn-black/70">Also making sure it has: {item.standard.join(" · ")}</p>
                                 ) : null}
                             </li>
                         ))}
@@ -1710,12 +1710,12 @@ function Summary({
                                     )}
                                 </div>
                                 {need.looksFor.length ? (
-                                    <p className="mt-0.5 text-[11.5px] leading-snug text-finn-iron">
+                                    <p className="mt-1 text-[12.5px] leading-snug text-finn-black/80">
                                         I'll look for: {need.looksFor.join(" · ")}
                                         {need.also ? `, and ${need.also} listed above` : ""}
                                     </p>
                                 ) : need.also ? (
-                                    <p className="mt-0.5 text-[11.5px] leading-snug text-finn-iron">Everything I'd look for is listed above.</p>
+                                    <p className="mt-1 text-[12.5px] leading-snug text-finn-black/80">Everything I'd look for is listed above.</p>
                                 ) : null}
                             </li>
                         ))}

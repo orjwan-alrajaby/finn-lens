@@ -34,8 +34,8 @@ export function ImportanceBadge({ importance, guess = false }: { importance: Nee
 /** The scale in a sentence, the three levels with their points, and what a dashed one is, where there is one. */
 export function ImportanceKey({ guesses = false }: { guesses?: boolean }) {
     return (
-        <section aria-label="How much it counts" className="rounded-xl bg-finn-snow px-3 py-2.5 text-[11.5px] leading-snug ring-1 ring-black/[0.03]">
-            <p className="text-finn-black/80">
+        <section aria-label="How much it counts" className="rounded-xl bg-finn-snow px-3 py-2.5 text-[12.5px] leading-snug ring-1 ring-black/[0.06]">
+            <p className="text-finn-black/85">
                 <span className="font-black text-finn-highlight-navy">How much it counts: </span>
                 {SCALE_EXPLAINED}
             </p>
@@ -44,7 +44,7 @@ export function ImportanceKey({ guesses = false }: { guesses?: boolean }) {
                     <ImportanceBadge key={level} importance={level} />
                 ))}
             </p>
-            {guesses ? <p className="mt-2 text-finn-iron">A dashed outline is my guess, where you didn't say how much it counts.</p> : null}
+            {guesses ? <p className="mt-2 text-finn-black/75">A dashed outline is my guess, where you didn't say how much it counts.</p> : null}
         </section>
     );
 }
