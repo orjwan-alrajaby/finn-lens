@@ -46,14 +46,17 @@ export function BandChip({ band, label, className = "" }: { band: FitLevel; labe
 }
 
 /** The winner's chip: gold, with the trophy. */
+/** The winner's gold, wherever it's marked: its chip, and the buttons that go to it. */
+export const WINNER_GOLD = {
+    background: "linear-gradient(135deg, #fff3c4 0%, #fcd34d 45%, #f59e0b 100%)",
+    boxShadow: "0 0 0 1px #fff, 0 0 0 3px rgba(245,158,11,.3)",
+} as const;
+
 export function WinnerChip({ label = "Best for you", className = "" }: { label?: string; className?: string }) {
     return (
         <span
             className={`inline-flex shrink-0 items-center gap-1.5 rounded-full py-1 pl-1 pr-2.5 text-[11px] font-black text-[#5b3a00] ${className}`}
-            style={{
-                background: "linear-gradient(135deg, #fff3c4 0%, #fcd34d 45%, #f59e0b 100%)",
-                boxShadow: "0 0 0 1px #fff, 0 0 0 3px rgba(245,158,11,.3)",
-            }}
+            style={WINNER_GOLD}
         >
             <span className="inline-flex h-[18px] w-[18px] items-center justify-center rounded-full bg-white text-[#b7791f] shadow-sm">
                 <Trophy aria-hidden="true" className="h-3 w-3" strokeWidth={2.6} />

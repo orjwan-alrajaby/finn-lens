@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { LocateFixed } from "lucide-react";
 
+import { WINNER_GOLD } from "./lens-parts";
+
 /**
  * "Show me that car": scrolls FINN's page to its card and lights it up.
  *
@@ -18,6 +20,7 @@ export function LocateButton({
     onLocate,
     size = "md",
     label,
+    winner = false,
 }: {
     /** The car, for the button's name: "Show the MG ZS on the page". */
     name?: string;
@@ -26,6 +29,8 @@ export function LocateButton({
     size?: "md" | "sm" | "text";
     /** The words on a `text` button. */
     label?: string;
+    /** It goes to the winner: in the winner's gold, as everything that goes to it is. */
+    winner?: boolean;
 }) {
     const [missing, setMissing] = useState(false);
 
@@ -61,9 +66,10 @@ export function LocateButton({
             onClick={() => void locate()}
             aria-label={named}
             title={missing ? "Not on this page" : named}
-            className={`finn-lens-screen-only inline-flex shrink-0 items-center justify-center rounded-full bg-finn-cotton text-finn-black transition-colors hover:bg-finn-pale-blue hover:text-finn-accent-blue ${
-                size === "sm" ? "h-8 w-8" : "h-10 w-10"
-            } ${missing ? "ring-2 ring-finn-fit-limited/40" : ""}`}
+            style={winner && !missing ? WINNER_GOLD : undefined}
+            className={`finn-lens-screen-only inline-flex shrink-0 items-center justify-center rounded-full transition ${
+                winner ? "text-[#5b3a00] hover:brightness-105" : "bg-finn-cotton text-finn-black hover:bg-finn-pale-blue hover:text-finn-accent-blue"
+            } ${size === "sm" ? "h-8 w-8" : "h-10 w-10"} ${missing ? `ring-2 ring-finn-fit-limited/40 ${winner ? "bg-finn-cotton" : ""}` : ""}`}
         >
             <LocateFixed aria-hidden="true" className={size === "sm" ? "h-3.5 w-3.5" : "h-4 w-4"} />
         </button>

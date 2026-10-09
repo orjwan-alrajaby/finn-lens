@@ -3,7 +3,7 @@ import { useEffect } from "react";
 import { adviceFileName } from "@/lib/advice-pdf";
 import { ExternalLink, History, Trophy, X } from "lucide-react";
 
-import { BrandMark, IconButton } from "@/components/lens-parts";
+import { BrandMark, IconButton, WINNER_GOLD } from "@/components/lens-parts";
 import { LocateButton } from "@/components/LocateButton";
 import { LoadingScreen } from "@/components/Spinner";
 import { requestCloseDrawer, requestOpenDrawer, requestShowCar } from "@/lib/chats/bridge";
@@ -122,14 +122,14 @@ function CarView({ value }: { value: JudgedCar }) {
                             type="button"
                             onClick={() => void requestOpenDrawer(value.chat.id, winnerId, sameJudgement(value))}
                             className="inline-flex items-center gap-1.5 rounded-full py-1.5 pr-3.5 pl-1.5 text-[12.5px] font-black text-[#5b3a00] transition-[filter] hover:brightness-105 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#d97706]"
-                            style={{ background: "linear-gradient(135deg, #fff3c4 0%, #fcd34d 45%, #f59e0b 100%)", boxShadow: "0 0 0 1px #fff, 0 0 0 3px rgba(245,158,11,.3)" }}
+                            style={WINNER_GOLD}
                         >
                             <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-white text-[#b7791f] shadow-sm">
                                 <Trophy aria-hidden="true" className="h-3.5 w-3.5" strokeWidth={2.6} />
                             </span>
-                            See the winner “{versus.match}”
+                            See {versus.match}
                         </button>
-                        <LocateCar id={winnerId} name={versus.match} size="sm" />
+                        <LocateCar id={winnerId} name={versus.match} size="sm" winner />
                     </div>
                 </Section>
             ) : null}

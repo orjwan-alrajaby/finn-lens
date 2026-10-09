@@ -215,7 +215,22 @@ export function Catch({ story }: { story: FitStory }) {
  * page — or, in the PDF, where there's no page to scroll, a link to the car
  * on FINN, where Lens has its address.
  */
-export function LocateCar({ id, name, size = "text", value, print = false }: { id: number; name: string; size?: "sm" | "text"; value?: JudgedCar; print?: boolean }) {
+export function LocateCar({
+    id,
+    name,
+    size = "text",
+    value,
+    print = false,
+    winner = false,
+}: {
+    id: number;
+    name: string;
+    size?: "sm" | "text";
+    value?: JudgedCar;
+    print?: boolean;
+    /** The car is the winner: the button takes its gold. */
+    winner?: boolean;
+}) {
     if (print) {
         const url = value?.judgement.urls[id];
 
@@ -226,7 +241,7 @@ export function LocateCar({ id, name, size = "text", value, print = false }: { i
         ) : null;
     }
 
-    return <LocateButton name={name} size={size} label={size === "text" ? `Show the ${name}` : undefined} onLocate={() => requestShowCar(id)} />;
+    return <LocateButton name={name} size={size} label={size === "text" ? `Show the ${name}` : undefined} winner={winner} onLocate={() => requestShowCar(id)} />;
 }
 
 /** Where the money goes, line by line, and what's estimated rather than FINN's own figure. */
