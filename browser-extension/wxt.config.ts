@@ -31,10 +31,10 @@ export default defineConfig({
     name: "Finn Lens",
     /*
      * The beta FINN's team is trying. Chrome shows this beside the version
-     * (0.9.0, from package.json) in chrome://extensions; the UI says "Beta"
+     * (0.9.1, from package.json) in chrome://extensions; the UI says "Beta"
      * where the reader sees Lens's name.
      */
-    version_name: "0.9.0 beta",
+    version_name: "0.9.1 beta",
     description:
       "Choose between FINN car subscriptions by chatting with Lens. Tell it what you need, and it judges the cars on finn.com and explains its pick.",
     host_permissions: ["https://www.finn.com/*"],

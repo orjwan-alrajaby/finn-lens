@@ -1,5 +1,35 @@
 # Changelog
 
+## 0.9.1 beta — 10 October 2026
+
+The build for the first outside review. Everything 0.9.0 does, plus:
+
+- **A beta guide** in Settings (its own tab, and a link from the popup): what
+  Lens is and why, how it decides, how to read its results, its known limits,
+  what might come next, and where to send feedback.
+- **"What you told me" and the Adjust panel** say each question once, with
+  every answer under it; the Adjust panel slides in beside a widened chat, and
+  the chat can be expanded from its header and resized from its corner.
+- **Every car's drawer saves as a PDF**, not only the winner's — all but a car
+  that was ruled out. The PDF links each car it names to FINN and keeps its
+  blocks whole across pages.
+- **The winner is called the winner** wherever another car is compared with
+  it, in its gold; each car's drawer tags what it runs on, how much it uses
+  and its CO₂.
+- **No car fits the dates:** Lens offers the nearest dates a car on the page
+  can be rented for, and "a month either way" only where that finds one.
+- **Each chat has a short name of its own**, such as "Chat 7KQ-M4X".
+
+Fixed in the final check:
+
+- When every car was over the budget, the winner's headline called it "the
+  strongest match for what you told Lens" without saying it was over budget.
+- On a filtered listing broader than Lens takes in at once (about 150 cars),
+  the chat said it had judged "the cars matching your filters"; it now says
+  how many of them it judged.
+- Settings' delete confirmations lowercased Lens's name.
+- The package no longer ships two unused logos from the project template.
+
 ## 0.9.0 beta — 7 October 2026
 
 The first build shared outside development, for FINN's team to try. From here

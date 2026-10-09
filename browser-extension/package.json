@@ -2,7 +2,7 @@
   "name": "finn-lens",
   "description": "Browser extension that helps you choose between FINN car subscriptions by chatting with Lens, which judges the cars on finn.com against what you told it.",
   "private": true,
-  "version": "0.9.0",
+  "version": "0.9.1",
   "type": "module",
   "scripts": {
     "dev": "wxt",
