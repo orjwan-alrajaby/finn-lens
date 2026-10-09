@@ -73,9 +73,12 @@ describe("here's what you told me, and what I understood", () => {
     const summary = (chat: Chat) => [...chat.messages].reverse().find((message): message is Extract<ChatMessage, { kind: "summary" }> => message.kind === "summary")!;
 
     it("is read-only in the chat: each thing said, how much it counts and what's checked, then the limits — and two choices", () => {
-        const words = text(render(understood().messages));
+        const html = render(understood().messages);
+        const words = text(html);
 
         expect(words).toContain("Here's what you told me, and what I understood:");
+        /* Each thing said a stripe of its own, edge to edge, grey and white by turns. */
+        expect(html.match(/<li class="px-3\.5 py-2\.5 odd:bg-finn-cotton even:bg-white">/g)?.length).toBe(2);
         expect(words).toMatch(/What you told me You have kids · a baby or toddler seat Top priority · 4 pts I.ll check: Rear doors/);
         expect(words).toMatch(/Money & time Monthly limit €500 all in .* Deal-breakers & sealers Runs on Any Deal-breakers None Deal-sealers None/);
         /* Standard equipment each answer calls for, said so it doesn't look forgotten. */
@@ -95,8 +98,8 @@ describe("here's what you told me, and what I understood", () => {
         const words = text(html);
 
         expect(words).toMatch(/^ ?Adjust Take out what's wrong/);
-        expect(html.match(/<li class="space-y-3 rounded-2xl p-3\.5 ring-1 bg-finn-pale-blue/g)).toHaveLength(1);
-        expect(html.match(/<li class="space-y-3 rounded-2xl p-3\.5 ring-1 bg-finn-snow/g)).toHaveLength(1);
+        /* Edge to edge, grey and white by turns, grey first. */
+        expect(html.match(/<li class="space-y-3 px-3\.5 py-3\.5 bg-(?:finn-cotton|white)/g)).toEqual(['<li class="space-y-3 px-3.5 py-3.5 bg-finn-cotton', '<li class="space-y-3 px-3.5 py-3.5 bg-white']);
         expect(words).toContain("I'll check — tap × to take one out Rear doors Standard equipment ISOFIX child seat anchors Might matter — tap + to add");
         /* No unasked-for list of what Lens can't check. */
         expect(words).not.toContain("I can't check");

@@ -1316,7 +1316,7 @@ function Ask({
 function ImportancePicker({ label, value, onPick, guess = false }: { label: string; value: NeedImportance; onPick: (level: NeedImportance) => void; guess?: boolean }) {
     return (
         <span className="block space-y-1">
-            <span role="radiogroup" aria-label={`How much ${label} counts`} className="inline-flex rounded-full bg-finn-snow p-0.5 ring-1 ring-finn-cotton">
+            <span role="radiogroup" aria-label={`How much ${label} counts`} className="inline-flex rounded-full bg-white p-0.5 ring-1 ring-black/10">
                 {IMPORTANCE_LEVELS.map((level) => (
                     <button
                         key={level}
@@ -1345,7 +1345,7 @@ function ImportancePicker({ label, value, onPick, guess = false }: { label: stri
 function Item({ label, kind, onClick, does, here }: { label: string; kind: "counts" | "checks" | "worth"; onClick?: () => void; does?: string; here?: string }) {
     const tone =
         kind === "checks"
-            ? "bg-white text-finn-iron ring-1 ring-finn-cotton font-semibold"
+            ? "bg-white text-finn-iron ring-1 ring-black/10 font-semibold"
             : kind === "counts"
               ? "bg-white text-finn-highlight-navy ring-1 ring-finn-accent-blue/30 font-bold"
               : "bg-transparent text-finn-accent-blue ring-1 ring-dashed ring-finn-accent-blue/45 font-bold";
@@ -1403,8 +1403,8 @@ function Label({ children, hint }: { children: React.ReactNode; hint?: string })
     );
 }
 
-/** Two tones, alternating, so one bubble's card is never mistaken for the next. */
-const CARD_TONE = ["bg-finn-pale-blue/55 ring-finn-accent-blue/15", "bg-finn-snow ring-black/5"];
+/** Grey and white by turns, edge to edge, so one bubble is never mistaken for the next. */
+const CARD_TONE = ["bg-finn-cotton", "bg-white"];
 
 /**
  * One bubble as Lens understood it, as a card of its own: its heading and
@@ -1428,7 +1428,7 @@ function UnderstoodBubble({
     onAdd: (item: string) => void;
 }) {
     return (
-        <li className={`space-y-3 rounded-2xl p-3.5 ring-1 ${tone}`}>
+        <li className={`space-y-3 px-3.5 py-3.5 ${tone}`}>
             <div className="space-y-1.5">
                 <div className="flex items-start justify-between gap-2">
                     <p className="text-[13.5px] font-black leading-snug text-finn-black">{bubble.heading}</p>
@@ -1540,9 +1540,10 @@ function StaticSummary({ message }: { message: Extract<ChatMessage, { kind: "sum
             {said.length ? (
                 <section className="px-3.5 pt-3 pb-1">
                     <p className="text-[11px] font-black uppercase tracking-wide text-finn-highlight-navy">What you told me</p>
-                    <ul className="divide-y divide-finn-cotton/70">
+                    {/* Edge to edge across the card, grey and white by turns, the text in line with the heading. */}
+                    <ul className="-mx-3.5 mt-1.5 divide-y divide-black/5">
                         {said.map((item) => (
-                            <li key={item.id} className="py-2">
+                            <li key={item.id} className="px-3.5 py-2.5 odd:bg-finn-cotton even:bg-white">
                                 <div className="flex items-start justify-between gap-2">
                                     <p className="text-[12.5px] font-black leading-snug text-finn-black">{item.heading}</p>
                                     {item.importance ? <ImportanceBadge importance={item.importance} guess={item.guess} /> : null}
@@ -1662,8 +1663,8 @@ function Summary({
     return (
         <div className="overflow-hidden rounded-2xl bg-white ring-1 ring-black/5 shadow-[0_1px_2px_rgba(0,0,0,0.06)]">
             {message.bubbles?.length ? (
-                <div className="px-3 pt-3.5 pb-3.5">
-                    <div className="mb-2.5 flex items-baseline justify-between gap-2 px-0.5">
+                <div className="pt-3.5">
+                    <div className="mb-2.5 flex items-baseline justify-between gap-2 px-3.5">
                         <p className="text-[11.5px] font-black uppercase tracking-wide text-finn-highlight-navy">Your life</p>
                         {live ? (
                             <button type="button" onClick={() => onChange("changeHow")} className="text-[11.5px] font-bold text-finn-accent-blue hover:underline">
@@ -1671,7 +1672,7 @@ function Summary({
                             </button>
                         ) : null}
                     </div>
-                    <ul className="space-y-2.5">
+                    <ul className="divide-y divide-black/5">
                         {message.bubbles.map((bubble, index) => (
                             <UnderstoodBubble
                                 key={bubble.id}
@@ -1688,8 +1689,8 @@ function Summary({
             ) : null}
 
             {message.needs?.length ? (
-                <div className={`px-3 pt-3.5 pb-3.5 ${message.bubbles?.length ? "border-t border-finn-cotton" : ""}`}>
-                    <div className="flex items-baseline justify-between gap-2">
+                <div className={`pt-3.5 ${message.bubbles?.length ? "border-t border-finn-cotton" : ""}`}>
+                    <div className="flex items-baseline justify-between gap-2 px-3.5">
                         <p className="text-[11px] font-black uppercase tracking-wide text-finn-iron">{message.bubbles?.length ? "In your own words" : "What matters to you"}</p>
                         {live ? (
                             <button type="button" onClick={() => onChange("changeHow")} className="text-[11.5px] font-bold text-finn-accent-blue hover:underline">
@@ -1697,9 +1698,9 @@ function Summary({
                             </button>
                         ) : null}
                     </div>
-                    <ul className="mt-2 space-y-2.5">
+                    <ul className="mt-2 divide-y divide-black/5">
                         {message.needs.map((need, index) => (
-                            <li key={need.id} className={`rounded-2xl p-3.5 ring-1 ${CARD_TONE[((message.bubbles?.length ?? 0) + index) % CARD_TONE.length]}`}>
+                            <li key={need.id} className={`px-3.5 py-3.5 ${CARD_TONE[((message.bubbles?.length ?? 0) + index) % CARD_TONE.length]}`}>
                                 <div className={live ? "space-y-1" : "flex items-center justify-between gap-2"}>
                                     <span className="block text-[13px] font-black text-finn-black">{need.label}</span>
                                     {live ? (
