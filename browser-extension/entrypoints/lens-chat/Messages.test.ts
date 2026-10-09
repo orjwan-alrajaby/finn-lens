@@ -223,6 +223,8 @@ describe("deal-breakers and deal-sealers", () => {
             /Why I'm asking: Only pick what you'd truly refuse, or what would win you over — everything else is weighed on what you've already told me\. Doesn't matter Not part of the judgement\. Must (be \/ )?have A deal-breaker: any car without it is set aside before I score anything\. (Mustn't be A deal-breaker: any car that is one is set aside before I score anything\. )?Seals it A deal-sealer: counts as a top priority, but a car without it can still win if it's clearly better at everything else\./,
         );
         expect(html).not.toContain('title="A deal-');
+        /* Each meaning under its chip, not beside it. */
+        expect(html.match(/<div class="flex flex-col items-start gap-1"><dt /g)?.length).toBeGreaterThanOrEqual(3);
         /* Each option its own lively colour, outlined until picked; the picked one filled, with a tick. */
         expect(html).toContain("bg-white text-finn-accent-blue ring-1 ring-finn-accent-blue/45");
         expect(html).toContain("bg-white text-[#0b8a4c] ring-1 ring-[#0b8a4c]/45");

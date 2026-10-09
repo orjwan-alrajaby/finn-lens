@@ -796,7 +796,7 @@ function StarKey() {
 
 /**
  * What each option on a deal row means, said once under the question —
- * each beside a chip in the colour it takes when picked — so the reader
+ * each under a chip in the colour it takes when picked — so the reader
  * knows before choosing, rather than finding out on hover. Only the
  * options some row here offers.
  */
@@ -825,11 +825,12 @@ function DealKey({ rows }: { rows: DealRow[] }) {
     ];
 
     return (
-        <dl className="mt-3 space-y-2 border-t border-black/5 pt-2.5 text-[12px] leading-snug">
+        <dl className="mt-3 space-y-2.5 border-t border-black/5 pt-2.5 text-[12px] leading-snug">
             {entries.map((entry) => (
-                <div key={entry.label} className="flex items-start gap-2">
+                /* Each chip on its own line and what it means under it, so every meaning starts at the same edge. */
+                <div key={entry.label} className="flex flex-col items-start gap-1">
                     {/* The same filled rectangle the option becomes when picked. */}
-                    <dt className={`mt-px shrink-0 rounded-md px-2 py-0.5 text-[10.5px] font-black ${entry.tone}`}>{entry.label}</dt>
+                    <dt className={`rounded-md px-2 py-0.5 text-[10.5px] font-black ${entry.tone}`}>{entry.label}</dt>
                     <dd className="text-finn-iron">{entry.means}</dd>
                 </div>
             ))}
