@@ -17,7 +17,7 @@ import { fitCase, type Shortfall } from "@/lib/lens-chat/fit-case";
 import type { StorySection, Tone } from "@/lib/lens-chat/fit-story";
 import { whyNot } from "@/lib/lens-chat/why-not";
 
-import { CarTags, CostTable, LocateCar, Section, StoryLines, StoryRow, ToneDot, UsageSection } from "./parts";
+import { CarTags, CostTable, LocateCar, PrintMasthead, Section, StoryLines, StoryRow, ToneDot, UsageSection } from "./parts";
 import type { JudgedCar } from "./useJudgedCar";
 
 /**
@@ -54,15 +54,7 @@ export function WinnerView({ value, print = false }: { value: JudgedCar; print?:
 
     return (
         <article>
-            {print ? (
-                <header className="flex items-center justify-between border-b border-finn-cotton px-5 py-4">
-                    <div>
-                        <p className="text-[11px] font-black uppercase tracking-wide text-finn-iron">Finn Lens · your best match</p>
-                        <p className="text-[13px] text-finn-black">From your chat “{chat.title}”, judged {new Date(judgement.at).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })}</p>
-                    </div>
-                    <p className="text-right text-[11px] text-finn-iron">{judgement.headline}</p>
-                </header>
-            ) : null}
+            {print ? <PrintMasthead value={value} kind="your best match" /> : null}
 
             {/* -- The pick ---------------------------------------------------- */}
             <div className="relative overflow-hidden bg-gradient-to-b from-[#fff6d6] via-[#fffbeb] to-white px-5 pt-5 pb-4">

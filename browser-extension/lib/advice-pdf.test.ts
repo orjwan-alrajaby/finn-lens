@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   adviceFileName,
   advicePdfOptions,
+  fitFileName,
   placeLinks,
   type LinkRect,
 } from "./advice-pdf";
@@ -14,6 +15,12 @@ import {
  * the only part that has to survive being dropped in a folder with eleven
  * others.
  */
+
+describe("fitFileName", () => {
+  it("names a car that isn't the winner apart from the advice, so the two never mix in a folder", () => {
+    expect(fitFileName("MG ZS", new Date(2026, 9, 9))).toBe("finn-lens-fit-mg-zs-2026-10-09.pdf");
+  });
+});
 
 describe("adviceFileName", () => {
   const day = new Date(2026, 8, 5);

@@ -1,18 +1,18 @@
 import { useEffect } from "react";
 
-import { adviceFileName } from "@/lib/advice-pdf";
-import { ExternalLink, History, Trophy, X } from "lucide-react";
+import { adviceFileName, fitFileName } from "@/lib/advice-pdf";
+import { ExternalLink, History, X } from "lucide-react";
 
-import { BrandMark, IconButton, WINNER_GOLD } from "@/components/lens-parts";
+import { BrandMark, IconButton } from "@/components/lens-parts";
 import { LocateButton } from "@/components/LocateButton";
 import { LoadingScreen } from "@/components/Spinner";
-import { requestCloseDrawer, requestOpenDrawer, requestShowCar } from "@/lib/chats/bridge";
+import { requestCloseDrawer, requestShowCar } from "@/lib/chats/bridge";
 import { closestMatch } from "@/lib/chats/judge";
 import { theHeadline } from "@/lib/chats/scope";
 
-import { Catch, CarHeader, CostTable, LocateCar, Section, StoryList, UsageSection } from "./parts";
+import { CarView } from "./CarView";
 import { ExportButton, usePdfExport } from "./usePdfExport";
-import { sameJudgement, useJudgedCar, type JudgedCar } from "./useJudgedCar";
+import { useJudgedCar, type JudgedCar } from "./useJudgedCar";
 import { WinnerView } from "./WinnerView";
 
 /**
@@ -33,7 +33,9 @@ const JUDGEMENT = params.get("judgement");
 export function App() {
     const loaded = useJudgedCar(CHAT_ID, CAR_ID, JUDGEMENT);
     const winner = loaded.state === "ready" && loaded.value.isWinner ? loaded.value : null;
-    const pdf = usePdfExport(winner ? adviceFileName(winner.car.name) : null);
+    /* Every car's drawer can be saved, the winner's or not — but not one ruled out, which has nothing to say but why. */
+    const exportable = loaded.state === "ready" && loaded.value.verdict.label !== "Ruled out" ? loaded.value : null;
+    const pdf = usePdfExport(exportable ? (exportable.isWinner ? adviceFileName : fitFileName)(exportable.car.name) : null);
 
     useEffect(() => {
         const onKey = (event: KeyboardEvent) => {
@@ -68,98 +70,21 @@ export function App() {
             </main>
 
             {loaded.state === "ready" ? (
-                <Footer value={loaded.value}>{winner ? <ExportButton exporting={pdf.exporting} onExport={pdf.start} /> : null}</Footer>
+                <Footer value={loaded.value}>{exportable ? <ExportButton exporting={pdf.exporting} onExport={pdf.start} /> : null}</Footer>
             ) : null}
 
             {/*
              * The PDF's copy of the argument: laid out wider than the drawer,
              * off-screen, and only while a file is being made.
              */}
-            {winner && pdf.exporting ? (
+            {exportable && pdf.exporting ? (
                 <div aria-hidden="true" className="pointer-events-none fixed top-0 -left-[10000px]">
                     <div ref={pdf.printable} data-exporting="" className="w-[760px] bg-white font-sans text-finn-black">
-                        <WinnerView value={winner} print />
+                        {exportable.isWinner ? <WinnerView value={exportable} print /> : <CarView value={exportable} print />}
                     </div>
                 </div>
             ) : null}
         </div>
-    );
-}
-
-function CarView({ value }: { value: JudgedCar }) {
-    const { story, versus, cost, verdict, judgement, isWinner } = value;
-    const winnerId = judgement.winnerId;
-
-    return (
-        <>
-            <CarHeader value={value} />
-
-            {story ? <p className="px-5 pb-4 text-[13px] leading-relaxed text-finn-black">{story.bandMeaning}</p> : null}
-
-            {verdict.setAside ? (
-                <Section title="Why it wasn't ranked">
-                    <p className="text-[13px] leading-relaxed text-finn-black">
-                        {/* Graded but not ranked: nothing fitted the budget, and only the cars nearest it were ranked. */}
-                        {verdict.label !== "Ruled out" && verdict.over === "budget"
-                            ? "Nothing here fits your budget, so I ranked only the cars closest to it — and this one costs more than those."
-                            : `${verdict.setAside}, so I set this car aside before judging the others.`}{" "}
-                        Change your answers in the chat if you'd like it back in.
-                    </p>
-                </Section>
-            ) : null}
-
-            {versus && winnerId != null && !isWinner ? (
-                /* Made the cut and lost: said as early as why a car set aside wasn't ranked, against the pick it lost to. */
-                <Section title="Why it didn't win">
-                    <div className="space-y-2 text-[13px] leading-relaxed text-finn-black">
-                        {versus.sentences.map((sentence) => (
-                            <p key={sentence}>{sentence}</p>
-                        ))}
-                    </div>
-                    <div className="mt-3 flex flex-wrap items-center gap-2">
-                        {/* The winner's own gold and trophy, as its chip has them: never mistaken for a button to another car. */}
-                        <button
-                            type="button"
-                            onClick={() => void requestOpenDrawer(value.chat.id, winnerId, sameJudgement(value))}
-                            className="inline-flex items-center gap-1.5 rounded-full py-1.5 pr-3.5 pl-1.5 text-[12.5px] font-black text-[#5b3a00] transition-[filter] hover:brightness-105 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#d97706]"
-                            style={WINNER_GOLD}
-                        >
-                            <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-white text-[#b7791f] shadow-sm">
-                                <Trophy aria-hidden="true" className="h-3.5 w-3.5" strokeWidth={2.6} />
-                            </span>
-                            See {versus.match}
-                        </button>
-                        <LocateCar id={winnerId} name={versus.match} size="sm" winner />
-                    </div>
-                </Section>
-            ) : null}
-
-            {story?.sections.length ? (
-                <Section title="What you told me, and what it has">
-                    <StoryList story={story} value={value} />
-                </Section>
-            ) : null}
-
-            {story?.catch ? (
-                <Section title="Worth knowing">
-                    <Catch story={story} />
-                </Section>
-            ) : null}
-
-            {cost ? (
-                <Section title="What it costs">
-                    <CostTable cost={cost} />
-                </Section>
-            ) : null}
-
-            <UsageSection value={value} />
-
-            {value.missing ? (
-                <p className="px-5 pb-4 text-[11.5px] text-finn-iron">
-                    {value.missing} of the cars this chat judged are no longer in Lens's data, so this reading leaves them out.
-                </p>
-            ) : null}
-        </>
     );
 }
 

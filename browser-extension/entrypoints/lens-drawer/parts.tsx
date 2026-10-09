@@ -193,7 +193,7 @@ export function UsageSection({ value, folded = false, title = "How much it uses"
     );
 }
 
-export function Catch({ story }: { story: FitStory }) {
+export function Catch({ story, value, print = false }: { story: FitStory; value?: JudgedCar; print?: boolean }) {
     if (!story.catch) return null;
 
     const { car } = story.catch;
@@ -204,7 +204,8 @@ export function Catch({ story }: { story: FitStory }) {
             <div>
                 <p className="font-semibold">{story.catch.text}</p>
                 {story.catch.alternative ? <p className="mt-1">{story.catch.alternative}</p> : null}
-                {car ? <LocateCar id={car.id} name={car.name} winner={car.winner} /> : null}
+                {/* In the file, a link to it on FINN: there's no page to find it on. */}
+                {car ? <LocateCar id={car.id} name={car.name} winner={car.winner} value={value} print={print} /> : null}
             </div>
         </div>
     );
@@ -308,6 +309,23 @@ export function CarTags({ car, className = "" }: { car: JudgedCar["car"]; classN
                 </li>
             ))}
         </ul>
+    );
+}
+
+/** The top of a PDF: what the file is, which chat and when, and what was judged. */
+export function PrintMasthead({ value, kind }: { value: JudgedCar; kind: string }) {
+    const { chat, judgement } = value;
+
+    return (
+        <header className="flex items-center justify-between border-b border-finn-cotton px-5 py-4">
+            <div>
+                <p className="text-[11px] font-black uppercase tracking-wide text-finn-iron">Finn Lens · {kind}</p>
+                <p className="text-[13px] text-finn-black">
+                    From your chat “{chat.title}”, judged {new Date(judgement.at).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })}
+                </p>
+            </div>
+            <p className="text-right text-[11px] text-finn-iron">{judgement.headline}</p>
+        </header>
     );
 }
 

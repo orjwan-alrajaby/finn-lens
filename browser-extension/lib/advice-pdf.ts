@@ -159,6 +159,15 @@ export function adviceFileName(carName: string, on: Date = new Date()): string {
 }
 
 /**
+ * `finn-lens-fit-mg-zs-2026-10-09.pdf`: how a car that isn't the winner fits
+ * — named apart from the advice, so a folder never mixes up the pick with a
+ * car that lost to it.
+ */
+export function fitFileName(carName: string, on: Date = new Date()): string {
+  return fileName("finn-lens-fit", carName, on);
+}
+
+/**
  * The comparison's own file, named for both cars.
  *
  * The recommendation and the challenge export separately — one document that
