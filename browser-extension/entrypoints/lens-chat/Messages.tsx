@@ -1318,7 +1318,8 @@ function Ask({
 /**
  * How much something counts, as three taps — Top priority · Important · Nice
  * to have, the one scale everywhere — with what the one picked means to
- * Lens said underneath, and each one's meaning on hover.
+ * Lens said underneath, and each one's meaning on hover. Lens's own guess is
+ * picked pale and dashed, as its badge is, until the reader picks.
  */
 function ImportancePicker({ label, value, onPick, guess = false }: { label: string; value: NeedImportance; onPick: (level: NeedImportance) => void; guess?: boolean }) {
     return (
@@ -1333,7 +1334,12 @@ function ImportancePicker({ label, value, onPick, guess = false }: { label: stri
                         onClick={() => onPick(level)}
                         className={[
                             "rounded-full px-2.5 py-1 text-[11.5px] font-black transition-colors",
-                            value === level ? "bg-finn-accent-blue text-white shadow-sm" : "text-finn-black/70 hover:text-finn-black",
+                            /* Lens's guess looks as its badge does — pale, a dashed outline — until the reader picks one themselves. */
+                            value !== level
+                                ? "text-finn-black/70 hover:text-finn-black"
+                                : guess
+                                  ? "bg-finn-pale-blue text-finn-accent-blue outline-1 outline-dashed -outline-offset-1 outline-finn-accent-blue/70"
+                                  : "bg-finn-accent-blue text-white shadow-sm",
                         ].join(" ")}
                     >
                         {IMPORTANCE[level].label}
