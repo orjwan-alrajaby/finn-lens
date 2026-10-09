@@ -2,7 +2,9 @@ import { describe, expect, it } from "vitest";
 
 import { fleet } from "@/lib/reasoning-engine/test-data/fleet";
 
-import { addedToJudgement, theHeadline } from "./scope";
+import type { PageContext } from "@/lib/lens-chat/messages";
+
+import { addedToJudgement, pageCars, theHeadline } from "./scope";
 
 /*
  * "Add them to the judgement" adds: the cars judged on another page stay in,
@@ -34,5 +36,31 @@ describe("a headline in a sentence", () => {
         expect(theHeadline("1 car matching your filters")).toBe("the car matching your filters");
         expect(theHeadline("24 cars matching your filters")).toBe("the 24 cars matching your filters");
         expect(theHeadline("12 cars on this page")).toBe("the 12 cars on this page");
+    });
+});
+
+describe("a filtered listing too broad to bring in whole", () => {
+    const listing = (ids: number[], total: number): PageContext => ({
+        kind: "listing",
+        url: "https://www.finn.com/de-DE/subscribe/benzin",
+        pageCarIds: ids.slice(0, 24),
+        currentCarId: null,
+        currentFromUrl: false,
+        carUrls: {},
+        search: null,
+        searchCars: { ids, total },
+    });
+    const loaded = Object.fromEntries(cars.map((car) => [car.id, car]));
+    const ids = cars.slice(0, 150).map((car) => car.id);
+
+    it("says how many of the matching cars it judged, not that they're all of them", () => {
+        const { headline } = pageCars(listing(ids, 412), loaded);
+
+        expect(headline).toBe("150 cars of the 412 matching your filters");
+        expect(theHeadline(headline)).toBe("150 cars of the 412 matching your filters");
+    });
+
+    it("says simply how many match when it has them all", () => {
+        expect(pageCars(listing(ids, 150), loaded).headline).toBe("150 cars matching your filters");
     });
 });

@@ -50,16 +50,22 @@ export function pageCars(page: PageContext | null, loaded: Record<number, FinnCa
     const searched = page?.kind === "listing" && page.searchCars?.ids.length ? page.searchCars : null;
     const ids = [...new Set([...(page?.pageCarIds ?? []), ...(searched?.ids ?? [])])];
     const cars = ids.map((id) => loaded[id]).filter((car): car is FinnCar => car != null).map((car) => asJudgeable(car, page));
+    /* A search too broad to bring in whole: say how many of the matching cars these are, not that they're all of them. */
+    const of = searched && searched.total > cars.length ? ` of the ${searched.total.toLocaleString("en-GB")}` : "";
 
     return {
         cars,
-        headline: searched ? `${plural(cars.length, "car")} matching your filters` : `${plural(cars.length, "car")} on this page`,
+        headline: searched ? `${plural(cars.length, "car")}${of} matching your filters` : `${plural(cars.length, "car")} on this page`,
         missing: ids.length - cars.length,
     };
 }
 
-/** A headline in a sentence: "the 24 cars matching your filters", and "the car on this page" rather than "the 1 car". */
-export const theHeadline = (headline: string): string => (/^1 car\b/.test(headline) ? headline.replace(/^1 car/, "the car") : `the ${headline}`);
+/**
+ * A headline in a sentence: "the 24 cars matching your filters", and "the car on this page" rather than "the 1 car".
+ * Part of a broad search stays as it is: "150 cars of the 412 matching your filters".
+ */
+export const theHeadline = (headline: string): string =>
+    /^\d+ cars? of the /.test(headline) ? headline : /^1 car\b/.test(headline) ? headline.replace(/^1 car/, "the car") : `the ${headline}`;
 
 /**
  * A judgement with this page's cars added: this page's first, then the
