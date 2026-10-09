@@ -1722,6 +1722,12 @@ export function AdjustPanel({
         const { scrollTop, scrollHeight, clientHeight } = event.currentTarget;
         setCompact((was) => (was ? scrollTop > 4 : scrollTop > 24 && scrollHeight - clientHeight > 160));
     };
+    /* Folded, the "i" opens how much each level counts again, under the subtitle; back at the top it's open anyway. */
+    const [scaleOpen, setScaleOpen] = useState(false);
+    const scaleShown = !compact || scaleOpen;
+    useEffect(() => {
+        if (!compact) setScaleOpen(false);
+    }, [compact]);
 
     return (
         /* Slides in from the right as the chat widens for it. */
@@ -1729,18 +1735,38 @@ export function AdjustPanel({
             <div className={`shrink-0 border-b border-finn-cotton px-4 transition-[padding] duration-200 ${compact ? "py-2.5" : "pt-3.5 pb-3"}`}>
                 {/*
                  * What it's for stays; how much each level counts folds away once the reader scrolls
-                 * into the cards — into the "i" beside the title, which fades in as it goes.
+                 * into the cards — behind the "i" beside the title, which fades in as it goes and opens
+                 * it again right here, under the subtitle.
                  */}
                 <p className="flex items-center gap-0.5 text-[15px] font-black text-finn-black">
                     Adjust
-                    <span aria-hidden={!compact} className={`transition-[opacity,visibility] duration-200 ${compact ? "visible opacity-100" : "invisible opacity-0"}`}>
-                        <InfoTip label="How much it counts" tip={{ title: "How much it counts", body: [SCALE_EXPLAINED] }} />
-                    </span>
+                    <button
+                        type="button"
+                        aria-label="How much it counts"
+                        aria-expanded={scaleShown}
+                        aria-controls="adjust-scale"
+                        aria-hidden={!compact}
+                        tabIndex={compact ? 0 : -1}
+                        onClick={() => setScaleOpen((was) => !was)}
+                        className={[
+                            "inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full transition-[opacity,visibility,background-color,color] duration-200",
+                            "focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-finn-accent-blue",
+                            compact ? "visible opacity-100" : "invisible opacity-0",
+                            /* Pressed: a solid disc, as every "i" in the chat is while open. */
+                            scaleOpen ? "bg-finn-accent-blue text-white shadow-sm ring-2 ring-finn-accent-blue/30" : "text-finn-accent-blue/70 hover:bg-finn-pale-blue hover:text-finn-accent-blue",
+                        ].join(" ")}
+                    >
+                        <Info aria-hidden="true" className="h-3.5 w-3.5" strokeWidth={2.4} />
+                    </button>
                 </p>
                 <p className="mt-0.5 text-[12.5px] leading-snug text-finn-black/80">
                     Take out what's wrong, add what's missing, and set how much each counts. “Change” answers a question again, in the chat.
                 </p>
-                <div aria-hidden={compact} className={`grid transition-[grid-template-rows,opacity] duration-200 ${compact ? "grid-rows-[0fr] opacity-0" : "grid-rows-[1fr]"}`}>
+                <div
+                    id="adjust-scale"
+                    aria-hidden={!scaleShown}
+                    className={`grid transition-[grid-template-rows,opacity] duration-200 ${scaleShown ? "grid-rows-[1fr]" : "grid-rows-[0fr] opacity-0"}`}
+                >
                     <div className="overflow-hidden">
                         <p className="mt-2 rounded-xl bg-finn-pale-blue/60 px-2.5 py-2 text-[12px] leading-snug text-finn-highlight-navy">
                             <span className="font-black">How much it counts: </span>
