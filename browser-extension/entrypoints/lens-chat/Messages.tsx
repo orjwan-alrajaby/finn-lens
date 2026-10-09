@@ -1553,8 +1553,8 @@ function ReasonedList({ title, kind, items }: { title: string; kind: "looks" | "
 const ROW_LABEL = "text-[11px] font-black uppercase tracking-wide text-finn-black/70";
 
 /**
- * What Lens understood, in the chat: read-only. Each thing the reader said
- * as a row of its own — what Lens asked, what they answered, what Lens
+ * What Lens understood, in the chat: read-only. Each question as a row of
+ * its own, asked once — then each answer to it, what Lens
  * understood and how much it counts, then what it will look for and the
  * standard equipment it makes sure of, each with why — then the money, the
  * dates and the deal-breakers. Changing any of it is the Adjust panel's job.
@@ -1589,6 +1589,14 @@ function StaticSummary({ message }: { message: Extract<ChatMessage, { kind: "sum
         })),
     ];
     const counted = said.filter((item) => item.importance);
+    /* Answers to the same question under it once: "Who rides with you?", then kids, adults and a dog — not the question three times. */
+    const asked: { ask: string | null; items: typeof said }[] = [];
+    for (const item of said) {
+        const ask = item.asked[0]?.ask ?? null;
+        const group = ask ? asked.find((entry) => entry.ask === ask) : undefined;
+        if (group) group.items.push(item);
+        else asked.push({ ask, items: [item] });
+    }
 
     return (
         <div className="overflow-hidden rounded-2xl bg-white ring-1 ring-black/5 shadow-[0_1px_2px_rgba(0,0,0,0.06)]">
@@ -1597,41 +1605,44 @@ function StaticSummary({ message }: { message: Extract<ChatMessage, { kind: "sum
                     <p className="text-[11px] font-black uppercase tracking-wide text-finn-highlight-navy">What you told me</p>
                     {/* Edge to edge across the card, grey and white by turns, the text in line with the heading. */}
                     <ul className="-mx-3.5 mt-1.5 divide-y divide-black/5">
-                        {said.map((item) => (
-                            <li key={item.id} className="space-y-3 px-3.5 py-3.5 odd:bg-finn-cotton even:bg-white">
-                                {item.asked.length ? (
-                                    <dl className="space-y-2 text-[12.5px] leading-snug">
-                                        <div>
-                                            <dt className={ROW_LABEL}>What I asked</dt>
-                                            {item.asked.map((pair) => (
-                                                <dd key={pair.ask} className="mt-0.5 text-finn-black/85">
-                                                    {pair.ask}
-                                                </dd>
-                                            ))}
-                                        </div>
-                                        <div>
-                                            <dt className={ROW_LABEL}>What you answered</dt>
-                                            {item.asked.map((pair) => (
-                                                <dd key={pair.ask} className="mt-0.5 font-bold text-finn-black">
-                                                    {pair.answer}
-                                                </dd>
-                                            ))}
-                                        </div>
-                                    </dl>
-                                ) : null}
-                                <div>
-                                    {item.asked.length ? <p className={ROW_LABEL}>What I understood</p> : null}
-                                    <div className="mt-0.5 flex items-start justify-between gap-2">
-                                        <p className="text-[13.5px] font-black leading-snug text-finn-black">{item.heading}</p>
-                                        {item.importance ? <ImportanceBadge importance={item.importance} guess={item.guess} /> : null}
+                        {asked.map((group) => (
+                            <li key={group.items[0]!.id} className="space-y-3 px-3.5 py-3.5 odd:bg-finn-cotton even:bg-white">
+                                {group.ask ? (
+                                    <div className="text-[12.5px] leading-snug">
+                                        <p className={ROW_LABEL}>What I asked</p>
+                                        <p className="mt-0.5 text-finn-black/85">{group.ask}</p>
                                     </div>
-                                </div>
-                                {item.looksFor.length ? (
-                                    <ReasonedList title="I'll look for:" kind="looks" items={item.looksFor} />
-                                ) : item.note ? (
-                                    <p className="text-[12.5px] leading-snug text-finn-black/80">{item.note}</p>
                                 ) : null}
-                                <ReasonedList title="Also making sure it has:" kind="standard" items={item.standard} />
+                                {/* Each answer to it, with what Lens made of it; a rule between two. */}
+                                {group.items.map((item, index) => (
+                                    <div key={item.id} className={`space-y-3 ${index ? "border-t border-black/10 pt-3" : ""}`}>
+                                        {item.asked.length ? (
+                                            <div className="text-[12.5px] leading-snug">
+                                                <p className={ROW_LABEL}>What you answered</p>
+                                                <p className="mt-0.5 font-bold text-finn-black">{item.asked[0]!.answer}</p>
+                                                {/* What was asked next because of it, beside its answer. */}
+                                                {item.asked.slice(1).map((pair) => (
+                                                    <p key={pair.ask} className="mt-0.5 text-finn-black/85">
+                                                        {pair.ask} <span className="font-bold text-finn-black">{pair.answer}</span>
+                                                    </p>
+                                                ))}
+                                            </div>
+                                        ) : null}
+                                        <div>
+                                            {item.asked.length ? <p className={ROW_LABEL}>What I understood</p> : null}
+                                            <div className="mt-0.5 flex items-start justify-between gap-2">
+                                                <p className="text-[13.5px] font-black leading-snug text-finn-black">{item.heading}</p>
+                                                {item.importance ? <ImportanceBadge importance={item.importance} guess={item.guess} /> : null}
+                                            </div>
+                                        </div>
+                                        {item.looksFor.length ? (
+                                            <ReasonedList title="I'll look for:" kind="looks" items={item.looksFor} />
+                                        ) : item.note ? (
+                                            <p className="text-[12.5px] leading-snug text-finn-black/80">{item.note}</p>
+                                        ) : null}
+                                        <ReasonedList title="Also making sure it has:" kind="standard" items={item.standard} />
+                                    </div>
+                                ))}
                             </li>
                         ))}
                     </ul>

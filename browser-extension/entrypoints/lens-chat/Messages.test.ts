@@ -81,7 +81,7 @@ describe("here's what you told me, and what I understood", () => {
         expect(html.match(/<li class="space-y-3 px-3\.5 py-3\.5 odd:bg-finn-cotton even:bg-white">/g)?.length).toBe(2);
         /* What Lens asked, what the reader answered, what Lens understood — then what it looks for, each with why. */
         expect(words).toMatch(
-            /What you told me What I asked Who rides with you\? Which child seat\? What you answered Kids Baby or toddler seat What I understood You have kids · a baby or toddler seat Top priority · 4 pts I.ll look for: Rear doors — because you have kids/,
+            /What you told me What I asked Who rides with you\? What you answered Kids Which child seat\? Baby or toddler seat What I understood You have kids · a baby or toddler seat Top priority · 4 pts I.ll look for: Rear doors — because you have kids/,
         );
         expect(html).toMatch(/bg-finn-fit-good-pale text-finn-fit-good"><svg[^>]*lucide-check/);
         expect(words).toMatch(/Money & time Monthly limit €500 all in .* Deal-breakers & sealers Runs on Any Deal-breakers None Deal-sealers None/);
@@ -94,6 +94,15 @@ describe("here's what you told me, and what I understood", () => {
         expect(words).not.toContain("Change");
         expect(words).not.toContain("tap × to take one out");
         expect(render(understood().messages)).not.toContain('role="radiogroup"');
+    });
+
+    it("asks a question once, with every answer to it under it", () => {
+        let chat = startChat(null, cars(), TODAY);
+        for (const picks of [["kids", "kids:baby", "adults", "dog"], ["city", "city:street"], [], [], ["budget-500"], ["period-12"], [], [], []]) chat = answer(chat, openAsk(chat).id, picks, cars(), TODAY).chat;
+        const words = text(render(chat.messages));
+
+        expect(words.match(/Who rides with you\?/g)?.length).toBe(1);
+        expect(words).toMatch(/What I asked Who rides with you\? What you answered Kids .* What you answered Adults or teens .* What you answered A dog .* What I asked/);
     });
 
     it("is edited in the Adjust panel: cards to take out, add, and set how much each counts, a Change on each line, and Done", () => {
