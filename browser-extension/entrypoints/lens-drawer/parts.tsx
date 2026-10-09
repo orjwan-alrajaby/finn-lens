@@ -5,6 +5,7 @@ import { EnvironmentalResult, UsageResult } from "@/components/EnvironmentalResu
 import { LocateButton } from "@/components/LocateButton";
 import { BandChip, CarPhoto, euros, WinnerChip } from "@/components/lens-parts";
 import { configurationName } from "@/lib/car-labels";
+import { carTags, type CarTagTone } from "@/lib/car-tags";
 import { requestShowCar } from "@/lib/chats/bridge";
 import { bandForScore } from "@/lib/reasoning-engine/bands";
 import { assessEnvironment } from "@/lib/reasoning-engine/environmental";
@@ -271,6 +272,30 @@ export function CostTable({ cost }: { cost: CostAnalysis }) {
 }
 
 /** The car itself: photo, name, the chip it wears on FINN's card, and what it costs. */
+const TAG_TONE: Record<CarTagTone, string> = {
+    neutral: "bg-finn-pale-blue text-finn-highlight-navy",
+    good: "bg-finn-fit-good-pale text-finn-fit-good",
+    middling: "bg-finn-cotton text-finn-black/80",
+    poor: "bg-finn-fit-partial-pale text-finn-fit-partial",
+};
+
+/** What it runs on, how much it uses and how much CO₂ it puts out, each with the figure it rests on. Nothing where FINN lists nothing. */
+export function CarTags({ car, className = "" }: { car: JudgedCar["car"]; className?: string }) {
+    const tags = carTags(car);
+    if (!tags.length) return null;
+
+    return (
+        <ul aria-label="At a glance" className={`flex flex-wrap gap-1.5 ${className}`}>
+            {tags.map((tag) => (
+                <li key={tag.id} className={`rounded-full px-2.5 py-1 text-[11.5px] font-black ${TAG_TONE[tag.tone]}`}>
+                    {tag.label}
+                    {tag.figure ? <span className="font-semibold"> · {tag.figure}</span> : null}
+                </li>
+            ))}
+        </ul>
+    );
+}
+
 export function CarHeader({ value }: { value: JudgedCar }) {
     const { car, verdict, judgement, cost, isWinner } = value;
     /* Its place among the cars that were ranked: the ones set aside before ranking have none. */
@@ -298,6 +323,7 @@ export function CarHeader({ value }: { value: JudgedCar }) {
                 <div className="min-w-0">
                     <h1 className="text-[19px] font-black leading-tight text-finn-black">{car.name}</h1>
                     <p className="text-[12.5px] text-finn-iron">{configurationName(car)}</p>
+                    <CarTags car={car} className="mt-2" />
                 </div>
                 {cost ? (
                     <p className="shrink-0 text-right text-[11px] text-finn-iron">

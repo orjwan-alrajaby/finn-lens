@@ -17,7 +17,7 @@ import { fitCase, type Shortfall } from "@/lib/lens-chat/fit-case";
 import type { StorySection, Tone } from "@/lib/lens-chat/fit-story";
 import { whyNot } from "@/lib/lens-chat/why-not";
 
-import { CostTable, LocateCar, Section, StoryLines, StoryRow, ToneDot, UsageSection } from "./parts";
+import { CarTags, CostTable, LocateCar, Section, StoryLines, StoryRow, ToneDot, UsageSection } from "./parts";
 import type { JudgedCar } from "./useJudgedCar";
 
 /**
@@ -81,6 +81,7 @@ export function WinnerView({ value, print = false }: { value: JudgedCar; print?:
                         <p className="text-[12.5px] text-finn-iron">{configurationName(car)}</p>
                     </div>
                 </div>
+                <CarTags car={car} className="mt-3" />
 
                 <CarPhoto src={car.images?.thumbnail || null} alt={car.name} className="mt-4 h-44 w-full rounded-2xl ring-1 ring-[#f5d78a]/60" />
 

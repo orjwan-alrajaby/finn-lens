@@ -12,6 +12,8 @@ import { buildCostAnalysis } from "@/lib/reasoning-engine";
 import { alternativesWithinLimits } from "@/lib/lens-chat/run";
 import { fleet } from "@/lib/reasoning-engine/test-data/fleet";
 
+import { carTags } from "@/lib/car-tags";
+
 import type { JudgedCar } from "./useJudgedCar";
 import { WinnerView } from "./WinnerView";
 
@@ -54,6 +56,16 @@ function winner(u: Understanding = withBudget(withBubbles(EMPTY_UNDERSTANDING, {
 const folded = (html: string) => [...html.matchAll(/<details[^>]*>\s*<summary[^>]*>\s*<h2[^>]*>([^<]+)<\/h2>/g)].map((match) => match[1]!.replace(/&#x27;/g, "'"));
 
 describe("the winner's drawer", () => {
+    it("tags the car under its name: what it runs on, how much it uses and its CO₂, each with its figure", () => {
+        const value = winner();
+        const html = renderToStaticMarkup(createElement(WinnerView, { value }));
+        const tags = carTags(value.car);
+
+        expect(tags.length).toBeGreaterThan(0);
+        expect(html).toContain('aria-label="At a glance"');
+        for (const tag of tags) expect(text(html)).toContain(tag.figure ? `${tag.label} · ${tag.figure}` : tag.label);
+    });
+
     it("opens on why it won and what it costs, with the rest a tap each", () => {
         const html = renderToStaticMarkup(createElement(WinnerView, { value: winner() }));
 
