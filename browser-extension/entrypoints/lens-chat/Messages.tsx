@@ -1724,15 +1724,24 @@ export function AdjustPanel({
     };
 
     return (
-        <aside aria-label="Adjust what Lens understood" className="flex h-full min-h-0 flex-col bg-white">
+        /* Slides in from the right as the chat widens for it. */
+        <aside aria-label="Adjust what Lens understood" className="finn-lens-adjust flex h-full min-h-0 flex-col bg-white">
             <div className={`shrink-0 border-b border-finn-cotton px-4 transition-[padding] duration-200 ${compact ? "py-2.5" : "pt-3.5 pb-3"}`}>
-                <p className="text-[15px] font-black text-finn-black">Adjust</p>
-                {/* How it works, folded away once the reader scrolls into the cards — back at the top, it's back. */}
+                {/*
+                 * What it's for stays; how much each level counts folds away once the reader scrolls
+                 * into the cards — into the "i" beside the title, which fades in as it goes.
+                 */}
+                <p className="flex items-center gap-0.5 text-[15px] font-black text-finn-black">
+                    Adjust
+                    <span aria-hidden={!compact} className={`transition-[opacity,visibility] duration-200 ${compact ? "visible opacity-100" : "invisible opacity-0"}`}>
+                        <InfoTip label="How much it counts" tip={{ title: "How much it counts", body: [SCALE_EXPLAINED] }} />
+                    </span>
+                </p>
+                <p className="mt-0.5 text-[12.5px] leading-snug text-finn-black/80">
+                    Take out what's wrong, add what's missing, and set how much each counts. “Change” answers a question again, in the chat.
+                </p>
                 <div aria-hidden={compact} className={`grid transition-[grid-template-rows,opacity] duration-200 ${compact ? "grid-rows-[0fr] opacity-0" : "grid-rows-[1fr]"}`}>
                     <div className="overflow-hidden">
-                        <p className="mt-0.5 text-[12.5px] leading-snug text-finn-black/80">
-                            Take out what's wrong, add what's missing, and set how much each counts. “Change” answers a question again, in the chat.
-                        </p>
                         <p className="mt-2 rounded-xl bg-finn-pale-blue/60 px-2.5 py-2 text-[12px] leading-snug text-finn-highlight-navy">
                             <span className="font-black">How much it counts: </span>
                             {SCALE_EXPLAINED}

@@ -502,6 +502,28 @@
 }
 
 /* ========================================
+   ADJUST PANEL
+   "This doesn't look right" in the chat: the panel slides in from the right
+   and fades up while the chat's window eases wider for it, on the same
+   curve and in about the same time (see `content/lens/bubble.ts`).
+======================================== */
+
+@keyframes finn-lens-adjust-in {
+  from { opacity: 0; transform: translateX(24px); }
+  to   { opacity: 1; transform: none; }
+}
+
+.finn-lens-adjust {
+  animation: finn-lens-adjust-in 320ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .finn-lens-adjust {
+    animation: none;
+  }
+}
+
+/* ========================================
    MODAL
    The centred confirm dialog — see `entrypoints/settings/components/
    ConfirmDialog.tsx`. It borrows `finn-lens-scrim` from the block above,
