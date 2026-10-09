@@ -64,6 +64,9 @@ describe("the winner's drawer", () => {
         expect(tags.length).toBeGreaterThan(0);
         expect(html).toContain('aria-label="At a glance"');
         for (const tag of tags) expect(text(html)).toContain(tag.figure ? `${tag.label} · ${tag.figure}` : tag.label);
+        /* Its photo on the gold its card takes on FINN's page, not the pale blue other cars have. */
+        expect(html).toMatch(/<div class="overflow-hidden bg-\[#fff3c4\] mt-4 h-44/);
+        expect(html).not.toMatch(/overflow-hidden bg-finn-pale-blue mt-4 h-44/);
         /* Under the name and the price, not between them. */
         expect(html.indexOf('aria-label="At a glance"')).toBeGreaterThan(html.indexOf("a month,"));
     });

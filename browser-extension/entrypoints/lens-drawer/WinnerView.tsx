@@ -82,7 +82,7 @@ export function WinnerView({ value, print = false }: { value: JudgedCar; print?:
                     </div>
                 </div>
 
-                <CarPhoto src={car.images?.thumbnail || null} alt={car.name} className="mt-4 h-44 w-full rounded-2xl ring-1 ring-[#f5d78a]/60" />
+                <CarPhoto src={car.images?.thumbnail || null} alt={car.name} winner className="mt-4 h-44 w-full rounded-2xl ring-1 ring-[#f5d78a]/60" />
 
                 <div className="mt-3 flex items-end justify-between gap-3">
                     <p className="text-[14px] font-bold leading-snug text-finn-black">{verdict.headline}</p>

@@ -83,9 +83,10 @@ export function BetaTag({ className = "" }: { className?: string }) {
 }
 
 /** A car's photo on FINN's pale blue ground, or the ground alone when FINN sent none. */
-export function CarPhoto({ src, alt, className = "" }: { src: string | null; alt: string; className?: string }) {
+/** A car's photo on its own ground: pale blue, or — for the winner, in its drawer — the gold its card takes on FINN's page. */
+export function CarPhoto({ src, alt, className = "", winner = false }: { src: string | null; alt: string; className?: string; winner?: boolean }) {
     return (
-        <div className={`overflow-hidden bg-finn-pale-blue ${className}`}>
+        <div className={`overflow-hidden ${winner ? "bg-[#fff3c4]" : "bg-finn-pale-blue"} ${className}`}>
             {src ? <img src={src} alt={alt} className="h-full w-full object-contain" loading="lazy" /> : null}
         </div>
     );
