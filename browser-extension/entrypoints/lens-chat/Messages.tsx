@@ -4,7 +4,7 @@ import { ArrowUpRight, Check, ChevronDown, ChevronRight, Info, PencilLine, Plus,
 import { ImportanceBadge, ImportanceKey } from "@/components/ImportanceKey";
 import { BandChip, BrandMark, CarPhoto, euros, WinnerChip } from "@/components/lens-parts";
 import { LocateButton } from "@/components/LocateButton";
-import { activeFollowUp, followUps, IMPORTANCE_LABEL } from "@/lib/chats/flow";
+import { activeFollowUp, followUps } from "@/lib/chats/flow";
 import { IMPORTANCE, IMPORTANCE_LEVELS, SCALE_EXPLAINED } from "@/lib/lens-chat/importance";
 import { DEAL_MEANS } from "@/lib/lens-chat/deals";
 import type { Source } from "@/lib/sources";
@@ -1341,68 +1341,6 @@ function ImportancePicker({ label, value, onPick, guess = false }: { label: stri
     );
 }
 
-/** One item on a bubble's block: what Lens checks (×), standard (✓), or might matter (+). */
-function Item({ label, kind, onClick, does, here }: { label: string; kind: "counts" | "checks" | "worth"; onClick?: () => void; does?: string; here?: string }) {
-    const tone =
-        kind === "checks"
-            ? "bg-white text-finn-black/75 ring-1 ring-black/10 font-semibold"
-            : kind === "counts"
-              ? "bg-white text-finn-highlight-navy ring-1 ring-finn-accent-blue/30 font-bold"
-              : "bg-transparent text-finn-accent-blue ring-1 ring-dashed ring-finn-accent-blue/45 font-bold";
-    const body = (
-        <>
-            {kind === "checks" ? <Check aria-hidden="true" className="h-3 w-3" strokeWidth={3} /> : null}
-            {kind === "worth" ? <Plus aria-hidden="true" className="h-3 w-3" strokeWidth={3} /> : null}
-            {label}
-            {kind === "counts" && onClick ? <X aria-hidden="true" className="h-3 w-3" strokeWidth={3} /> : null}
-        </>
-    );
-    const inner = `inline-flex items-center gap-1 rounded-full py-1.5 pl-2.5 ${does ? "pr-1" : "pr-2.5"}`;
-
-    /* The chip — taking it out or adding it — and its "i", side by side: a button can't hold a button. */
-    return (
-        <span className={`inline-flex items-center rounded-full text-[12px] ${does ? "pr-1" : ""} ${tone}`}>
-            {onClick ? (
-                <button
-                    type="button"
-                    onClick={onClick}
-                    aria-label={kind === "counts" ? `Stop checking ${label}` : `Check ${label} too`}
-                    className={`${inner} transition-colors hover:text-finn-black focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-finn-accent-blue`}
-                >
-                    {body}
-                </button>
-            ) : (
-                <span className={inner}>{body}</span>
-            )}
-            {does ? (
-                <InfoTip
-                    label={label}
-                    tip={{
-                        title: label,
-                        body: [`${does.replace(/^./, (c) => c.toUpperCase())}.`],
-                        note:
-                            kind === "checks"
-                                ? `${here ? `${here} ` : ""}Standard on nearly every car FINN lists: a car FINN says is missing it loses a little, and having it earns nothing.`
-                                : kind === "worth"
-                                  ? "Not checked yet — tap it to add it."
-                                  : undefined,
-                    }}
-                />
-            ) : null}
-        </span>
-    );
-}
-
-/** A small heading inside a summary card: "I'll check", "Might matter". */
-function Label({ children, hint }: { children: React.ReactNode; hint?: string }) {
-    return (
-        <p className="mb-1 text-[11px] font-black uppercase tracking-wide text-finn-black/70">
-            {children}
-            {hint ? <span className="ml-1 text-[11.5px] font-semibold normal-case tracking-normal text-finn-black/65">{hint}</span> : null}
-        </p>
-    );
-}
-
 /**
  * Things said, under the question they answer, in the order first asked:
  * "Who rides with you?" once, then kids, adults and a dog — not the question
@@ -1458,10 +1396,11 @@ function YouAnswered({ asked }: { asked: { ask: string; answer: string }[] }) {
 const CARD_TONE = ["bg-finn-cotton", "bg-white"];
 
 /**
- * One bubble as Lens understood it, under the question it answers: what the
- * reader answered, then its heading and how much it counts; what Lens will check, each can be taken out; the
- * standard equipment it checks too; what might matter too, each can be
- * added; and, last and quietest, what it can't check.
+ * One bubble as Lens understood it, under the question it answers, laid out
+ * as the chat's summary is: what the reader answered, what Lens understood
+ * and how much it counts, what it will look for (each can be taken out), the
+ * standard equipment it makes sure of, what might matter too (each can be
+ * added), and, last and quietest, what it can't check.
  */
 function UnderstoodBubble({
     bubble,
@@ -1478,74 +1417,53 @@ function UnderstoodBubble({
     onRemove: (item: string) => void;
     onAdd: (item: string) => void;
 }) {
+    const counting = bubble.counting !== false;
+    const looksFor: Reasoned[] = [
+        ...(bubble.figure ? [{ label: bubble.figure, because: bubble.figureBecause, does: bubble.figureDoes }] : []),
+        ...bubble.counts.map((item) => ({ label: item.label, because: item.because, does: item.does, onRemove: live ? () => onRemove(item.id) : undefined })),
+        /* Taken out on the card that first names it. */
+        ...(bubble.shared ?? []).map((item) => ({ label: item.label, because: item.because, does: item.does })),
+    ];
+
     return (
         <div className={className}>
             <YouAnswered asked={bubble.asked ?? []} />
-            <div className="space-y-1.5">
-                {bubble.asked?.length ? <p className={`${ROW_LABEL} -mb-1`}>What I understood</p> : null}
-                <div className="flex items-start justify-between gap-2">
+            <div>
+                {bubble.asked?.length ? <p className={ROW_LABEL}>What I understood</p> : null}
+                <div className="mt-0.5 flex items-start justify-between gap-2">
                     <p className="text-[13.5px] font-black leading-snug text-finn-black">{bubble.heading}</p>
-                    {bubble.counting !== false && !live ? (
-                        <span className="shrink-0 rounded-full bg-white px-2 py-0.5 text-[10.5px] font-black text-finn-accent-blue ring-1 ring-finn-accent-blue/20">{IMPORTANCE_LABEL[bubble.importance]}</span>
-                    ) : null}
+                    {counting && !live ? <ImportanceBadge importance={bubble.importance} guess={!bubble.importanceSaid} /> : null}
                 </div>
-                {bubble.counting !== false && live ? (
-                    <div>
-                        <span className="mb-1 block text-[12px] font-bold text-finn-black/75">How much it counts</span>
-                        <ImportancePicker label={bubble.heading.toLowerCase()} value={bubble.importance} onPick={onImportance} guess={!bubble.importanceSaid} />
-                    </div>
-                ) : null}
             </div>
 
-            {bubble.counts.length || bubble.figure || bubble.shared?.length ? (
+            {counting && live ? (
                 <div>
-                    <Label hint={live && bubble.counts.length ? "— tap × to take one out" : undefined}>I'll check</Label>
-                    <div className="flex flex-wrap gap-1.5">
-                        {bubble.figure ? <Item label={bubble.figure} kind="counts" does={bubble.figureDoes} /> : null}
-                        {bubble.counts.map((item) => (
-                            <Item key={item.id} label={item.label} kind="counts" does={item.does} onClick={live ? () => onRemove(item.id) : undefined} />
-                        ))}
-                    </div>
-                    {bubble.figureNote ? <p className="mt-1.5 text-[12.5px] leading-snug text-finn-black/80">{bubble.figureNote}</p> : null}
-                    {bubble.shared?.length ? (
-                        <p className="mt-1.5 text-[12.5px] leading-snug text-finn-black/80">
-                            {bubble.counts.length || bubble.figure ? "Also " : ""}
-                            {bubble.shared.map((item) => lowerFirst(item.label)).join(", ")}, from a card above.
-                        </p>
-                    ) : null}
+                    <p className="mb-1.5 text-[12.5px] font-black text-finn-black">How much it counts:</p>
+                    <ImportancePicker label={bubble.heading.toLowerCase()} value={bubble.importance} onPick={onImportance} guess={!bubble.importanceSaid} />
                 </div>
             ) : null}
 
-            {bubble.checks.length ? (
-                <div>
-                    <p className="mb-1 flex items-center gap-0.5 text-[11px] font-black uppercase tracking-wide text-finn-black/70">
-                        Standard equipment
-                        <InfoTip
-                            label="Standard equipment"
-                            tip={{ title: "Standard equipment", body: ["On nearly every car FINN lists, and I still check it: a car FINN says is missing one loses a little, and having one earns nothing."] }}
-                        />
-                    </p>
-                    <div className="flex flex-wrap gap-1.5">
-                        {bubble.checks.map((item) => (
-                            <Item key={item.id} label={item.label} kind="checks" does={item.does} here={item.here} />
-                        ))}
-                    </div>
-                </div>
-            ) : null}
+            <ReasonedList title="I'll look for:" hint={live && bubble.counts.length ? "tap × to take one out" : undefined} kind="looks" items={looksFor} />
+            {bubble.figureNote ? <p className="-mt-1.5 pl-[26px] text-[12.5px] leading-snug text-finn-black/80">{bubble.figureNote}</p> : null}
+
+            <ReasonedList
+                title="Also making sure it has:"
+                tip="On nearly every car FINN lists, and I still check it: a car FINN says is missing one loses a little, and having one earns nothing."
+                kind="standard"
+                items={bubble.checks.map((item) => ({ label: item.label, because: item.because, does: item.does, here: item.here }))}
+            />
 
             {bubble.settled || bubble.empty ? (
                 <p className="rounded-xl bg-white px-2.5 py-2 text-[12.5px] leading-snug text-finn-black/85 ring-1 ring-black/10">{bubble.settled ?? bubble.empty}</p>
             ) : null}
 
-            {live && bubble.worth.length ? (
-                <div>
-                    <Label hint="— tap + to add">Might matter</Label>
-                    <div className="flex flex-wrap gap-1.5">
-                        {bubble.worth.map((item) => (
-                            <Item key={item.id} label={item.label} kind="worth" does={item.does} onClick={() => onAdd(item.id)} />
-                        ))}
-                    </div>
-                </div>
+            {live ? (
+                <ReasonedList
+                    title="Might matter too:"
+                    hint="tap + to add"
+                    kind="worth"
+                    items={bubble.worth.map((item) => ({ label: item.label, does: item.does, onAdd: () => onAdd(item.id) }))}
+                />
             ) : null}
 
             {bubble.cantCheck ? (
@@ -1565,36 +1483,86 @@ const LINE_GROUPS: { title: string; steps: StepId[] }[] = [
     { title: "Deal-breakers & sealers", steps: ["fuel", "deals", "rules"] },
 ];
 
-/** One line on the summary's lists: what it is, and why it's there. */
-type Reasoned = { label: string; because?: string };
+/**
+ * One line on the summary's lists: what it is, and why it's there. In the
+ * Adjust panel, also what it does (its "i") and a × to take it out or a +
+ * to add it.
+ */
+type Reasoned = { label: string; because?: string; does?: string; here?: string; onRemove?: () => void; onAdd?: () => void };
+type ListKind = "looks" | "standard" | "worth";
 
-/** The mark before a line on the summary's lists: a tick for what Lens looks for, a shield for the standard equipment it makes sure of. */
-function ListMark({ kind }: { kind: "looks" | "standard" }) {
+/**
+ * The mark before a line on the summary's lists: a tick for what Lens looks
+ * for, a shield for the standard equipment it makes sure of, a dashed plus
+ * for what might matter too.
+ */
+function ListMark({ kind }: { kind: ListKind }) {
+    const tone =
+        kind === "looks"
+            ? "bg-finn-fit-good-pale text-finn-fit-good"
+            : kind === "standard"
+              ? "bg-finn-pale-blue text-finn-accent-blue"
+              : "border border-dashed border-finn-accent-blue/60 text-finn-accent-blue";
+
     return (
-        <span
-            aria-hidden="true"
-            className={`mt-px inline-flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full ${kind === "looks" ? "bg-finn-fit-good-pale text-finn-fit-good" : "bg-finn-pale-blue text-finn-accent-blue"}`}
-        >
-            {kind === "looks" ? <Check className="h-3 w-3" strokeWidth={3} /> : <ShieldCheck className="h-3 w-3" strokeWidth={2.5} />}
+        <span aria-hidden="true" className={`mt-px inline-flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full ${tone}`}>
+            {kind === "looks" ? <Check className="h-3 w-3" strokeWidth={3} /> : kind === "standard" ? <ShieldCheck className="h-3 w-3" strokeWidth={2.5} /> : <Plus className="h-3 w-3" strokeWidth={3} />}
         </span>
     );
 }
 
-/** "I'll look for:" and its lines, each with its mark and why it's there. */
-function ReasonedList({ title, kind, items }: { title: string; kind: "looks" | "standard"; items: Reasoned[] }) {
+/** What an item's "i" adds under what it does: where standard equipment stands, or that a suggestion isn't checked yet. */
+const ITEM_NOTE: Record<ListKind, (item: Reasoned) => string | undefined> = {
+    looks: () => undefined,
+    standard: (item) => `${item.here ? `${item.here} ` : ""}Standard on nearly every car FINN lists: a car FINN says is missing it loses a little, and having it earns nothing.`,
+    worth: () => "Not checked yet — tap + to add it.",
+};
+
+/** The round × or + at a line's end: taking it out, or adding it. */
+function ListAction({ label, kind, onClick }: { label: string; kind: "remove" | "add"; onClick: () => void }) {
+    return (
+        <button
+            type="button"
+            onClick={onClick}
+            aria-label={kind === "remove" ? `Stop checking ${label}` : `Check ${label} too`}
+            className={[
+                "-my-0.5 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-white ring-1 transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-finn-accent-blue",
+                kind === "remove" ? "text-finn-black/70 ring-black/15 hover:text-finn-black hover:ring-black/35" : "text-finn-accent-blue ring-finn-accent-blue/40 hover:bg-finn-pale-blue",
+            ].join(" ")}
+        >
+            {kind === "remove" ? <X aria-hidden="true" className="h-3.5 w-3.5" strokeWidth={3} /> : <Plus aria-hidden="true" className="h-3.5 w-3.5" strokeWidth={3} />}
+        </button>
+    );
+}
+
+/** "I'll look for:" and its lines, each with its mark and why it's there — and, to adjust, its "i" and its × or +. */
+function ReasonedList({ title, hint, tip, kind, items }: { title: string; hint?: string; tip?: string; kind: ListKind; items: Reasoned[] }) {
     if (!items.length) return null;
 
     return (
         <div>
-            <p className="mb-1.5 text-[12.5px] font-black text-finn-black">{title}</p>
+            <p className="mb-1.5 flex items-center gap-0.5 text-[12.5px] font-black text-finn-black">
+                <span>
+                    {title}
+                    {hint ? <span className="ml-1 font-semibold text-finn-black/70">{hint}</span> : null}
+                </span>
+                {tip ? <InfoTip label={title} tip={{ title, body: [tip] }} /> : null}
+            </p>
             <ul className="space-y-1.5">
                 {items.map((item) => (
                     <li key={item.label} className="flex items-start gap-2 text-[12.5px] leading-snug">
                         <ListMark kind={kind} />
-                        <span>
-                            <span className="font-bold text-finn-black">{item.label}</span>
+                        <span className="min-w-0 flex-1">
+                            <span className={`font-bold ${kind === "worth" ? "text-finn-highlight-navy" : "text-finn-black"}`}>{item.label}</span>
+                            {item.does ? (
+                                <span className="-my-1 inline-flex align-middle">
+                                    <InfoTip label={item.label} tip={{ title: item.label, body: [`${item.does.replace(/^./, (c) => c.toUpperCase())}.`], note: ITEM_NOTE[kind](item) }} />
+                                </span>
+                            ) : null}
                             {item.because ? <span className="text-finn-black/75"> — because {item.because}</span> : null}
                         </span>
+                        {item.onRemove ? <ListAction label={item.label} kind="remove" onClick={item.onRemove} /> : null}
+                        {item.onAdd ? <ListAction label={item.label} kind="add" onClick={item.onAdd} /> : null}
                     </li>
                 ))}
             </ul>
@@ -1731,19 +1699,35 @@ export function AdjustPanel({
     onDone: () => void;
     busy: boolean;
 }) {
+    const [compact, setCompact] = useState(false);
+    /*
+     * Folded past the first few pixels, unfolded only back at the top — and
+     * only where there's enough to scroll that folding it can't scroll the
+     * reader back to the top and unfold it again.
+     */
+    const onScroll = (event: React.UIEvent<HTMLDivElement>) => {
+        const { scrollTop, scrollHeight, clientHeight } = event.currentTarget;
+        setCompact((was) => (was ? scrollTop > 4 : scrollTop > 24 && scrollHeight - clientHeight > 160));
+    };
+
     return (
         <aside aria-label="Adjust what Lens understood" className="flex h-full min-h-0 flex-col bg-white">
-            <div className="shrink-0 border-b border-finn-cotton px-4 pt-3.5 pb-3">
+            <div className={`shrink-0 border-b border-finn-cotton px-4 transition-[padding] duration-200 ${compact ? "py-2.5" : "pt-3.5 pb-3"}`}>
                 <p className="text-[15px] font-black text-finn-black">Adjust</p>
-                <p className="mt-0.5 text-[12px] leading-snug text-finn-iron">
-                    Take out what's wrong, add what's missing, and set how much each counts. “Change” answers a question again, in the chat.
-                </p>
-                <p className="mt-2 rounded-xl bg-finn-pale-blue/60 px-2.5 py-2 text-[11.5px] leading-snug text-finn-highlight-navy">
-                    <span className="font-black">How much it counts: </span>
-                    {SCALE_EXPLAINED}
-                </p>
+                {/* How it works, folded away once the reader scrolls into the cards — back at the top, it's back. */}
+                <div aria-hidden={compact} className={`grid transition-[grid-template-rows,opacity] duration-200 ${compact ? "grid-rows-[0fr] opacity-0" : "grid-rows-[1fr]"}`}>
+                    <div className="overflow-hidden">
+                        <p className="mt-0.5 text-[12.5px] leading-snug text-finn-black/80">
+                            Take out what's wrong, add what's missing, and set how much each counts. “Change” answers a question again, in the chat.
+                        </p>
+                        <p className="mt-2 rounded-xl bg-finn-pale-blue/60 px-2.5 py-2 text-[12px] leading-snug text-finn-highlight-navy">
+                            <span className="font-black">How much it counts: </span>
+                            {SCALE_EXPLAINED}
+                        </p>
+                    </div>
+                </div>
             </div>
-            <div className="min-h-0 flex-1 overflow-y-auto bg-finn-snow px-3 py-3.5">
+            <div onScroll={onScroll} className="min-h-0 flex-1 overflow-y-auto bg-finn-snow px-3 py-3.5">
                 <Summary message={message} live={!busy} onImportance={onImportance} onChange={onChange} onRemove={onRemove} onAdd={onAdd} />
             </div>
             <div className="flex shrink-0 justify-end border-t border-finn-cotton bg-white px-4 py-3">
@@ -1832,16 +1816,16 @@ function Summary({
                                     {live ? (
                                         <ImportancePicker label={need.label.toLowerCase()} value={need.importance} onPick={(level) => onImportance(need.id, level)} />
                                     ) : (
-                                        <span className="shrink-0 rounded-full bg-finn-pale-blue px-2 py-0.5 text-[10.5px] font-black text-finn-accent-blue">{IMPORTANCE_LABEL[need.importance]}</span>
+                                        <ImportanceBadge importance={need.importance} guess={false} />
                                     )}
                                 </div>
                                 {need.looksFor.length ? (
-                                    <p className="mt-1 text-[12.5px] leading-snug text-finn-black/80">
-                                        I'll look for: {need.looksFor.join(" · ")}
-                                        {need.also ? `, and ${need.also} listed above` : ""}
-                                    </p>
+                                    <div className="mt-3">
+                                        <ReasonedList title="I'll look for:" kind="looks" items={need.looksFor.map((label) => ({ label }))} />
+                                        {need.also ? <p className="mt-1.5 text-[12.5px] leading-snug text-finn-black/80">And {need.also}, listed above.</p> : null}
+                                    </div>
                                 ) : need.also ? (
-                                    <p className="mt-1 text-[12.5px] leading-snug text-finn-black/80">Everything I'd look for is listed above.</p>
+                                    <p className="mt-2 text-[12.5px] leading-snug text-finn-black/80">Everything I'd look for is listed above.</p>
                                 ) : null}
                             </li>
                         ))}

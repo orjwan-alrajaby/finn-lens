@@ -110,7 +110,7 @@ describe("here's what you told me, and what I understood", () => {
         );
         expect(adjust.match(/Who rides with you\?/g)?.length).toBe(1);
         expect(adjust).toMatch(/What I asked Who rides with you\? What you answered Kids Which child seat\? Baby or toddler seat What I understood You have kids .* What you answered Adults or teens .* What you answered A dog .* What I asked/);
-        expect(adjust.match(/How much it counts Top priority/g)?.length).toBeGreaterThanOrEqual(3);
+        expect(adjust.match(/How much it counts: Top priority/g)?.length).toBeGreaterThanOrEqual(3);
     });
 
     it("is edited in the Adjust panel: cards to take out, add, and set how much each counts, a Change on each line, and Done", () => {
@@ -122,13 +122,18 @@ describe("here's what you told me, and what I understood", () => {
         expect(words).toMatch(/^ ?Adjust Take out what's wrong/);
         /* Edge to edge, grey and white by turns, grey first. */
         expect(html.match(/<li class="space-y-3 px-3\.5 py-3\.5 bg-(?:finn-cotton|white)/g)).toEqual(['<li class="space-y-3 px-3.5 py-3.5 bg-finn-cotton', '<li class="space-y-3 px-3.5 py-3.5 bg-white']);
-        expect(words).toContain("I'll check — tap × to take one out Rear doors Standard equipment ISOFIX child seat anchors Might matter — tap + to add");
+        /* Laid out as the chat's summary is: each line with why, and its × or + to take it out or add it. */
+        expect(words).toContain(
+            "I'll look for: tap × to take one out Rear doors — because you have kids Also making sure it has: ISOFIX child seat anchors — because you have kids Might matter too: tap + to add",
+        );
+        expect(html).toContain('aria-label="Stop checking Rear doors"');
+        expect(html).toMatch(/aria-label="Check [^"]+ too"/);
         /* No unasked-for list of what Lens can't check. */
         expect(words).not.toContain("I can't check");
         expect(words).toContain("My guess — tap to change. Counts fully, alongside everything else you've said is important.");
         /* The scale said once, and each level's meaning on the picker. */
         expect(words).toContain("How much it counts: Top priority counts twice as much as Important, and Important twice as much as Nice to have. None of them rules a car out — that's what deal-breakers are for.");
-        expect(words).toMatch(/How much it counts Top priority Important Nice to have Counts the most — twice as much as Important/);
+        expect(words).toMatch(/How much it counts: Top priority Important Nice to have Counts the most — twice as much as Important/);
         /* Each level's meaning is said under the picker, not hidden in a hover. */
         expect(html).not.toMatch(/ title="/);
         expect(words).toMatch(/Money & time Monthly limit €500 all in Change/);
