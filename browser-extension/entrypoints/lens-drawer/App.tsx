@@ -108,20 +108,9 @@ function CarView({ value }: { value: JudgedCar }) {
                 </Section>
             ) : null}
 
-            {story?.sections.length ? (
-                <Section title="What you told me, and what it has">
-                    <StoryList story={story} value={value} />
-                </Section>
-            ) : null}
-
-            {story?.catch ? (
-                <Section title="Worth knowing">
-                    <Catch story={story} />
-                </Section>
-            ) : null}
-
             {versus && winnerId != null && !isWinner ? (
-                <Section title={`Against my pick, the ${versus.match}`}>
+                /* Made the cut and lost: said as early as why a car set aside wasn't ranked, against the pick it lost to. */
+                <Section title="Why it didn't win">
                     <div className="space-y-2 text-[13px] leading-relaxed text-finn-black">
                         {versus.sentences.map((sentence) => (
                             <p key={sentence}>{sentence}</p>
@@ -137,6 +126,18 @@ function CarView({ value }: { value: JudgedCar }) {
                         </button>
                         <LocateCar id={winnerId} name={versus.match} size="sm" />
                     </div>
+                </Section>
+            ) : null}
+
+            {story?.sections.length ? (
+                <Section title="What you told me, and what it has">
+                    <StoryList story={story} value={value} />
+                </Section>
+            ) : null}
+
+            {story?.catch ? (
+                <Section title="Worth knowing">
+                    <Catch story={story} />
                 </Section>
             ) : null}
 
