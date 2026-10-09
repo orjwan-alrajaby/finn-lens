@@ -131,9 +131,30 @@ export function App() {
     const adjusting = Boolean(chat?.adjusting) && view === "chat";
     const summary = useMemo(() => [...(chat?.messages ?? [])].reverse().find((message) => message.kind === "summary") ?? null, [chat?.messages]);
 
-    /* Expanded: the reader asked, with the header's button. */
+    /*
+     * Expanded: the reader asked (the header's button), or Lens is showing
+     * what it understood — each new summary expands it once, so shrinking
+     * it back sticks. Summaries the chat already had when it opened don't.
+     */
     const [expanded, setExpanded] = useState(false);
     const [canExpand, setCanExpand] = useState(false);
+    const summariesSeen = useRef<{ chat: string | null; ids: Set<string> }>({ chat: null, ids: new Set() });
+
+    useEffect(() => {
+        if (!chat) return;
+
+        const seen = summariesSeen.current;
+        if (seen.chat !== chat.id) {
+            summariesSeen.current = { chat: chat.id, ids: new Set(chat.messages.filter((message) => message.kind === "summary").map((message) => message.id)) };
+            return;
+        }
+
+        const fresh = shown.filter((message) => message.kind === "summary" && !seen.ids.has(message.id));
+        if (!fresh.length) return;
+
+        for (const message of fresh) seen.ids.add(message.id);
+        setExpanded(true);
+    }, [chat, shown]);
 
     useEffect(() => {
         void requestChatWide(adjusting || expanded)
