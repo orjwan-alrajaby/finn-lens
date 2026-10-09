@@ -1269,10 +1269,11 @@ function Ask({
                         </div>
                     )}
 
+                    {/* Typing a number of their own takes the place of its chip only: "Not sure yet" and "Never mind" stay a tap away. */}
                     <div className="flex flex-wrap gap-1.5">
                         {custom && !own ? <Chip label={custom.label} muted icon={<PencilLine aria-hidden="true" className="h-3.5 w-3.5" />} onClick={() => setOwn(true)} /> : null}
-                        {step.none && !(step.multiple && ready) && !own ? <Chip label={step.none} muted onClick={() => onAnswer([])} /> : null}
-                        {onNeverMind && !own ? <NeverMind onClick={onNeverMind} /> : null}
+                        {step.none && !(step.multiple && ready) ? <Chip label={step.none} muted onClick={() => onAnswer([])} /> : null}
+                        {onNeverMind ? <NeverMind onClick={onNeverMind} /> : null}
                     </div>
 
                     {own && custom ? <OwnAnswer custom={custom} onSubmit={(extra) => onAnswer(picked, extra)} /> : null}
