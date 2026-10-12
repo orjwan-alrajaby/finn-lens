@@ -65,7 +65,7 @@ const GALLERY: { src: string; alt: string }[] = [
 ];
 
 /** Opens the lightbox on a screenshot. */
-const OpenScreenshot = createContext<(src: string) => void>(() => {});
+const OpenScreenshot = createContext<(src: string) => void>(() => { });
 
 export function ProductWalkthrough() {
     const active = useActiveSection(SECTION_IDS);
@@ -606,7 +606,7 @@ function SectionCard({
 }) {
     return (
         <article className="overflow-hidden rounded-2xl border border-[#e8e5df] bg-white">
-            <header className="flex items-start gap-3 border-b border-[#e8e5df] bg-[#fbfcfe] px-5 py-4 sm:px-6">
+            <header className="flex items-center gap-3 border-b border-[#e8e5df] bg-[#fbfcfe] px-5 py-4 sm:px-6">
                 <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#003087] text-sm font-black text-white">
                     {number}
                 </span>
