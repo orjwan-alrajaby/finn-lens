@@ -1,11 +1,11 @@
 # Finn Lens
 
-A browser extension that helps you choose between FINN car subscriptions by chatting with Lens. You tell it what the car has to do for you, and it judges the cars on finn.com against what you said and explains its pick.
+A browser extension that helps you choose between FINN car subscriptions by chatting with Lens. You tell it what the car has to do for you, and it judges the cars on finn.com against what you said and explains its pick. It's an independent project, not made by or affiliated with FINN.
 
 ## Try it
 
 - **Read about it:** the beta guide, a product demo in screenshots, and this documentation are published at **[orjwan-alrajaby.github.io/finn-lens](https://orjwan-alrajaby.github.io/finn-lens/)**.
-- **Install it** (Chrome on a computer): download **[`finn-lens-0.9.1-chrome.zip`](https://github.com/orjwan-alrajaby/finn-lens/raw/main/releases/finn-lens-0.9.1-chrome.zip)** and unzip it. Open `chrome://extensions`, switch on **Developer mode**, click **Load unpacked** and choose the unzipped folder. Lens opens finn.com with its chat open. [The beta note](docs/BETA.md#install-it-chrome-on-a-computer-about-two-minutes) has the steps in full.
+- **Install it** (Chrome on a computer): download **[`finn-lens-0.9.1-chrome.zip`](https://github.com/orjwan-alrajaby/finn-lens/raw/main/releases/finn-lens-0.9.1-chrome.zip)** and load it as an unpacked extension; [the beta note](docs/BETA.md#install-it-chrome-on-a-computer-about-two-minutes) has the four steps.
 
 ## What the reader sees
 
@@ -27,11 +27,11 @@ A browser extension that helps you choose between FINN car subscriptions by chat
    - **Save as PDF** on every car's drawer but a ruled-out car's, with everything open.
 7. **Many chats.** Every chat is kept, and "Your chats" lists them like a messenger. Opening one carries on where it was, and the chips move to its judgement.
 8. **Popup.** It says what Lens is and whether it's online on this finn.com tab (it only works on finn.com, and it's unofficial). It also shows how many cars it detected and judged here, the current pick and chats, and a way to Settings and the beta guide.
-9. **Settings.** Shows the saved answers (changed by talking to Lens, or forgotten from here), and everything Lens stores, each part clearable: chats, answers, the car cache, and leftovers from earlier versions. Its **Beta guide** tab (`options.html#guide`) explains Lens to someone who has never seen it: what it does and why, how it decides, how to read its results, its known limits, what might come next, and what a bug report needs. Its **Product demo** tab (`options.html#demo`) walks through a reader's journey in screenshots, and its **Documentation** tab (`options.html#docs`) shows this README, the beta note, the changelog and the docs. All three are also published as a web page, at [orjwan-alrajaby.github.io/finn-lens](https://orjwan-alrajaby.github.io/finn-lens/).
+9. **Settings.** Shows the saved answers (changed by talking to Lens, or forgotten from here), and everything Lens stores, each part clearable: chats, answers, the car cache, and leftovers from earlier versions. Its **Beta guide** tab (`options.html#guide`) explains Lens to someone who has never seen it: what it does and why, how it decides, how to read its results, its known limits, what might come next, and what a bug report needs. Its **Product demo** tab (`options.html#demo`) walks through a reader's journey in screenshots, and its **Documentation** tab (`options.html#docs`) shows this README, the beta note, the changelog and the docs, with a link to this repository.
 
-## How it's built
+## Code map
 
-The extension lives in [`browser-extension/`](browser-extension/); the paths below are inside it.
+The extension lives in [`browser-extension/`](browser-extension/); the paths below are inside it. How Lens decides — every mechanism, number and source, and the decisions behind them — is written up in [`docs/HOW-FINN-LENS-DECIDES.md`](docs/HOW-FINN-LENS-DECIDES.md).
 
 | Where | What |
 |---|---|
@@ -58,32 +58,21 @@ The extension lives in [`browser-extension/`](browser-extension/); the paths bel
 
 And in `browser.storage.session`, `lensChatTokens`: each tab's secret, which its Lens frames prove themselves with (cleared when the tab closes). `lib/chats/data.ts` lists every `local` key, with how Settings lets the reader delete it.
 
-## Who built it
+**Figures that aren't FINN's.** Lens names and links every figure it didn't get from FINN where it shows it, and says what that figure can't tell the reader. A plug-in hybrid's electricity comes from the EU's registration data: `scripts/snapshot-eu-plug-in-electricity.mjs` builds `lib/reasoning-engine/data/eu-plug-in-electricity.json`, and `lib/reasoning-engine/eu-electricity.ts` matches FINN's cars to it. Other European standards and studies are in `lib/sources.ts`. How each is matched, checked and refreshed is in [How Lens decides](docs/HOW-FINN-LENS-DECIDES.md#103-plug-in-hybrids-the-eus-electricity-figure), §10.3, §13 and §17.
 
-Finn Lens is an independent project by Orjwan Al-Rajaby. It isn't a FINN
-product, and it isn't for sale.
+## Development and implementation
 
-- **Orjwan's work:** the idea and the problem it starts from; investigating
-  finn.com — how its pages are rendered, on the server and in the browser, and
-  how an extension can work alongside them; working out what each field in
-  FINN's car data means; the product's direction and its decision model (what
-  Lens asks, what counts, what rules a car out, how much each answer weighs);
-  and the first versions — the extension's foundation and its reading of
-  FINN's car data (August 2026).
-- **Built with Claude Code:** from September 2026, Orjwan directed the
-  development with Claude Code, Anthropic's AI coding assistant, which wrote
-  most of the code from then on — every commit in this version's history since
-  then is marked as co-authored with it. Orjwan decided what to build and what
-  to change, and tested it on finn.com.
+*By Orjwan Al-Rajaby.*
 
-Lens went through several designs before this one — pinning cars to compare, a
-settings screen of priorities, a chat answered by an AI model — before the
-guided conversation in this beta.
+Finn Lens was developed under my direction, from the initial problem discovery and investigation of FINN's platform through product design, technical decisions and implementation.
 
-The code is a beta codebase: it typechecks, has around 950 automated tests,
-and was audited for this release, but it grew with the product rather than to
-engineering standards set up front, and hasn't had the review a production
-product would.
+The work included investigating FINN's vehicle data: how finn.com exposes and renders it, and what each field means. It meant understanding what server-side and client-side rendering imply for an extension working alongside the site, learning and working with WXT, and designing how the extension would interact with finn.com.
+
+I wrote the first version myself, in August 2026: capturing the car data finn.com loads into one English model, a pin button on every car card that survives the site's navigation, and the popup. From then on, Claude Code was used to accelerate implementation, writing the code at my direction. I directed development on the basis of that investigation, made the product and engineering decisions, including the decision model (what Lens asks, what counts, what rules a car out and how much each answer weighs), and tested each build on finn.com to refine the beta.
+
+Lens went through several designs before this one: pinning cars to compare, a settings screen of priorities, and a chat answered by an AI model. The guided conversation in this beta is what that led to.
+
+The code is a beta codebase. It typechecks, has around 950 automated tests, and was audited for this release, but it grew with the product rather than to engineering standards set up front, and hasn't had the review a production product would.
 
 ## Beta
 
@@ -98,10 +87,10 @@ npm run dev        # Chrome, with reload
 npm run compile    # typecheck
 npm test           # vitest
 npm run build      # .output/chrome-mv3
-npm run site:dev   # the beta guide and product demo as a web page
+npm run site:dev   # the published site, locally
 ```
 
-The beta guide and the product demo are also published as a web page: `site/` renders the same components the extension's Settings shows, and `.github/workflows/pages.yml` builds it (`npm run site:build`, into `.output/site`) and deploys it to GitHub Pages, at [orjwan-alrajaby.github.io/finn-lens](https://orjwan-alrajaby.github.io/finn-lens/), on every push to `main` that touches the extension or the docs, or by hand from the Actions tab.
+`.github/workflows/pages.yml` builds `site/` (`npm run site:build`, into `.output/site`) and deploys it to GitHub Pages on every push to `main` that touches the extension or the docs, or by hand from the Actions tab.
 
 To try it by hand, load `.output/chrome-mv3` as an unpacked extension. Installing opens finn.com with the bubble open.
 
@@ -112,13 +101,3 @@ The shortlist: pinning from the drawers, judging the pinned cars against each ot
 ## Left on the `playground` branch
 
 Pinning cars, the pinned-cars page, the earlier Settings screen (priorities and profiles), the Compare/recommendation page, the setup flow, and Lens AI with a Gemini key. The engine and the chat's understanding came from there, and so did the reasoning behind most of it. The playground's `docs/FINN-LENS-HANDOFF.md` is the long version.
-
-
-How Lens decides — every mechanism, number and source, and the decisions behind them — is written up in [`docs/HOW-FINN-LENS-DECIDES.md`](docs/HOW-FINN-LENS-DECIDES.md).
-
-## Figures that aren't FINN's
-
-Lens says where every figure it didn't get from FINN comes from, links it, and says what it can't tell you.
-
-- **A plug-in hybrid's electricity.** FINN lists a plug-in hybrid's official CO₂ and fuel figures but not the electricity half of the same test. Every new car registered in the EU is reported with that figure — "Electric energy consumption (EC_AC,weighted)" — to the European Environment Agency under Regulation (EU) 2019/631. `scripts/snapshot-eu-plug-in-electricity.mjs` reads the EEA's 2025 (provisional) data into `lib/reasoning-engine/data/eu-plug-in-electricity.json`, keeping FINN's makers only; `lib/reasoning-engine/eu-electricity.ts` matches a FINN car on make, official CO₂ and fuel figures, and the words that name it (not "xDrive" or "PHEV"). Where versions differ, the highest figure is used and said; where nothing matches, the electricity is named as missing and the car can't be confirmed within a budget — and is set aside under a hard one. Every use says both figures assume the EU test's mix of electric and fuel driving, and that the reader's own depends on how they drive and charge. Re-run the script as FINN adds models or the EEA finalises its data.
-- **Other figures and rules from European standards or studies** are in `lib/sources.ts`, each named and linked wherever it's used — in the chat's "i" tooltips (which stay open long enough to click a link), under the drawer's story lines and cost lines, and at the foot of its environment panel: the German CO₂ label rules (Pkw-EnVKV) for the A–G classes; the ICCT's figures for new cars' CO₂ and electric cars' consumption, behind Lens's comparison points; and the European Commission's real-world CO₂ report, said with its date — plug-ins registered in 2021 emitted 3.5 times their official figure, before the EU changed the method from 2025, which FINN's figures follow. Each link was checked against the document when it was added.

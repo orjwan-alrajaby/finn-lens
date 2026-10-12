@@ -57,23 +57,12 @@ type ConfirmProps = {
     onCancel: () => void;
 };
 
-const PAGE_INFO: Record<View, { title: string; description: string }> = {
-    settings: {
-        title: "Finn Lens settings",
-        description: "Your saved answers, and everything Lens keeps in this browser.",
-    },
-    guide: {
-        title: "Finn Lens beta guide",
-        description: "What Lens does, how it decides, and what this beta can't do yet.",
-    },
-    demo: {
-        title: "Finn Lens product demo",
-        description: "A walkthrough of a reader's journey through Finn Lens.",
-    },
-    docs: {
-        title: "Finn Lens documentation",
-        description: "How it's built, how it decides, and what changed — as the repository documents it.",
-    },
+/** Each tab's name in the browser's tab strip. The page's own header is Lens's, and each tab's card says what's in it. */
+const PAGE_TITLE: Record<View, string> = {
+    settings: "Finn Lens · Settings",
+    guide: "Finn Lens · Beta guide",
+    demo: "Finn Lens · Product demo",
+    docs: "Finn Lens · Documentation",
 };
 
 /** The guide's sections are #guide-…, the demo's #demo-… and the documents #docs/…, so following one of their links keeps that tab open. */
@@ -142,7 +131,7 @@ export function App() {
     }, []);
 
     useEffect(() => {
-        document.title = PAGE_INFO[view].title;
+        document.title = PAGE_TITLE[view];
 
         // A section's own link scrolls to it; switching tabs starts at the top.
         if (isTopLevelHash(window.location.hash)) {
@@ -219,12 +208,12 @@ export function App() {
 
                     <div>
                         <h1 className="flex items-center gap-2 text-[24px] font-black leading-tight tracking-tight">
-                            {PAGE_INFO[view].title}
+                            Finn Lens
                             <BetaTag className="text-[11px]" />
                         </h1>
 
                         <p className="text-[13px] text-white/75">
-                            {PAGE_INFO[view].description}
+                            Choosing between FINN car subscriptions, by telling Lens what the car has to do for you.
                         </p>
                     </div>
                 </div>
@@ -265,7 +254,7 @@ export function App() {
                 </div>
             ) : (
                 <div className="mx-auto max-w-3xl space-y-6 px-6 py-8">
-                    <PageIntro icon={<SlidersHorizontal />} eyebrow="Settings" title="Your answers and your data">
+                    <PageIntro icon={<SlidersHorizontal />} title="Your answers and your data">
                         <p>
                             The answers new chats start from, and everything Lens keeps in this browser: what it is, how much, and a way to delete
                             any of it. Nothing here is sent anywhere.
