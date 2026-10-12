@@ -1,0 +1,474 @@
+import { CATEGORIES, CATEGORY_IDS, SIGNALS } from "@/lib/reasoning-engine/constants";
+import { bootLitres, evRangeKm, isBinarySignal, lengthMm, signalUtility, widthMm, type Anchors } from "@/lib/reasoning-engine/evidence";
+import { assessEfficiency, assessEnvironment, EFFICIENCY_BAND_WORDS } from "@/lib/reasoning-engine/environmental";
+import { PROPER_NAME } from "@/lib/reasoning-engine/format";
+import type { CategoryId, SignalId } from "@/lib/reasoning-engine/types";
+import type { FinnCar } from "@/lib/types";
+
+/**
+ * What Lens can actually check on a car, for connecting a reader's needs to
+ * it.
+ *
+ * Everything Lens reads from FINN — its equipment list and the handful of
+ * facts derived from its structured fields. Most of it is scored by some
+ * priority; some of it isn't (privacy glass, leather seats). Unscored evidence never moves a score. It is here so that "I want
+ * the kids kept busy" can be answered with what FINN actually lists, stated
+ * as a fact about the car, and not with a guess.
+ */
+
+/**
+ * `electricRange` isn't one of the engine's signals — range reaches a score
+ * through longDistance's own trip factor rather than as a raisable feature —
+ * but it's the first thing anyone driving far asks about, and FINN publishes
+ * it. So Lens can point at it even though nobody can raise it.
+ */
+export type EvidenceId = SignalId | "electricRange" | "electricCar" | "petrolCar" | "dieselCar" | "plugInHybrid" | "suvBody" | "winterReadyTyres" | "lowCo2" | "frugal";
+
+/** Where Lens's own label would claim more than FINN's field says. */
+const RELABEL: Partial<Record<EvidenceId, string>> = {
+    /* The engine's label reads "Boot space (seats up)", which FINN never states. */
+    bootVolume: "Boot space",
+};
+
+/** Evidence Lens reads but never scores, with the reason it isn't scored. */
+const READ_ONLY: Partial<Record<EvidenceId, string>> = {
+    /* FINN's single boot figure is sometimes seats-up and sometimes seats-folded. */
+    bootVolume:
+        "How much the boot holds, as FINN publishes it. FINN doesn't say whether the figure is with the rear seats up or folded, so Lens quotes it and doesn't score it.",
+    electricRange:
+        "The WLTP range FINN publishes for an electric car. Lens already weighs range inside long-distance driving; this is the figure itself.",
+};
+
+export interface EvidenceDef {
+    id: EvidenceId;
+    label: string;
+    explanation: string;
+    /** The priority that scores it, if any. Null means Lens only reads it. */
+    scoredIn: CategoryId | null;
+    /** Whether a reader can raise it inside that priority. */
+    raisable: boolean;
+    /**
+     * True where finding it is the bad news: "I really don't want an SUV" is
+     * a need, and the car being one is what answers it — the wrong way.
+     */
+    undesirable?: boolean;
+    /** How to name it where not having it is the point: "Not an SUV". */
+    negativeLabel?: string;
+}
+
+const homeOf = (id: SignalId): { category: CategoryId | null; raisable: boolean } => {
+    for (const category of CATEGORY_IDS) {
+        const def = CATEGORIES[category] as {
+            features: readonly string[];
+            expected?: readonly string[];
+            alsoCounts?: readonly string[];
+        };
+
+        if (def.features.includes(id)) return { category, raisable: true };
+        if (def.expected?.includes(id) || def.alsoCounts?.includes(id)) return { category, raisable: false };
+    }
+
+    return { category: null, raisable: false };
+};
+
+export const EVIDENCE: Record<EvidenceId, EvidenceDef> = {
+    ...(Object.fromEntries(
+        (Object.keys(SIGNALS) as SignalId[])
+            /* `Fahrerassistenz` is a level, read through driverAssistLevel2 instead. */
+            .filter((id) => id !== "hasDriverAssistance")
+            .map((id) => {
+                const home = homeOf(id);
+
+                const readOnly = READ_ONLY[id];
+
+                return [
+                    id,
+                    {
+                        id,
+                        label: RELABEL[id] ?? SIGNALS[id].label,
+                        explanation: readOnly ?? SIGNALS[id].explanation,
+                        scoredIn: readOnly ? null : home.category,
+                        raisable: readOnly ? false : home.raisable,
+                    },
+                ];
+            }),
+    ) as Record<SignalId, EvidenceDef>),
+
+    electricRange: {
+        id: "electricRange",
+        label: "Electric range",
+        explanation: READ_ONLY.electricRange!,
+        scoredIn: null,
+        raisable: false,
+    },
+
+    /*
+     * Body type and tyres come from FINN's own structured fields — `cartype`
+     * and `tires` — rather than from the equipment list. Neither is scored:
+     * Lens ranks on what a car has, not on what shape it is. They're here
+     * because "I don't want a massive SUV" and "winter is unpleasant here"
+     * are answered by facts FINN publishes, and answering them from length
+     * alone was guessing at something Lens could simply read.
+     */
+    electricCar: {
+        id: "electricCar",
+        label: "Electric",
+        negativeLabel: "Not electric",
+        explanation:
+            "Whether FINN lists this car as electric. Lens doesn't score fuel type — it prices each car on what it burns or charges — but wanting one, or not, is a rule a reader can give.",
+        scoredIn: null,
+        raisable: false,
+    },
+    /* The other fuels, for "what can it run on?": ruled on, never scored, like electric. */
+    petrolCar: {
+        id: "petrolCar",
+        label: "Petrol",
+        negativeLabel: "Not petrol",
+        explanation: "Whether FINN lists this car as petrol. A rule a reader can give, never something Lens scores.",
+        scoredIn: null,
+        raisable: false,
+    },
+    dieselCar: {
+        id: "dieselCar",
+        label: "Diesel",
+        negativeLabel: "Not diesel",
+        explanation: "Whether FINN lists this car as diesel. A rule a reader can give, never something Lens scores.",
+        scoredIn: null,
+        raisable: false,
+    },
+    plugInHybrid: {
+        id: "plugInHybrid",
+        label: "Plug-in hybrid",
+        negativeLabel: "Not a plug-in hybrid",
+        explanation: "Whether FINN lists this car as a plug-in hybrid. A rule a reader can give, never something Lens scores.",
+        scoredIn: null,
+        raisable: false,
+    },
+
+    suvBody: {
+        id: "suvBody",
+        label: "SUV",
+        negativeLabel: "Not an SUV",
+        explanation:
+            "Whether FINN files this car as an SUV. Lens doesn't score body type — it reads it, so a reader who doesn't want one can see what they're being offered.",
+        scoredIn: null,
+        raisable: false,
+        undesirable: true,
+    },
+
+    /*
+     * The two figures, read as yes or no for a rule: "low CO₂ only" and
+     * "frugal for its kind only". Neither is scored this way — Environmental
+     * Impact and Efficiency score the figures themselves — but either can be
+     * something a reader won't do without.
+     */
+    lowCo2: {
+        id: "lowCo2",
+        label: "Low CO₂ emissions",
+        explanation:
+            "Whether the car's official CO₂ figure puts it in class A, B or C on the German CO₂ label (Pkw-EnVKV): 115 g/km or less. An electric car is class A. FINN doesn't say how much of a plug-in hybrid's figure comes from driving on electricity.",
+        scoredIn: null,
+        raisable: false,
+    },
+
+    frugal: {
+        id: "frugal",
+        label: "Frugal for its kind",
+        explanation:
+            `Whether the car's fuel or electricity use, as FINN lists it, is ${EFFICIENCY_BAND_WORDS} or more below the FINN Lens benchmark for cars that run on the same thing. A plug-in hybrid isn't judged: FINN's one figure for it mixes the two.`,
+        scoredIn: null,
+        raisable: false,
+    },
+
+    winterReadyTyres: {
+        id: "winterReadyTyres",
+        label: "All-season or winter tyres",
+        explanation:
+            "What FINN says is fitted: all-season tyres, winter tyres, or a summer and a winter set. Not scored — Lens doesn't rank one setup above another — but it's the answer to what the car is shod with in winter.",
+        scoredIn: null,
+        raisable: false,
+    },
+};
+
+/** How FINN's `cartype` reads in a sentence. */
+const BODY_WORDS: Record<string, string> = {
+    suv: "an SUV",
+    "klein- und kompaktwagen": "a small or compact car",
+    kompaktwagen: "a compact car",
+    kleinwagen: "a small car",
+    kombi: "an estate",
+    limousine: "a saloon",
+    cabriolet: "a convertible",
+    hatchback: "a hatchback",
+    van: "a van",
+    transporter: "a van",
+};
+
+const bodyWord = (car: FinnCar): string | null => {
+    const type = String(car.vehicleType ?? "").trim();
+
+    return type ? (BODY_WORDS[type.toLowerCase()] ?? `a ${type.toLowerCase()}`) : null;
+};
+
+const isSuv = (car: FinnCar): boolean => /\bsuv\b/i.test(String(car.vehicleType ?? ""));
+
+/*
+ * Names for the handful of things readers ask not to have. Everything else
+ * falls back to "No <label>", which reads well enough for equipment.
+ */
+for (const [id, label] of [
+    /* FINN's seat count, which says six or more — not seven. */
+    ["seatsSixPlus", "Fewer than six seats"],
+    ["hasTowbar", "No towbar"],
+    /* Level 2 steers and brakes while the driver supervises: it never drives itself. */
+    ["driverAssistLevel2", "No Level 2 driver assistance"],
+] as const) {
+    EVIDENCE[id].negativeLabel = label;
+}
+
+export const EVIDENCE_IDS = Object.keys(EVIDENCE) as EvidenceId[];
+
+export const isEvidenceId = (value: unknown): value is EvidenceId =>
+    typeof value === "string" && value in EVIDENCE;
+
+export type EvidenceState = "listed" | "notListed" | "unknown";
+
+/** Range enough to stop thinking about stopping, on FINN's own WLTP figure. */
+const LONG_RANGE_KM = 350;
+
+/** A measured figure counts as "listed" from this far up its curve. */
+export const MEASURED_LISTED = 0.6;
+
+/**
+ * The largest figure that still counts as listed on a falling curve — the
+ * length or width a car can have and still be "compact". Worked out from the
+ * same anchors the engine scores with, so what Lens says and what it scores
+ * can't drift apart.
+ */
+export function listedUpTo(anchors: Anchors): number {
+    for (let index = 1; index < anchors.length; index += 1) {
+        const [x0, y0] = anchors[index - 1]!;
+        const [x1, y1] = anchors[index]!;
+
+        if (y0 >= MEASURED_LISTED && y1 < MEASURED_LISTED) {
+            return Math.floor(x0 + ((y0 - MEASURED_LISTED) / (y0 - y1)) * (x1 - x0));
+        }
+    }
+
+    return anchors[anchors.length - 1]![0];
+}
+
+/** What FINN's data says about one piece of evidence on one car. */
+export function readEvidence(car: FinnCar, id: EvidenceId): EvidenceState {
+    if (id === "electricRange") {
+        const range = evRangeKm(car);
+
+        return range == null ? "unknown" : range >= LONG_RANGE_KM ? "listed" : "notListed";
+    }
+
+    if (id === "electricCar") {
+        return car.fuelType === "Electric" ? "listed" : "notListed";
+    }
+
+    if (id === "petrolCar" || id === "dieselCar" || id === "plugInHybrid") {
+        const fuel = { petrolCar: "Petrol", dieselCar: "Diesel", plugInHybrid: "Plug-in Hybrid" }[id];
+        return car.fuelType === fuel ? "listed" : "notListed";
+    }
+
+    if (id === "suvBody") {
+        return bodyWord(car) == null ? "unknown" : isSuv(car) ? "listed" : "notListed";
+    }
+
+    if (id === "winterReadyTyres") {
+        return car.tyres == null ? "unknown" : "listed";
+    }
+
+    /* Class C ends at 115 g/km on the label; no figure, no answer. */
+    if (id === "lowCo2") {
+        const co2 = assessEnvironment(car)?.co2;
+
+        return co2 == null ? "unknown" : co2.gPerKm <= 115 ? "listed" : "notListed";
+    }
+
+    /* Far enough below the benchmark: the engine's own "high" efficiency. */
+    if (id === "frugal") {
+        const reading = assessEfficiency(car);
+
+        return reading == null ? "unknown" : reading.level === "high" ? "listed" : "notListed";
+    }
+
+    const utility = signalUtility(id, car);
+
+    if (utility == null) return "unknown";
+
+    /* A measured figure (length) is "listed" when it scores well on its own curve. */
+    if (!isBinarySignal(id)) return utility >= MEASURED_LISTED ? "listed" : "notListed";
+
+    return utility === 1 ? "listed" : "notListed";
+}
+
+/** Figures quoted to the reader that can't say whether a need is met. */
+export const AMBIGUOUS_FIGURES = new Set<EvidenceId>(["bootVolume"]);
+
+/**
+ * Whether this car answers the need the evidence was cited for: normally that
+ * it's listed, and for evidence nobody wants (an SUV body) that it isn't.
+ * Null where FINN says nothing either way.
+ */
+export function evidenceMet(car: FinnCar, id: EvidenceId, unwanted = EVIDENCE[id].undesirable === true): boolean | null {
+    /*
+     * A figure Lens quotes but can't read as an answer. FINN's boot litres are
+     * seats-up on one car and seats-folded on the next — the same BMW X1
+     * appears at 1,545 L and at 500 L — so "a 1,010 L boot" on a 3.6 m city
+     * car told someone who carries a lot for the weekend that it helps, when
+     * nothing Lens has can say so.
+     */
+    if (AMBIGUOUS_FIGURES.has(id)) return null;
+
+    const state = readEvidence(car, id);
+
+    if (state === "unknown") return null;
+
+    return unwanted ? state === "notListed" : state === "listed";
+}
+
+/** What to call a piece of evidence where not having it is the point. */
+export const withoutLabel = (id: EvidenceId): string =>
+    EVIDENCE[id].negativeLabel ?? `No ${EVIDENCE[id].label.toLowerCase()}`;
+
+/** The thing itself, in a sentence: "you ruled out an SUV". */
+const PHRASES: Partial<Record<EvidenceId, string>> = {
+    electricCar: "an electric car",
+    petrolCar: "a petrol car",
+    dieselCar: "a diesel",
+    plugInHybrid: "a plug-in hybrid",
+    seatsFivePlus: "a five-seater or bigger",
+    hasAutomaticTransmission: "an automatic",
+    suvBody: "an SUV",
+    seatsSixPlus: "a six-seater or bigger",
+    driverAssistLevel2: "Level 2 driver assistance",
+    lowCo2: "low CO₂ emissions",
+    frugal: "frugal for its kind",
+    hasTowbar: "a towbar",
+};
+
+/* "Rear USB ports" belongs in a sentence as "rear USB ports", not "rear usb ports". */
+export const asPhrase = (id: EvidenceId): string => {
+    const label = EVIDENCE[id].label;
+
+    return PHRASES[id] ?? (/^[A-Z0-9]{2,}/.test(label) || PROPER_NAME.test(label) ? label : `${label.charAt(0).toLowerCase()}${label.slice(1)}`);
+};
+
+/** Evidence that describes what kind of car it is, rather than what it carries. */
+/* Low CO₂ emissions are had, not been: "any car without low CO₂ emissions". */
+const KINDS = new Set<EvidenceId>(["electricCar", "petrolCar", "dieselCar", "plugInHybrid", "suvBody", "seatsSixPlus", "seatsFivePlus", "hasAutomaticTransmission", "frugal"]);
+
+export const isKind = (id: EvidenceId): boolean => KINDS.has(id);
+
+/** The same phrase without its article, for "no SUV" rather than "no an SUV". */
+export const barePhrase = (id: EvidenceId): string => asPhrase(id).replace(/^(a|an|the) /, "");
+
+/**
+ * A measured fact worth quoting instead of a yes or no, in both directions:
+ * "4.68 m long" says more than "no", and is the honest thing to say about a
+ * car whose length FINN publishes and which simply isn't small.
+ */
+export function measuredDisplay(car: FinnCar, id: EvidenceId): string | null {
+    if (id === "compactLength") {
+        const length = lengthMm(car);
+
+        return length ? `${(length / 1000).toFixed(2)} m long` : null;
+    }
+
+    if (id === "compactWidth") {
+        const width = widthMm(car);
+
+        return width ? `${(width / 1000).toFixed(2)} m wide` : null;
+    }
+
+    if (id === "bootVolume") {
+        const litres = bootLitres(car);
+
+        return litres ? `a ${Math.round(litres)} L boot` : null;
+    }
+
+    if (id === "electricRange") {
+        const range = evRangeKm(car);
+
+        return range ? `${Math.round(range)} km of range on FINN's figure` : null;
+    }
+
+    if (id === "suvBody") return bodyWord(car);
+
+    if (id === "winterReadyTyres") {
+        return car.tyres === "summerAndWinter"
+            ? "a summer set and a winter set, in FINN's data"
+            : car.tyres === "allSeason"
+              ? "all-season tyres, in FINN's data"
+              : car.tyres === "winter"
+                ? "winter tyres, in FINN's data"
+                : null;
+    }
+
+    return null;
+}
+
+/**
+ * Lens's "nearly every car": something listed on at least this share of the
+ * cars in hand can't tell them apart. It's the one line everywhere — what's
+ * offered, suggested, asked about or given as a reason, and the only place
+ * the chat says "nearly every car".
+ */
+export const NEARLY_EVERY = 0.9;
+
+export interface Coverage {
+    id: EvidenceId;
+    listed: number;
+    notListed: number;
+    unknown: number;
+    total: number;
+}
+
+export function coverage(cars: FinnCar[], id: EvidenceId): Coverage {
+    const result: Coverage = { id, listed: 0, notListed: 0, unknown: 0, total: cars.length };
+
+    for (const car of cars) {
+        const state = readEvidence(car, id);
+
+        if (state === "listed") result.listed += 1;
+        else if (state === "notListed") result.notListed += 1;
+        else result.unknown += 1;
+    }
+
+    return result;
+}
+
+/** Whether it's listed on nearly every one of these cars. */
+export function onNearlyEvery(cars: FinnCar[], id: EvidenceId): boolean {
+    const { listed, total } = coverage(cars, id);
+    return total > 0 && listed / total >= NEARLY_EVERY;
+}
+
+/** Whether it can tell these cars apart: listed on some, and not on nearly every one. */
+export function setsApart(cars: FinnCar[], id: EvidenceId): boolean {
+    const { listed, total } = coverage(cars, id);
+    return listed > 0 && listed / total < NEARLY_EVERY;
+}
+
+/** The catalogue as the model sees it: what each piece is, and how common it is here. */
+export function evidenceCatalogue(cars: FinnCar[]) {
+    return EVIDENCE_IDS.map((id) => {
+        const def = EVIDENCE[id];
+        const counts = coverage(cars, id);
+
+        return {
+            id,
+            label: def.label,
+            explanation: def.explanation,
+            scoredBy: def.scoredIn ? CATEGORIES[def.scoredIn].label : "not scored — Lens only reads it",
+            listedOn: AMBIGUOUS_FIGURES.has(id)
+                ? `a figure on ${counts.total - counts.unknown} of ${counts.total} cars in scope, quoted but never read as meeting a need`
+                : `${counts.listed} of ${counts.total} cars in scope${counts.unknown ? ` (${counts.unknown} unknown)` : ""}`,
+        };
+    });
+}

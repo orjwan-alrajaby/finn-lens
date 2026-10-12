@@ -1,0 +1,529 @@
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
+import { describe, expect, it } from "vitest";
+
+import { answer, startChat as beginChat, stepFor, summaryOf } from "@/lib/chats/flow";
+import { withBubbles } from "@/lib/lens-chat/bubbles";
+import { EMPTY_UNDERSTANDING } from "@/lib/lens-chat/understanding";
+import type { Chat, ChatMessage } from "@/lib/chats/types";
+import { GARAGE } from "@/lib/reasoning-engine/test-garage";
+
+import { AdjustPanel, MessageList, TipPanel, TipSources } from "./Messages";
+import { SOURCES } from "@/lib/sources";
+
+/** A first chat, past "Got it — let's start": most tests begin at the first question. */
+function startChat(...args: Parameters<typeof beginChat>): ReturnType<typeof beginChat> {
+    const chat = beginChat(...args);
+    const intro = [...chat.messages].reverse().find((message) => message.kind === "ask" && !message.answered && message.step.id === "intro");
+    return intro ? answer(chat, intro.id, ["go"], args[1], args[2]).chat : chat;
+}
+
+/*
+ * The bubbles question and "Here's what I understood", rendered as the
+ * reader gets them.
+ */
+
+const cars = () => [GARAGE.safeCompact(), GARAGE.familySuv(), GARAGE.cityHatch(), GARAGE.longRangeEv(), GARAGE.thirstyPetrol()];
+const TODAY = new Date("2026-09-29T10:00:00Z");
+const text = (html: string) => html.replace(/<[^>]+>/g, " ").replace(/&#x27;/g, "'").replace(/&amp;/g, "&").replace(/\s+/g, " ");
+const noop = () => {};
+
+/* Lens's avatar asks the extension for its icon; outside the browser there is none. */
+(globalThis as unknown as { browser: unknown }).browser = { runtime: { getURL: (path: string) => path } };
+
+const render = (messages: ChatMessage[]) =>
+    renderToStaticMarkup(
+        createElement(MessageList, {
+            messages,
+            typing: false,
+            busy: false,
+            onAnswer: noop,
+            onOpenCar: noop,
+        }),
+    );
+
+const openAsk = (chat: Chat) => [...chat.messages].reverse().find((message) => message.kind === "ask" && !message.answered)!;
+
+describe("the bubbles", () => {
+    it("open the chips of a tapped bubble under it, and hold Continue until a required one is picked", () => {
+        /* Every bubble at once, as a chat from before the sections asks them. */
+        const step = stepFor("bubbles", cars())!;
+        const tapped: Extract<ChatMessage, { kind: "ask" }> = { id: "a1", at: "", from: "lens", kind: "ask", answered: false, step: { ...step, selected: ["city", "city:street", "weather"] } };
+        const html = render([tapped]);
+        const words = text(html);
+
+        expect(words).toContain("Tell me about your life. Tap everything that fits.");
+        /* Every chip is the reader's own pick: nothing picks them all at once. */
+        expect(words).not.toMatch(/Select all/);
+        expect(words).toContain("Where do you park most often? Up to 2.");
+        expect(words).toContain("What's it like?");
+        expect(words).toContain("Pick at least one, so I know what to check.");
+        /* Untapped bubbles keep their chips closed. */
+        expect(words).not.toContain("Does the youngest ride in a child seat?");
+        expect(html).toMatch(/<button[^>]*disabled=""[^>]*>Continue/);
+    });
+});
+
+describe("here's what you told me, and what I understood", () => {
+    const understood = () => {
+        let chat = startChat(null, cars(), TODAY);
+        for (const picks of [["kids", "kids:baby"], ["city", "city:street"], [], [], ["budget-500"], ["period-12"], [], [], []]) chat = answer(chat, openAsk(chat).id, picks, cars(), TODAY).chat;
+        return chat;
+    };
+    const summary = (chat: Chat) => [...chat.messages].reverse().find((message): message is Extract<ChatMessage, { kind: "summary" }> => message.kind === "summary")!;
+
+    it("is read-only in the chat: each thing said, how much it counts and what's checked, then the limits — and two choices", () => {
+        const html = render(understood().messages);
+        const words = text(html);
+
+        expect(words).toContain("Here's what you told me, and what I understood:");
+        /* Each thing said a stripe of its own, edge to edge, grey and white by turns. */
+        expect(html.match(/<li class="space-y-3 px-3\.5 py-3\.5 odd:bg-finn-cotton even:bg-white">/g)?.length).toBe(2);
+        /* What Lens asked, what the reader answered, what Lens understood — then what it looks for, each with why. */
+        expect(words).toMatch(
+            /What you told me What I asked Who rides with you\? What you answered Kids Which child seat\? Baby or toddler seat What I understood You have kids · a baby or toddler seat Top priority · 4 pts I.ll look for: Rear doors — because you have kids/,
+        );
+        expect(html).toMatch(/bg-finn-fit-good-pale text-finn-fit-good"><svg[^>]*lucide-check/);
+        expect(words).toMatch(/Money & time Monthly limit €500 all in .* Deal-breakers & sealers Runs on Any Deal-breakers None Deal-sealers None/);
+        /* Standard equipment each answer calls for, said so it doesn't look forgotten — where it counts. */
+        expect(words).toMatch(/You live in the city · you park on the street .*Also making sure it has: Automatic gearbox — because you live in the city Parking sensors — because/);
+        /* Nothing here scores safety, so emergency braking couldn't mark a car down: it isn't said to be checked. */
+        expect(words).not.toContain("Automatic emergency braking");
+        expect(html).toMatch(/bg-finn-pale-blue text-finn-accent-blue"><svg[^>]*lucide-shield-check/);
+        expect(words).toContain("Does that look right?");
+        expect(words).toMatch(/Looks good to me — continue This doesn't look right/);
+        /* Nothing to edit in the chat itself. */
+        expect(words).not.toContain("Change");
+        expect(words).not.toContain("tap × to take one out");
+        expect(render(understood().messages)).not.toContain('role="radiogroup"');
+    });
+
+    it("asks a question once, with every answer to it under it", () => {
+        let chat = startChat(null, cars(), TODAY);
+        for (const picks of [["kids", "kids:baby", "adults", "dog"], ["city", "city:street"], [], [], ["budget-500"], ["period-12"], [], [], []]) chat = answer(chat, openAsk(chat).id, picks, cars(), TODAY).chat;
+        const words = text(render(chat.messages));
+
+        expect(words.match(/Who rides with you\?/g)?.length).toBe(1);
+        expect(words).toMatch(/What I asked Who rides with you\? What you answered Kids .* What you answered Adults or teens .* What you answered A dog .* What I asked/);
+
+        /* The Adjust panel the same way, each answer still with its own picker. */
+        const adjust = text(
+            renderToStaticMarkup(createElement(AdjustPanel, { message: summary(chat), busy: false, onImportance: noop, onChange: noop, onRemove: noop, onAdd: noop, onDone: noop })),
+        );
+        expect(adjust.match(/Who rides with you\?/g)?.length).toBe(1);
+        expect(adjust).toMatch(/What I asked Who rides with you\? What you answered Kids Which child seat\? Baby or toddler seat What I understood You have kids .* What you answered Adults or teens .* What you answered A dog .* What I asked/);
+        expect(adjust.match(/How much it counts: Top priority/g)?.length).toBeGreaterThanOrEqual(3);
+    });
+
+    it("is edited in the Adjust panel: cards to take out, add, and set how much each counts, a Change on each line, and Done", () => {
+        const html = renderToStaticMarkup(
+            createElement(AdjustPanel, { message: summary(understood()), busy: false, onImportance: noop, onChange: noop, onRemove: noop, onAdd: noop, onDone: noop }),
+        );
+        const words = text(html);
+
+        expect(words).toMatch(/^ ?Adjust Take out what's wrong/);
+        /* Edge to edge, grey and white by turns, grey first. */
+        expect(html.match(/<li class="space-y-3 px-3\.5 py-3\.5 bg-(?:finn-cotton|white)/g)).toEqual(['<li class="space-y-3 px-3.5 py-3.5 bg-finn-cotton', '<li class="space-y-3 px-3.5 py-3.5 bg-white']);
+        /* Laid out as the chat's summary is: each line with why, and its × or + to take it out or add it. */
+        expect(words).toContain(
+            "I'll look for: tap × to take one out Rear doors — because you have kids Also making sure it has: ISOFIX child seat anchors — because you have kids Might matter too: tap + to add",
+        );
+        expect(html).toContain('aria-label="Stop checking Rear doors"');
+        expect(html).toMatch(/aria-label="Check [^"]+ too"/);
+        /* No unasked-for list of what Lens can't check. */
+        expect(words).not.toContain("I can't check");
+        expect(words).toContain("My guess — tap to change. Counts fully, alongside everything else you've said is important.");
+        /* The scale said once, and each level's meaning on the picker. */
+        expect(words).toContain("How much it counts: Top priority counts twice as much as Important, and Important twice as much as Nice to have. None of them rules a car out — that's what deal-breakers are for.");
+        expect(words).toMatch(/How much it counts: Top priority Important Nice to have Counts the most — twice as much as Important/);
+        /* Each level's meaning is said under the picker, not hidden in a hover. */
+        expect(html).not.toMatch(/ title="/);
+        expect(words).toMatch(/Money & time Monthly limit €500 all in Change/);
+        expect(words).toMatch(/Done $/);
+        expect(words).not.toMatch(/\d+%/);
+    });
+});
+
+describe("the deal-breakers", () => {
+    it("say on the row why an option is missing, not only behind its “i”", () => {
+        const step = {
+            id: "deals",
+            ask: "Any deal-breakers or deal-sealers?",
+            multiple: true,
+            choices: [],
+            groups: [{ id: "yours", title: "From what you told me" }],
+            deals: [
+                {
+                    id: "co2",
+                    label: "Low CO₂ emissions",
+                    kind: false,
+                    group: "yours",
+                    description: "Class A to C on the German CO₂ label.",
+                    options: ["must"],
+                    note: "You care about the environment, so lower CO₂ already ranks higher. “Must have” sets aside every car above class C.",
+                },
+            ],
+        } as unknown as Extract<ChatMessage, { kind: "ask" }>["step"];
+        const words = text(render([{ id: "d1", at: "", from: "lens", kind: "ask", answered: false, step }]));
+
+        expect(words).toMatch(/Low CO₂ emissions .*Doesn't matter Must have You care about the environment, so lower CO₂ already ranks higher\./);
+    });
+});
+
+describe("the result", () => {
+    const result = (): Extract<ChatMessage, { kind: "result" }> => ({
+        id: "r1",
+        at: "",
+        from: "lens",
+        kind: "result",
+        headline: "5 cars",
+        count: 5,
+        winner: { id: 1, name: "Škoda Karoq", configuration: "1.5 TSI", image: null, monthly: 520, band: "good", bandLabel: "Good match", url: null, overLimit: false },
+        reason: "It has the most of what you raised.",
+        reasons: ["It has the most of what you raised.", "It's the narrowest here."],
+        why: [
+            { said: "You live in the city", has: ["4.18 m long", "reversing camera"] },
+            { said: "You have kids", has: ["rear doors"] },
+        ],
+        tradeoffs: [{ headline: "€44/month more than MG S5", text: "At your mileage it's about €44 more." }],
+        note: null,
+        runnersUp: [{ id: 2, name: "MG S5", configuration: "", image: null, monthly: 476, band: "good", bandLabel: "Good match", url: null, overLimit: false }],
+        setAside: 0,
+    });
+
+    it("is short: the pick, why for each bubble, and one thing to know", () => {
+        const words = text(render([result()]));
+
+        expect(words).toContain("Your strongest match");
+        expect(words).toContain("You live in the city → 4.18 m long, reversing camera");
+        expect(words).toContain("One thing to know €44/month more than MG S5. At your mileage it's about €44 more.");
+        expect(words).toContain("See why");
+        expect(words).not.toContain("What decided it");
+        expect(words).not.toContain("Next closest");
+    });
+
+    it("opens with everything once the reader keeps asking", () => {
+        const words = text(
+            renderToStaticMarkup(
+                createElement(MessageList, { messages: [result()], typing: false, busy: false, onAnswer: noop, onOpenCar: noop, longResults: true }),
+            ),
+        );
+
+        /* Only what it got right: what it has for each thing said — no gaps, no trade-offs, and the weighing is the drawer's. */
+        const seeWhy = words.slice(words.indexOf("What it got right"));
+        expect(seeWhy).toMatch(/^What it got right You live in the city → 4\.18 m long, reversing camera You have kids → rear doors/);
+        expect(seeWhy).not.toContain("Because you said");
+        expect(seeWhy).not.toContain("of the decision");
+        expect(seeWhy).not.toContain("What you'd give up");
+        expect(seeWhy).not.toContain("What decided it");
+        expect(seeWhy).not.toContain("€44/month more");
+        expect(words).toContain("Next closest");
+        expect(words).toContain("Keep it short");
+    });
+});
+
+describe("the result, past a limit and on a shared model", () => {
+    const base = (): Extract<ChatMessage, { kind: "result" }> => ({
+        id: "r2",
+        at: "",
+        from: "lens",
+        kind: "result",
+        headline: "7 cars",
+        count: 7,
+        winner: { id: 1, name: "Toyota Yaris Teamplayer 1.5 Hybrid", configuration: "Teamplayer 1.5 Hybrid", image: null, monthly: 384, band: "strong", bandLabel: "Strong match", url: null, overLimit: false },
+        reason: null,
+        note: null,
+        runnersUp: [
+            { id: 2, name: "MG 3", configuration: "", image: null, monthly: 224, band: "good", bandLabel: "Good match", url: null, overLimit: true, over: "period" },
+            { id: 3, name: "Audi Q3", configuration: "", image: null, monthly: 980, band: "good", bandLabel: "Good match", url: null, overLimit: true, over: "budget" },
+        ],
+        setAside: 0,
+    });
+    const words = (message: Extract<ChatMessage, { kind: "result" }>) =>
+        text(renderToStaticMarkup(createElement(MessageList, { messages: [message], typing: false, busy: false, onAnswer: noop, onOpenCar: noop, longResults: true })));
+
+    it("names the model once, with its configuration on the line below", () => {
+        const html = renderToStaticMarkup(createElement(MessageList, { messages: [base()], typing: false, busy: false, onAnswer: noop, onOpenCar: noop }));
+
+        expect(html).toMatch(/>Toyota Yaris<\/p><p[^>]*>Teamplayer 1\.5 Hybrid<\/p>/);
+        expect(text(html)).not.toContain("Teamplayer 1.5 Hybrid Teamplayer 1.5 Hybrid");
+    });
+
+    it("is the closest match, not the strongest, once it's past a limit", () => {
+        expect(words(base())).toContain("Your strongest match");
+        expect(words({ ...base(), closest: true })).toContain("Closest match");
+        expect(words({ ...base(), closest: true })).not.toContain("Your strongest match");
+    });
+
+    it("says which limit a runner-up is past: a cheap car that only misses the dates isn't over the limit", () => {
+        const said = words(base());
+
+        expect(said).toContain("MG 3 about €224/month · not for your dates");
+        expect(said).toContain("Audi Q3 about €980/month · over your limit");
+    });
+});
+
+describe("deal-breakers and deal-sealers", () => {
+    it("draws a row each, with only what that row can be, and an “i” for each", () => {
+        const step = stepFor("deals", cars())!;
+        const html = render([{ id: "d1", at: "", from: "lens", kind: "ask", answered: false, step }]);
+        const words = text(html);
+
+        expect(words).toContain("Any deal-breakers or deal-sealers?");
+        expect(words).not.toMatch(/Electric Doesn't matter/);
+        expect(words).toContain("Towbar Doesn't matter Must have Seals it");
+        /* What each option means, said under the question rather than on hover. */
+        expect(words).toMatch(
+            /Why I'm asking: Only pick what you'd truly refuse, or what would win you over — everything else is weighed on what you've already told me\. Doesn't matter Not part of the judgement\. Must (be \/ )?have A deal-breaker: any car without it is set aside before I score anything\. (Mustn't be A deal-breaker: any car that is one is set aside before I score anything\. )?Seals it A deal-sealer: counts as a top priority, but a car without it can still win if it's clearly better at everything else\./,
+        );
+        expect(html).not.toContain('title="A deal-');
+        /* Each meaning under its chip, not beside it, grey and white by turns. */
+        expect(html.match(/<div class="flex flex-col items-start gap-1 [^"]*odd:bg-finn-cotton even:bg-white"><dt /g)?.length).toBeGreaterThanOrEqual(3);
+        /* Each option its own lively colour, outlined until picked; the picked one filled, with a tick. */
+        expect(html).toContain("bg-white text-finn-accent-blue ring-1 ring-finn-accent-blue/45");
+        expect(html).toContain("bg-white text-[#0b8a4c] ring-1 ring-[#0b8a4c]/45");
+        expect(html).toMatch(/aria-checked="true" class="[^"]*bg-\[#52525b\] text-white[^"]*"><svg[^>]*lucide-check/);
+        /* Rectangles, not bubbles; beside the name once the row has room. */
+        expect(html).not.toMatch(/role="radio"[^>]*rounded-full/);
+        expect(html).toMatch(/role="radio"[^>]*rounded-lg/);
+        expect(html).toContain("@min-[500px]:flex-row");
+        expect(html).toContain("aria-label=\"What “Towbar” means\"");
+        expect(words).toContain("Nothing's off the table");
+    });
+});
+
+describe("the “i”", () => {
+    it("is a tooltip, closed until it's wanted, not a card under the chips", () => {
+        const step = stepFor("bubbles-people", cars())!;
+        const html = render([{ id: "p1", at: "", from: "lens", kind: "ask", answered: false, step }]);
+
+        expect(html).toContain("aria-label=\"What “Kids” means\"");
+        expect(html).not.toContain("role=\"tooltip\"");
+        expect(html).not.toContain("role=\"note\"");
+    });
+});
+
+describe("recommended comforts", () => {
+    it("are starred, with what the star means said under the question's why", () => {
+        const u = withBubbles(EMPTY_UNDERSTANDING, { weather: ["cold"] });
+        const step = stepFor("bubbles-matters", cars(), u)!;
+        const html = render([{ id: "m1", at: "", from: "lens", kind: "ask", answered: false, step: { ...step, selected: ["comfort"] } }]);
+        const words = text(html);
+
+        /* The key comes under "Why I'm asking", before the chips; the chips no longer list them again. */
+        expect(words).toMatch(/Why I'm asking: .* Starred = recommended from your earlier answers\. The “i” on each says why\. Help driving & parking/);
+        expect(words).not.toContain("Recommended from what you told me");
+        /* Not on a question with nothing starred. */
+        expect(text(render([{ id: "p1", at: "", from: "lens", kind: "ask", answered: false, step: stepFor("bubbles-people", cars())! }]))).not.toContain("Starred");
+        expect(html).toContain('aria-label="Recommended"');
+    });
+});
+
+describe("progress", () => {
+    it("shows how far through the reader is on the open question, and a pinned copy waiting for it to scroll away", () => {
+        const chat = startChat(null, cars(), TODAY);
+        const html = render(chat.messages);
+
+        expect(text(html)).toMatch(/Answered 0 of 9 1 First, who rides with you\? .*Answered 0 of 9 1 First, who rides with you\?/);
+        /* The pinned copy starts hidden, out of the tab order. */
+        expect(html).toMatch(/tabindex="-1" aria-hidden="true"/);
+    });
+});
+
+describe("follow-ups", () => {
+    it("ticks each one answered, and counts them above Continue", () => {
+        const step = stepFor("bubbles-copes", cars())!;
+        const html = render([{ id: "c1", at: "", from: "lens", kind: "ask", answered: false, progress: { done: 2, total: 8 }, step: { ...step, selected: ["weather", "carry", "carry:bulky"] } }]);
+        const words = text(html);
+
+        expect(words).toContain("Follow-ups answered: 1 of 2");
+        expect(html.match(/aria-label="Answered"/g)).toHaveLength(1);
+        expect(html).toContain('role="progressbar" aria-label="Questions answered" aria-valuemin="0" aria-valuemax="8" aria-valuenow="2"');
+        /* No block elements inside the pinned button. */
+        const pinned = html.slice(html.indexOf('tabindex="-1"'), html.indexOf("</button>", html.indexOf('tabindex="-1"')));
+        expect(pinned).not.toMatch(/<(div|p)\b/);
+    });
+
+    it("aren't counted on a section with none open", () => {
+        const step = stepFor("bubbles-people", cars())!;
+        expect(text(render([{ id: "p1", at: "", from: "lens", kind: "ask", answered: false, step }]))).not.toContain("Follow-ups");
+    });
+});
+
+describe("tooltips", () => {
+    it("open only on a click: the “i” starts closed, and nothing in the chat explains itself on hover", () => {
+        const first = render(startChat(null, cars(), TODAY).messages);
+        expect(first).toContain('aria-expanded="false"');
+        expect(first).not.toContain('role="note"');
+        expect(first).not.toMatch(/ title="/);
+
+        let chat = startChat(null, cars(), TODAY);
+        for (const picks of [["kids", "kids:baby"], ["city", "city:street"], [], [], ["budget-500"], ["period-12"], [], [], []]) chat = answer(chat, openAsk(chat).id, picks, cars(), TODAY).chat;
+        const html = render(chat.messages);
+
+        expect(html).not.toContain('role="note"');
+        expect(html).not.toMatch(/ title="/);
+    });
+});
+
+describe("question numbers", () => {
+    it("count up through a chat, kept on the answered ones, and agree with the progress", () => {
+        let chat = startChat(null, cars(), TODAY);
+        for (const picks of [["kids", "kids:baby"], ["city", "city:street"], [], [], ["budget-500"], ["period-12"], [], [], []]) chat = answer(chat, openAsk(chat).id, picks, cars(), TODAY).chat;
+        const html = render(chat.messages);
+        const numbers = [...html.matchAll(/aria-label="Question (\d+)"/g)].map((match) => Number(match[1]));
+
+        /* Four sections, limit, length, from when, fuel, deal-breakers: nine. "How it works" and "looks good?" aren't numbered. */
+        expect(numbers).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9]);
+    });
+});
+
+describe("sources in a tooltip", () => {
+    it("read “Source ↗”, the name kept for screen readers, and number themselves when there are several", () => {
+        const one = renderToStaticMarkup(createElement(TipSources, { sources: [SOURCES.adacAwd] }));
+        const two = renderToStaticMarkup(createElement(TipSources, { sources: [SOURCES.co2Label, SOURCES.icctFleet] }));
+
+        expect(text(one).trim()).toBe("Source");
+        expect(one).toContain(`href="${SOURCES.adacAwd.url}"`);
+        expect(one).toContain('target="_blank"');
+        expect(one).toContain('aria-label="Source: ADAC');
+        expect(one).toContain("<svg");
+        expect(text(one)).not.toContain("Mit Allradantrieb");
+        expect(text(two).trim()).toBe("Source 1 Source 2");
+    });
+});
+
+describe("never mind", () => {
+    it("is offered on the open question while changing answers, and not where “Never mind” is already an answer", () => {
+        const chat = startChat(null, cars(), TODAY);
+        const withIt = renderToStaticMarkup(createElement(MessageList, { messages: chat.messages, typing: false, busy: false, onAnswer: noop, onOpenCar: noop, onNeverMind: noop }));
+        const without = render(chat.messages);
+
+        expect(text(withIt)).toContain("Never mind — keep my answers");
+        expect(text(without)).not.toContain("Never mind — keep my answers");
+    });
+});
+
+describe("Adjust panel chips", () => {
+    it("carry an “i” beside the label, closed until clicked", () => {
+        let chat = startChat(null, cars(), TODAY);
+        for (const picks of [["kids", "kids:baby"], ["city", "city:street"], [], [], ["budget-500"], ["period-12"], [], [], []]) chat = answer(chat, openAsk(chat).id, picks, cars(), TODAY).chat;
+        const summary = [...chat.messages].reverse().find((message): message is Extract<ChatMessage, { kind: "summary" }> => message.kind === "summary")!;
+        const html = renderToStaticMarkup(createElement(AdjustPanel, { message: summary, busy: false, onImportance: noop, onChange: noop, onRemove: noop, onAdd: noop, onDone: noop }));
+
+        expect(html).toContain('aria-label="What “Rear doors” means"');
+        expect(html).toContain('aria-label="What “ISOFIX child seat anchors” means"');
+        expect(html).toContain('aria-label="Stop checking Rear doors"');
+    });
+});
+
+describe("the “i” panel", () => {
+    it("lays out the same way every time: title, what it means, why it's starred, what's checked as a list, a quiet note, then sources", () => {
+        const html = renderToStaticMarkup(
+            createElement(TipPanel, {
+                onClose: noop,
+                tip: {
+                    title: "Snow & ice",
+                    recommended: "Recommended because you said you drive long distances.",
+                    body: ["Winters with snow and ice.", null],
+                    lists: [{ label: "I'll check", items: ["Heated seats", "Heated steering wheel"] }, { label: "Also checked", items: [] }],
+                    note: "Not checked yet — tap it to add it.",
+                    sources: [SOURCES.adacAwd],
+                },
+            }),
+        );
+        const words = text(html).trim();
+
+        expect(words).toBe(
+            "Snow & ice Winters with snow and ice. Recommended because you said you drive long distances. I'll check Heated seats Heated steering wheel Not checked yet — tap it to add it. Source",
+        );
+        /* One item a line, not a run of "·"; an empty list isn't drawn. */
+        expect(html.match(/<li>/g)).toHaveLength(2);
+        expect(words).not.toContain("Also checked");
+        expect(html).toContain('aria-label="Close"');
+    });
+
+    it("gives each listed thing that says what it does an “i” of its own, and closes a list on its caption", () => {
+        const html = renderToStaticMarkup(
+            createElement(TipPanel, {
+                tip: {
+                    title: "Long distances",
+                    lists: [
+                        {
+                            label: "Also checked",
+                            tone: "standard",
+                            items: [{ label: "Cruise control", does: "a set speed held without your foot on the pedal" }, "Built-in navigation"],
+                            hint: "On nearly every car here; one without them loses a little.",
+                        },
+                    ],
+                },
+            }),
+        );
+
+        expect(text(html).trim()).toBe("Long distances Also checked Cruise control Built-in navigation On nearly every car here; one without them loses a little.");
+        expect(html).toContain('aria-label="What “Cruise control” is"');
+        expect(html).not.toContain('aria-label="What “Built-in navigation” is"');
+        /* What it does opens on its "i", not before. */
+        expect(html).not.toContain("held without your foot");
+    });
+});
+
+describe("the pick's gold chip", () => {
+    it("doesn't say “Best for you” under “Closest match”", () => {
+        const message: Extract<ChatMessage, { kind: "result" }> = {
+            id: "r3",
+            at: "",
+            from: "lens",
+            kind: "result",
+            headline: "5 cars",
+            count: 5,
+            closest: true,
+            winner: { id: 1, name: "MG 3", configuration: "", image: null, monthly: 300, band: "good", bandLabel: "Good match", url: null, overLimit: true, over: "period" },
+            reason: null,
+            note: null,
+            runnersUp: [],
+            setAside: 0,
+        };
+        const words = text(render([message]));
+
+        expect(words).toContain("Closest match");
+        expect(words).toContain("Lens's pick");
+        expect(words).not.toContain("Best for you");
+    });
+});
+
+describe("answers of the reader's own", () => {
+    it("are numbers only: no “Something else…” on the bubbles, the deal-breakers or “tell me something”", () => {
+        const words = text(render([{ id: "b1", at: "", from: "lens", kind: "ask", answered: false, step: stepFor("bubbles-people", cars())! }]));
+        const deals = text(render([{ id: "d1", at: "", from: "lens", kind: "ask", answered: false, step: stepFor("deals", cars())! }]));
+        const budget = text(render([{ id: "m1", at: "", from: "lens", kind: "ask", answered: false, step: stepFor("budget", cars())! }]));
+
+        expect(words).not.toContain("Something else");
+        expect(deals).not.toContain("Something else");
+        expect(budget).toContain("Another amount");
+    });
+
+    it("leave out a words answer a chat saved before still holds", () => {
+        const step = { ...stepFor("bubbles-people", cars())!, custom: { kind: "text", label: "Something else…", placeholder: "" } as never };
+
+        expect(text(render([{ id: "o1", at: "", from: "lens", kind: "ask", answered: false, step }]))).not.toContain("Something else");
+    });
+});
+
+describe("what Lens understood: how much it counts", () => {
+    it("says the scale in one sentence, gives each level its points, and marks a level that's only Lens's guess", () => {
+        const summary = summaryOf(withBubbles(EMPTY_UNDERSTANDING, { kids: ["baby"], night: [] }), "s1", cars());
+        const html = render([summary]);
+        const words = text(html);
+
+        expect(words).toContain(
+            "How much it counts: Top priority counts twice as much as Important, and Important twice as much as Nice to have. None of them rules a car out — that's what deal-breakers are for.",
+        );
+        /* The engine's own weights, as points: 4 · 2 · 1. */
+        expect(words).toContain("Top priority · 4 pts Important · 2 pts Nice to have · 1 pt");
+        expect(words).toMatch(/You have kids · a baby or toddler seat Top priority · 4 pts/);
+        /* Kids with a baby seat is a top priority the reader said; driving at night is Important only because Lens guessed. */
+        expect(words).toContain("A dashed outline is my guess, where you didn't say how much it counts.");
+        expect(html.match(/outline-dashed/g)?.length).toBe(1);
+    });
+});

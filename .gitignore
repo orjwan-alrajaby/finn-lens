@@ -141,3 +141,12 @@ dist
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 .vite/
+
+gitIgnoreThisFolder
+
+# Python bytecode, from design/finn-lens-identity/generator
+__pycache__/
+*.pyc
+
+# Secrets
+.env

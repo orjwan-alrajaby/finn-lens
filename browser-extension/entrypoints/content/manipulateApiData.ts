@@ -2,9 +2,19 @@ import type { FinnApiConfig, FinnCar, FuelType, Transmission } from "@/lib/types
 import {
   getFeature,
   extractFeatures,
+  extractEvRangeKm,
+  extractBatteryKwh,
+  hasSuppliedEquipment,
+  extractUnansweredFeatures,
+  extractEquipmentText,
   extractAvailability,
   extractPricing,
+  extractContract,
   extractDriveType,
+  extractDriverAssistanceLevel,
+  extractDcChargeMinutes,
+  extractTowingCapacityKg,
+  extractTyres,
 } from "@/lib/helpers";
 import { germanToEnglish } from "@/lib/translate";
 
@@ -22,7 +32,7 @@ function mapFinnConfig(config: FinnApiConfig): FinnCar {
     model: config.model,
     trim: config.trim_name,
     year: config.model_year,
-    engine: config.engine,
+    engine: config.engine ?? "",
     equipmentLine: config.equipment_line ?? "",
 
     fuelType,
@@ -40,24 +50,25 @@ function mapFinnConfig(config: FinnApiConfig): FinnCar {
 
     availability: extractAvailability(config),
     pricing: extractPricing(config),
+    contract: extractContract(config),
 
     consumption: {
-      combined: config.consumption,
+      combined: config.consumption ?? null,
       city: config.consumption_city,
       highway: config.consumption_highway,
       unit: "L/100Km",
     },
 
     co2: {
-      value: config.co2emission,
-      class: config.co2_class,
+      value: config.co2emission ?? null,
+      class: config.co2_class ?? null,
       unit: "g/km",
     },
 
     electric: isElectric
       ? {
-          range: config.ev_range ?? "Unknown",
-          batteryCapacity: (getFeature(config, "Batteriekapazität") as number) ?? "Unknown",
+          range: extractEvRangeKm(config) ?? "Unknown",
+          batteryCapacity: extractBatteryKwh(config) ?? "Unknown",
           rangeUnit: "km",
           batteryUnit: "kWh",
         }
@@ -81,6 +92,13 @@ function mapFinnConfig(config: FinnApiConfig): FinnCar {
     },
 
     features: extractFeatures(config),
+    featuresSupplied: hasSuppliedEquipment(config),
+    unansweredFeatures: extractUnansweredFeatures(config),
+    equipmentText: extractEquipmentText(config),
+    driverAssistanceLevel: extractDriverAssistanceLevel(config),
+    dcChargeMinutes: isElectric ? extractDcChargeMinutes(config) : null,
+    towingCapacityKg: extractTowingCapacityKg(config),
+    tyres: extractTyres(config),
 
     dimensions: {
       length: config.vehicle_size.length_mm,

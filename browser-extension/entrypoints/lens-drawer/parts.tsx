@@ -1,0 +1,413 @@
+import type { ReactNode } from "react";
+import { Check, ChevronDown, CircleHelp, ExternalLink, Info, Minus, Trophy, X } from "lucide-react";
+
+import { EnvironmentalResult, UsageResult } from "@/components/EnvironmentalResult";
+import { LocateButton } from "@/components/LocateButton";
+import { BandChip, CarPhoto, euros, WINNER_GOLD, WinnerChip } from "@/components/lens-parts";
+import { configurationName } from "@/lib/car-labels";
+import { carTags, type CarTagTone } from "@/lib/car-tags";
+import { requestShowCar } from "@/lib/chats/bridge";
+import { bandForScore } from "@/lib/reasoning-engine/bands";
+import { assessEnvironment } from "@/lib/reasoning-engine/environmental";
+import { FIT_BANDS, type FitBand, type FitLevel } from "@/lib/reasoning-engine/fit";
+import type { CategoryId } from "@/lib/reasoning-engine/types";
+import type { CostAnalysis } from "@/lib/reasoning-engine/types";
+import type { FitStory, StoryLine, StorySection, Tone } from "@/lib/lens-chat/fit-story";
+
+import type { JudgedCar } from "./useJudgedCar";
+
+/**
+ * The pieces the drawer is built from: compact, so a car's whole reading fits
+ * the reader's eye, and every line still says what it is based on.
+ */
+
+/**
+ * One part of a drawer. `folded` keeps it to its title until tapped — the
+ * drawer opens on why and what it costs, and the rest is one tap away.
+ */
+export function Section({ title, children, aside, folded = false }: { title: string; children: ReactNode; aside?: ReactNode; folded?: boolean }) {
+    if (folded) {
+        return (
+            <details className="group border-t border-finn-cotton px-5 py-3.5">
+                <summary className="flex cursor-pointer list-none items-center justify-between gap-3 rounded-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-finn-accent-blue [&::-webkit-details-marker]:hidden">
+                    <h2 className="text-[11px] font-black uppercase tracking-wide text-finn-iron group-hover:text-finn-black">{title}</h2>
+                    <ChevronDown aria-hidden="true" className="h-4 w-4 shrink-0 text-finn-iron transition-transform group-open:rotate-180" />
+                </summary>
+                <div className="mt-2.5">{children}</div>
+            </details>
+        );
+    }
+
+    return (
+        <section className="border-t border-finn-cotton px-5 py-4">
+            <div className="mb-2.5 flex items-baseline justify-between gap-3">
+                <h2 className="text-[11px] font-black uppercase tracking-wide text-finn-iron">{title}</h2>
+                {aside}
+            </div>
+            {children}
+        </section>
+    );
+}
+
+const TONE: Record<Tone, { icon: ReactNode; ring: string; label: string }> = {
+    good: { icon: <Check className="h-3 w-3" strokeWidth={3} />, ring: "bg-finn-fit-good-pale text-finn-fit-good", label: "Has it" },
+    missing: { icon: <X className="h-3 w-3" strokeWidth={3} />, ring: "bg-finn-fit-limited-pale text-finn-fit-limited", label: "Missing" },
+    unknown: { icon: <CircleHelp className="h-3 w-3" strokeWidth={2.5} />, ring: "bg-finn-cotton text-finn-iron", label: "Unknown" },
+    note: { icon: <Minus className="h-3 w-3" strokeWidth={3} />, ring: "bg-finn-fit-partial-pale text-finn-fit-partial", label: "Partly" },
+};
+
+export function ToneDot({ tone, size = "sm" }: { tone: Tone; size?: "sm" | "md" }) {
+    return (
+        <span
+            aria-label={TONE[tone].label}
+            className={`inline-flex shrink-0 items-center justify-center rounded-full ${TONE[tone].ring} ${size === "md" ? "h-6 w-6" : "h-[18px] w-[18px]"}`}
+        >
+            {TONE[tone].icon}
+        </span>
+    );
+}
+
+/** The band this car earned on one priority, as the engine scored it. */
+function bandOn(value: JudgedCar, priority: CategoryId): FitBand {
+    const detail = value.judged.run.recommendation.scores.find((score) => score.vehicleId === value.car.id)?.details[priority];
+    const level: FitLevel = detail?.assessed ? bandForScore(detail.exactScore) : "unknown";
+
+    return { level, label: FIT_BANDS[level].label };
+}
+
+/**
+ * Who a row answers, where one reading counts for several things the reader
+ * said: "Counts for both “A greener car” and “Using little fuel”".
+ */
+export function saidFor(need: string, alsoFor: string[] = []): string {
+    if (!alsoFor.length) return `You said: ${need}`;
+
+    const all = [need, ...alsoFor].map((item) => `“${item}”`);
+
+    return all.length === 2 ? `Counts for both ${all[0]} and ${all[1]}` : `Counts for ${all.slice(0, -1).join(", ")} and ${all.at(-1)}`;
+}
+
+/**
+ * A need judged on a figure: under the need the reader named, the figure
+ * against its benchmark, as the playground's environmental section drew it —
+ * the verdict in its colour, the bar, and why.
+ */
+function FigureRow({ section, value }: { section: StorySection; value: JudgedCar }) {
+    const figure = section.figure!;
+
+    return (
+        <li className="rounded-xl bg-finn-snow p-3 ring-1 ring-black/[0.03]">
+            <p className="mb-2.5 text-[11px] text-finn-iron">{saidFor(figure.need, section.alsoFor)}</p>
+            {figure.kind === "co2" ? (
+                <EnvironmentalResult assessment={assessEnvironment(value.car)} band={bandOn(value, "environmental")} />
+            ) : (
+                <UsageResult car={value.car} />
+            )}
+        </li>
+    );
+}
+
+/**
+ * One thing the reader asked for, and what this car does about it. With
+ * `rivals`, a line it falls short on names the car here that has it.
+ */
+export function StoryRow({ section, value, rivals = false, print = false }: { section: StorySection; value?: JudgedCar; rivals?: boolean; print?: boolean }) {
+    if (section.figure && value) return <FigureRow section={section} value={value} />;
+
+    return (
+        <li className="rounded-xl bg-finn-snow p-3 ring-1 ring-black/[0.03]">
+            <div className="flex items-start gap-2.5">
+                <ToneDot tone={section.tone} size="md" />
+                <div className="min-w-0 flex-1">
+                    <p className="text-[13px] font-black leading-snug text-finn-black">{section.title}</p>
+                    <p className="text-[11px] text-finn-iron">{saidFor(section.short, section.alsoFor)}</p>
+                </div>
+            </div>
+            <StoryLines lines={section.lines} value={rivals ? value : undefined} print={print} className="mt-2 pl-[34px]" />
+        </li>
+    );
+}
+
+/** What a row says, line by line: each with its tone, who else it counts for, its sources — and, given `value`, the car that has what this one lacks. */
+export function StoryLines({ lines, value, print = false, className = "" }: { lines: StoryLine[]; value?: JudgedCar; print?: boolean; className?: string }) {
+    return (
+        <ul className={`space-y-1.5 ${className}`}>
+            {lines.map((line, index) => (
+                <li key={index} className="flex items-start gap-2 text-[12.5px] leading-snug text-finn-black">
+                    <span className="mt-px">
+                        <ToneDot tone={line.tone} />
+                    </span>
+                    <span className={line.tone === "note" ? "text-finn-iron" : ""}>
+                        {line.text}
+                        {line.alsoFor?.length ? (
+                            <span className="mt-0.5 block text-[11px] text-finn-iron">Also counts for {line.alsoFor.map((need) => `“${need}”`).join(" and ")}</span>
+                        ) : null}
+                        {line.sources?.length ? (
+                            <span className="mt-0.5 block text-[10.5px] text-finn-iron/70">
+                                Source{line.sources.length > 1 ? "s" : ""}:{" "}
+                                {line.sources.map((source, index) => (
+                                    <span key={source.url}>
+                                        {index ? " · " : ""}
+                                        <a href={source.url} target="_blank" rel="noreferrer" className="text-finn-iron/80 underline decoration-finn-iron/30 underline-offset-2 hover:text-finn-accent-blue hover:decoration-finn-accent-blue/50">
+                                            {source.name}
+                                        </a>
+                                    </span>
+                                ))}
+                            </span>
+                        ) : null}
+                        {value && line.rival ? (
+                            <>
+                                <span className="mt-1 block text-finn-black">{line.rival.text}</span>
+                                <LocateCar id={line.rival.id} name={line.rival.name} value={value} print={print} winner={line.rival.winner} />
+                            </>
+                        ) : null}
+                    </span>
+                </li>
+            ))}
+        </ul>
+    );
+}
+
+export function StoryList({ story, value }: { story: FitStory; value?: JudgedCar }) {
+    return (
+        <ul className="space-y-2">
+            {story.sections.map((section) => (
+                <StoryRow key={section.key} section={section} value={value} />
+            ))}
+        </ul>
+    );
+}
+
+/**
+ * How much it uses, for a reader who didn't ask: it's on their bill every
+ * month either way, as the playground had it. A reader who did ask has it in
+ * their own need's row already.
+ */
+export function UsageSection({ value, folded = false, title = "How much it uses" }: { value: JudgedCar; folded?: boolean; title?: string }) {
+    if (value.story?.sections.some((section) => section.figure?.kind === "efficiency")) return null;
+
+    return (
+        <Section title={title} folded={folded}>
+            <UsageResult car={value.car} />
+        </Section>
+    );
+}
+
+export function Catch({ story, value, print = false }: { story: FitStory; value?: JudgedCar; print?: boolean }) {
+    if (!story.catch) return null;
+
+    const { car } = story.catch;
+
+    return (
+        <div className="flex gap-2.5 rounded-xl bg-finn-warning-lift/50 p-3 text-[12.5px] leading-snug text-finn-warning-ink">
+            <Info aria-hidden="true" className="mt-0.5 h-4 w-4 shrink-0" />
+            <div>
+                <p className="font-semibold">{story.catch.text}</p>
+                {story.catch.alternative ? <p className="mt-1">{story.catch.alternative}</p> : null}
+                {/* In the file, a link to it on FINN: there's no page to find it on. */}
+                {car ? <LocateCar id={car.id} name={car.name} winner={car.winner} value={value} print={print} /> : null}
+            </div>
+        </div>
+    );
+}
+
+/**
+ * Wherever the drawer names another car: a button that finds it on FINN's
+ * page — or, in the PDF, where there's no page to scroll, a link to the car
+ * on FINN, where Lens has its address.
+ */
+export function LocateCar({
+    id,
+    name,
+    size = "text",
+    value,
+    print = false,
+    winner = false,
+}: {
+    id: number;
+    name: string;
+    size?: "sm" | "text";
+    value?: JudgedCar;
+    print?: boolean;
+    /** The car is the winner: the button takes its gold. */
+    winner?: boolean;
+}) {
+    /*
+     * In the file, the same button as on screen — the winner's gold, or the grey
+     * pill — as a link to the car on FINN: there's no page to find it on.
+     */
+    if (print) {
+        const url = value?.judgement.urls[id];
+        if (!url || size !== "text") return null;
+
+        return winner ? (
+            <WinnerButton name={name} href={url} className="mt-1.5" />
+        ) : (
+            <a
+                href={url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-1.5 inline-flex items-center gap-1.5 rounded-full bg-finn-cotton px-3 py-1.5 text-[11.5px] font-black text-finn-black"
+            >
+                <ExternalLink aria-hidden="true" className="h-3.5 w-3.5" />
+                See the {name} on FINN
+            </a>
+        );
+    }
+
+    return <LocateButton name={name} size={size} label={size === "text" ? `Show the ${name}` : undefined} winner={winner} onLocate={() => requestShowCar(id, winner)} />;
+}
+
+/**
+ * "See" and the winner's name, in its gold with its trophy, as its chip has
+ * them: never mistaken for a way to another car. A button on screen; given
+ * `href`, the same thing as a link — in the PDF, to the winner on FINN.
+ */
+export function WinnerButton({ name, href, onClick, className = "" }: { name: string; href?: string; onClick?: () => void; className?: string }) {
+    const look = `inline-flex items-center gap-1.5 rounded-full py-1.5 pr-3.5 pl-1.5 text-[12.5px] font-black text-[#5b3a00] transition-[filter] hover:brightness-105 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#d97706] ${className}`;
+    const body = (
+        <>
+            <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-white text-[#b7791f] shadow-sm">
+                <Trophy aria-hidden="true" className="h-3.5 w-3.5" strokeWidth={2.6} />
+            </span>
+            See {name}
+        </>
+    );
+
+    return href ? (
+        <a href={href} target="_blank" rel="noopener noreferrer" className={look} style={WINNER_GOLD}>
+            {body}
+        </a>
+    ) : (
+        <button type="button" onClick={onClick} className={look} style={WINNER_GOLD}>
+            {body}
+        </button>
+    );
+}
+
+/** Where the money goes, line by line, and what's estimated rather than FINN's own figure. */
+export function CostTable({ cost }: { cost: CostAnalysis }) {
+    const { breakdown } = cost;
+
+    return (
+        <div>
+            <dl className="divide-y divide-finn-cotton overflow-hidden rounded-xl ring-1 ring-finn-cotton">
+                {cost.lines.map((line) => (
+                    <div key={line.id} className="flex items-start justify-between gap-3 bg-white px-3 py-2.5">
+                        <dt className="min-w-0">
+                            <span className="block text-[12.5px] font-bold text-finn-black">{line.label}</span>
+                            <span className="block text-[11px] leading-snug text-finn-iron">{line.explanation}</span>
+                            {/* Any figure that isn't FINN's says where it's from, with a link to check it. */}
+                            {line.sources?.map((source) => (
+                                <span key={source.url} className="mt-1 block text-[10.5px] leading-snug text-finn-iron/70">
+                                    Source:{" "}
+                                    <a href={source.url} target="_blank" rel="noreferrer" className="text-finn-iron/80 underline decoration-finn-iron/30 underline-offset-2 hover:text-finn-accent-blue hover:decoration-finn-accent-blue/50">
+                                        {source.name}
+                                    </a>
+                                </span>
+                            ))}
+                        </dt>
+                        <dd className="shrink-0 text-[13px] font-black tabular-nums text-finn-black">
+                            {line.available && line.amount != null ? euros(line.amount) : "—"}
+                        </dd>
+                    </div>
+                ))}
+                <div className="flex items-center justify-between gap-3 bg-finn-pale-blue px-3 py-2.5">
+                    <dt className="text-[12.5px] font-black text-finn-black">{breakdown.complete ? "A month, estimated" : "A month, as far as Lens can tell"}</dt>
+                    <dd className="text-[15px] font-black tabular-nums text-finn-accent-blue">{euros(breakdown.totalMonthly)}</dd>
+                </div>
+            </dl>
+            {cost.budgetSentence ? <p className="mt-2 text-[12px] leading-snug text-finn-iron">{cost.budgetSentence}</p> : null}
+            {cost.caveats.map((caveat) => (
+                <p key={caveat} className="mt-1 text-[11.5px] leading-snug text-finn-iron">
+                    {caveat}
+                </p>
+            ))}
+        </div>
+    );
+}
+
+/** The car itself: photo, name, the chip it wears on FINN's card, and what it costs. */
+const TAG_TONE: Record<CarTagTone, string> = {
+    neutral: "bg-finn-pale-blue text-finn-highlight-navy",
+    good: "bg-finn-fit-good-pale text-finn-fit-good",
+    middling: "bg-finn-cotton text-finn-black/80",
+    poor: "bg-finn-fit-partial-pale text-finn-fit-partial",
+};
+
+/** What it runs on, how much it uses and how much CO₂ it puts out, each with the figure it rests on. Nothing where FINN lists nothing. */
+export function CarTags({ car, className = "" }: { car: JudgedCar["car"]; className?: string }) {
+    const tags = carTags(car);
+    if (!tags.length) return null;
+
+    return (
+        <ul aria-label="At a glance" className={`flex flex-wrap gap-1.5 ${className}`}>
+            {tags.map((tag) => (
+                <li key={tag.id} className={`rounded-full px-2.5 py-1 text-[11.5px] font-black ${TAG_TONE[tag.tone]}`}>
+                    {tag.label}
+                    {tag.figure ? <span className="font-semibold"> · {tag.figure}</span> : null}
+                </li>
+            ))}
+        </ul>
+    );
+}
+
+/** The top of a PDF: what the file is, which chat and when, and what was judged. */
+export function PrintMasthead({ value, kind }: { value: JudgedCar; kind: string }) {
+    const { chat, judgement } = value;
+
+    return (
+        <header className="flex items-center justify-between border-b border-finn-cotton px-5 py-4">
+            <div>
+                <p className="text-[11px] font-black uppercase tracking-wide text-finn-iron">Finn Lens · {kind}</p>
+                <p className="text-[13px] text-finn-black">
+                    From your chat “{chat.title}”, judged {new Date(judgement.at).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })}
+                </p>
+            </div>
+            {/* How many it was judged against, not where they were: "48 cars on this page" means nothing once the page is gone. */}
+            <p className="text-right text-[11px] text-finn-iron">Judged against {judgement.carIds.length} cars</p>
+        </header>
+    );
+}
+
+export function CarHeader({ value }: { value: JudgedCar }) {
+    const { car, verdict, judgement, cost, isWinner } = value;
+    /* Its place among the cars that were ranked: the ones set aside before ranking have none. */
+    const total = Object.values(judgement.verdicts).filter((item) => item.rank != null).length;
+
+    return (
+        <div className="px-5 pt-4 pb-4">
+            <CarPhoto src={car.images?.thumbnail || null} alt={car.name} winner={isWinner} className="h-40 w-full rounded-2xl" />
+
+            <div className="mt-3 flex flex-wrap items-center gap-1.5">
+                {isWinner ? <WinnerChip label={verdict.closest ? "Lens's pick" : undefined} /> : <BandChip band={verdict.setAside ? "unknown" : verdict.band} label={verdict.label} />}
+                {verdict.rank != null ? (
+                    <span className="rounded-full bg-finn-cotton px-2.5 py-1 text-[11px] font-black text-finn-black">
+                        #{verdict.rank} of {total} ranked
+                    </span>
+                ) : null}
+                {verdict.over ? (
+                    <span className="rounded-full bg-finn-fit-limited-pale px-2.5 py-1 text-[11px] font-black text-finn-fit-limited">
+                        {verdict.over === "budget" ? "Over your budget" : "Not for your dates"}
+                    </span>
+                ) : null}
+            </div>
+
+            <div className="mt-2 flex items-end justify-between gap-3">
+                <div className="min-w-0">
+                    <h1 className="text-[19px] font-black leading-tight text-finn-black">{car.name}</h1>
+                    <p className="text-[12.5px] text-finn-iron">{configurationName(car)}</p>
+                </div>
+                {cost ? (
+                    <p className="shrink-0 text-right text-[11px] text-finn-iron">
+                        <span className="block text-[18px] font-black tabular-nums text-finn-black">{euros(cost.breakdown.totalMonthly)}</span>
+                        {cost.breakdown.complete ? "a month, estimated" : "a month, as far as Lens can tell"}
+                    </p>
+                ) : null}
+            </div>
+
+            {/* Under the name and the price, across the whole width. */}
+            <CarTags car={car} className="mt-3" />
+        </div>
+    );
+}

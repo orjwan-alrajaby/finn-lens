@@ -1,0 +1,351 @@
+import type { Options } from "react-to-pdf";
+
+/**
+ * Taking the advice away as a file.
+ *
+ * A recommendation is a thing people argue about with somebody else — a
+ * partner, a housemate, whoever is paying half of it — and until now the only
+ * way to show it to them was to sit them in front of this browser profile.
+ * The page is already the whole argument in order, so the export is a
+ * photograph of it rather than a second, print-shaped rendering of the same
+ * facts. Two renderings of one argument is how the two start disagreeing.
+ *
+ * What the file must not carry is the parts of the page that only mean
+ * something while it is on screen: the buttons that change the answers, and
+ * the picker that chooses which rival to examine. Those are marked
+ * `finn-lens-screen-only` and dropped for the capture — see the rule in
+ * assets/tailwind.css. Whichever rival was in the hot seat when the reader
+ * pressed the button is kept, because that comparison is part of what they
+ * are taking away; when nothing is in it, nothing is added.
+ *
+ * What it must carry is the links. The capture is a photograph, so every
+ * anchor in it — "View this car on FINN", first among them — arrives as
+ * pixels of a button that cannot be pressed. A file whose whole purpose is
+ * to be sent to somebody else should not be the one copy of this argument
+ * with no way back to the cars. So the anchors are measured on the page and
+ * re-added to the document as link annotations, which is a thing PDF has
+ * and an image does not.
+ */
+
+/** px per mm at 96dpi, which is the number react-to-pdf lays pages out with. */
+const MM_TO_PX = 3.77952755906;
+
+/** The margin the capture is placed inside, in mm, on every edge. */
+export const PDF_MARGIN_MM = 8;
+
+/** The sheet the file is laid out on, in mm: A4 portrait, as `advicePdfOptions` asks for. */
+export const A4 = { width: 210, height: 297 } as const;
+
+/** One anchor, measured against the top-left of the captured element. */
+export interface LinkRect {
+  url: string;
+  /** CSS pixels. */
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+/** Where that anchor lands once the capture has been cut into pages. */
+export interface LinkPlacement {
+  /** 1-based, the way jsPDF counts. */
+  page: number;
+  /** Millimetres, from the top-left of the sheet. */
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  url: string;
+}
+
+export interface CaptureGeometry {
+  /** The captured element's own width, in CSS pixels. */
+  elementWidth: number;
+  /** The sheet, in mm. */
+  pageWidth: number;
+  pageHeight: number;
+  margin: number;
+}
+
+/**
+ * Only what a PDF reader can actually follow.
+ *
+ * In-page anchors and `javascript:` are meaningless in a file, and an empty
+ * href resolves to the document it came from — which in a PDF is nowhere at
+ * all. A zero-sized rect is an anchor that was hidden for the capture, so
+ * there is nothing on the sheet to put a hotspot over.
+ */
+function worthLinking(link: LinkRect): boolean {
+  return (
+    link.width > 0 &&
+    link.height > 0 &&
+    /^https?:\/\//i.test(link.url)
+  );
+}
+
+/**
+ * Turning positions on a long page into positions on numbered sheets.
+ *
+ * This mirrors the arithmetic react-to-pdf does to place the image, and has
+ * to keep mirroring it: the capture is scaled to fit the page width, and the
+ * scaling decides both how many pixels of the page fit on a sheet and how
+ * many millimetres a pixel is worth. Getting it wrong doesn't fail loudly —
+ * it puts an invisible hotspot slightly to the left of a button.
+ *
+ * A link that lies across a page break is placed twice, once on each sheet,
+ * clipped to it. The alternative is choosing a sheet for it and leaving half
+ * the button dead, which is the kind of thing nobody reports and everybody
+ * notices.
+ */
+/**
+ * How the capture is scaled onto a sheet, and how much of it, in its own CSS
+ * pixels, one sheet holds. Wider than the sheet, so everything is scaled down
+ * to fit — the same decision react-to-pdf makes, expressed the same way,
+ * because the two have to agree to the pixel. Null when nothing fits.
+ */
+function scaleOf(geometry: CaptureGeometry): { fit: number; sheet: number } | null {
+  const { elementWidth, pageWidth, pageHeight, margin } = geometry;
+
+  const availableWidth = (pageWidth - margin * 2) * MM_TO_PX;
+  const availableHeight = (pageHeight - margin * 2) * MM_TO_PX;
+
+  if (availableWidth <= 0 || availableHeight <= 0) return null;
+
+  const fit =
+    elementWidth > availableWidth ? elementWidth / availableWidth : 1;
+
+  return { fit, sheet: availableHeight * fit };
+}
+
+/** How much of the captured element, in its own CSS pixels, one sheet holds — where every page break falls. */
+export function sheetHeight(geometry: CaptureGeometry): number {
+  return scaleOf(geometry)?.sheet ?? 0;
+}
+
+export function placeLinks(
+  links: LinkRect[],
+  geometry: CaptureGeometry,
+): LinkPlacement[] {
+  const { margin } = geometry;
+  const scale = scaleOf(geometry);
+
+  if (!scale) return [];
+
+  const { fit, sheet } = scale;
+  const toMm = (px: number) => px / (MM_TO_PX * fit);
+
+  const placements: LinkPlacement[] = [];
+
+  for (const link of links.filter(worthLinking)) {
+    const first = Math.floor(link.y / sheet) + 1;
+    const last = Math.floor((link.y + link.height - 0.001) / sheet) + 1;
+
+    for (let page = first; page <= last; page += 1) {
+      const top = Math.max(link.y, (page - 1) * sheet);
+      const bottom = Math.min(link.y + link.height, page * sheet);
+
+      if (bottom <= top) continue;
+
+      placements.push({
+        page,
+        x: margin + toMm(link.x),
+        y: margin + toMm(top - (page - 1) * sheet),
+        width: toMm(link.width),
+        height: toMm(bottom - top),
+        url: link.url,
+      });
+    }
+  }
+
+  return placements;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Clean page breaks                                                          */
+/* -------------------------------------------------------------------------- */
+
+/** Room left above a block moved to a new sheet, so it doesn't sit hard against the top. */
+const BREAK_GAP = 12;
+/** A block up to this share of a sheet is kept whole; a bigger one breaks between its own parts instead. */
+const KEEP_WHOLE = 0.5;
+/** A heading needs this much room under it on its sheet, or it moves on with what it heads. */
+const UNDER_HEADING = 72;
+
+/**
+ * How far to move a block down so it starts on the next sheet, rather than
+ * being cut across a page break — 0 when it fits where it is, or is too big
+ * to keep whole (then its own parts are kept whole instead). A heading moves
+ * on too when there isn't room for some of what it heads under it.
+ */
+export function breakPush(top: number, height: number, sheet: number, heading = false): number {
+  if (sheet <= 0 || height <= 0 || height > sheet * KEEP_WHOLE) return 0;
+
+  const end = (Math.floor(top / sheet) + 1) * sheet;
+  const needs = heading ? height + UNDER_HEADING : height;
+
+  if (top + needs <= end) return 0;
+
+  return end - top + BREAK_GAP;
+}
+
+type Measure = (element: Element) => { top: number; height: number };
+type StyleOf = (element: Element) => Pick<CSSStyleDeclaration, "display" | "position" | "flexDirection" | "gridTemplateColumns">;
+
+/** Whether an element stacks under the one before it, so space above it moves it down rather than across. */
+function stacked(element: Element, styleOf: StyleOf): boolean {
+  const own = styleOf(element);
+  if (own.display.startsWith("inline") || own.display === "none" || own.display === "contents" || own.display.startsWith("table")) return false;
+  if (own.position === "absolute" || own.position === "fixed") return false;
+
+  const parent = element.parentElement;
+  if (!parent) return false;
+
+  const around = styleOf(parent);
+  if (around.display.includes("flex")) return around.flexDirection.startsWith("column");
+  if (around.display.includes("grid")) return around.gridTemplateColumns.trim().split(/\s+/).length <= 1;
+
+  return !around.display.startsWith("inline");
+}
+
+/**
+ * Keeps the PDF's blocks whole across its page breaks.
+ *
+ * The capture is one long picture, cut every `sheet` pixels whatever is
+ * there — through a line of text, a button, a card's heading. So before it's
+ * taken, each block that would straddle a break and is small enough to keep
+ * whole gets space above it that moves it to the next sheet, outermost first:
+ * a row of the cost table, a reason, a card. A block too big to move breaks
+ * between its own parts instead, each of which is kept whole the same way.
+ *
+ * Only what stacks: space before a chip in a row would move it sideways.
+ * Measured afresh each time, since every space added moves what follows.
+ */
+export function keepBlocksWhole(
+  root: HTMLElement,
+  sheet: number,
+  measure: Measure = (element) => element.getBoundingClientRect(),
+  styleOf: StyleOf = (element) => getComputedStyle(element),
+): void {
+  for (const block of root.querySelectorAll("*")) {
+    if (!stacked(block, styleOf)) continue;
+
+    const { top, height } = measure(block);
+    const push = breakPush(top - measure(root).top, height, sheet, /^H[1-6]$/.test(block.tagName));
+    if (!push) continue;
+
+    const list = block.parentElement?.tagName === "UL" || block.parentElement?.tagName === "OL";
+    const space = block.ownerDocument.createElement(list ? "li" : "div");
+    space.setAttribute("aria-hidden", "true");
+    space.setAttribute("data-page-break", "");
+    space.style.cssText = `display:block;height:${push}px;margin:0;padding:0;border:0;list-style:none;`;
+    block.before(space);
+  }
+}
+
+/** Everything a filename may contain, once the car's name has been through it. */
+const UNSAFE = /[^a-z0-9]+/g;
+
+/**
+ * `finn-lens-advice-byd-dolphin-2026-09-05.pdf`.
+ *
+ * The car and the date, because the two questions anyone asks of a file like
+ * this months later are which car it was about and when it was true. Dates
+ * are ISO so a folder of them sorts itself.
+ */
+export function adviceFileName(carName: string, on: Date = new Date()): string {
+  return fileName("finn-lens-advice", carName, on);
+}
+
+/**
+ * `finn-lens-fit-mg-zs-2026-10-09.pdf`: how a car that isn't the winner fits
+ * — named apart from the advice, so a folder never mixes up the pick with a
+ * car that lost to it.
+ */
+export function fitFileName(carName: string, on: Date = new Date()): string {
+  return fileName("finn-lens-fit", carName, on);
+}
+
+function fileName(prefix: string, subject: string, on: Date): string {
+  const slug = subject.toLowerCase().replace(UNSAFE, "-").replace(/^-|-$/g, "");
+  const day = [
+    on.getFullYear(),
+    `${on.getMonth() + 1}`.padStart(2, "0"),
+    `${on.getDate()}`.padStart(2, "0"),
+  ].join("-");
+
+  return [prefix, slug, day].filter(Boolean).join("-") + ".pdf";
+}
+
+/**
+ * How the capture is taken.
+ *
+ * A4 portrait with a small margin, and the page split across as many sheets
+ * as it needs — the advice runs to a couple of thousand pixels and refusing
+ * to paginate would either crop the argument or shrink it past reading.
+ *
+ * `useCORS` is what lets the car's photograph through: it comes from FINN's
+ * own CDN, and without it html2canvas silently leaves a hole where the car
+ * was. If the CDN declines, the rest of the page still exports — the photo
+ * is the one thing in here the reader can get elsewhere.
+ *
+ * JPEG rather than PNG, at a resolution of 2. The page is mostly flat colour
+ * and text, where the difference is invisible, and a PNG of six A4 pages at
+ * this size runs to tens of megabytes.
+ */
+export function advicePdfOptions(filename: string): Options {
+  return {
+    filename,
+    /*
+     * Built rather than saved, so the document can be handed back with the
+     * link annotations still to be added to it. Saving is the caller's last
+     * step.
+     */
+    method: "build",
+    resolution: 2,
+    page: {
+      format: "a4",
+      orientation: "portrait",
+      margin: PDF_MARGIN_MM,
+    },
+    canvas: { mimeType: "image/jpeg", qualityRatio: 0.92, useCORS: true },
+    overrides: {
+      canvas: {
+        useCORS: true,
+        /* The page's own ground, so margins don't come out black. */
+        backgroundColor: "#ffffff",
+        /* Long enough for a CDN image, short enough not to hang the button. */
+        imageTimeout: 6000,
+        logging: false,
+        onclone: (clone: Document) => inlineStyles(document, clone),
+      },
+    },
+  };
+}
+
+/**
+ * The page's own CSS, copied into the clone the capture photographs.
+ *
+ * html2canvas draws a clone of the document, and the clone re-requests the
+ * page's linked stylesheet. When the photograph is taken before that request
+ * lands, the file comes out in browser defaults — unstyled, and twice as
+ * long. Copying the rules the page already has into the clone as a <style>
+ * means there is nothing left to wait for.
+ */
+export function inlineStyles(source: Document, clone: Document): void {
+    const css = [...source.styleSheets]
+        .map((sheet) => {
+            try {
+                return [...sheet.cssRules].map((rule) => rule.cssText).join("\n");
+            } catch {
+                /* A sheet from another origin can't be read, and isn't ours. */
+                return "";
+            }
+        })
+        .join("\n");
+
+    if (!css) return;
+
+    const style = clone.createElement("style");
+    style.textContent = css;
+    clone.head.append(style);
+}

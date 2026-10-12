@@ -1,8 +1,24 @@
 export const germanToEnglish: Record<string, string> = {
-  // fuel
+  /*
+   * Fuel.
+   *
+   * Diesel was missing entirely and the plug-in hybrid key was spelled
+   * "Plug-In-Hybrid" where FINN sends "Plug-in Hybrid" — so both mapped to
+   * undefined, and every diesel and every plug-in hybrid came out of the API
+   * with no powertrain at all. That silently reached three places: the
+   * environmental assessment couldn't say what the car burned, the cost
+   * estimate billed diesel at the petrol price, and the plug-in hybrid caveat
+   * never fired for the cars it exists for.
+   *
+   * Both spellings of the hybrid are kept, because a live API is not worth
+   * betting a powertrain on.
+   */
   Benzin: "Petrol",
+  Diesel: "Diesel",
   Elektro: "Electric",
+  "Plug-in Hybrid": "Plug-in Hybrid",
   "Plug-In-Hybrid": "Plug-in Hybrid",
+  "Plug-in-Hybrid": "Plug-in Hybrid",
 
   // transmission
   Automatik: "Automatic",

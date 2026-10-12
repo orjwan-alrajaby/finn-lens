@@ -1,0 +1,394 @@
+import { useMemo } from "react";
+import { ChevronRight, Trophy } from "lucide-react";
+
+import { ImportanceBadge } from "@/components/ImportanceKey";
+import { BandChip, CarPhoto, euros } from "@/components/lens-parts";
+import { configurationName } from "@/lib/car-labels";
+import { IMPORTANCE_LABEL, summaryOf } from "@/lib/chats/flow";
+import { weighingOf, type GroupedNeed, type Weighing } from "@/lib/chats/weighing";
+import { fitFor } from "@/lib/reasoning-engine";
+import { GOOD_FROM, PARTIAL_FROM, STRONG_FROM } from "@/lib/reasoning-engine/bands";
+import { requestOpenDrawer } from "@/lib/chats/bridge";
+import { closestMatch } from "@/lib/chats/judge";
+
+import { sameJudgement } from "./useJudgedCar";
+import { alternativesWithinLimits } from "@/lib/lens-chat/run";
+import { fitCase, type Shortfall } from "@/lib/lens-chat/fit-case";
+import type { StorySection, Tone } from "@/lib/lens-chat/fit-story";
+import { whyNot } from "@/lib/lens-chat/why-not";
+
+import { CarTags, CostTable, LocateCar, PrintMasthead, Section, StoryLines, StoryRow, ToneDot, UsageSection } from "./parts";
+import type { JudgedCar } from "./useJudgedCar";
+
+/**
+ * The case for the car with the trophy.
+ *
+ * Where a car's drawer says how that car fits, this one argues: why it won
+ * and what it costs, open; then, a tap each, what it meets of what the reader
+ * said in full and in part, where it falls short — and of that, what's worth
+ * considering — why each of the next cars lost, how it was weighed, and what
+ * it costs to run. Every sentence is the
+ * engine's — read off the same run that put the trophy on the card.
+ *
+ * `print` lays the same argument out for the PDF: wider, with a masthead, and
+ * without the buttons that only mean something on screen — a car the
+ * argument names links to it on FINN instead of finding it on the page.
+ */
+
+
+export function WinnerView({ value, print = false }: { value: JudgedCar; print?: boolean }) {
+    const { car, judged, judgement, story, cost, chat } = value;
+    const { run } = judged;
+    const { narrative } = run;
+    const { verdict } = narrative;
+
+    const runnersUp = useMemo(
+        () => alternativesWithinLimits(run, 3).map((line) => ({ line, versus: whyNot(run, line.id) })),
+        [run],
+    );
+
+    const told = useMemo(() => summaryOf(judgement.understanding), [judgement.understanding]);
+    const weighing = useMemo(() => weighingOf(judgement.understanding, told), [judgement.understanding, told]);
+    const fit = useMemo(() => (story ? fitCase(run, story) : null), [run, story]);
+    const notes = [verdict.budgetNote, verdict.marginNote, verdict.dependsNote].filter((note): note is string => Boolean(note));
+
+    return (
+        <article>
+            {print ? <PrintMasthead value={value} kind="your best match" /> : null}
+
+            {/* -- The pick ---------------------------------------------------- */}
+            <div className="relative overflow-hidden bg-gradient-to-b from-[#fff6d6] via-[#fffbeb] to-white px-5 pt-5 pb-4">
+                <div className="flex items-center gap-3">
+                    <span
+                        className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-white shadow-md"
+                        style={{ background: "linear-gradient(135deg, #fcd34d 0%, #f59e0b 60%, #d97706 100%)" }}
+                    >
+                        <Trophy aria-hidden="true" className="h-5 w-5" strokeWidth={2.4} />
+                    </span>
+                    <div className="min-w-0">
+                        <p className="text-[11px] font-black uppercase tracking-wide text-[#9a6200]">
+                            {closestMatch(run) ? "Closest match" : "Best for you"}, of {judgement.carIds.length} cars
+                        </p>
+                        <h1 className="text-[20px] font-black leading-tight text-finn-black">{car.name}</h1>
+                        <p className="text-[12.5px] text-finn-iron">{configurationName(car)}</p>
+                    </div>
+                </div>
+
+                <CarPhoto src={car.images?.thumbnail || null} alt={car.name} winner className="mt-4 h-44 w-full rounded-2xl ring-1 ring-[#f5d78a]/60" />
+
+                <div className="mt-3 flex items-end justify-between gap-3">
+                    <p className="text-[14px] font-bold leading-snug text-finn-black">{verdict.headline}</p>
+                    {cost ? (
+                        <p className="shrink-0 text-right text-[11px] text-finn-iron">
+                            <span className="block text-[20px] font-black tabular-nums text-finn-black">{euros(cost.breakdown.totalMonthly)}</span>
+                            {cost.breakdown.complete ? "a month, estimated" : "a month, as far as Lens can tell"}
+                        </p>
+                    ) : null}
+                </div>
+
+                {/* Under the name and the price, across the whole width. */}
+                <CarTags car={car} className="mt-3" />
+            </div>
+
+            {/* -- Why ---------------------------------------------------------- */}
+            <Section title="Why it won">
+                <ol className="space-y-2">
+                    {verdict.reasons.map((reason, index) => (
+                        <li key={reason} className="flex gap-2.5 text-[13px] leading-relaxed text-finn-black">
+                            <span className="mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#fff3c4] text-[11px] font-black text-[#9a6200]">
+                                {index + 1}
+                            </span>
+                            <span>{reason}</span>
+                        </li>
+                    ))}
+                </ol>
+                {notes.map((note) => (
+                    <p key={note} className="mt-2.5 rounded-xl bg-finn-snow p-3 text-[12.5px] leading-snug text-finn-black">
+                        {note}
+                    </p>
+                ))}
+            </Section>
+
+            {cost ? (
+                <Section title="What it costs">
+                    <CostTable cost={cost} />
+                </Section>
+            ) : null}
+
+            {/* -- The rest, a tap away: the PDF has all of it open ---------------- */}
+            {fit && (fit.complete.length || fit.partial.length || fit.unclear.length) ? (
+                <Section title="How it fits what you told me" folded={!print}>
+                    <div className="space-y-4">
+                        <FitGroup title="Complete match" tone="good" sections={fit.complete} value={value} />
+                        <FitGroup
+                            title="Partial match"
+                            tone="note"
+                            sections={fit.partial}
+                            value={value}
+                            /* Only where a row's gaps were moved: said once, there. */
+                            hint={fit.partial.some((section) => [...fit.shortfalls, ...fit.worth].some((item) => !item.section && item.key === section.key)) ? "What it lacks for these is under “Where it falls short”." : undefined}
+                        />
+                        <FitGroup title="What Lens couldn't check" tone="unknown" sections={fit.unclear} value={value} />
+                    </div>
+                </Section>
+            ) : null}
+
+            {fit && (fit.shortfalls.length || fit.worth.length) ? (
+                <Section title="Where it falls short" folded={!print}>
+                    {fit.shortfalls.length ? (
+                        <ul className="space-y-2">
+                            {fit.shortfalls.map((item) => (
+                                <ShortfallRow key={item.key} item={item} value={value} print={print} />
+                            ))}
+                        </ul>
+                    ) : null}
+                    {fit.worth.length ? (
+                        <div className={fit.shortfalls.length ? "mt-4" : ""}>
+                            <h3 className="text-[12.5px] font-black text-finn-warning-ink">Worth considering</h3>
+                            <p className="mb-2 text-[12px] leading-snug text-finn-iron">{worthIntro(fit.worth)}</p>
+                            <ul className="space-y-2">
+                                {fit.worth.map((item) => (
+                                    <ShortfallRow key={item.key} item={item} value={value} print={print} />
+                                ))}
+                            </ul>
+                        </div>
+                    ) : null}
+                </Section>
+            ) : null}
+
+            {runnersUp.length ? (
+                <Section title="Why not the others" folded={!print}>
+                    <ul className="space-y-2">
+                        {runnersUp.map(({ line, versus }) => (
+                            <li key={line.id} className="rounded-xl p-3 ring-1 ring-finn-cotton">
+                                <div className="flex items-center gap-3">
+                                    <CarPhoto src={line.image} alt="" className="h-10 w-14 shrink-0 rounded-lg" />
+                                    <div className="min-w-0 flex-1">
+                                        <p className="truncate text-[13px] font-black text-finn-black">{line.name}</p>
+                                        <p className="text-[11.5px] text-finn-iron">
+                                            {/* Where FINN's data leaves part of the cost out, the figure is the least it costs. */}
+                                            {line.costComplete ? "about" : "at least"} {euros(line.monthly)}/month
+                                            {line.budget === "over" ? (
+                                                <span className="font-bold text-finn-fit-limited"> · over your limit</span>
+                                            ) : line.rental === "doesNotFit" ? (
+                                                <span className="font-bold text-finn-fit-limited"> · not for your dates</span>
+                                            ) : null}
+                                        </p>
+                                    </div>
+                                    <BandChip band={line.band} label={line.bandLabel} />
+                                    {!print ? <LocateCar id={line.id} name={line.name} size="sm" /> : null}
+                                </div>
+                                {versus ? <p className="mt-2 text-[12.5px] leading-snug text-finn-black">{versus.sentences.slice(0, 2).join(" ")}</p> : null}
+                                {/* In the file, where there's no page to find it on: a link to it on FINN. */}
+                                {print ? <LocateCar id={line.id} name={line.name} value={value} print /> : null}
+                                {!print ? (
+                                    <button
+                                        type="button"
+                                        onClick={() => void requestOpenDrawer(chat.id, line.id, sameJudgement(value))}
+                                        className="mt-2 inline-flex items-center gap-1 text-[12px] font-black text-finn-accent-blue hover:underline"
+                                    >
+                                        How the {line.name} fits you
+                                        <ChevronRight aria-hidden="true" className="h-3.5 w-3.5" />
+                                    </button>
+                                ) : null}
+                            </li>
+                        ))}
+                    </ul>
+                </Section>
+            ) : null}
+
+            {/* -- How I weighed it: what you said, how much each counted, what set cars aside, money & time -- */}
+            <Section title="How I weighed it" folded={!print}>
+                {/* The band the car wears on its chip, so the two never disagree. */}
+                <Weighed weighing={weighing} total={Math.round(fitFor(run.recommendation.scores, car.id))} bandLabel={value.verdict.label} />
+            </Section>
+
+            <UsageSection value={value} folded={!print} title="Costs of use" />
+
+            {print ? (
+                <p className="border-t border-finn-cotton px-5 py-3 text-[10.5px] leading-snug text-finn-iron">
+                    Lens judges what FINN lists for each car against what you told it. Monthly costs are estimates: FINN's subscription price, plus fuel or charging at a price Lens assumes (not a quote), plus the FINN mileage package the stated distance needs. Lens adds nothing else, so costs like parking or tolls aren't in it.
+                    {value.url ? (
+                        <>
+                            {" "}
+                            <a href={value.url} target="_blank" rel="noopener noreferrer" className="font-bold text-finn-accent-blue">
+                                See this car on FINN
+                            </a>
+                            .
+                        </>
+                    ) : null}
+                </p>
+            ) : null}
+        </article>
+    );
+}
+
+/** One group of rows under "How it fits": a heading in the rows' own colour, then the rows. */
+function FitGroup({ title, tone, sections, value, hint }: { title: string; tone: Tone; sections: StorySection[]; value: JudgedCar; hint?: string }) {
+    if (!sections.length) return null;
+
+    return (
+        <div>
+            <h3 className="flex items-center gap-2 text-[12.5px] font-black text-finn-black">
+                <ToneDot tone={tone} />
+                {title}
+            </h3>
+            {hint ? <p className="mt-0.5 text-[11.5px] leading-snug text-finn-iron">{hint}</p> : null}
+            <ul className="mt-2 space-y-2">
+                {sections.map((section) => (
+                    <StoryRow key={section.key} section={section} value={value} />
+                ))}
+            </ul>
+        </div>
+    );
+}
+
+/**
+ * Something it falls short on: a whole row, drawn as the row; the gaps in a
+ * row it partly meets, under what the reader said; or a comparison with
+ * another car. A car it names can be found on the page.
+ */
+function ShortfallRow({ item, value, print }: { item: Shortfall; value: JudgedCar; print: boolean }) {
+    if (item.section) return <StoryRow section={item.section} value={value} rivals print={print} />;
+
+    return (
+        <li className="rounded-xl bg-finn-snow p-3 ring-1 ring-black/[0.03]">
+            <div className="flex items-start justify-between gap-2">
+                <p className="min-w-0 text-[13px] font-black leading-snug text-finn-black">{item.about ?? item.title}</p>
+                {item.importance && item.importance !== "constraint" ? <ImportanceBadge importance={item.importance} /> : null}
+            </div>
+            <StoryLines lines={item.lines} value={value} print={print} className="mt-2" />
+            {item.rival ? (
+                <div className="pl-[26px]">
+                    <LocateCar id={item.rival.id} name={item.rival.name} value={value} print={print} />
+                </div>
+            ) : null}
+        </li>
+    );
+}
+
+/** Why these are worth considering, from what they fall short on: a limit the reader set, or the levels they marked them. */
+function worthIntro(items: Shortfall[]): string {
+    const levels = (["essential", "important"] as const).filter((level) => items.some((item) => item.importance === level)).map((level) => IMPORTANCE_LABEL[level]);
+    const limit = items.some((item) => item.importance === "constraint");
+    const on = [limit ? "a limit you set" : null, levels.length ? `what you marked ${levels.join(" and ")}` : null].filter(Boolean).join(", and on ");
+
+    return `It falls short on ${on} — worth weighing before you decide.`;
+}
+
+/**
+ * How the pick was weighed, in the reader's terms: the questions the chat
+ * asked, the one that took most of the decision first, each with its share
+ * as a bar; under each, what the reader said, how much it counted and what
+ * Lens looked at for it; then what set cars aside, and the money and dates.
+ * One scale — the one they set.
+ */
+function Weighed({ weighing, total, bandLabel }: { weighing: Weighing; total: number; bandLabel: string }) {
+    return (
+        <div className="space-y-4">
+            {weighing.groups.length ? (
+                <div>
+                    <p className="mb-2 text-[12px] leading-snug text-finn-iron">What counted, by the questions I asked — the biggest part of the decision first.</p>
+                    <ul className="space-y-2.5">
+                        {weighing.groups.map((group) => (
+                            <li key={group.id} className="rounded-xl p-3 ring-1 ring-finn-cotton">
+                                <div className="flex items-baseline justify-between gap-2">
+                                    <p className="min-w-0 text-[13px] font-black leading-snug text-finn-black">{group.title}</p>
+                                    <span className="shrink-0 text-[12.5px] font-black tabular-nums text-finn-black">{group.percent}%</span>
+                                </div>
+                                <div className="mt-1">
+                                    <Pips percent={group.percent} />
+                                </div>
+                                <ul className="mt-2.5 space-y-2 border-t border-finn-cotton pt-2.5">
+                                    {group.needs.map((need) => (
+                                        <li key={need.id}>
+                                            <div className="flex items-baseline justify-between gap-2">
+                                                <p className="min-w-0 text-[12.5px] font-bold leading-snug text-finn-black">{need.label}</p>
+                                                <span className="shrink-0 text-[11.5px] tabular-nums text-finn-iron">
+                                                    <span className="mr-1.5 rounded-full bg-finn-pale-blue px-2 py-0.5 text-[10.5px] font-black text-finn-accent-blue">{IMPORTANCE_LABEL[need.importance]}</span>
+                                                    {need.percent}%
+                                                </span>
+                                            </div>
+                                            {need.looksAt.length || need.sharedWith.length ? <p className="mt-0.5 text-[11.5px] leading-snug text-finn-iron">Looked at: {lookedAt(need)}</p> : null}
+                                        </li>
+                                    ))}
+                                </ul>
+                            </li>
+                        ))}
+                    </ul>
+
+                    {/*
+                     * The car's total: how it did on each of these, averaged by the
+                     * shares above — the engine's fit, out of 100, and the band it puts
+                     * the car in.
+                     */}
+                    <div className="mt-3 border-t border-finn-cotton pt-2.5">
+                        <div className="flex items-baseline justify-between gap-2">
+                            <p className="text-[12.5px] font-black text-finn-black">Total: this car scored {total} out of 100</p>
+                            <span className="shrink-0 rounded-full bg-finn-pale-blue px-2 py-0.5 text-[10.5px] font-black text-finn-accent-blue">{bandLabel}</span>
+                        </div>
+                        <div className="mt-1 flex items-center gap-2">
+                            <Pips percent={total} />
+                            <span className="text-[12px] font-black tabular-nums text-finn-black">{total}/100</span>
+                        </div>
+                        <p className="mt-0.5 text-[11px] leading-snug text-finn-iron">
+                            How it did on each of the above, by their share. Strong match from {STRONG_FROM}, Good from {GOOD_FROM}, Partial from {PARTIAL_FROM}.
+                        </p>
+                    </div>
+                </div>
+            ) : null}
+
+            {weighing.setAside.length ? (
+                <div>
+                    <p className="mb-1 text-[11px] font-black uppercase tracking-wide text-finn-iron">Set aside before weighing</p>
+                    <dl className="space-y-1">
+                        {weighing.setAside.map((line) => (
+                            <div key={line.label} className="grid grid-cols-[112px_1fr] gap-3 text-[12.5px]">
+                                <dt className="font-bold text-finn-iron">{line.label}</dt>
+                                <dd className="text-finn-black">{line.value}</dd>
+                            </div>
+                        ))}
+                    </dl>
+                </div>
+            ) : null}
+
+            {weighing.terms.length ? (
+                <div>
+                    <p className="mb-1 text-[11px] font-black uppercase tracking-wide text-finn-iron">Money & time</p>
+                    <dl className="space-y-1">
+                        {weighing.terms.map((line) => (
+                            <div key={line.label} className="grid grid-cols-[112px_1fr] gap-3 text-[12.5px]">
+                                <dt className="font-bold text-finn-iron">{line.label}</dt>
+                                <dd className="text-finn-black">{line.value}</dd>
+                            </div>
+                        ))}
+                    </dl>
+                </div>
+            ) : null}
+        </div>
+    );
+}
+
+/**
+ * What a need looked at, with anything a need above it looked at too named
+ * once, by that need: "Level 2 driver assistance, as for “You drive long
+ * distances”".
+ */
+function lookedAt(need: GroupedNeed): string {
+    const shared = need.sharedWith.map((entry) => `${entry.items.join(" · ")}, as for “${entry.need}”`);
+
+    return [need.looksAt.join(" · "), ...shared].filter(Boolean).join("; and ");
+}
+
+/** A share as ten short segments, one per 10% — at least one lit, so nothing that counted reads as nothing. */
+function Pips({ percent }: { percent: number }) {
+    const lit = Math.max(1, Math.min(10, Math.round(percent / 10)));
+
+    return (
+        <span aria-hidden="true" className="inline-flex gap-0.5">
+            {Array.from({ length: 10 }, (_, index) => (
+                <span key={index} className={`h-2 w-3 rounded-[3px] ${index < lit ? "bg-finn-accent-blue" : "bg-[#e6e8ec] ring-1 ring-inset ring-black/10"}`} />
+            ))}
+        </span>
+    );
+}
