@@ -1,22 +1,23 @@
 import { useEffect, useMemo, useRef } from "react";
 import { marked } from "marked";
 
-import { OnThisPage, type TocGroup } from "@/entrypoints/options/OnThisPage";
+import { OnThisPage, type TocGroup } from "./OnThisPage";
 
-import readme from "../README.md?raw";
-import changelog from "../CHANGELOG.md?raw";
-import beta from "../../docs/BETA.md?raw";
-import how from "../../docs/HOW-FINN-LENS-DECIDES.md?raw";
-import emissions from "../../docs/FINN-LENS-EMISSIONS-SCORING.md?raw";
-import bubbles from "../../docs/LIFE-BUBBLES-SPEC-v2.md?raw";
-import shortlist from "../../docs/FUTURE-SHORTLIST.md?raw";
+import readme from "../../README.md?raw";
+import changelog from "../../CHANGELOG.md?raw";
+import beta from "../../../docs/BETA.md?raw";
+import how from "../../../docs/HOW-FINN-LENS-DECIDES.md?raw";
+import emissions from "../../../docs/FINN-LENS-EMISSIONS-SCORING.md?raw";
+import bubbles from "../../../docs/LIFE-BUBBLES-SPEC-v2.md?raw";
+import shortlist from "../../../docs/FUTURE-SHORTLIST.md?raw";
 
 import "./docs.css";
 
 /**
  * The branch's documentation, as the repository has it: each document is the
  * markdown file itself, imported at build time, so this tab can't say
- * anything the files don't.
+ * anything the files don't. A tab in Settings, and on the published page
+ * (`site/`).
  *
  * Links between documents open them here; a link into the code, which this
  * page doesn't publish, stays as its text.
@@ -69,7 +70,12 @@ function slug(text: string): string {
 
 export function Docs({ hash }: { hash: string }) {
     const { doc, anchor } = docsRoute(hash);
-    const html = useMemo(() => marked.parse(doc.markdown, { async: false, gfm: true }), [doc]);
+    /*
+     * One object per document, kept across renders: React writes the HTML again
+     * whenever this prop is a new object, which would undo the anchors and links
+     * set below — Settings re-renders the moment its stored data arrives.
+     */
+    const html = useMemo(() => ({ __html: marked.parse(doc.markdown, { async: false, gfm: true }) }), [doc]);
     const body = useRef<HTMLElement>(null);
 
     /* Anchors on every heading, links that work here, then the place asked for. */
@@ -127,7 +133,7 @@ export function Docs({ hash }: { hash: string }) {
                 <p className="mb-4 text-[12.5px] font-bold text-finn-black/70">
                     From the repository: <code className="font-mono">{doc.source}</code>
                 </p>
-                <section ref={body} className="doc-prose" dangerouslySetInnerHTML={{ __html: html }} />
+                <section ref={body} className="doc-prose" dangerouslySetInnerHTML={html} />
             </article>
         </div>
     );

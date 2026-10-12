@@ -18,6 +18,7 @@ import { loadSettings, setActiveChat } from "@/lib/chats/store";
 import type { SavedSettings } from "@/lib/chats/types";
 
 import { Card } from "./Card";
+import { Docs } from "./Docs";
 import { Guide } from "./Guide";
 import { ProductWalkthrough } from "./ProductWalkthrough";
 
@@ -35,7 +36,7 @@ import { ProductWalkthrough } from "./ProductWalkthrough";
  * when the reader came to manage their data.
  */
 
-type View = "settings" | "guide" | "demo";
+type View = "settings" | "guide" | "demo" | "docs";
 
 type ButtonProps = {
     onClick: () => void;
@@ -68,12 +69,17 @@ const PAGE_INFO: Record<View, { title: string; description: string }> = {
         title: "Finn Lens product demo",
         description: "A walkthrough of a reader's journey through Finn Lens.",
     },
+    docs: {
+        title: "Finn Lens documentation",
+        description: "How it's built, how it decides, and what changed — as the repository documents it.",
+    },
 };
 
-/** The guide's sections are #guide-…, so following one of its links keeps the guide open. */
+/** The guide's sections are #guide-…, the demo's #demo-… and the documents #docs/…, so following one of their links keeps that tab open. */
 const viewOf = (hash: string): View => {
     if (hash.startsWith("#guide")) return "guide";
     if (hash.startsWith("#demo")) return "demo";
+    if (hash.startsWith("#docs")) return "docs";
     return "settings";
 };
 
@@ -123,12 +129,11 @@ export function App() {
     const [summary, setSummary] = useState<DataSummary | null>(null);
     const [confirming, setConfirming] = useState<DataGroupId[] | null>(null);
     const [done, setDone] = useState<string | null>(null);
-    const [view, setView] = useState<View>(() =>
-        viewOf(window.location.hash),
-    );
+    const [hash, setHash] = useState(() => window.location.hash);
+    const view = viewOf(hash);
 
     useEffect(() => {
-        const followHash = () => setView(viewOf(window.location.hash));
+        const followHash = () => setHash(window.location.hash);
 
         window.addEventListener("hashchange", followHash);
 
@@ -238,6 +243,10 @@ export function App() {
                     <Tab href="#demo" current={view === "demo"}>
                         Product demo
                     </Tab>
+
+                    <Tab href="#docs" current={view === "docs"}>
+                        Documentation
+                    </Tab>
                 </nav>
             </header>
 
@@ -248,6 +257,10 @@ export function App() {
             ) : view === "demo" ? (
                 <div className="mx-auto max-w-3xl px-6 py-8">
                     <ProductWalkthrough />
+                </div>
+            ) : view === "docs" ? (
+                <div className="mx-auto max-w-3xl px-6 py-8">
+                    <Docs hash={hash} />
                 </div>
             ) : (
                 <div className="mx-auto max-w-3xl space-y-6 px-6 py-8">

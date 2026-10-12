@@ -12,7 +12,8 @@ The build for the first outside review. Everything 0.9.0 does, plus:
   screenshots.
 - **The guide and the demo as a web page**, published to GitHub Pages by a
   workflow (`site/`, `.github/workflows/pages.yml`), with the branch's
-  documentation as a third tab, read from the repository's own markdown.
+  documentation as a third tab, read from the repository's own markdown —
+  a tab in Settings too.
 - **How it was built**, in the guide, the beta note and the README: whose
   work the idea, the research and the decision model are, and how Claude Code
   built the rest.

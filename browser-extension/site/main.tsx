@@ -6,7 +6,7 @@ import { BetaTag } from "@/components/lens-parts";
 import { Guide } from "@/entrypoints/options/Guide";
 import { ProductWalkthrough } from "@/entrypoints/options/ProductWalkthrough";
 
-import { Docs } from "./Docs";
+import { Docs } from "@/entrypoints/options/Docs";
 
 /**
  * The published page: the beta guide and the product demo, as the

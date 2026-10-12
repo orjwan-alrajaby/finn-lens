@@ -22,7 +22,7 @@ A browser extension that helps you choose between FINN car subscriptions by chat
    - **Save as PDF** on every car's drawer but a ruled-out car's, with everything open.
 7. **Many chats.** Every chat is kept, and "Your chats" lists them like a messenger. Opening one carries on where it was, and the chips move to its judgement.
 8. **Popup.** It says what Lens is and whether it's online on this finn.com tab (it only works on finn.com, and it's unofficial). It also shows how many cars it detected and judged here, the current pick and chats, and a way to Settings and the beta guide.
-9. **Settings.** Shows the saved answers (changed by talking to Lens, or forgotten from here), and everything Lens stores, each part clearable: chats, answers, the car cache, and leftovers from earlier versions. Its **Beta guide** tab (`options.html#guide`) explains Lens to someone who has never seen it: what it does and why, how it decides, how to read its results, its known limits, what might come next, and what a bug report needs. Its **Product demo** tab (`options.html#demo`) walks through a reader's journey in screenshots. Both are also published as a web page (see Developing).
+9. **Settings.** Shows the saved answers (changed by talking to Lens, or forgotten from here), and everything Lens stores, each part clearable: chats, answers, the car cache, and leftovers from earlier versions. Its **Beta guide** tab (`options.html#guide`) explains Lens to someone who has never seen it: what it does and why, how it decides, how to read its results, its known limits, what might come next, and what a bug report needs. Its **Product demo** tab (`options.html#demo`) walks through a reader's journey in screenshots, and its **Documentation** tab (`options.html#docs`) shows this README, the beta note, the changelog and the docs. All three are also published as a web page (see Developing).
 
 ## How it's built
 
@@ -36,8 +36,8 @@ A browser extension that helps you choose between FINN car subscriptions by chat
 | `entrypoints/lens-chat/` | The chat: a React page framed into finn.com. |
 | `entrypoints/lens-drawer/` | The drawer: a React page framed beside finn.com. It re-runs the chat's judgement and reads one car out of it. |
 | `entrypoints/popup/` | The toolbar popup. |
-| `entrypoints/options/` | Settings: saved answers and the reader's data; the beta guide (`Guide.tsx`) and the product demo (`ProductWalkthrough.tsx`), each with its contents (`OnThisPage.tsx`). |
-| `site/` | The beta guide and product demo as a plain web page, for GitHub Pages: the same components, without the extension. |
+| `entrypoints/options/` | Settings: saved answers and the reader's data; the beta guide (`Guide.tsx`), the product demo (`ProductWalkthrough.tsx`) and the documentation (`Docs.tsx`, the repository's markdown), each with its contents (`OnThisPage.tsx`). |
+| `site/` | The beta guide, product demo and documentation as a plain web page, for GitHub Pages: the same components, without the extension. |
 | `entrypoints/background.ts` | Relays frame requests to their tab (token-checked), and opens finn.com on install. |
 
 **Storage** (`browser.storage.local`):
