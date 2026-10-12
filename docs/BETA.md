@@ -44,12 +44,9 @@ Lens's Settings.
 
 ## How it decides
 
-Only from what the reader said, and only on what FINN lists for each car:
-equipment, measurements, CO₂ and consumption, prices and terms. Where FINN has
-no figure (a plug-in hybrid's electricity use, the CO₂ label's classes), Lens
-uses a published European source and links it where it's shown. Its own
-assumptions — fuel at €1.75/L, diesel €1.70/L, electricity €0.32/kWh, 1,000 km
-a month when the reader doesn't say — are labelled as assumptions.
+Lens compares the cars on the page against the reader's stated needs, preferences and deal-breakers. It uses FINN's vehicle data where available, supplemented by published external reference data for some values, such as plug-in hybrid electricity consumption and German CO₂ classification rules. Lens labels its own estimates and assumptions separately.
+
+For cost estimates, Lens assumes petrol at €1.75/L, diesel at €1.70/L and electricity at €0.32/kWh. It estimates 1,000 km/month if the reader hasn't specified a distance. FINN's available data doesn't expose every mileage package, so Lens assumes 500 km/month is included based on information shown on several FINN pages. This hasn't been verified for every car or subscription; readers should check the specific listing and contract. Parking and tolls aren't included.
 
 Every mechanism, number and source is written up in
 [`HOW-FINN-LENS-DECIDES.md`](HOW-FINN-LENS-DECIDES.md).
@@ -59,6 +56,7 @@ Every mechanism, number and source is written up in
 - Everything Lens keeps — chats, saved answers, the cars it has read — stays
   in the browser. Settings shows all of it and deletes any of it, and
   uninstalling Lens removes it.
+- Lens stores chats locally in the browser, keeping up to 40 recent chats.
 - There's no account and no Lens server. Its only requests are to finn.com —
   for FINN's own API, for cars on the page it hasn't seen yet — and for the
   car photos FINN's data links to.
@@ -85,12 +83,40 @@ short:
 - **Some things FINN's data can't say aren't judged**: boot space (FINN's
   figure doesn't say whether the seats are up), seat comfort, crash-test
   results.
-- In a car's drawer, **"Why it won" names Lens's own categories** (for
-  example "city & parking") rather than only the reader's words.
+- In a car's drawer, **"Why it won" names Lens's own categories** (for example, "city & parking") rather than only the reader's words. A preference marked "Seals it" increases its importance in scoring; it isn't a hard requirement. "Must have" is a hard requirement.
+- **Testing coverage**: Lens has been tested against up to about 150 cars in a single comparison, primarily because FINN's listings page loads at most 150 cars. This reflects the largest comparison tested so far, not a known limit of Lens. It may be able to handle more.
+- **Score bands are provisional**: Strong starts at 65/100, Good at 45, Partial at 25, and Limited is below 25. These thresholds may change as the beta is tested.
 
-## Feedback
+## Feedback and bug reports
 
-Send anything that looks wrong, unclear or missing to whoever sent you this
-build. A screenshot, the finn.com page's address, the chat's name (shown at
-the top of the chat, like "Chat 7KQ-M4X") and what you'd told Lens make it
-quickest to trace.
+Found a bug, an incorrect result, something confusing, or an idea for improvement? Send your report to the person who supplied you with this beta.
+
+You don't need to diagnose the problem. Describe what you were trying to do, what happened, and how someone else could reproduce it.
+
+**What to put in a report**
+
+Your chats are kept only on your computer, so whoever reads your report can't
+open them. Lens can only be checked by doing what you did, step by step.
+Include whatever you can, in this order:
+
+1. **What kind of issue it is:** a bug (something broke, didn't respond, or
+   behaved unexpectedly), or a faulty or incomplete result (a pick or score
+   looks wrong, something is missing, or the explanation doesn't match the
+   recommendation). Suggestions are welcome too.
+2. **Steps to reproduce it:** the full finn.com address you were on, including
+   any filters; each answer you gave Lens, in order, tapped or typed; anything
+   you changed under "This doesn't look right"; and what you did after the
+   result.
+3. **What happened:** what Lens showed or did, the car it concerns, and any
+   error message.
+4. **What you expected,** and why.
+5. **Screenshots and the PDF:** screenshots of the chat and the page, and for a
+   result, the PDF (click the car's chip, then **Save as PDF** in its drawer).
+6. **Anything else that might help:** your browser and its version, and
+   anything you noticed along the way. The Lens version is **0.9.1**.
+
+**A useful report doesn't need to be technical.**
+
+For example: "I selected these answers, changed this priority, and expected this car to win, but Lens picked another one. Here's why I expected a different result."
+
+A surprising result is useful even if it isn't a bug. It may reveal a scoring issue, missing data, or a trade-off Lens should explain more clearly.

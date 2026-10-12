@@ -1,204 +1,429 @@
+
 import type { ReactNode } from "react";
-import { BookOpen, Compass, FlaskConical, Lightbulb, ListChecks, MessageSquareText, Scale, Telescope } from "lucide-react";
+import {
+    BookOpen,
+    ChevronDown,
+    Compass,
+    FlaskConical,
+    Lightbulb,
+    ListChecks,
+    MessageSquareText,
+    Scale,
+    Telescope,
+} from "lucide-react";
 
 import { BandChip, WinnerChip } from "@/components/lens-parts";
 
 import { Card } from "./Card";
+import { OnThisPage, useActiveSection } from "./OnThisPage";
 
-/**
- * The beta guide: what Lens is, why, how it decides, how to read what it
- * says, what this beta can't do yet, what might come next, and where to say
- * what went wrong — for someone who has never seen it.
- *
- * Every claim here is one the code bears out: the numbers are the engine's
- * own (`NEED_WEIGHT`, `bands.ts`, `DEFAULT_PREFERENCES`), and the limits are
- * the ones found by trying it. What hasn't been checked is said to be
- * unchecked. Nothing here describes the AI direction as built.
- */
-
-const SECTIONS = [
-    { id: "guide-what", label: "What is Finn Lens?" },
-    { id: "guide-why", label: "Why it exists" },
-    { id: "guide-how", label: "How it works" },
-    { id: "guide-results", label: "Understanding the results" },
-    { id: "guide-beta", label: "Beta status and known limits" },
-    { id: "guide-next", label: "What might come next" },
-    { id: "guide-feedback", label: "Feedback" },
+const SECTION_GROUPS = [
+    {
+        label: "The basics",
+        items: [
+            { id: "guide-what", label: "What is FINN Lens?", number: "01" },
+            { id: "guide-why", label: "Why it exists", number: "02" },
+        ],
+    },
+    {
+        label: "Using Lens",
+        items: [
+            { id: "guide-how", label: "How it works", number: "03" },
+            { id: "guide-results", label: "Understanding results", number: "04" },
+        ],
+    },
+    {
+        label: "About this beta",
+        items: [
+            { id: "guide-beta", label: "Status and limitations", number: "05" },
+            { id: "guide-next", label: "What might come next", number: "06" },
+            { id: "guide-feedback", label: "Feedback and bug reports", number: "07" },
+        ],
+    },
 ] as const;
+
+const SECTION_IDS = SECTION_GROUPS.flatMap((group) => group.items.map((item) => item.id));
 
 export function Guide() {
     const manifest = browser.runtime.getManifest();
     const version = manifest.version_name ?? manifest.version;
+    const active = useActiveSection(SECTION_IDS);
 
     return (
-        <div className="space-y-6">
-            <nav aria-label="On this page" className="rounded-2xl bg-white p-4 ring-1 ring-finn-cotton">
-                <p className="text-[12.5px] font-black uppercase tracking-wide text-finn-black/70">On this page</p>
-                <ol className="mt-2 grid gap-x-6 gap-y-1 sm:grid-cols-2">
-                    {SECTIONS.map((section, index) => (
-                        <li key={section.id}>
-                            <a href={`#${section.id}`} className="text-[13.5px] font-bold text-finn-accent-blue underline-offset-2 hover:underline">
-                                {index + 1}. {section.label}
-                            </a>
-                        </li>
-                    ))}
-                </ol>
-            </nav>
+        <div className="relative space-y-4 pb-6">
+            {/* The contents, pinned in the margin where the window is wide enough to have one. */}
+            <aside className="absolute top-0 right-full mr-10 hidden h-full w-52 xl:block">
+                <div className="sticky top-8">
+                    <OnThisPage groups={SECTION_GROUPS} active={active} variant="rail" />
+                </div>
+            </aside>
 
-            {/* -- 1 ------------------------------------------------------------ */}
-            <Card id="guide-what" icon={<BookOpen className="h-5 w-5" />} title="What is Finn Lens?">
+            {/* Introduction */}
+            <div className="rounded-2xl border border-finn-cotton bg-white p-5 sm:p-6">
+                <div className="flex items-start gap-3">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-finn-pale-blue">
+                        <BookOpen
+                            aria-hidden="true"
+                            className="h-5 w-5 text-finn-accent-blue"
+                        />
+                    </div>
+
+                    <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                            <h2 className="text-base font-black text-finn-black">
+                                The FINN Lens guide
+                            </h2>
+                            <span className="rounded-full bg-finn-warning-lift px-2.5 py-1 text-[11px] font-bold text-finn-warning-ink">
+                                {version}
+                            </span>
+                        </div>
+
+                        <p className="mt-2 text-[13.5px] leading-relaxed text-finn-black/75">
+                            Learn how Lens works, how to read its recommendations, and
+                            what to keep in mind while testing this version.
+                        </p>
+                    </div>
+                </div>
+
+                <div className="mt-4 rounded-xl bg-finn-pale-blue/70 p-3.5">
+                    <p className="text-[13px] font-bold text-finn-black">
+                        An early working prototype for evaluation
+                    </p>
+                    <p className="mt-1 text-[13px] leading-relaxed text-finn-black/80">
+                        Lens starts with your circumstances, compares the cars available
+                        on FINN against your needs, and explains the trade-offs. Its
+                        recommendations depend on your answers, the available vehicle
+                        data, and documented assumptions. They are not a guarantee
+                        that a car is right for you or that its actual running costs
+                        will match the estimate.
+                    </p>
+                </div>
+
+                <div className="mt-4 flex flex-wrap gap-2">
+                    <QuickTag>No AI in this beta</QuickTag>
+                    <QuickTag>Personalized comparisons</QuickTag>
+                    <QuickTag>Explainable results</QuickTag>
+                </div>
+            </div>
+
+            {/* Table of contents, where there's no margin for it */}
+            <div className="xl:hidden">
+                <OnThisPage groups={SECTION_GROUPS} active={active} variant="inline" />
+            </div>
+
+            {/* 1. What is FINN Lens? */}
+            <Card
+                id="guide-what"
+                icon={<BookOpen className="h-5 w-5" />}
+                title="What is FINN Lens?"
+            >
                 <Prose>
                     <p>
-                        Finn Lens is a browser extension for <strong>finn.com</strong>, where FINN offers cars on a monthly subscription. It helps you decide which of the cars you're
-                        looking at suits <em>you</em>.
+                        FINN Lens is an unofficial browser extension for{" "}
+                        <strong>finn.com</strong>, where cars are offered on monthly
+                        subscriptions. It helps you work out which available car best
+                        fits <em>your</em> circumstances.
                     </p>
                     <p>
-                        You tell Lens about your life: who rides with you, where and how you drive, what the car has to cope with, what you can spend and for how long. Lens then judges
-                        the cars on the finn.com page against what you said. Every car gets a verdict on its card, one car is picked as the best fit, and each verdict comes with its
-                        reasons.
+                        Tell Lens who rides with you, how and where you drive, what
+                        the car needs to handle, what you can spend, and how long
+                        you need it. Lens evaluates the cars on the page against
+                        your answers, ranks eligible options, and explains the
+                        reasoning and trade-offs.
                     </p>
                     <p>
-                        Lens is <strong>unofficial</strong>. It isn't made by FINN or affiliated with it.
+                        Lens is <strong>not made by or affiliated with FINN</strong>.
+                    </p>
+                </Prose>
+
+                <KeyPoint>
+                    Lens is designed to answer "Which car fits my situation?" rather
+                    than simply "Which cars have these specifications?"
+                </KeyPoint>
+            </Card>
+
+            {/* 2. Why it exists */}
+            <Card
+                id="guide-why"
+                icon={<Compass className="h-5 w-5" />}
+                title="Why it exists"
+            >
+                <Prose>
+                    <p>
+                        Filters help you narrow down cars by fuel, body type, price,
+                        or equipment. They don't necessarily help you weigh those
+                        things against one another.
+                    </p>
+                    <p>
+                        Perhaps one car has the parking camera you'll use every day,
+                        another has a lower subscription price but higher estimated
+                        running costs, and a third doesn't fit your rental dates.
+                        A specification list leaves you to make those trade-offs
+                        yourself.
+                    </p>
+                    <p>
+                        Lens starts with your circumstances, evaluates the relevant
+                        criteria using available data, and explains why a car ranks
+                        where it does, including what you might give up by choosing it.
                     </p>
                 </Prose>
             </Card>
 
-            {/* -- 2 ------------------------------------------------------------ */}
-            <Card id="guide-why" icon={<Compass className="h-5 w-5" />} title="Why it exists">
-                <Prose>
-                    <p>
-                        finn.com's filters answer questions about the car: which fuel, which body type, what price, which equipment. They can't answer the question you actually have:{" "}
-                        <em>which of these makes sense for me?</em>
-                    </p>
-                    <p>
-                        A list of specifications doesn't weigh one thing against another. One car has the parking camera you'd use every day, another is cheaper to subscribe to but
-                        costs more to run at the distance you drive, and a third can't be rented for the dates you need. Lens starts from your circumstances, works out which of the
-                        equipment and figures FINN lists matter for them, and shows why one car fits you better than another, and what you'd give up by choosing it.
-                    </p>
-                </Prose>
-            </Card>
-
-            {/* -- 3 ------------------------------------------------------------ */}
-            <Card id="guide-how" icon={<ListChecks className="h-5 w-5" />} title="How it works">
-                <div className="space-y-5">
-                    <Step n={1} title="You answer a few short questions">
+            {/* 3. How it works */}
+            <Card
+                id="guide-how"
+                icon={<ListChecks className="h-5 w-5" />}
+                title="How it works"
+            >
+                <div className="space-y-6">
+                    <Step n={1} title="Tell Lens about your situation">
                         <p>
-                            A bubble in the corner of finn.com opens the chat. Lens asks about your life in four groups (who rides with you, where and how you drive, what the car has
-                            to cope with, and what else matters), then about money and time: a monthly limit, how long you need the car and from when, and how far you drive. Last
-                            come the fuels you'd consider and your deal-breakers. You can tap an answer or type one. The <strong>i</strong> beside each answer says what Lens will
-                            check for it.
+                            Open the chat using the bubble on finn.com. Lens asks about
+                            your passengers, driving habits, practical needs, budget,
+                            rental dates and duration, mileage, fuel preferences, and
+                            deal-breakers. Tap an answer or type one. The{" "}
+                            <strong>i</strong> beside an answer explains what Lens
+                            checks.
                         </p>
                     </Step>
 
-                    <Step n={2} title="Lens says back what it understood">
+                    <Step n={2} title="Review what Lens understood">
                         <p>
-                            Before it judges anything, Lens shows a summary: each thing you said, what it will check in FINN's data for it, and how much it counts. If something's
-                            wrong, <strong>This doesn't look right</strong> opens a panel where you can remove or add what it checks, change how much something counts, or answer a
-                            question again. You can keep your answers as settings, so new chats start from them.
+                            Before evaluating cars, Lens shows how it interpreted your
+                            answers, which criteria it will check, and how much each
+                            preference counts. If something looks wrong, use{" "}
+                            <strong>This doesn't look right</strong> to adjust the
+                            criteria, change priorities, or answer a question again.
+                            You can save your settings for future chats.
                         </p>
                     </Step>
 
-                    <Step n={3} title="Requirements set cars aside; preferences are weighed">
-                        <p>There are two kinds of answer, and they do different things:</p>
+                    <Step n={3} title="Requirements filter; preferences are weighed">
+                        <p>
+                            Some answers determine whether a car is eligible to win.
+                            Others affect how well an eligible car scores. The
+                            distinction matters: a preference can influence the
+                            ranking without excluding a car.
+                        </p>
+
                         <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                            <Panel title="Requirements: a car that misses one is ruled out">
-                                <ul className="list-disc space-y-1.5 pl-5">
-                                    <li>
-                                        A <strong>deal-breaker</strong>: “Must have”, “Must be” or “Mustn't be”, such as an automatic gearbox or a towbar.
-                                    </li>
-                                    <li>The fuels you didn't pick.</li>
-                                    <li>
-                                        <strong>Your dates.</strong> Lens treats them as fixed until you loosen them to “a month either way” or “doesn't matter”.
-                                    </li>
-                                    <li>A monthly limit, if you said to keep to it.</li>
-                                </ul>
-                                <p className="mt-2">
-                                    If FINN's data can't confirm that a car has something it must have, or that it fits your dates or a limit you said to keep to, it's set
-                                    aside too. If no car meets them all, Lens asks which you could let go of, or offers the nearest dates a car here can be rented for, before
-                                    it shows a pick.
-                                </p>
-                            </Panel>
-                            <Panel title="Preferences: they add to a car's fit">
+                            <Panel title="Requirements">
                                 <p>
-                                    Everything else you said becomes things Lens looks for in FINN's data. For example, “snow and ice” leads to heated seats and a heated steering
-                                    wheel. Each counts at one of three levels:
+                                    A car that fails a requirement is excluded from the
+                                    regular ranking.
                                 </p>
                                 <ul className="mt-2 list-disc space-y-1.5 pl-5">
                                     <li>
-                                        <strong>Top priority</strong> counts twice as much as Important.
+                                        <strong>Must have, Must be, or Mustn't be:</strong>{" "}
+                                        explicit deal-breakers, such as requiring an
+                                        automatic gearbox.
+                                    </li>
+                                    <li>Fuels you didn't select.</li>
+                                    <li>
+                                        Rental dates, unless you allow flexibility.
                                     </li>
                                     <li>
-                                        <strong>Important</strong> is the usual level.
-                                    </li>
-                                    <li>
-                                        <strong>Nice to have</strong> counts half as much as Important.
+                                        Your monthly budget, when you've asked Lens to
+                                        treat it as a hard limit.
                                     </li>
                                 </ul>
                                 <p className="mt-2">
-                                    A <strong>deal-sealer</strong> (“Seals it”) counts as a top priority but doesn't rule any car out.
+                                    If FINN's data can't confirm that a car meets a
+                                    requirement, Lens may rule it out. If nothing
+                                    qualifies, Lens can ask which constraint you could
+                                    relax or offer the nearest available dates.
+                                </p>
+                            </Panel>
+
+                            <Panel title="Preferences">
+                                <p>
+                                    Preferences contribute to a car's fit. For example,
+                                    asking about snow and ice can lead Lens to check
+                                    for heated seats and a heated steering wheel.
+                                </p>
+                                <ul className="mt-2 list-disc space-y-1.5 pl-5">
+                                    <li>
+                                        <strong>Top priority:</strong> twice the weight
+                                        of Important.
+                                    </li>
+                                    <li>
+                                        <strong>Important:</strong> standard weighting.
+                                    </li>
+                                    <li>
+                                        <strong>Nice to have:</strong> half the weight
+                                        of Important.
+                                    </li>
+                                </ul>
+                                <p className="mt-2">
+                                    <strong>Seals it</strong> gives a preference Top
+                                    priority weighting. It does not make that feature
+                                    mandatory. Use a must-have requirement when
+                                    something is non-negotiable.
                                 </p>
                             </Panel>
                         </div>
                     </Step>
 
-                    <Step n={4} title="Each car is scored on what you asked for, and nothing else">
+                    <Step n={4} title="Cars are scored against your answers">
                         <p>
-                            A car's fit is how much of what you asked for FINN lists on it, weighted by how much each thing matters to you. Lens doesn't add priorities of its own,
-                            and one car's score never depends on the other cars on the page.
+                            Lens scores how well each car matches your criteria and
+                            weights those criteria by importance. It doesn't add its
+                            own preferences, and a car's score doesn't depend on which
+                            other cars happen to be on the page.
                         </p>
-                        <ul className="mt-2 list-disc space-y-1.5 pl-5">
-                            <li>
-                                Measurements (width, length, range, charging time) and CO₂ and consumption figures count on a scale, not as yes or no. Consumption is
-                                measured against a reference for the car's own fuel, so a litre of petrol is never compared with a kilowatt-hour.
-                            </li>
-                            <li>
-                                Equipment almost every FINN car has, such as emergency braking, earns nothing extra. A car FINN says lacks it loses for the gap.
-                            </li>
-                            <li>
-                                <strong>Unknown isn't no.</strong> If FINN's data says a car doesn't have something, that counts against it. If FINN's data doesn't say either
-                                way, it's left out of the score, and Lens tells you when it could change the result.
-                            </li>
-                        </ul>
+
+                        <MoreDetails title="How individual criteria affect the score">
+                            <ul className="list-disc space-y-2 pl-5">
+                                <li>
+                                    Measurements, CO₂, and consumption can contribute
+                                    on a scale rather than as a simple yes-or-no check.
+                                    Consumption is compared against a reference for
+                                    the car's fuel type.
+                                </li>
+                                <li>
+                                    Equipment that nearly every listed car has, such as
+                                    emergency braking, doesn't automatically earn extra
+                                    points. A confirmed absence can count against a car
+                                    when the feature matters to you.
+                                </li>
+                                <li>
+                                    <strong>Unknown isn't no.</strong> When the data
+                                    doesn't establish whether a car has a feature, Lens
+                                    can leave that criterion unscored and identify
+                                    relevant uncertainty in the result.
+                                </li>
+                            </ul>
+                        </MoreDetails>
                     </Step>
 
-                    <Step n={5} title="Money decides who may win, not who's best">
+                    <Step n={5} title="Cost determines eligibility, not preference">
                         <p>
-                            A cheap car doesn't score higher for being cheap. Cost decides which cars are allowed to win: a car over your limit can't be the pick while one within it
-                            exists. Each car's monthly cost is estimated from three parts:
+                            A cheaper car doesn't score higher simply because it costs
+                            less. When you've set a hard budget, estimated cost helps
+                            determine whether a car is eligible to win.
                         </p>
+
+                        <p className="mt-2">
+                            The estimated monthly cost can include:
+                        </p>
+
                         <ul className="mt-2 list-disc space-y-1.5 pl-5">
-                            <li>FINN's monthly price, VAT included, on the shortest FINN term that covers your dates.</li>
                             <li>
-                                Fuel or charging, from the car's official consumption at assumed prices: petrol €1.75 a litre, diesel €1.70, electricity €0.32 a kWh.
+                                <strong>Subscription:</strong> FINN's monthly price,
+                                including VAT, using the shortest available term that
+                                covers your rental dates.
                             </li>
                             <li>
-                                The FINN mileage package your distance needs. FINN's price includes 500 km a month, and Lens assumes 1,000 km when your answers don't make
-                                distance matter.
+                                <strong>Fuel or charging:</strong> estimated from
+                                published consumption figures and assumed prices:
+                                petrol €1.75/litre, diesel €1.70/litre, and electricity
+                                €0.32/kWh.
+                            </li>
+                            <li>
+                                <strong>Additional mileage:</strong> an estimate of
+                                the extra package cost needed for your monthly distance.
                             </li>
                         </ul>
-                    </Step>
 
-                    <Step n={6} title="Where the facts come from">
-                        <p>
-                            Lens uses FINN's own data for each car: equipment, measurements, consumption and CO₂, prices, terms and delivery windows. Where FINN has no figure,
-                            it uses a published European source and links it where the figure is shown: the EU's registration data for a plug-in hybrid's electricity use, and
-                            Germany's CO₂ label rules for the A–G classes. Lens's own assumptions, like the fuel prices above, are labelled as assumptions wherever they're used.
+                        <div className="mt-3 rounded-xl border border-finn-cotton bg-white p-3.5">
+                            <div className="flex items-start gap-2">
+                                <Lightbulb
+                                    aria-hidden="true"
+                                    className="mt-0.5 h-4 w-4 shrink-0 text-finn-accent-blue"
+                                />
+                                <div className="min-w-0">
+                                    <p className="text-[13px] font-bold text-finn-black">
+                                        Mileage is an assumption, not a verified contract term
+                                    </p>
+                                    <p className="mt-1 text-[13px] leading-relaxed text-finn-black/75">
+                                        Lens assumes that 500 km per month is included
+                                        in the subscription. This is based on mileage
+                                        information displayed on several FINN car pages;
+                                        it has not been verified for every car or
+                                        subscription. FINN's available vehicle data
+                                        doesn't expose every mileage package, so the
+                                        estimated additional cost may differ from the
+                                        actual offer. Check the specific FINN listing
+                                        and contract before deciding.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <p className="mt-3">
+                            If you haven't specified your mileage, Lens uses an
+                            assumed distance of 1,000 km per month for its estimate.
+                            Treat the total as an estimate, not a guaranteed quote.
                         </p>
                     </Step>
+
+                    <Step n={6} title="Lens explains the result">
+                        <p>
+                            See which car came out ahead, why it won, where it falls
+                            short, and how it compares with alternatives. You can
+                            inspect an individual car's explanation and save the
+                            results as a PDF.
+                        </p>
+                    </Step>
+
+                    <MoreDetails title="Where the vehicle facts come from">
+                        <Prose>
+                            <p>
+                                Lens uses the data available from FINN, including
+                                equipment, measurements, consumption and CO₂ figures,
+                                prices, subscription terms, and delivery windows.
+                            </p>
+                            <p>
+                                Where a particular figure isn't available, Lens may
+                                use an external reference. For example, plug-in hybrid
+                                electricity consumption can come from EU registration
+                                data, and CO₂ classes use Germany's classification rules.
+                            </p>
+                        </Prose>
+
+                        <div className="mt-3 space-y-2">
+                            <SourceRow
+                                label="FINN data"
+                                description="Information provided by the listing or vehicle data."
+                            />
+                            <SourceRow
+                                label="External reference"
+                                description="Information from another source, used where FINN data is missing."
+                            />
+                            <SourceRow
+                                label="Lens estimate or assumption"
+                                description="A calculated value or an input Lens uses because the exact value isn't available."
+                            />
+                        </div>
+                    </MoreDetails>
                 </div>
             </Card>
 
-            {/* -- 4 ------------------------------------------------------------ */}
-            <Card id="guide-results" icon={<Scale className="h-5 w-5" />} title="Understanding the results">
+            {/* 4. Understanding results */}
+            <Card
+                id="guide-results"
+                icon={<Scale className="h-5 w-5" />}
+                title="Understanding the results"
+            >
                 <Prose>
-                    <p>After judging, every car on the page wears a chip on its FINN card:</p>
+                    <p>
+                        Each evaluated car receives a verdict chip. The labels tell
+                        you how well it matches your answers and whether it can win.
+                    </p>
                 </Prose>
-                <dl className="mt-3 divide-y divide-finn-cotton overflow-hidden rounded-2xl bg-white ring-1 ring-finn-cotton">
-                    <Term chip={<WinnerChip />}>Lens's pick: the car that fits what you said best, among the cars allowed to win.</Term>
-                    <Term chip={<WinnerChip label="Closest match" />}>
-                        The pick when nothing on the page fits your budget, your dates or a deal-breaker you kept. It's the nearest thing, not a match, and Lens says which limit
-                        it misses.
+
+                <dl className="mt-4 divide-y divide-finn-cotton overflow-hidden rounded-2xl border border-finn-cotton bg-white">
+                    <Term chip={<WinnerChip />}>
+                        <strong>Lens's pick.</strong> The best fit among the cars
+                        eligible to win.
                     </Term>
+
+                    <Term chip={<WinnerChip label="Closest match" />}>
+                        <strong>Closest match.</strong> Used when no car meets all
+                        your remaining requirements. It's the nearest alternative,
+                        not a full match. Lens explains which requirement it misses.
+                    </Term>
+
                     <Term
                         chip={
                             <span className="flex flex-wrap gap-1.5">
@@ -209,193 +434,450 @@ export function Guide() {
                             </span>
                         }
                     >
-                        How well the car fits what you said, from 65 out of 100 for Strong down to under 25 for Limited, with its place in the ranking (#2, #3 and so on). “Over
-                        budget” is added when it's over your limit.
+                        <strong>Match strength.</strong> How well the car fits your
+                        preferences according to its score. Strong starts at 65/100,
+                        Good at 45, Partial at 25, and Limited is below 25. The chip
+                        also shows the car's ranking. An over-budget label may appear
+                        when the car exceeds your limit.
                     </Term>
-                    <Term chip={<BandChip band="unknown" label="Not enough data" />}>FINN's data doesn't cover enough of your top two priorities to judge the car.</Term>
-                    <Term chip={<BandChip band="unknown" label="Ruled out" />}>The car breaks one of your requirements. Its drawer says which one.</Term>
+
+                    <Term chip={<BandChip band="unknown" label="Not enough data" />}>
+                        <strong>Not enough data.</strong> The available information
+                        doesn't cover enough of your top two priorities to judge
+                        the car confidently.
+                    </Term>
+
+                    <Term chip={<BandChip band="unknown" label="Ruled out" />}>
+                        <strong>Ruled out.</strong> The car fails a requirement.
+                        Its details explain which requirement excluded it.
+                    </Term>
                 </dl>
 
                 <div className="mt-4 grid gap-3 sm:grid-cols-2">
                     <Panel title="What a result tells you">
                         <ul className="list-disc space-y-1.5 pl-5">
-                            <li>How the cars on this page compare on the things you told Lens, using what FINN publishes about them.</li>
                             <li>
-                                Why the pick won and what you'd give up by choosing it. Click any chip for that car's case, or “See why” in the chat. Any car that wasn't ruled
-                                out can be saved as a PDF.
+                                How cars compare against the things you told Lens,
+                                using available vehicle information.
                             </li>
-                            <li>What could change the result, where FINN's data is missing something that matters.</li>
+                            <li>
+                                Why the pick won and what you might give up. Open a
+                                car's chip or select <strong>See why</strong> in the
+                                chat to inspect its reasoning.
+                            </li>
+                            <li>
+                                What information is missing and could affect the
+                                comparison.
+                            </li>
+                            <li>
+                                A PDF of the result for eligible cars.
+                            </li>
                         </ul>
                     </Panel>
-                    <Panel title="What it doesn't tell you">
+
+                    <Panel title="What a result can't tell you">
                         <ul className="list-disc space-y-1.5 pl-5">
                             <li>
-                                Whether a car is good in general. Two people get different results for the same car, because the score measures fit to your answers, not quality.
+                                Whether a car is good in general. The score measures
+                                fit to your answers, not overall quality.
                             </li>
                             <li>
-                                Anything FINN doesn't publish: reliability, crash-test results, seat comfort, how it drives, or the condition and history of the car you'd
-                                actually receive.
+                                Information FINN doesn't publish, such as reliability,
+                                crash-test results, seat comfort, driving feel, or the
+                                actual car's condition and history.
                             </li>
                             <li>
-                                Your real running costs. The monthly figure is an estimate, and parking and tolls aren't in it.
+                                Exact running costs. The monthly total is an estimate
+                                and excludes costs such as parking and tolls.
                             </li>
                         </ul>
                     </Panel>
                 </div>
 
-                <Prose className="mt-4">
+                <div className="mt-4 rounded-xl bg-finn-pale-blue/70 p-4">
+                    <p className="text-[13px] font-bold text-finn-black">
+                        Before you subscribe
+                    </p>
+                    <p className="mt-1 text-[13px] leading-relaxed text-finn-black/80">
+                        Results depend on your answers, the scoring model, and the
+                        data available at evaluation time. Verify the price, contract
+                        term, delivery date, mileage package, and equipment on the
+                        individual FINN listing. Use <strong>View on FINN</strong> in
+                        the car's drawer to check the original details.
+                    </p>
+                </div>
+            </Card>
+
+            {/* 5. Beta status and limitations */}
+            <Card
+                id="guide-beta"
+                icon={<FlaskConical className="h-5 w-5" />}
+                title="Beta status and limitations"
+            >
+                <Prose>
                     <p>
-                        A result comes from three things: the current model, FINN's data at the moment of judging, and your answers. Change any of them and the result can change.
-                        Before you subscribe, check the price, term, delivery date and equipment on the car's own FINN page. <strong>View on FINN</strong> in each car's drawer
-                        takes you there.
+                        This is beta version <strong>{version}</strong>. Lens is
+                        still being evaluated, so it may contain bugs, missing
+                        information, or produce a result that looks wrong.
+                    </p>
+                    <p>
+                        The limitations below describe the current prototype. They
+                        aren't necessarily limitations a future version would have
+                        with access to better data.
+                    </p>
+                </Prose>
+
+                <h3 className="mt-6 text-[14.5px] font-black text-finn-black">Known limitations</h3>
+
+                <div className="mt-3 grid items-start gap-3 sm:grid-cols-2">
+                    <LimitGroup title="Where it runs">
+                        <Limit title="Tested only on Chrome.">Firefox and other Chromium browsers, such as Edge or Brave, haven't been tested.</Limit>
+                        <Limit title="English only.">The beta supports only English, even though it runs on FINN's German site.</Limit>
+                        <Limit title="Dependent on FINN's pages and data.">
+                            If FINN changes its page structure or the data it exposes, Lens may stop reading listings until it is updated.
+                        </Limit>
+                    </LimitGroup>
+
+                    <LimitGroup title="How it judges">
+                        <Limit title="No AI in this beta.">
+                            Choices are interpreted by fixed rules, not a language model. The rules cover supported needs, costs, mileage, dates and requirements.
+                        </Limit>
+                        <Limit title="Some qualities can't be judged reliably.">
+                            The data may not establish boot capacity with the seats up, seat comfort, crash-test results, the actual car's condition, or every
+                            driver-assistance feature.
+                        </Limit>
+                        <Limit title="Provisional score bands.">The thresholds for Strong, Good, Partial and Limited matches haven't been finally calibrated.</Limit>
+                        <Limit title="Generalized wording.">
+                            Some explanations use Lens's own groupings, such as “city & parking”, rather than repeating your exact wording.
+                        </Limit>
+                    </LimitGroup>
+
+                    <LimitGroup title="Costs and dates">
+                        <Limit title="Estimated costs.">
+                            Fuel and electricity prices are Lens assumptions, not live prices. Mileage allowances and package prices may be unavailable or differ from
+                            the estimate. Parking and tolls are excluded.
+                        </Limit>
+                        <Limit title="Plug-in hybrids.">
+                            FINN's data doesn't give their electricity consumption, so Lens uses EU registration data where it can. Some models are missing, and an
+                            incomplete cost can decide whether a car qualifies under a hard budget limit.
+                        </Limit>
+                        <Limit title="Rental dates and terms.">
+                            Many cars are offered only on a 12-month term. Fixed dates may leave few eligible cars, so Lens may offer the nearest available dates
+                            instead.
+                        </Limit>
+                    </LimitGroup>
+
+                    <LimitGroup title="Scale and storage">
+                        <Limit title="Large listings.">
+                            Lens evaluates matching cars up to its current limit of about 150 at a time. When a listing exceeds that, it says how many cars it
+                            evaluated out of how many matched.
+                        </Limit>
+                        <Limit title="Local storage.">
+                            Chats and settings stay in this browser. Lens keeps up to 40 recent chats and removes older ones. You can inspect and delete stored data in
+                            Settings; uninstalling the extension removes it.
+                        </Limit>
+                    </LimitGroup>
+                </div>
+
+                <div className="mt-4 rounded-xl border border-dashed border-finn-black/20 p-4">
+                    <h3 className="text-[13.5px] font-black text-finn-black">Not yet tested</h3>
+                    <p className="mt-1 text-[13px] leading-relaxed text-finn-black/80">These may work, but nobody has checked them yet.</p>
+                    <ul className="mt-2 list-disc space-y-1.5 pl-5 text-[13px] leading-relaxed text-finn-black/85">
+                        <li>Using Lens in two FINN tabs at the same time. Simultaneous changes to chats may overwrite one another.</li>
+                        <li>Narrow windows and phone-sized screens, where the chat becomes a full-width sheet.</li>
+                        <li>Keyboard-only use and screen readers.</li>
+                        <li>FINN pages other than car listings and individual car pages.</li>
+                    </ul>
+                </div>
+            </Card>
+
+            {/* 6. Future possibilities */}
+            <Card
+                id="guide-next"
+                icon={<Telescope className="h-5 w-5" />}
+                title="What might come next"
+            >
+                <div className="mb-4 inline-flex rounded-full bg-finn-warning-lift px-3 py-1 text-[12px] font-bold text-finn-warning-ink">
+                    A possibility, not part of this beta
+                </div>
+
+                <Prose>
+                    <p>
+                        Today, Lens asks a fixed set of questions and uses keyword
+                        rules to interpret typed answers. One possible next step is
+                        a more natural conversation, where you describe your
+                        circumstances in your own words and Lens asks follow-up
+                        questions when something is unclear.
+                    </p>
+                    <p>
+                        A language model, possibly Google's Gemini, could translate
+                        that conversation into the structured answers Lens already
+                        uses: needs, priorities, requirements, and constraints.
+                    </p>
+                    <p>
+                        The scoring engine would still evaluate cars using the
+                        available vehicle data. AI would help interpret what you
+                        mean, rather than independently decide which car is best.
+                    </p>
+                    <p>
+                        No AI is used in this beta, and this direction may never
+                        be implemented.
                     </p>
                 </Prose>
             </Card>
 
-            {/* -- 5 ------------------------------------------------------------ */}
-            <Card id="guide-beta" icon={<FlaskConical className="h-5 w-5" />} title="Beta status and known limits">
+            {/* 7. Feedback */}
+            <Card
+                id="guide-feedback"
+                icon={<MessageSquareText className="h-5 w-5" />}
+                title="Feedback and bug reports"
+            >
                 <Prose>
                     <p>
-                        This is a <strong>beta</strong> (version {version}). Lens is still being tried out, and it may have bugs or give a result that looks wrong. If it does,
-                        please say so (see Feedback below).
+                        Found a bug, an incorrect result, something confusing, or
+                        an idea for improvement? Send your report to{" "}
+                        <strong>the person who supplied you with this beta</strong>.
+                    </p>
+                    <p>
+                        You don't need to diagnose the problem. Describe what you
+                        were trying to do, what happened, and how someone else could
+                        reproduce it.
                     </p>
                 </Prose>
 
-                <h3 className="mt-5 text-[14.5px] font-black">Confirmed limits</h3>
-                <ul className="mt-2 list-disc space-y-2 pl-5 text-[13.5px] leading-relaxed text-finn-black/85">
-                    <li>
-                        <strong>Chrome on a computer only.</strong> Other browsers, including Firefox, haven't been tested.
-                    </li>
-                    <li>
-                        <strong>English only</strong>, on finn.com's German site.
-                    </li>
-                    <li>
-                        <strong>It depends on finn.com as it is today.</strong> If FINN changes its pages or its data, Lens may stop reading cars until it's updated.
-                    </li>
-                    <li>
-                        <strong>Typed messages are read by fixed keyword rules, not by AI.</strong> They understand needs, money, distance and deal-breakers, but not dates.
-                        Lens says when it didn't catch something, and every question can be answered by tapping.
-                    </li>
-                    <li>
-                        <strong>Costs are estimates.</strong> The fuel and electricity prices are Lens's own assumptions and aren't yet taken from a published source. Parking
-                        and tolls aren't included.
-                    </li>
-                    <li>
-                        <strong>Plug-in hybrids:</strong> FINN doesn't list their electricity use, so Lens takes it from EU registration data. Some models aren't in that data
-                        yet. Their cost is then incomplete, and Lens says so. Under a limit you said to keep to, they're set aside.
-                    </li>
-                    <li>
-                        <strong>Some things aren't judged</strong> because FINN's data can't settle them: boot space (FINN's figure doesn't say whether the seats are up),
-                        seat comfort and crash-test results. Where FINN doesn't publish a car's driver-assistance level, Lens says the result could depend on it.
-                    </li>
-                    <li>
-                        <strong>Many FINN cars are offered only on a 12-month term.</strong> Because dates count as fixed until you loosen them, a longer rental can leave few
-                        cars. Lens then offers the nearest dates a car on the page can be rented for.
-                    </li>
-                    <li>
-                        <strong>Broad searches:</strong> on a filtered listing Lens judges the matching cars, up to about 150 at a time. When more match, it says how many it
-                        judged and how many there are.
-                    </li>
-                    <li>
-                        <strong>The score bands are provisional.</strong> Where Strong, Good, Partial and Limited begin hasn't been finally calibrated.
-                    </li>
-                    <li>
-                        <strong>Wording:</strong> a car's drawer sometimes names Lens's own groupings (for example “city & parking”) rather than only the words you used.
-                    </li>
-                    <li>
-                        <strong>Storage:</strong> everything stays in this browser. Lens keeps your 40 most recent chats, and older ones are let go. Settings shows all of it and
-                        can delete any of it, and uninstalling Lens removes it.
-                    </li>
-                </ul>
+                <div className="mt-5">
+                    <h3 className="text-[14.5px] font-black text-finn-black">What to put in a report</h3>
+                    <p className="mt-1 text-[13.5px] leading-relaxed text-finn-black/80">
+                        Your chats are kept only on your computer, so whoever reads your report can't open them. Lens can only be checked by doing what
+                        you did, step by step. Include whatever you can, in this order:
+                    </p>
 
-                <h3 className="mt-5 text-[14.5px] font-black">Not yet checked</h3>
-                <ul className="mt-2 list-disc space-y-2 pl-5 text-[13.5px] leading-relaxed text-finn-black/85">
-                    <li>Other Chromium browsers, such as Edge or Brave. They're likely to work, but haven't been tried.</li>
-                    <li>Using Lens in two finn.com tabs at the same time. Changes made to chats in both at once might overwrite one another.</li>
-                    <li>Narrow windows and phone-sized screens, where the chat becomes a full-width sheet.</li>
-                    <li>Keyboard-only use and screen readers.</li>
-                    <li>finn.com pages other than car listings and a car's own page.</li>
-                </ul>
-            </Card>
+                    <ol className="mt-3 space-y-2">
+                        <FeedbackItem n={1} title="What kind of issue it is">
+                            <strong>A bug</strong>: something broke, didn't respond, or behaved unexpectedly. Or <strong>a faulty or incomplete result</strong>:
+                            a pick or score looks wrong, something is missing, or the explanation doesn't match the recommendation. Suggestions are welcome too.
+                        </FeedbackItem>
+                        <FeedbackItem n={2} title="Steps to reproduce it">
+                            <ul className="mt-1 list-disc space-y-1 pl-5">
+                                <li>The full finn.com address you were on, including any filters you'd set.</li>
+                                <li>Each answer you gave Lens, in order, whether you tapped it or typed it.</li>
+                                <li>
+                                    Anything you changed under <strong>This doesn't look right</strong>: items taken out or added, how much something counts, answers
+                                    changed.
+                                </li>
+                                <li>What you did after the result, such as opening a car's drawer or changing your answers.</li>
+                            </ul>
+                        </FeedbackItem>
+                        <FeedbackItem n={3} title="What happened">
+                            What Lens showed or did, the car it concerns, and any error message.
+                        </FeedbackItem>
+                        <FeedbackItem n={4} title="What you expected">
+                            What you thought should happen instead, and why.
+                        </FeedbackItem>
+                        <FeedbackItem n={5} title="Screenshots and the PDF">
+                            Screenshots of the chat and the page. For a result, the PDF too: click the car's chip and choose <strong>Save as PDF</strong> in its
+                            drawer.
+                        </FeedbackItem>
+                        <FeedbackItem n={6} title="Anything else that might help">
+                            Your browser and its version, and anything you noticed along the way. This is Lens {version}.
+                        </FeedbackItem>
+                    </ol>
+                </div>
 
-            {/* -- 6 ------------------------------------------------------------ */}
-            <Card id="guide-next" icon={<Telescope className="h-5 w-5" />} title="What might come next">
-                <p className="mb-3 inline-flex rounded-full bg-finn-warning-lift px-3 py-1 text-[12.5px] font-black text-finn-warning-ink">
-                    A direction being explored. Not part of this beta.
-                </p>
-                <Prose>
-                    <p>
-                        Today Lens asks a fixed set of questions, and reads typed words with simple keyword rules. The aim is a more natural conversation: you'd describe your
-                        situation in your own words (“two kids, a dog, and a long commute on the motorway”), Lens would ask follow-up questions where something is unclear, and you
-                        could refine what you need as you go.
-                    </p>
-                    <p>
-                        An AI language model, possibly Google's Gemini, could do the understanding: turning the conversation into the same structured answers Lens uses now (needs,
-                        how much each counts, limits and deal-breakers). The engine would still do the judging. It would score the cars and pick the winner exactly as it does
-                        today, from FINN's data. The AI would help interpret what you mean, not decide which car is best.
-                    </p>
-                    <p>No AI is used in this beta, and there's no promise this will ship.</p>
-                </Prose>
-            </Card>
-
-            {/* -- 7 ------------------------------------------------------------ */}
-            <Card id="guide-feedback" icon={<MessageSquareText className="h-5 w-5" />} title="Feedback">
-                <Prose>
-                    <p>
-                        Bugs, results that look wrong or confusing, and suggestions are all welcome. Please send them to <strong>the person who sent you this build</strong>.
-                    </p>
-                    <p>These make a report quickest to trace:</p>
-                </Prose>
-                <ul className="mt-2 list-disc space-y-1.5 pl-5 text-[13.5px] leading-relaxed text-finn-black/85">
-                    <li>A screenshot.</li>
-                    <li>The address of the finn.com page you were on.</li>
-                    <li>The chat's name, shown under “Lens” at the top of the chat (for example “Chat 7KQ-M4X”).</li>
-                    <li>What you expected, and what Lens said instead.</li>
-                    <li>The version: {version}.</li>
-                </ul>
-                <div className="mt-4 flex items-start gap-2 rounded-2xl bg-finn-pale-blue p-4 text-[13px] leading-relaxed text-finn-black/85">
-                    <Lightbulb aria-hidden="true" className="mt-0.5 h-4 w-4 shrink-0 text-finn-accent-blue" />
-                    <p>
-                        A result that surprised you is as useful to hear about as a crash. Saying which car you expected to win, and why, helps tell a bug from a judgement call.
-                    </p>
+                <div className="mt-4 rounded-xl bg-finn-pale-blue/70 p-4">
+                    <div className="flex items-start gap-2">
+                        <Lightbulb
+                            aria-hidden="true"
+                            className="mt-0.5 h-4 w-4 shrink-0 text-finn-accent-blue"
+                        />
+                        <div className="text-[13px] leading-relaxed text-finn-black/85">
+                            <p className="font-bold">
+                                A useful report doesn't need to be technical.
+                            </p>
+                            <p className="mt-1">
+                                For example: "I selected these answers, changed this
+                                priority, and expected this car to win, but Lens picked
+                                another one. Here's why I expected a different result."
+                            </p>
+                            <p className="mt-2">
+                                A surprising result is useful even if it isn't a bug.
+                                It may reveal a scoring issue, missing data, or a
+                                trade-off Lens should explain more clearly.
+                            </p>
+                        </div>
+                    </div>
                 </div>
             </Card>
         </div>
     );
 }
 
-function Prose({ children, className = "" }: { children: ReactNode; className?: string }) {
-    return <div className={`space-y-3 text-[14px] leading-relaxed text-finn-black/85 ${className}`}>{children}</div>;
-}
-
-function Step({ n, title, children }: { n: number; title: string; children: ReactNode }) {
+function LimitGroup({ title, children }: { title: string; children: ReactNode }) {
     return (
-        <div className="flex gap-3">
-            <span aria-hidden="true" className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-finn-highlight-navy text-[13px] font-black text-white">
-                {n}
-            </span>
-            <div className="min-w-0 flex-1">
-                <h3 className="text-[14.5px] font-black leading-snug">{title}</h3>
-                <div className="mt-1 text-[13.5px] leading-relaxed text-finn-black/85">{children}</div>
-            </div>
+        <div className="rounded-xl border border-finn-cotton bg-white p-4">
+            <p className="text-[11px] font-black uppercase tracking-wide text-finn-accent-blue">{title}</p>
+            <ul className="mt-2 space-y-2.5">{children}</ul>
         </div>
     );
 }
 
-function Panel({ title, children }: { title: string; children: ReactNode }) {
+function Limit({ title, children }: { title: string; children: ReactNode }) {
     return (
-        <div className="rounded-2xl bg-white p-4 text-[13.5px] leading-relaxed text-finn-black/85 ring-1 ring-finn-cotton">
-            <p className="mb-2 text-[13.5px] font-black text-finn-black">{title}</p>
+        <li className="text-[13px] leading-relaxed text-finn-black/85">
+            <strong className="text-finn-black">{title}</strong> {children}
+        </li>
+    );
+}
+
+function QuickTag({ children }: { children: ReactNode }) {
+    return (
+        <span className="rounded-full border border-finn-cotton bg-white px-2.5 py-1 text-[11px] font-semibold text-finn-black/70">
+            {children}
+        </span>
+    );
+}
+
+function Prose({
+    children,
+    className = "",
+}: {
+    children: ReactNode;
+    className?: string;
+}) {
+    return (
+        <div
+            className={`space-y-3 text-[14px] leading-relaxed text-finn-black/85 ${className}`}
+        >
             {children}
         </div>
     );
 }
 
-function Term({ chip, children }: { chip: ReactNode; children: ReactNode }) {
+function KeyPoint({ children }: { children: ReactNode }) {
+    return (
+        <div className="mt-4 rounded-r-xl border-l-[3px] border-finn-accent-blue bg-finn-pale-blue/60 px-4 py-3 text-[13px] leading-relaxed text-finn-black/85">
+            {children}
+        </div>
+    );
+}
+
+function Step({
+    n,
+    title,
+    children,
+}: {
+    n: number;
+    title: string;
+    children: ReactNode;
+}) {
+    return (
+        <div className="flex gap-3">
+            <span
+                aria-hidden="true"
+                className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-finn-highlight-navy text-[13px] font-black text-white"
+            >
+                {n}
+            </span>
+
+            <div className="min-w-0 flex-1">
+                <h3 className="text-[14.5px] font-black leading-snug text-finn-black">
+                    {title}
+                </h3>
+                <div className="mt-1 text-[13.5px] leading-relaxed text-finn-black/85">
+                    {children}
+                </div>
+            </div>
+        </div>
+    );
+}
+
+function Panel({
+    title,
+    children,
+}: {
+    title: string;
+    children: ReactNode;
+}) {
+    return (
+        <div className="rounded-xl border border-finn-cotton bg-white p-4 text-[13.5px] leading-relaxed text-finn-black/85">
+            <p className="mb-2 text-[13.5px] font-black text-finn-black">
+                {title}
+            </p>
+            {children}
+        </div>
+    );
+}
+
+function Term({
+    chip,
+    children,
+}: {
+    chip: ReactNode;
+    children: ReactNode;
+}) {
     return (
         <div className="grid gap-2 px-4 py-3 sm:grid-cols-[minmax(0,220px)_1fr] sm:gap-4">
             <dt className="flex items-start">{chip}</dt>
-            <dd className="text-[13.5px] leading-relaxed text-finn-black/85">{children}</dd>
+            <dd className="text-[13.5px] leading-relaxed text-finn-black/85">
+                {children}
+            </dd>
         </div>
+    );
+}
+
+function MoreDetails({
+    title,
+    children,
+}: {
+    title: string;
+    children: ReactNode;
+}) {
+    return (
+        <details className="group rounded-xl border border-finn-cotton bg-white">
+            <summary className="flex cursor-pointer list-none items-center justify-between gap-3 rounded-xl px-4 py-3 text-[13px] font-bold text-finn-black transition-colors hover:bg-finn-pale-blue focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-finn-accent-blue [&::-webkit-details-marker]:hidden">
+                <span>{title}</span>
+                <ChevronDown
+                    aria-hidden="true"
+                    className="h-4 w-4 shrink-0 text-finn-black/55 transition-transform group-open:rotate-180"
+                />
+            </summary>
+
+            <div className="border-t border-finn-cotton px-4 py-3 text-[13px] leading-relaxed text-finn-black/85">
+                {children}
+            </div>
+        </details>
+    );
+}
+
+function SourceRow({
+    label,
+    description,
+}: {
+    label: string;
+    description: string;
+}) {
+    return (
+        <div className="flex flex-col gap-3 rounded-lg bg-finn-snow p-3">
+            <span className="mt-0.5 shrink-0 rounded-md bg-white px-2 py-1 text-[10px] font-black uppercase tracking-wide text-finn-black/70">
+                {label}
+            </span>
+            <p className="pl-2 text-[12.5px] leading-relaxed text-finn-black/75">
+                {description}
+            </p>
+        </div>
+    );
+}
+
+function FeedbackItem({ n, title, children }: { n: number; title: string; children: ReactNode }) {
+    return (
+        <li className="flex gap-3 rounded-xl border border-finn-cotton bg-white p-3.5">
+            <span aria-hidden="true" className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-finn-pale-blue text-[12px] font-black text-finn-accent-blue">
+                {n}
+            </span>
+            <div className="min-w-0 flex-1">
+                <p className="text-[13.5px] font-black text-finn-black">{title}</p>
+                <div className="mt-0.5 text-[13px] leading-relaxed text-finn-black/85">{children}</div>
+            </div>
+        </li>
     );
 }
