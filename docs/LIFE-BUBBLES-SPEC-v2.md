@@ -390,6 +390,13 @@ Two things the spec promised needed engine or flow changes to be true:
 - **"Checked" items** (§4) did nothing in the chat's ask-only scoring unless a need named them, and a named one was rewarded like a raise. The engine now takes them as `preferences.checked`: a car FINN confirms is missing one loses a little, having one earns nothing.
 - **A bubble a deal-breaker fully settles** — six seats beside "Six seats or more" — leaves no need behind, so the story doesn't repeat the rule as a need; the summary says the rule settles it.
 
+Changed in the beta's final check (12 October 2026):
+
+- **No "Select all"**: every chip is one the reader picks; where you park takes up to two, the comforts up to seven.
+- **Every answer does something.** Each chip was measured against FINN's 698-car snapshot. Two changed nothing and are gone: *A driveway* (it asked nothing of the car, and took one of the two parking picks) and *Keyless entry & start* (standard on 653 of 698 cars, so only ever checked, and it moved no score beside most comforts) — 13 comforts remain. *Booster seat* stays, as the answer for kids past a baby seat, and its "i" says so: kids count as Important, with rear doors and ISOFIX. A test holds every answer to changing something; *Moderately green* is the one exception, naming the environment's default.
+- **"Also making sure it has" only where it's true.** A checked item can mark a car down only inside a priority something else is scored in, so the summary names a check only then, and a bubble's "i" only when it holds however that bubble is answered. "In traffic" alone no longer claims an automatic gearbox (it counts beside "In the city"), nor "In the city" emergency braking.
+- **"See why"** is what the car got right, and the next closest. How it was weighed is in "The whole case", the winner's drawer.
+
 ---
 
 ## Appendix A: everything Lens takes into account today

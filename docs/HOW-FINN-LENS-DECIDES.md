@@ -5,8 +5,8 @@
 > rests on — FINN's own data, arithmetic on it, a published European source, or Lens's own labelled
 > assumption. Written for anyone changing the engine, reviewing it, or checking a claim it makes.
 >
-> **State described:** branch `life-bubbles` at `c35fde9` (7 October 2026). `npx tsc --noEmit` clean,
-> `npx vitest run` green (993 tests).
+> **State described:** branch `life-bubbles`, beta 0.9.1 (12 October 2026). `npx tsc --noEmit` clean,
+> `npx vitest run` green (1,074 tests).
 >
 > **Related documents.** [`FINN-LENS-EMISSIONS-SCORING.md`](FINN-LENS-EMISSIONS-SCORING.md) is the long
 > form of the CO₂ and efficiency scoring (§7 here summarises it).
@@ -149,10 +149,13 @@ Each bubble (`BUBBLES`, bubbles.ts) carries:
 
 - **counts** — equipment Lens scores for it (it earns when listed);
 - **checks** — standard equipment Lens checks for it: a car FINN says lacks it loses a little, and having
-  it earns nothing (§5.2). Said where it's asked for, so it doesn't look forgotten: each bubble's "i" names
-  it ("Also making sure it has: Air conditioning") with a hint from the cars on the page ("Nearly every car
-  here has it, so it won't set the cars apart — but a car without it would lose out"), and the chat's
-  summary card lists it under what Lens checks;
+  it earns nothing (§5.2). A check can only mark a car down inside a priority something else is scored in,
+  so it's said only where that's true: the chat's summary card lists it under what Lens checks when the
+  reader's answers score its priority (`summaryBubbles`, flow.ts), and a bubble's "i" names it ("Also making
+  sure it has: Air conditioning", with a hint from the cars on the page — "Nearly every car here has it, so it
+  won't set the cars apart — but a car without it would lose out") only when it counts however that bubble's
+  own question is answered (`alwaysChecked`, flow.ts). An automatic gearbox under "In traffic" counts only
+  beside "In the city", so it's on the summary then and not behind the "i";
 - **worth** — suggestions shown as "Might matter" on the summary, counted only if the reader adds them;
 - **cantCheck** — what FINN's data can't tell Lens, said on the summary and in the drawer **only where it
   changes how an answer reads**. Today that's one: boot space under "Lots to carry" (FINN's figure doesn't say
@@ -165,21 +168,26 @@ Some bubbles open a row of **chips** (follow-ups) that change what's counted:
 
 | Bubble | Chips (what each adds) |
 |---|---|
-| Kids | Which child seat? — Baby or toddler seat (makes kids a top priority; suggests electric tailgate) · Booster seat. Either or both. |
+| Kids | Which child seat? — Baby or toddler seat (makes kids a top priority; suggests electric tailgate) · Booster seat (kids stay Important, with the rear doors and ISOFIX any child seat needs — the answer for a parent whose kids are past a baby seat). Either or both; both is the same as a baby seat. |
 | Adults or teens | No follow-up: taken to ride in the back — rear doors; suggests 3-zone climate and rear USB ports. |
-| In the city | Where you park, up to two: street (reversing camera) · home garage (width counts more; folding mirrors checked) · multi-storey (360° camera; folding mirrors) · open car park (rear cross-traffic alert) · driveway (nothing extra) |
+| In the city | Where you park, up to two: street (reversing camera) · home garage (width counts more; folding mirrors checked) · multi-storey (360° camera; folding mirrors) · open car park (rear cross-traffic alert). Optional: a driveway asks nothing of the car, so it isn't an answer. |
 | Help driving & parking | Parking (360° camera; sensors checked) · **Parallel parking** (a shorter car, 360° camera; parking assistant and sensors checked) · Traffic & lane changes (blind spot; lane keeping checked) · Reversing out (rear cross-traffic alert, reversing camera) |
-| Tough weather | Snow & ice (snow can't come without cold, so it counts heated seats & wheel itself; **recommends all-wheel drive** — §9.2) · Rain & fog (rain & light sensors, fog lights; mild or cold) · Cold winters (heated seats & wheel; wet or dry, so it combines with rain) · Hot summers (ventilated seats). Any combination, all four with "Select all". |
+| Tough weather | Snow & ice (snow can't come without cold, so it counts heated seats & wheel itself; **recommends all-wheel drive** — §9.2) · Rain & fog (rain & light sensors, fog lights; mild or cold) · Cold winters (heated seats & wheel; wet or dry, so it combines with rain) · Hot summers (ventilated seats). Any combination; snow & ice with cold winters is the same as snow & ice alone. |
 | Lots to carry | Shopping (electric tailgate) · Bulky things (split-folding seats) · Bikes, skis, roof box (roof rails) · Trailer or caravan (towbar, 1,500 kg towing; suggests the towbar deal-breaker) |
-| Comfort | 14 comforts FINN lists, each by name (heated seats, heated wheel, ventilated seats, pre-heating, keyless entry & start, wireless CarPlay / Android Auto, wireless charging, 3-zone climate, electric seats, lumbar support, premium sound, sunroof, rear USB ports, head-up display). Keyless entry is standard, so it is checked rather than scored. Leather and ambient lighting are said not to count. |
+| Comfort | 13 comforts FINN lists, each by name, up to seven picked (heated seats, heated wheel, ventilated seats, pre-heating, wireless CarPlay / Android Auto, wireless charging, 3-zone climate, electric seats, lumbar support, premium sound, sunroof, rear USB ports, head-up display). Keyless entry & start was one until October 2026: it's standard on 653 of FINN's 698 cars, so it could only be checked, never scored, and changed no car's score alongside most comforts — an answer that did nothing. Nothing picked: the bubble asks which, and counts nothing. |
 | The environment | **How green should the car be?** — §7.4 |
 | A budget | How firm: Hard limit · Some give — §9.4 |
 
-Chip rules: "Select all" where several can be true and there's no cap, never picking two that can't both
-be true (`allChips`, flow.ts); exclusive pairs are enforced on the page and again in the flow.
+Chip rules: every chip is one the reader picks — there's no "Select all". Required questions (child seat,
+help with what, the weather, what you carry) need at least one; where you park takes up to two and the
+comforts up to seven. **Every answer does something**: each changes what's counted, checked or suggested,
+how much the bubble counts, the figure it's judged on, a suggested deal-breaker or the budget's firmness —
+against leaving the question unanswered where it can be, and against every other answer to it. The one
+exception is "Moderately green", which names the default "The environment" has with no answer
+(`bubbles.test.ts`, "every answer does something").
 
 **Recommended comforts.** Comfort chips that earlier answers point to are starred, first, with the reason
-(`RECOMMENDED`, `recommendedBecause`, bubbles.ts): heated seats and pre-heating for snow & ice or cold & dry;
+(`RECOMMENDED`, `recommendedBecause`, bubbles.ts): heated seats and pre-heating for snow & ice or cold winters;
 a heated wheel for the same, "and you spend a lot of time on the road" beside long distances or traffic;
 lumbar support and wireless CarPlay / charging for long distances or traffic; and so on. Nothing is picked
 for the reader. Rain alone doesn't recommend warmth; a bubble's own answers never recommend its own chips.
@@ -189,7 +197,8 @@ for the reader. Rain alone doesn't recommend warmth; a bubble's own answers neve
 Asked only for a bubble that has it (`OFTEN`, bubbles.ts). It sets how much the bubble counts: every day /
 every week → Top priority; about once a month → Important; a few times a year → Nice to have. Traffic:
 over 45 min → Top priority; 20–45 → Important; under 20 → Nice to have. Long distances also makes the
-distance question matter.
+distance question matter, and "every day" leaves 500 and 1,000 km a month out of it — daily long drives
+can't add up to so little.
 
 ### 3.3 How much something counts — one scale
 
@@ -280,8 +289,8 @@ padding: in a chat, a priority nothing the reader said points to isn't scored at
   priorities its equipment sits in**; a priority's share is the sum of what its needs put there
   (`priorityShares`). So seven items for kids don't outweigh one CO₂ figure seven to one: a need is a need,
   however many items Lens checks for it.
-- **Settings screen (classic).** By rank: with *n* priorities the first weighs *n*, the next *n−1*, … over
-  their sum (`priorityWeights`, scoring.ts).
+- **Without shares** — the playground branch's settings screen, not part of this build. By rank: with *n*
+  priorities the first weighs *n*, the next *n−1*, … over their sum (`priorityWeights`, scoring.ts).
 
 ### 4.3 How much each item weighs inside a priority
 
@@ -325,6 +334,11 @@ snapshot on every calibration run) is **expected**: having it earns nothing, a c
 weight. Counted as earning, it would add the same to every car and only squeeze the differences. Examples:
 emergency braking, lane keeping, ISOFIX, parking sensors and parking assistant (685 and 683 of 698 in the
 October 2026 snapshot), and keyless entry & start (653 of 698; it was 636 of 728 in September, below the line).
+
+In the chat (asked-only, §4), a standard item weighs anything only when a need **checks** it, and only inside a
+priority the reader's answers already score (`preferences.checked`, `toAnswers`, understanding.ts): the gap
+is taken off what the car earned there, so in a priority with nothing scored there is nothing to take it
+from. That's why the summary and the bubbles' "i" name a check only where it counts (§3.1).
 
 One item sits on the line and is kept scored on purpose: the **reversing camera**, on 628 of 698 cars (89.97%)
 — it was 631 of 701 (90.01%), one car over, in the snapshot before.
@@ -598,9 +612,9 @@ either car, since any could be the deciding one.
 
 - **The result card**: the winner, a short "Why" (each thing said → what this car has for it), and "One
   thing to know" (a limit note first, else the biggest trade-off).
-- **See why**: **only what the car got right** — everything it has for each thing said, and how what was
-  said was weighed. What it lacks and what choosing it gives up are for "The whole case". A thing said that
-  the car has nothing for isn't listed as a reason it won.
+- **See why**: **only what the car got right** — everything it has for each thing said — and the next
+  closest cars. How what was said was weighed, what it lacks and what choosing it gives up are for "The
+  whole case". A thing said that the car has nothing for isn't listed as a reason it won.
 - **The whole case** (the drawer, fit-story.ts): per need, what the car has and lacks, measurements against
   the scale, CO₂ and efficiency, the cost table with its sources, the rental fit.
 - **How I weighed it** (the winner's drawer, `weighingOf`, lib/chats/weighing.ts): in the reader's own terms

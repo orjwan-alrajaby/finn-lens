@@ -1,12 +1,17 @@
 # Changelog
 
-## 0.9.1 beta — 10 October 2026
+## 0.9.1 beta — 12 October 2026
 
 The build for the first outside review. Everything 0.9.0 does, plus:
 
 - **A beta guide** in Settings (its own tab, and a link from the popup): what
   Lens is and why, how it decides, how to read its results, its known limits,
-  what might come next, and where to send feedback.
+  what might come next, and what a bug report needs to be reproduced — with
+  its contents pinned beside it on a wide screen, following the reading.
+- **A product demo** in Settings: a reader's journey through Lens, in
+  screenshots.
+- **The guide and the demo as a web page**, published to GitHub Pages by a
+  workflow (`site/`, `.github/workflows/pages.yml`).
 - **"What you told me" and the Adjust panel** say each question once, with
   every answer under it; the Adjust panel slides in beside a widened chat, and
   the chat can be expanded from its header and resized from its corner.
@@ -29,6 +34,17 @@ Fixed in the final check:
   how many of them it judged.
 - Settings' delete confirmations lowercased Lens's name.
 - The package no longer ships two unused logos from the project template.
+- Answers that changed nothing are gone: "Driveway" (where you park) and
+  "Keyless entry & start" (a comfort on 653 of FINN's 698 cars, which could
+  only be checked and moved no score beside most comforts). "Booster seat"
+  stays — it's the answer for kids past a baby seat — and now says what it
+  means. Every answer left changes something, and a test holds them to it.
+- Standard equipment Lens says it checks ("Also making sure it has") is now
+  said only where it can mark a car down: inside a priority something else is
+  scored in. "In traffic" alone no longer claims an automatic gearbox, nor
+  "In the city" emergency braking.
+- The demo's screenshots are WebP, named for what they show, at under a
+  third of the PNGs' size.
 
 ## 0.9.0 beta — 7 October 2026
 

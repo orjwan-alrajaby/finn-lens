@@ -6,8 +6,11 @@
 > it rests on. Verified at the time of writing (`7b455be`, 2026-09-05): `npx tsc --noEmit`
 > clean, `npx vitest run` green (28 files, 509 tests), 40 of them in `environmental.test.ts`.
 >
-> `FINN-LENS-HANDOFF.md` §3 summarises this model in a paragraph. This document is the
-> long form: why it is the way it is, and what would have to change to change it.
+> [`HOW-FINN-LENS-DECIDES.md`](HOW-FINN-LENS-DECIDES.md) §7 summarises this model for the current
+> build (`FINN-LENS-HANDOFF.md`, which did before, is on the `playground` branch). This document is the
+> long form: why it is the way it is, and what would have to change to change it. Its figures — the
+> A–G boundaries, the 136 g/km and 17 kWh/100 km references, the plug-in hybrid ceiling — were checked
+> against `environmental.ts` again for the 0.9.1 beta (12 October 2026).
 >
 > **Amended 2026-09-06.** §12 covers the explanation layer added on top of the model — the
 > scoring below is unchanged. Two claims in the copy were corrected at the same time and are

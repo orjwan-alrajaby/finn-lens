@@ -219,7 +219,8 @@ export function Guide({ version }: { version: string }) {
                                     </li>
                                     <li>Fuels you didn't select.</li>
                                     <li>
-                                        Rental dates, unless you allow flexibility.
+                                        Your rental dates. “A month either way” loosens
+                                        them; “Doesn't matter” lifts them.
                                     </li>
                                     <li>
                                         Your monthly budget, when you've asked Lens to
@@ -303,8 +304,10 @@ export function Guide({ version }: { version: string }) {
                     <Step n={5} title="Cost determines eligibility, not preference">
                         <p>
                             A cheaper car doesn't score higher simply because it costs
-                            less. When you've set a hard budget, estimated cost helps
-                            determine whether a car is eligible to win.
+                            less. With a monthly limit, estimated cost decides which
+                            cars may win: one over it can't be the pick while a car
+                            within it exists. A hard limit goes further and rules cars
+                            over it out.
                         </p>
 
                         <p className="mt-2">
@@ -464,9 +467,9 @@ export function Guide({ version }: { version: string }) {
                                 using available vehicle information.
                             </li>
                             <li>
-                                Why the pick won and what you might give up. Open a
-                                car's chip or select <strong>See why</strong> in the
-                                chat to inspect its reasoning.
+                                Why the pick won and what you'd give up by choosing it:
+                                click its chip, or <strong>The whole case</strong> in the
+                                chat. <strong>See why</strong> lists what it got right.
                             </li>
                             <li>
                                 What information is missing and could affect the

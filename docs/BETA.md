@@ -27,7 +27,8 @@ that isn't from the Chrome Web Store.
 Click the Lens icon in Chrome's toolbar (under the puzzle piece, if it isn't
 pinned) and choose **Beta guide**. It explains what Lens does, how it decides,
 how to read its results, and what this beta can't do yet. It's also a tab in
-Lens's Settings.
+Lens's Settings, beside a **Product demo** tab that walks through a chat in
+screenshots.
 
 ## Try it (five minutes)
 
