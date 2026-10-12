@@ -6,29 +6,34 @@ import { BetaTag } from "@/components/lens-parts";
 import { Guide } from "@/entrypoints/options/Guide";
 import { ProductWalkthrough } from "@/entrypoints/options/ProductWalkthrough";
 
+import { Docs } from "./Docs";
+
 /**
  * The published page: the beta guide and the product demo, as the
  * extension's Settings shows them, without the tab that needs the extension
- * (Settings itself reads the reader's stored chats).
+ * (Settings itself reads the reader's stored chats) — and the branch's
+ * documentation, read from the repository's own markdown.
  */
 
 declare const __LENS_VERSION__: string;
 
-type View = "guide" | "demo";
+type View = "guide" | "demo" | "docs";
 
 const PAGES: Record<View, { title: string; tab: string; description: string }> = {
     guide: { title: "Finn Lens beta guide", tab: "Finn Lens · Beta guide", description: "What Lens does, how it decides, and what this beta can't do yet." },
     demo: { title: "Finn Lens product demo", tab: "Finn Lens · Product demo", description: "A walkthrough of a reader's journey through Finn Lens." },
+    docs: { title: "Finn Lens documentation", tab: "Finn Lens · Documentation", description: "How it's built, how it decides, and what changed — as the repository documents it." },
 };
 
-/** The guide's sections are `#guide-…` and the demo's `#demo-…`, so a section's link keeps its page open. */
-const viewOf = (hash: string): View => (hash.startsWith("#demo") ? "demo" : "guide");
+/** The guide's sections are `#guide-…`, the demo's `#demo-…` and the documents `#docs/…`, so a section's link keeps its page open. */
+const viewOf = (hash: string): View => (hash.startsWith("#demo") ? "demo" : hash.startsWith("#docs") ? "docs" : "guide");
 
 function Site() {
-    const [view, setView] = useState<View>(() => viewOf(window.location.hash));
+    const [hash, setHash] = useState(() => window.location.hash);
+    const view = viewOf(hash);
 
     useEffect(() => {
-        const follow = () => setView(viewOf(window.location.hash));
+        const follow = () => setHash(window.location.hash);
 
         window.addEventListener("hashchange", follow);
         return () => window.removeEventListener("hashchange", follow);
@@ -55,17 +60,20 @@ function Site() {
                         <p className="text-[13px] text-white/75">{PAGES[view].description}</p>
                     </div>
                 </div>
-                <nav aria-label="Finn Lens" className="mx-auto flex max-w-3xl gap-2 px-6 pb-5">
+                <nav aria-label="Finn Lens" className="mx-auto flex max-w-3xl flex-wrap gap-2 px-6 pb-5">
                     <Tab href="#guide" current={view === "guide"}>
                         Beta guide
                     </Tab>
                     <Tab href="#demo" current={view === "demo"}>
                         Product demo
                     </Tab>
+                    <Tab href="#docs" current={view === "docs"}>
+                        Documentation
+                    </Tab>
                 </nav>
             </header>
 
-            <div className="mx-auto max-w-3xl px-6 py-8">{view === "guide" ? <Guide version={__LENS_VERSION__} /> : <ProductWalkthrough />}</div>
+            <div className="mx-auto max-w-3xl px-6 py-8">{view === "guide" ? <Guide version={__LENS_VERSION__} /> : view === "demo" ? <ProductWalkthrough /> : <Docs hash={hash} />}</div>
 
             <footer className="mx-auto max-w-3xl px-6 pb-10 text-[13px] leading-relaxed text-finn-black/75">
                 Finn Lens {__LENS_VERSION__} is an independent project. It isn't made by, or affiliated with, FINN.
@@ -80,7 +88,7 @@ function Tab({ href, current, children }: { href: string; current: boolean; chil
             href={href}
             aria-current={current ? "page" : undefined}
             className={[
-                "rounded-full px-4 py-2 text-[13px] font-black transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white",
+                "whitespace-nowrap rounded-full px-4 py-2 text-[13px] font-black transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white",
                 current ? "bg-white text-finn-highlight-navy" : "bg-white/10 text-white ring-1 ring-white/25 hover:bg-white/20",
             ].join(" ")}
         >

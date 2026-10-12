@@ -1,7 +1,8 @@
 # Publishes Finn Lens's beta guide and product demo to GitHub Pages.
 #
 # Builds `browser-extension/site/` — the same Guide and ProductWalkthrough
-# components the extension's Settings shows — and deploys it. Runs on every
+# components the extension's Settings shows, and the branch's documentation
+# from README.md, CHANGELOG.md and docs/ — and deploys it. Runs on every
 # push to main that touches the extension, and by hand from the Actions tab.
 #
 # One-time setup in the repository: Settings → Pages → Build and deployment →
@@ -14,6 +15,7 @@ on:
     branches: [main]
     paths:
       - "browser-extension/**"
+      - "docs/**"
       - ".github/workflows/pages.yml"
   workflow_dispatch:
 

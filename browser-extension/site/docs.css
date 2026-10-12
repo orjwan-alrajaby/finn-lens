@@ -1,0 +1,106 @@
+/*
+ * The documents' markdown, set to read as the guide does: dark ink at a
+ * comfortable size, tables that scroll rather than squeeze, code that stands
+ * apart without shouting.
+ */
+.doc-prose {
+  color: rgb(25 25 25 / 0.88);
+  font-size: 15px;
+  line-height: 1.7;
+  overflow-wrap: anywhere;
+}
+
+.doc-prose > :first-child {
+  margin-top: 0;
+}
+
+.doc-prose h1,
+.doc-prose h2,
+.doc-prose h3,
+.doc-prose h4 {
+  color: var(--color-finn-highlight-navy);
+  font-weight: 900;
+  line-height: 1.25;
+  scroll-margin-top: 1.5rem;
+}
+
+.doc-prose h1 { font-size: 26px; margin: 0 0 1rem; }
+.doc-prose h2 { font-size: 20px; margin: 2.25rem 0 0.75rem; }
+.doc-prose h3 { font-size: 16.5px; margin: 1.75rem 0 0.5rem; }
+.doc-prose h4 { font-size: 15px; margin: 1.25rem 0 0.5rem; }
+
+.doc-prose p,
+.doc-prose ul,
+.doc-prose ol,
+.doc-prose pre,
+.doc-prose table,
+.doc-prose blockquote {
+  margin: 0 0 1rem;
+}
+
+.doc-prose ul { list-style: disc; padding-left: 1.4rem; }
+.doc-prose ol { list-style: decimal; padding-left: 1.4rem; }
+.doc-prose li { margin: 0.3rem 0; }
+.doc-prose li > ul,
+.doc-prose li > ol { margin: 0.3rem 0 0; }
+
+.doc-prose strong { color: var(--color-finn-black); font-weight: 800; }
+
+.doc-prose a {
+  color: var(--color-finn-accent-blue);
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.doc-prose code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.86em;
+  background: var(--color-finn-cotton);
+  border-radius: 6px;
+  padding: 0.1em 0.35em;
+}
+
+.doc-prose pre {
+  background: var(--color-finn-snow);
+  border: 1px solid var(--color-finn-cotton);
+  border-radius: 12px;
+  padding: 1rem;
+  overflow-x: auto;
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.doc-prose pre code { background: none; padding: 0; font-size: inherit; }
+
+.doc-prose blockquote {
+  border-left: 3px solid var(--color-finn-accent-blue);
+  background: var(--color-finn-pale-blue);
+  border-radius: 0 12px 12px 0;
+  padding: 0.75rem 1rem;
+}
+
+.doc-prose blockquote > :last-child { margin-bottom: 0; }
+
+.doc-prose hr { border: 0; border-top: 1px solid var(--color-finn-cotton); margin: 2rem 0; }
+
+/* Wide tables scroll inside the page rather than widening it. */
+.doc-prose table {
+  display: block;
+  max-width: 100%;
+  overflow-x: auto;
+  border-collapse: collapse;
+  font-size: 13.5px;
+  line-height: 1.5;
+}
+
+.doc-prose th,
+.doc-prose td {
+  border: 1px solid var(--color-finn-cotton);
+  padding: 0.5rem 0.65rem;
+  text-align: left;
+  vertical-align: top;
+  min-width: 7rem;
+}
+
+.doc-prose th { background: var(--color-finn-snow); color: var(--color-finn-black); font-weight: 800; }
