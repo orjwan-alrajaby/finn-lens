@@ -205,6 +205,21 @@
 > > This lets you compare the reasoning across different cars instead of treating the top pick as an answer you have to accept on faith.
 > >
 > > A top pick is ultimately the result of applying Lens's predefined scoring model to your stated needs and priorities. It isn't a guarantee that the car is the right choice for everyone.
+>
+> ---
+>
+> ### 5. Try it yourself
+>
+> Finn Lens isn't on the Chrome Web Store. This beta is shared as a package you load into Chrome yourself, on a computer — it takes about two minutes.
+>
+> **[Download `finn-lens-0.9.1-chrome.zip`](https://github.com/orjwan-alrajaby/finn-lens/raw/main/releases/finn-lens-0.9.1-chrome.zip)**, then:
+>
+> 1. Unzip it. You get a folder holding `manifest.json`.
+> 2. Open `chrome://extensions` and switch on **Developer mode** (top right).
+> 3. Click **Load unpacked** and choose that folder. Keep the folder where it is: Chrome loads Lens from it each time.
+> 4. Lens opens finn.com in a new tab, and its chat opens by itself. If it doesn't, click the **Lens** bubble in the bottom-right corner.
+>
+> It runs only on www.finn.com, and tabs that were already open need a reload. Chrome may warn about extensions in developer mode; that's expected for a build that isn't from the store. The same steps, with more on this beta, are in [the beta note](BETA.md#install-it-chrome-on-a-computer-about-two-minutes).
 
 ---
 

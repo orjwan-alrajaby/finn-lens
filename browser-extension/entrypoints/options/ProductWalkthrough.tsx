@@ -10,6 +10,7 @@ import {
     ZoomOut,
     CarFront,
     CheckCircle2,
+    Download,
     MessageSquareText,
     Users,
     ZoomIn,
@@ -29,6 +30,8 @@ import saveSettings from "@/assets/images/walkthrough/12-save-settings.webp";
 import resultChips from "@/assets/images/walkthrough/13-result-chips.webp";
 import resultDrawer from "@/assets/images/walkthrough/14-result-drawer.webp";
 
+import { INSTALL_STEPS, packageUrl } from "@/lib/release";
+
 import { OnThisPage, useActiveSection, useScrollToHash } from "./OnThisPage";
 import { PageIntro } from "./PageIntro";
 
@@ -41,6 +44,7 @@ const SECTIONS = [
         label: "Review and refine Lens's understanding",
     },
     { id: "demo-explore-results", number: "04", label: "Explore your results" },
+    { id: "demo-try-it", number: "05", label: "Try it yourself" },
 ];
 
 const GROUPS = [{ items: SECTIONS }];
@@ -67,7 +71,8 @@ const GALLERY: { src: string; alt: string }[] = [
 /** Opens the lightbox on a screenshot. */
 const OpenScreenshot = createContext<(src: string) => void>(() => { });
 
-export function ProductWalkthrough() {
+/** `release` is the bare version, "0.9.1", which names the package to download. */
+export function ProductWalkthrough({ release }: { release: string }) {
     const active = useActiveSection(SECTION_IDS);
     useScrollToHash();
     /** The screenshot open in the lightbox, by its place in GALLERY. */
@@ -541,6 +546,49 @@ export function ProductWalkthrough() {
                                 the right choice for everyone.
                             </p>
                         </Subsection>
+                    </SectionCard>
+                </section>
+
+                {/* 5. Try it yourself */}
+                <section id="demo-try-it" className="scroll-mt-6">
+                    <SectionCard number="5" title="Try it yourself" icon={<Download />}>
+                        <p>
+                            Finn Lens isn't on the Chrome Web Store. This beta is shared as a package you load into Chrome yourself, on a computer — it
+                            takes about two minutes.
+                        </p>
+
+                        <a
+                            href={packageUrl(release)}
+                            className="inline-flex items-center gap-2 rounded-full bg-[#003087] px-5 py-2.5 text-[13.5px] font-black text-white transition-colors hover:bg-[#0072ea] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0072ea]"
+                        >
+                            <Download aria-hidden="true" className="h-4 w-4" />
+                            Download the {release} beta (.zip)
+                        </a>
+
+                        <ol className="list-decimal space-y-2 pl-5 marker:font-black marker:text-[#003087]">
+                            <li>Unzip it. You get a folder holding <code className="font-mono text-[12.5px]">manifest.json</code>.</li>
+                            <li>
+                                Open <code className="font-mono text-[12.5px]">chrome://extensions</code> and switch on <strong>Developer mode</strong> (top
+                                right).
+                            </li>
+                            <li>
+                                Click <strong>Load unpacked</strong> and choose that folder. Keep the folder where it is: Chrome loads Lens from it each
+                                time.
+                            </li>
+                            <li>
+                                Lens opens finn.com in a new tab, and its chat opens by itself. If it doesn't, click the <strong>Lens</strong> bubble in the
+                                bottom-right corner.
+                            </li>
+                        </ol>
+
+                        <p>
+                            It runs only on www.finn.com, and tabs that were already open need a reload. Chrome may warn about extensions in developer
+                            mode; that's expected for a build that isn't from the store. The same steps, with more on this beta, are in{" "}
+                            <a href={INSTALL_STEPS} className="font-bold text-[#0072ea] underline">
+                                the beta note
+                            </a>
+                            .
+                        </p>
                     </SectionCard>
                 </section>
 
