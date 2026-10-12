@@ -257,7 +257,7 @@ export function App() {
                 </div>
             ) : view === "demo" ? (
                 <div className="mx-auto max-w-3xl px-6 py-8">
-                    <ProductWalkthrough />
+                    <ProductWalkthrough release={browser.runtime.getManifest().version} />
                 </div>
             ) : view === "docs" ? (
                 <div className="mx-auto max-w-3xl px-6 py-8">

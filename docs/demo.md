@@ -8,7 +8,7 @@
 >
 > When you first install Finn Lens, it opens the listings page on finn.com and introduces itself through the chat.
 >
-> ![Finn Lens introduction](browser-extension/assets/images/walkthrough/01-meet-lens.webp)
+> ![Finn Lens introduction](../browser-extension/assets/images/walkthrough/01-meet-lens.webp)
 >
 > Lens explains what it does, how the conversation works, and what to expect from the results. You can answer by selecting options or, where a question allows it, entering a value of your own.
 >
@@ -22,7 +22,7 @@
 >
 > > #### 2.1. Who rides with you?
 > >
-> > ![Passenger and child-seat questions](browser-extension/assets/images/walkthrough/02-who-rides-with-you.webp)
+> > ![Passenger and child-seat questions](../browser-extension/assets/images/walkthrough/02-who-rides-with-you.webp)
 > >
 > > Lens starts by asking who regularly travels with you. Children in child seats, older passengers, teenagers, and dogs can have different implications for what makes a car suitable.
 > >
@@ -36,7 +36,7 @@
 > >
 > > #### 2.2. Where and how do you drive?
 > >
-> > ![Driving habits and parking questions](browser-extension/assets/images/walkthrough/03-where-and-how-you-drive.webp)
+> > ![Driving habits and parking questions](../browser-extension/assets/images/walkthrough/03-where-and-how-you-drive.webp)
 > >
 > > Next, Lens asks about your driving habits and the environments you regularly encounter.
 > >
@@ -52,7 +52,7 @@
 > >
 > > #### 2.3. What does the car need to cope with?
 > >
-> > ![Weather and carrying requirements](browser-extension/assets/images/walkthrough/04-what-the-car-copes-with.webp)
+> > ![Weather and carrying requirements](../browser-extension/assets/images/walkthrough/04-what-the-car-copes-with.webp)
 > >
 > > Lens also asks about the conditions the car needs to handle and what you regularly carry.
 > >
@@ -68,7 +68,7 @@
 > >
 > > #### 2.4. Build on earlier answers
 > >
-> > ![Comfort preferences and recommended features](browser-extension/assets/images/walkthrough/05-recommended-comforts.webp)
+> > ![Comfort preferences and recommended features](../browser-extension/assets/images/walkthrough/05-recommended-comforts.webp)
 > >
 > > As the conversation progresses, Lens can recommend additional options based on what you've already told it.
 > >
@@ -86,7 +86,7 @@
 > >
 > > #### 2.5. Tell Lens what else matters to you
 > >
-> > ![Additional preferences and natural-language summary](browser-extension/assets/images/walkthrough/06-what-else-matters.webp)
+> > ![Additional preferences and natural-language summary](../browser-extension/assets/images/walkthrough/06-what-else-matters.webp)
 > >
 > > Beyond practical requirements, Lens asks about other preferences, including comfort and environmental considerations.
 > >
@@ -108,13 +108,13 @@
 > >
 > > #### 2.6. Understand the choices Lens recommends
 > >
-> > ![Colour-coded choices and explanations](browser-extension/assets/images/walkthrough/07-deal-breakers-and-sealers.webp)
+> > ![Colour-coded choices and explanations](../browser-extension/assets/images/walkthrough/07-deal-breakers-and-sealers.webp)
 > >
 > > Lens uses visual indicators to distinguish different kinds of choices, and the information tooltips explain what individual options mean and why they may be relevant.
 > >
 > > For example, if you've indicated that you regularly encounter snow and ice, Lens may recommend considering all-wheel drive (AWD).
 > >
-> > ![All-wheel-drive explanation](browser-extension/assets/images/walkthrough/08-all-wheel-drive-tip.webp)
+> > ![All-wheel-drive explanation](../browser-extension/assets/images/walkthrough/08-all-wheel-drive-tip.webp)
 > >
 > > The tooltip explains the trade-off: AWD can improve traction when accelerating on snow, but it doesn't improve braking on snow or replace appropriate winter tyres.
 > >
@@ -130,7 +130,7 @@
 >
 > > #### 3.1. See how your answers are interpreted
 > >
-> > ![Summary of answers and priorities](browser-extension/assets/images/walkthrough/09-summary-of-answers.webp)
+> > ![Summary of answers and priorities](../browser-extension/assets/images/walkthrough/09-summary-of-answers.webp)
 > >
 > > The summary brings together your answers, the requirements Lens derived from them, and the relative importance assigned to your preferences.
 > >
@@ -148,13 +148,13 @@
 > >
 > > #### 3.2. Confirm or correct the summary
 > >
-> > ![Prompt to confirm the summary](browser-extension/assets/images/walkthrough/10-confirm-the-summary.webp)
+> > ![Prompt to confirm the summary](../browser-extension/assets/images/walkthrough/10-confirm-the-summary.webp)
 > >
 > > Once the summary is ready, Lens asks whether its understanding looks right or needs adjustment.
 > >
 > > If something is wrong, you can select the option indicating that the summary doesn't look right.
 > >
-> > ![Editable summary and adjustment panel](browser-extension/assets/images/walkthrough/11-adjust-panel.webp)
+> > ![Editable summary and adjustment panel](../browser-extension/assets/images/walkthrough/11-adjust-panel.webp)
 > >
 > > The adjustment panel presents the same underlying information in an editable form. You can review the questions and answers, the requirements Lens derived from them, and how it interpreted their importance.
 > >
@@ -166,7 +166,7 @@
 > >
 > > #### 3.3. Decide whether to save your settings
 > >
-> > ![Save settings prompt](browser-extension/assets/images/walkthrough/12-save-settings.webp)
+> > ![Save settings prompt](../browser-extension/assets/images/walkthrough/12-save-settings.webp)
 > >
 > > Once you've confirmed your answers, Lens asks whether you'd like to save them as your settings or use them only for the current conversation.
 > >
@@ -182,7 +182,7 @@
 >
 > > #### 4.1. See how each car fits
 > >
-> > ![Finn Lens results and fit indicators](browser-extension/assets/images/walkthrough/13-result-chips.webp)
+> > ![Finn Lens results and fit indicators](../browser-extension/assets/images/walkthrough/13-result-chips.webp)
 > >
 > > Lens attaches a clickable result chip to each car it evaluates. The chips distinguish the top pick from cars that may still be suitable and cars that have been ruled out.
 > >
@@ -196,7 +196,7 @@
 > >
 > > #### 4.2. Inspect the reasoning behind a result
 > >
-> > ![Detailed breakdown of a car's evaluation](browser-extension/assets/images/walkthrough/14-result-drawer.webp)
+> > ![Detailed breakdown of a car's evaluation](../browser-extension/assets/images/walkthrough/14-result-drawer.webp)
 > >
 > > Clicking a car's result chip opens its evaluation drawer, where you can inspect the reasoning behind its outcome.
 > >
@@ -205,6 +205,21 @@
 > > This lets you compare the reasoning across different cars instead of treating the top pick as an answer you have to accept on faith.
 > >
 > > A top pick is ultimately the result of applying Lens's predefined scoring model to your stated needs and priorities. It isn't a guarantee that the car is the right choice for everyone.
+>
+> ---
+>
+> ### 5. Try it yourself
+>
+> Finn Lens isn't on the Chrome Web Store. This beta is shared as a package you load into Chrome yourself, on a computer — it takes about two minutes.
+>
+> **[Download `finn-lens-0.9.1-chrome.zip`](https://github.com/orjwan-alrajaby/finn-lens/raw/main/releases/finn-lens-0.9.1-chrome.zip)**, then:
+>
+> 1. Unzip it. You get a folder holding `manifest.json`.
+> 2. Open `chrome://extensions` and switch on **Developer mode** (top right).
+> 3. Click **Load unpacked** and choose that folder. Keep the folder where it is: Chrome loads Lens from it each time.
+> 4. Lens opens finn.com in a new tab, and its chat opens by itself. If it doesn't, click the **Lens** bubble in the bottom-right corner.
+>
+> It runs only on www.finn.com, and tabs that were already open need a reload. Chrome may warn about extensions in developer mode; that's expected for a build that isn't from the store. The same steps, with more on this beta, are in [the beta note](BETA.md#install-it-chrome-on-a-computer-about-two-minutes).
 
 ---
 

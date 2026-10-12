@@ -20,7 +20,7 @@ export default defineConfig({
     publicDir: fileURLToPath(new URL("../public", import.meta.url)),
     plugins: [react()],
     resolve: { alias: { "@": extension } },
-    define: { __LENS_VERSION__: JSON.stringify(`${version} beta`) },
+    define: { __LENS_VERSION__: JSON.stringify(`${version} beta`), __LENS_RELEASE__: JSON.stringify(version) },
     /* The documents live beside the extension, in the repository's own docs/. */
     server: { fs: { allow: [fileURLToPath(new URL("../..", import.meta.url))] } },
     build: { outDir: fileURLToPath(new URL("../.output/site", import.meta.url)), emptyOutDir: true },
