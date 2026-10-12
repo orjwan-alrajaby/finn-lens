@@ -85,8 +85,10 @@ describe("here's what you told me, and what I understood", () => {
         );
         expect(html).toMatch(/bg-finn-fit-good-pale text-finn-fit-good"><svg[^>]*lucide-check/);
         expect(words).toMatch(/Money & time Monthly limit €500 all in .* Deal-breakers & sealers Runs on Any Deal-breakers None Deal-sealers None/);
-        /* Standard equipment each answer calls for, said so it doesn't look forgotten. */
-        expect(words).toMatch(/You live in the city · you park on the street .*Also making sure it has: Automatic gearbox — because you live in the city Parking sensors — because .*Automatic emergency braking — because/);
+        /* Standard equipment each answer calls for, said so it doesn't look forgotten — where it counts. */
+        expect(words).toMatch(/You live in the city · you park on the street .*Also making sure it has: Automatic gearbox — because you live in the city Parking sensors — because/);
+        /* Nothing here scores safety, so emergency braking couldn't mark a car down: it isn't said to be checked. */
+        expect(words).not.toContain("Automatic emergency braking");
         expect(html).toMatch(/bg-finn-pale-blue text-finn-accent-blue"><svg[^>]*lucide-shield-check/);
         expect(words).toContain("Does that look right?");
         expect(words).toMatch(/Looks good to me — continue This doesn't look right/);

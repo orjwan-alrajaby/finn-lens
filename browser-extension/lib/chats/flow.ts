@@ -52,7 +52,7 @@ import {
 import type { FinnCar } from "@/lib/types";
 
 import { applyFollowUp, offerReason } from "./follow-ups";
-import { BASE_ANSWERS, rulesSignature } from "./judge";
+import { BASE_ANSWERS, chatAnswers, rulesSignature } from "./judge";
 import { messageId, newChatId, newChatName } from "./store";
 import type { BubbleChips, Chat, ChatMessage, ChatStep, DealRow, Rewind, SavedSettings, StepId, SummaryBubble, SummaryItem } from "./types";
 
@@ -329,6 +329,30 @@ const fewerHere = (ids: EvidenceId[], cars: FinnCar[]): number =>
  * (nearly) every car here, it won't set them apart. Where it's on fewer,
  * the hint says how many.
  */
+/** The standard items the engine checks for an understanding: only those inside a priority something is scored in. */
+const checkedIn = (u: Understanding): Set<string> => new Set(Object.values(chatAnswers(u).answers.preferences.checked ?? {}).flat());
+
+/**
+ * The standard items a bubble checks whatever else the reader says — every
+ * way of answering its own question — so its "i" promises only those. One
+ * checked only beside another answer (an automatic gearbox, for time in
+ * traffic, needs city driving scored too) is said on the summary, when it is.
+ */
+const ALWAYS_CHECKED = new Map<BubbleId, EvidenceId[]>();
+
+function alwaysChecked(bubble: (typeof BUBBLES)[number]): EvidenceId[] {
+    let ids = ALWAYS_CHECKED.get(bubble.id);
+
+    if (!ids) {
+        const answers = bubble.chips?.mode === "required" ? bubble.chips.options.map((option) => [option.id]) : [[]];
+        const checked = answers.map((chips) => checkedIn(withBubbles(EMPTY_UNDERSTANDING, { [bubble.id]: chips })));
+        ids = bubble.checks.filter((id) => checked.every((set) => set.has(id)));
+        ALWAYS_CHECKED.set(bubble.id, ids);
+    }
+
+    return ids;
+}
+
 function standardHint(ids: EvidenceId[], cars: FinnCar[]): string {
     const one = ids.length === 1;
     const where = standardOnPage(ids, cars);
@@ -435,12 +459,12 @@ function bubblesStep(group?: (typeof BUBBLE_GROUPS)[number], u: Understanding = 
             means: bubble.means,
             looksFor: bubble.counts.length ? labelsOf(bubble.counts) : undefined,
             features: bubble.counts.map((id) => ({ label: EVIDENCE[id].label, does: explain(id, bubble.why?.[id]) })),
-            ...(bubble.checks.length ? {
+            ...(alwaysChecked(bubble).length ? {
                       standard: {
-                          labels: labelsOf(bubble.checks),
-                          hint: standardHint(bubble.checks, cars),
-                          short: standardShort(bubble.checks, cars),
-                          items: bubble.checks.map((id) => ({ label: EVIDENCE[id].label, does: explain(id, bubble.why?.[id]) || EVIDENCE[id].explanation.replace(/\.$/, "") })),
+                          labels: labelsOf(alwaysChecked(bubble)),
+                          hint: standardHint(alwaysChecked(bubble), cars),
+                          short: standardShort(alwaysChecked(bubble), cars),
+                          items: alwaysChecked(bubble).map((id) => ({ label: EVIDENCE[id].label, does: explain(id, bubble.why?.[id]) || EVIDENCE[id].explanation.replace(/\.$/, "") })),
                       },
                   } : {}),
         })),
@@ -1104,9 +1128,15 @@ const FIGURE: Partial<Record<string, string>> = {
  * removable; standard equipment it checks; suggestions the cars here differ
  * on, each one to add; and what it can't check. An item another bubble
  * already counts isn't suggested again.
+ *
+ * A standard item is said to be checked only where it is: the engine can
+ * only mark a car down for one inside a priority something else is scored
+ * in, so "an automatic gearbox" under time in traffic, with nothing else
+ * scored for city driving, would be a check Lens says it makes and doesn't.
  */
 function summaryBubbles(u: Understanding, cars: FinnCar[]): SummaryBubble[] {
     const tapped = bubblesIn(u);
+    const checkedReally = checkedIn(u);
     const countedAnywhere = new Set(tapped.flatMap(({ bubble, state }) => itemsOf(bubble, state).counts));
     const settled = new Set(ruledOut(u).map((rule) => rule.id));
     const settledFigure = settledFigures(u);
@@ -1157,7 +1187,7 @@ function summaryBubbles(u: Understanding, cars: FinnCar[]): SummaryBubble[] {
             counts: because(named(own, bubble.why), "counts"),
             ...(shared.length ? { shared: because(named(shared, bubble.why), "counts") } : {}),
             /* Standard equipment, with how many cars here have it where that's fewer than nearly all. */
-            checks: because(named(items.checks.filter((id) => !settled.has(id)), bubble.why), "checks").map((item) => {
+            checks: because(named(items.checks.filter((id) => !settled.has(id) && checkedReally.has(id)), bubble.why), "checks").map((item) => {
                 const here = standardHere(item.id, cars);
                 return here ? { ...item, here } : item;
             }),

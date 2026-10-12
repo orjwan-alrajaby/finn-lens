@@ -157,6 +157,37 @@ describe("a first chat", () => {
     });
 });
 
+describe("standard equipment the summary says it checks", () => {
+    const checks = (u: Understanding) =>
+        Object.fromEntries(summaryOf(u, "summary", cars()).bubbles!.map((item) => [item.id, item.checks.map((check) => check.label)]));
+
+    it("is said only where it can mark a car down: inside a priority something else is scored in", () => {
+        /* Time in traffic scores long-distance help, not city driving: the gearbox would be checked in name only. */
+        expect(checks(withBubbles(EMPTY_UNDERSTANDING, { traffic: [] })).traffic).not.toContain("Automatic gearbox");
+        /* With city driving scored, it is checked — and said, under the first answer that asks for it. */
+        const both = checks(withBubbles(EMPTY_UNDERSTANDING, { city: [], traffic: [] }));
+        expect([...both.city!, ...both.traffic!]).toContain("Automatic gearbox");
+    });
+
+    it("is promised behind a bubble's “i” only where it's checked however the bubble's question is answered", () => {
+        const standard = (group: string, id: string) =>
+            (stepFor(`bubbles-${group}` as StepId, cars())!.choices.find((choice) => choice.id === id) as { standard?: { labels: string[] } }).standard?.labels ?? [];
+
+        expect(standard("driving", "traffic")).not.toContain("Automatic gearbox");
+        expect(standard("driving", "city")).toEqual(expect.arrayContaining(["Automatic gearbox", "Parking sensors"]));
+        expect(standard("driving", "city")).not.toContain("Automatic emergency braking");
+    });
+
+    it("matches what the engine checks, for every bubble on its own", () => {
+        for (const item of BUBBLES) {
+            const u = withBubbles(EMPTY_UNDERSTANDING, { [item.id]: item.chips?.mode === "required" ? [item.chips.options[0]!.id] : [] } as never);
+            const engine = new Set(Object.values(chatAnswers(u).answers.preferences.checked ?? {}).flat());
+            const said = summaryOf(u, "summary", cars()).bubbles!.flatMap((bubble) => bubble.checks.map((check) => check.id));
+            for (const id of said) expect(engine.has(id as never), `${item.id}: ${id}`).toBe(true);
+        }
+    });
+});
+
 describe("the bubbles", () => {
     /* Every bubble at once, as a chat from before the sections asks them. */
     const bubbles = () => stepFor("bubbles", cars())!;
@@ -1489,12 +1520,10 @@ describe("standard equipment, said where it's asked for", () => {
 
         expect(weather.standard?.labels).toEqual(["Air conditioning"]);
         expect(weather.standard?.hint).toMatch(/^(Every|Nearly every) car here has it, so it won't set the cars apart/);
-        expect(traffic.standard?.labels).toEqual(expect.arrayContaining(["Adaptive cruise control"]));
-        /* An automatic gearbox and adaptive cruise are standard across FINN, but not on 9 of these 40: said as it is. */
-        expect(traffic.standard?.hint).toBe(
-            "Standard on nearly every car FINN lists, but 9 of the 40 cars here don't list them all: a car FINN says is missing one loses a little, and having one earns nothing.",
-        );
-        expect(traffic.standard?.short).toBe("9 of the 40 cars here don't list them all; one without them loses a little.");
+        /* Adaptive cruise only: the automatic gearbox is checked for time in traffic only beside city driving, so its "i" doesn't promise it. */
+        expect(traffic.standard?.labels).toEqual(["Adaptive cruise control"]);
+        expect(traffic.standard?.hint).toBe("Nearly every car here has it, so it won't set the cars apart — but a car without it would lose out.");
+        expect(traffic.standard?.short).toBe("On nearly every car here; one without it loses a little.");
         expect(copes.bubbleChips!.weather!.options.find((option) => option.id === "hot")?.description).toMatch(/make sure it has air conditioning/);
     });
 
