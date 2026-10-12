@@ -321,7 +321,7 @@ async function mount(): Promise<void> {
                 click: () => setChatOpen(!isOpen),
             },
         },
-        [brandMark(36), bubbleLabel],
+        [brandMark(36, "", { idle: true }), bubbleLabel],
     );
 
     layer = el("div", { class: "relative font-sans" }, [panel, bubble]);

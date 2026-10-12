@@ -109,10 +109,10 @@ export function brandMark(
    * Turning over slowly, where the mark stands alone.
    *
    * The icon is a wheel, and a wheel at rest in a product about cars is a
-   * wheel that looks stuck. Both callers — the panel's header and the fit
-   * badge on every card — ask for it. It stays opt-in so a new caller decides
-   * deliberately, since a listing page carries forty badges and each one is a
-   * wheel turning on somebody else's site. At fourteen seconds a revolution
+   * wheel that looks stuck. The floating button that opens the chat asks for
+   * it; the chips on FINN's cards don't, since a listing page carries forty of
+   * them and each would be a wheel turning on somebody else's site. It stays
+   * opt-in so a new caller decides deliberately. At fourteen seconds a revolution
    * that reads as idling rather than activity, and it stops under
    * `prefers-reduced-motion`.
    *
