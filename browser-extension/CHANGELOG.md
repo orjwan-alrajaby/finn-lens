@@ -43,8 +43,12 @@ Fixed in the final check:
   said only where it can mark a car down: inside a priority something else is
   scored in. "In traffic" alone no longer claims an automatic gearbox, nor
   "In the city" emergency braking.
-- The demo's screenshots are WebP, named for what they show, at under a
-  third of the PNGs' size.
+- The demo's screenshots are retaken from this build on live finn.com, as
+  WebP, named for what they show.
+- The previous version's settings layer is gone from the engine: loading,
+  saving and migrating stored priorities, profiles and feature picks, which
+  nothing in this build called. Settings still clears what that version
+  stored.
 
 ## 0.9.0 beta — 7 October 2026
 

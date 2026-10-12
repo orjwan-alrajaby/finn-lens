@@ -3,8 +3,6 @@ import type {
   FeatureImportance,
   FeatureSelection,
   LensPreferences,
-  PriorityDefinition,
-  Profile,
 } from "./types";
 
 /* -------------------------------------------------------------------------- */
@@ -1145,29 +1143,6 @@ export function profileEmphasis(
  */
 export const DEFAULT_CATEGORY_FEATURES: Record<CategoryId, FeatureSelection> =
   profileEmphasis(DEFAULT_DEFAULT_PROFILE_ID);
-
-export const DEFAULT_PRIORITY_DEFINITIONS: PriorityDefinition[] =
-  CATEGORY_IDS.map((id) => ({
-    id,
-    label: CATEGORIES[id].label,
-    icon: CATEGORIES[id].icon,
-    description: CATEGORIES[id].description,
-    isCustom: false,
-    enabled: true,
-  }));
-
-export const DEFAULT_PROFILES: Profile[] = (
-  Object.keys(PROFILES) as ProfileId[]
-).map((id) => ({
-  id,
-  label: PROFILES[id].label,
-  icon: PROFILES[id].icon,
-  forWhom: PROFILES[id].forWhom,
-  assumes: PROFILES[id].assumes,
-  doesNotGuarantee: PROFILES[id].doesNotGuarantee,
-  priorities: [...PROFILES[id].priorities],
-  enabled: true,
-}));
 
 /**
  * The starting priority order: the default profile's own, so that opening

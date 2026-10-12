@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import type { ContractTerm, FinnApiConfig, PinnedFinnCar } from "@/lib/types";
 import { extractAvailability, extractContract, extractPricing } from "@/lib/helpers";
 
-import { buildAdviceNarrative, buildRecommendation, migratePreferences } from "./index";
+import { buildAdviceNarrative, buildRecommendation } from "./index";
 import { calculateCost, buildCostAnalysis } from "./cost";
 import { fitContract, monthsInclusive, nearestPeriod } from "./contract";
 import { makeCar, prefs } from "./test-fixtures";

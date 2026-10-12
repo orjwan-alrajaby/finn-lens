@@ -5,7 +5,7 @@ import type { CategoryId } from "./types";
 
 import { CATEGORIES, PROFILES, profileEmphasis } from "./constants";
 import { CHARGE_FACTOR_ANCHORS, WIDTH_ANCHORS, chargeFactor, piecewise, signalUtility } from "./evidence";
-import { buildRecommendation, migratePreferences } from "./index";
+import { buildRecommendation } from "./index";
 import { buildAdviceNarrative } from "./narrative";
 import { scoreVehicle } from "./scoring";
 import { makeCar, prefs } from "./test-fixtures";
@@ -211,11 +211,6 @@ describe("the automatics-only rule", () => {
 
     expect(result.winner.name).toBe("Strong Manual");
     expect(result.gearboxFallback).toBe("noneFit");
-  });
-
-  it("is kept by the settings migration, and off for anyone who never set it", () => {
-    expect(migratePreferences({ monthlyKm: 800, automaticOnly: true }).automaticOnly).toBe(true);
-    expect(migratePreferences({ monthlyKm: 800 }).automaticOnly).toBe(false);
   });
 });
 

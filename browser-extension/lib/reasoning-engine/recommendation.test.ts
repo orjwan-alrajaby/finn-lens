@@ -6,7 +6,6 @@ import {
   buildReasoningContext,
   buildRecommendation,
   evaluateChallenger,
-  migratePreferences,
   selectAlternatives,
 } from "./index";
 import { buildAdviceNarrative, reasonAboutChallenge } from "./narrative";
@@ -17,8 +16,8 @@ import {
   CATEGORY_IDS,
   DEFAULT_CATEGORY_FEATURES,
   DEFAULT_PREFERENCES,
+  PROFILES,
   DEFAULT_PRIORITIES,
-  DEFAULT_PROFILES,
 } from "./constants";
 import { BASELINE } from "./test-garage";
 import { makeCar, prefs } from "./test-fixtures";
@@ -42,13 +41,13 @@ describe("affordability is gone from the priority system", () => {
   });
 
   it("is not in any shipped profile", () => {
-    for (const profile of DEFAULT_PROFILES) {
+    for (const profile of Object.values(PROFILES)) {
       expect(profile.priorities).not.toContain("affordability");
     }
   });
 
   it("leaves every profile with a usable number of priorities", () => {
-    for (const profile of DEFAULT_PROFILES) {
+    for (const profile of Object.values(PROFILES)) {
       expect(profile.priorities.length).toBeGreaterThanOrEqual(3);
       expect(profile.priorities.length).toBeLessThanOrEqual(5);
     }
@@ -984,57 +983,3 @@ describe("comparative reasoning", () => {
   });
 });
 
-describe("preference migration", () => {
-  it("converts a stored annual mileage into a monthly one", () => {
-    const migrated = migratePreferences({ annualKm: 12_000 });
-
-    expect(migrated.monthlyKm).toBe(1_000);
-    expect(migrated).not.toHaveProperty("annualKm");
-  });
-
-  it("keeps an existing monthly mileage in preference to the annual one", () => {
-    expect(
-      migratePreferences({ annualKm: 12_000, monthlyKm: 800 }).monthlyKm,
-    ).toBe(800);
-  });
-
-  it("defaults contract type to private", () => {
-    expect(migratePreferences({ annualKm: 6_000 }).contractType).toBe("private");
-    expect(migratePreferences({ contractType: "business" }).contractType).toBe(
-      "business",
-    );
-  });
-
-  it("preserves the prices and budget an existing user already set", () => {
-    const migrated = migratePreferences({
-      annualKm: 9_600,
-      monthlyBudget: 750,
-      petrolPrice: 1.92,
-      dieselPrice: 1.81,
-      electricityPrice: 0.41,
-    });
-
-    expect(migrated).toEqual({
-      automaticOnly: false,
-      monthlyKm: 800,
-      monthlyBudget: 750,
-      petrolPrice: 1.92,
-      dieselPrice: 1.81,
-      electricityPrice: 0.41,
-      contractType: "private",
-      rentalFrom: null,
-      rentalTo: null,
-    });
-  });
-
-  it("falls back to defaults for absent or unusable values", () => {
-    const migrated = migratePreferences({
-      petrolPrice: Number.NaN,
-      monthlyBudget: -50,
-    });
-
-    expect(migrated.petrolPrice).toBeGreaterThan(0);
-    expect(migrated.monthlyBudget).toBe(DEFAULT_PREFERENCES.monthlyBudget);
-    expect(migrated.monthlyKm).toBe(1_000);
-  });
-});

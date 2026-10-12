@@ -7,7 +7,6 @@ import {
   DEFAULT_CATEGORY_FEATURES,
   DEFAULT_DEFAULT_PROFILE_ID,
   DEFAULT_PRIORITIES,
-  DEFAULT_PROFILES,
   FEATURE_IMPORTANCE,
   FEATURES,
   IMPORTANCE_LEVELS,
@@ -249,7 +248,7 @@ describe("no reader should have to look evidence up elsewhere", () => {
 
 describe("profiles", () => {
   it("carry three to five priorities", () => {
-    for (const profile of DEFAULT_PROFILES) {
+    for (const profile of Object.values(PROFILES)) {
       expect(profile.priorities.length).toBeGreaterThanOrEqual(MIN_PRIORITIES);
       expect(profile.priorities.length).toBeLessThanOrEqual(MAX_PRIORITIES);
     }
@@ -269,19 +268,15 @@ describe("profiles", () => {
   });
 
   it("never repeat a priority within one profile", () => {
-    for (const profile of DEFAULT_PROFILES) {
+    for (const profile of Object.values(PROFILES)) {
       expect(new Set(profile.priorities).size).toBe(profile.priorities.length);
     }
   });
 
   it("only reference priorities that exist", () => {
-    for (const profile of DEFAULT_PROFILES) {
+    for (const profile of Object.values(PROFILES)) {
       for (const priority of profile.priorities) expect(CATEGORY_IDS).toContain(priority);
     }
-  });
-
-  it("all ship enabled, so the user starts with a full choice", () => {
-    expect(DEFAULT_PROFILES.every((profile) => profile.enabled)).toBe(true);
   });
 
   it("makes the default profile the one the user actually starts on", () => {
@@ -290,7 +285,7 @@ describe("profiles", () => {
   });
 
   it("say who each one is for, what it assumes and what it doesn't promise", () => {
-    for (const profile of DEFAULT_PROFILES) {
+    for (const profile of Object.values(PROFILES)) {
       expect(profile.forWhom.length).toBeGreaterThan(30);
       expect(profile.assumes.length).toBeGreaterThan(30);
       expect(profile.doesNotGuarantee.length).toBeGreaterThan(30);

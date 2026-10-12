@@ -1,44 +1,25 @@
 import type { PinnedFinnCar } from "@/lib/types";
 import type {
   AlternativeOption,
-  FeatureImportance,
-  FeaturePreference,
-  BudgetPartition,
   CategoryId,
   CostBreakdown,
   FeatureSelection,
   HeadToHead,
-  LegacyLensPreferences,
   LensPreferences,
-  LensSettings,
   PriorityBreakdown,
   PriorityComparison,
-  PriorityDefinition,
-  Profile,
-  ProfileId,
   ReasoningContext,
   Recommendation,
   ScoreRef,
-  SettingsBasis,
   SignalId,
   VehicleEvaluation,
   VehicleScore,
 } from "./types";
 
 import {
-  CATEGORIES,
-  CATEGORY_IDS,
-  DEFAULT_FEATURE_IMPORTANCE,
   FEATURE_IMPORTANCE,
   DEFAULT_CATEGORY_FEATURES,
-  DEFAULT_DEFAULT_PROFILE_ID,
-  DEFAULT_PREFERENCES,
   DEFAULT_PRIORITIES,
-  DEFAULT_PRIORITY_DEFINITIONS,
-  DEFAULT_PROFILES,
-  MAX_FEATURES_PER_CATEGORY,
-  PROFILES,
-  profileEmphasis,
 } from "./constants";
 
 import {
@@ -55,13 +36,12 @@ import {
   fitFor,
   getCategory,
   priorityWeights,
-  registerCategoryMeta,
   scoreFor,
   totalFor,
   winnerForCategory,
 } from "./scoring";
 
-import { hasSignal, homeOf } from "./evidence";
+import { hasSignal } from "./evidence";
 import { dependsOnFor, pickWinner, runnerUpFor } from "./decision";
 import { explainHeadToHead } from "./explain";
 import {
@@ -71,7 +51,7 @@ import {
   isNoticeable,
 } from "./narrative/magnitude";
 import { formatEUR } from "./format";
-import { isMonthString, rentalTier } from "./contract";
+import { rentalTier } from "./contract";
 
 /* -------------------------------------------------------------------------- */
 /* Re-exports                                                                 */
@@ -104,10 +84,8 @@ export {
   fitFor,
   getCategory,
   priorityWeights,
-  registerCategoryMeta,
   scoreFor,
   scoreVehicle,
-  unregisterCategoryMeta,
   winnerForCategory,
 } from "./scoring";
 
@@ -945,508 +923,3 @@ export function evaluateChallenger(
   });
 }
 
-/* -------------------------------------------------------------------------- */
-/* Settings persistence                                                       */
-/* -------------------------------------------------------------------------- */
-
-const STORAGE_KEYS = [
-  "finnLensPreferences",
-  "finnLensPriorities",
-  "finnLensPriorityDefinitions",
-  "finnLensProfiles",
-  "finnLensCategoryFeatures",
-  "finnLensDefaultProfileId",
-  "finnLensBasedOn",
-] as const;
-
-/**
- * Priority ids that existed in earlier builds and no longer do.
- *
- * `affordability` used to be a ranked priority. It is now a budget constraint
- * instead, so any stored order, profile or feature map still referencing it is
- * cleaned up on load rather than left to produce a broken priority card.
- */
-const RETIRED_PRIORITIES: string[] = ["affordability"];
-
-/**
- * Priorities that were merged into another one.
- *
- * `safety` and `driverAssistance` were separate categories asking the user to
- * rank the same systems twice — automatic emergency braking sat in both. They
- * are now one priority, and anything stored under either id is folded into it
- * on load rather than disappearing.
- */
-const MERGED_PRIORITIES: Record<string, CategoryId> = {
-  safety: "safetyAssistance",
-  driverAssistance: "safetyAssistance",
-  /*
-   * Family Friendly couldn't carry a score of its own: on FINN's inventory its
-   * child-specific evidence was either on nearly every car (ISOFIX) or minor.
-   * What remains of it — rear doors, a folding bench, a powered tailgate —
-   * lives in Practicality, and family intent lives in the Family First profile.
-   */
-  familyFriendly: "practicality",
-};
-
-const isLivePriority = (id: string): boolean =>
-  !RETIRED_PRIORITIES.includes(id);
-
-const currentIdFor = (id: string): CategoryId =>
-  (MERGED_PRIORITIES[id] ?? id) as CategoryId;
-
-/**
- * Rewrites a stored priority order onto the current category set.
- *
- * Retired ids are dropped, merged ids are renamed, and the duplicate that a
- * merge creates — a user who ranked safety #1 and driver assistance #3 — is
- * collapsed to the higher of the two positions, which is the one they cared
- * about more.
- */
-function migratePriorityOrder(stored: string[]): CategoryId[] {
-  const seen = new Set<string>();
-  const result: CategoryId[] = [];
-
-  for (const id of stored) {
-    if (!isLivePriority(id)) continue;
-
-    const current = currentIdFor(id);
-
-    if (!(current in CATEGORIES)) continue;
-    if (seen.has(current)) continue;
-
-    seen.add(current);
-    result.push(current);
-  }
-
-  return result;
-}
-
-/**
- * A stored feature entry, in any shape this product has used.
- *
- * Three so far: the original tier system's `{ key, tier }`, the flat
- * `FeatureId` of the selection-only build, and the current
- * `{ key, importance }`. All three are read so that nobody loses what they
- * told us across an upgrade.
- */
-type StoredFeature =
-  | string
-  | {
-      key?: string;
-      importance?: string;
-      source?: string;
-      /** essential | good | luxury, from the original tier system. */
-      tier?: string;
-    };
-
-/**
- * Old tiers map onto importance by intent rather than by name.
- *
- * "Essential" becomes high rather than something stronger, on purpose: it was
- * never a hard requirement in the engine, and preserving it as one now would
- * import a meaning the product deliberately doesn't have.
- */
-const TIER_TO_IMPORTANCE: Record<string, FeatureImportance> = {
-  essential: "high",
-  good: "medium",
-  luxury: "low",
-};
-
-function readStoredFeature(stored: StoredFeature): FeaturePreference | null {
-  if (typeof stored === "string") {
-    return {
-      key: stored as SignalId,
-      importance: DEFAULT_FEATURE_IMPORTANCE,
-      source: "user",
-    };
-  }
-
-  if (!stored?.key) return null;
-
-  const importance =
-    stored.importance && stored.importance in FEATURE_IMPORTANCE
-      ? (stored.importance as FeatureImportance)
-      : stored.tier
-        ? (TIER_TO_IMPORTANCE[stored.tier] ?? DEFAULT_FEATURE_IMPORTANCE)
-        : DEFAULT_FEATURE_IMPORTANCE;
-
-  return {
-    key: stored.key as SignalId,
-    importance,
-    /* Settings saved before provenance existed were the reader's own. */
-    source: stored.source === "profile" ? "profile" : "user",
-  };
-}
-
-const louder = (a: FeaturePreference, b: FeaturePreference): boolean =>
-  FEATURE_IMPORTANCE[a.importance].weight > FEATURE_IMPORTANCE[b.importance].weight;
-
-/**
- * Brings stored raises up to the current evidence model.
- *
- * Every raise moves to its item's home priority, wherever it was stored — a
- * reversing camera raised under the old Safety or Family Friendly now lives
- * under City & Parking. A raise is kept even when that home isn't in the
- * reader's order, so putting the priority back restores it.
- *
- * Raises on evidence the model no longer scores — baseline equipment on
- * nearly every car, and taste items — have nowhere to live and are dropped.
- * A duplicate keeps the louder level; each priority is capped at five.
- *
- * Priorities the reader never stored anything for start from `base`: the
- * emphasis of the profile their settings came from.
- */
-function migrateCategoryFeatures(
-  stored: Record<string, StoredFeature[]> | undefined,
-  base: Record<CategoryId, FeatureSelection>,
-): Record<CategoryId, FeatureSelection> {
-  if (!stored) return base;
-
-  const rehomed = new Map<CategoryId, Map<SignalId, FeaturePreference>>();
-  const answered = new Set<CategoryId>();
-
-  for (const [id, features] of Object.entries(stored)) {
-    if (!isLivePriority(id)) continue;
-
-    const current = currentIdFor(id);
-    if (current in CATEGORIES) answered.add(current);
-
-    for (const entry of features ?? []) {
-      const preference = readStoredFeature(entry);
-      if (!preference) continue;
-
-      const home = homeOf(preference.key);
-      if (!home) continue;
-
-      /* A raise that arrives in a new home makes that home answered too. */
-      answered.add(home);
-
-      const kept = rehomed.get(home) ?? new Map<SignalId, FeaturePreference>();
-      const existing = kept.get(preference.key);
-
-      if (!existing || louder(preference, existing)) {
-        kept.set(preference.key, preference);
-      }
-
-      rehomed.set(home, kept);
-    }
-  }
-
-  return Object.fromEntries(
-    CATEGORY_IDS.map((category) => [
-      category,
-      answered.has(category)
-        ? [...(rehomed.get(category)?.values() ?? [])].slice(0, MAX_FEATURES_PER_CATEGORY)
-        : base[category],
-    ]),
-  ) as Record<CategoryId, FeatureSelection>;
-}
-
-/* -------------------------------------------------------------------------- */
-/* Profiles as starting points                                                */
-/* -------------------------------------------------------------------------- */
-
-/**
- * What applying a profile sets: its order and its emphasis, marked as the
- * profile's, and a note of where the settings came from.
- *
- * Replaces the reader's order and emphasis outright. The caller keeps what it
- * replaced so it can offer an undo.
- */
-export function applyProfile(id: ProfileId): {
-  priorities: CategoryId[];
-  categoryFeatures: Record<CategoryId, FeatureSelection>;
-  basedOn: SettingsBasis;
-} {
-  return {
-    priorities: [...PROFILES[id].priorities],
-    categoryFeatures: profileEmphasis(id),
-    basedOn: id,
-  };
-}
-
-const sameEmphasis = (a: FeatureSelection, b: FeatureSelection): boolean =>
-  a.length === b.length &&
-  a.every((item) =>
-    b.some((other) => other.key === item.key && other.importance === item.importance),
-  );
-
-/**
- * Whether settings have moved away from the profile they started from.
- *
- * Derived rather than stored: the order, or any priority's emphasis, differs
- * from the profile's own. Who set an entry doesn't count — a reader who
- * raises something to exactly the level the profile had hasn't changed it.
- */
-export function isCustomisedFrom(
-  settings: {
-    priorities: CategoryId[];
-    categoryFeatures: Record<CategoryId, FeatureSelection>;
-  },
-  basedOn: SettingsBasis,
-): boolean {
-  if (!basedOn) return true;
-
-  const profile = applyProfile(basedOn);
-
-  if (profile.priorities.join() !== settings.priorities.join()) return true;
-
-  return CATEGORY_IDS.some(
-    (category) =>
-      !sameEmphasis(
-        settings.categoryFeatures[category] ?? [],
-        profile.categoryFeatures[category],
-      ),
-  );
-}
-
-/**
- * Reconciles stored profiles with the shipped definitions.
- *
- * Profiles are product configuration: their copy and priority order come from
- * `PROFILES` every time, so a build that changes them reaches existing users.
- * Only `enabled` is read back from storage, because it is the only part the
- * user owns — and at least one profile always survives.
- */
-function migrateProfiles(stored: Profile[] | undefined): Profile[] {
-  const enabledById = new Map(
-    (stored ?? []).map((profile) => [profile.id, profile.enabled !== false]),
-  );
-
-  const profiles = DEFAULT_PROFILES.map((profile) => ({
-    ...profile,
-    priorities: [...profile.priorities],
-    enabled: enabledById.get(profile.id) ?? true,
-  }));
-
-  return profiles.some((profile) => profile.enabled)
-    ? profiles
-    : profiles.map((profile) =>
-        profile.id === DEFAULT_DEFAULT_PROFILE_ID
-          ? { ...profile, enabled: true }
-          : profile,
-      );
-}
-
-/**
- * Brings stored preferences up to the current shape.
- *
- * Migrations, all non-destructive:
- * - `annualKm` → `monthlyKm` (÷ 12), so existing users keep their mileage
- *   without re-entering it;
- * - `contractType` defaults to private;
- * - anything missing or unusable falls back to the product default.
- */
-export function migratePreferences(
-  stored: LegacyLensPreferences | undefined,
-): LensPreferences {
-  if (!stored) return { ...DEFAULT_PREFERENCES };
-
-  const number = (value: unknown, fallback: number): number =>
-    typeof value === "number" && Number.isFinite(value) && value >= 0
-      ? value
-      : fallback;
-
-  const monthlyKm =
-    stored.monthlyKm != null
-      ? number(stored.monthlyKm, DEFAULT_PREFERENCES.monthlyKm)
-      : stored.annualKm != null
-        ? Math.round(number(stored.annualKm, DEFAULT_PREFERENCES.monthlyKm * 12) / 12)
-        : DEFAULT_PREFERENCES.monthlyKm;
-
-  return {
-    monthlyKm,
-    monthlyBudget: number(
-      stored.monthlyBudget,
-      DEFAULT_PREFERENCES.monthlyBudget,
-    ),
-    petrolPrice: number(stored.petrolPrice, DEFAULT_PREFERENCES.petrolPrice),
-    dieselPrice: number(stored.dieselPrice, DEFAULT_PREFERENCES.dieselPrice),
-    electricityPrice: number(
-      stored.electricityPrice,
-      DEFAULT_PREFERENCES.electricityPrice,
-    ),
-    contractType:
-      stored.contractType === "business" ? "business" : "private",
-    /* A period is kept only whole and in order; half of one means none. */
-    ...(isMonthString(stored.rentalFrom) &&
-    isMonthString(stored.rentalTo) &&
-    stored.rentalTo >= stored.rentalFrom
-      ? { rentalFrom: stored.rentalFrom, rentalTo: stored.rentalTo }
-      : { rentalFrom: null, rentalTo: null }),
-    automaticOnly: stored.automaticOnly === true,
-  };
-}
-
-/**
- * Whether the reader has ever configured Lens, as opposed to being carried by
- * its defaults.
- *
- * `loadLensSettings` can't answer this: it is built to always return something
- * usable, falling back to the default profile so that nothing downstream has
- * to handle an unconfigured state. That is right for the Compare flow, which
- * walks the reader through configuring it anyway, and wrong for the in-page
- * analysis, which would otherwise present a stranger's defaults as "how this
- * car fits you".
- *
- * Only the three keys that shape an analysis count. Enabling a profile or
- * choosing a default one changes which questions get asked, not what the
- * answer is measured against.
- */
-export async function hasSavedLensSettings(): Promise<boolean> {
-  const stored = await browser.storage.local.get([
-    "finnLensPreferences",
-    "finnLensPriorities",
-    "finnLensCategoryFeatures",
-  ]);
-
-  const priorities = stored.finnLensPriorities as unknown[] | undefined;
-
-  const features = stored.finnLensCategoryFeatures as
-    | Record<string, unknown[]>
-    | undefined;
-
-  return Boolean(
-    stored.finnLensPreferences ||
-      priorities?.length ||
-      Object.values(features ?? {}).some((picks) => picks?.length),
-  );
-}
-
-export async function loadLensSettings(): Promise<LensSettings> {
-  const stored = (await browser.storage.local.get([
-    ...STORAGE_KEYS,
-  ])) as Record<string, unknown> as {
-    finnLensPreferences?: LensPreferences & LegacyLensPreferences;
-    finnLensPriorities?: string[];
-    finnLensPriorityDefinitions?: PriorityDefinition[];
-    finnLensProfiles?: Profile[];
-    finnLensCategoryFeatures?: Record<string, StoredFeature[]>;
-    finnLensDefaultProfileId?: string;
-    finnLensBasedOn?: string | null;
-  };
-
-  /*
-   * Built-in definitions are rebuilt from CATEGORIES each load so renamed and
-   * merged categories reach existing users; only `enabled` is carried over.
-   * Custom priorities the user created are kept as they were stored.
-   */
-  const storedDefinitions = (stored.finnLensPriorityDefinitions ?? []).filter(
-    (definition) => isLivePriority(definition.id),
-  );
-
-  const enabledById = new Map(
-    storedDefinitions.map((definition) => [
-      currentIdFor(definition.id),
-      definition.enabled !== false,
-    ]),
-  );
-
-  const priorityDefinitions: PriorityDefinition[] = [
-    ...DEFAULT_PRIORITY_DEFINITIONS.map((definition) => ({
-      ...definition,
-      enabled: enabledById.get(definition.id) ?? true,
-    })),
-    ...storedDefinitions.filter(
-      (definition) => definition.isCustom && !(definition.id in CATEGORIES),
-    ),
-  ];
-
-  /**
-   * Restore persisted custom categories into the runtime registry.
-   *
-   * Built-ins are deliberately ignored because CATEGORIES already owns them.
-   */
-  for (const definition of priorityDefinitions) {
-    if (definition.isCustom && !(definition.id in CATEGORIES)) {
-      registerCategoryMeta(definition.id, {
-        label: definition.label,
-        icon: definition.icon,
-        color: "#5B6472",
-        question: definition.description || definition.label,
-        description: definition.description,
-        recommendedFor: [],
-        features: [],
-      });
-    }
-  }
-
-  const defaultProfileId = (
-    stored.finnLensDefaultProfileId &&
-    stored.finnLensDefaultProfileId in PROFILES
-      ? stored.finnLensDefaultProfileId
-      : DEFAULT_DEFAULT_PROFILE_ID
-  ) as ProfileId;
-
-  const profiles = migrateProfiles(stored.finnLensProfiles);
-
-  const priorities = migratePriorityOrder(stored.finnLensPriorities ?? []);
-
-  /*
-   * With nothing usable stored, the default profile is what the user gets —
-   * that being the whole meaning of "default profile".
-   */
-  const startingProfile =
-    profiles.find((profile) => profile.id === defaultProfileId && profile.enabled) ??
-    profiles.find((profile) => profile.enabled);
-
-  const fallbackOrder = startingProfile?.priorities ?? DEFAULT_PRIORITIES;
-
-  /*
-   * Where the settings came from. A stored answer wins; otherwise a reader
-   * with no stored order is on the starting profile, and one with an order
-   * saved before provenance existed built it by hand.
-   */
-  const storedBasis = stored.finnLensBasedOn;
-
-  const basedOn: SettingsBasis =
-    typeof storedBasis === "string" && storedBasis in PROFILES
-      ? (storedBasis as ProfileId)
-      : storedBasis === null || priorities.length
-        ? null
-        : (startingProfile?.id ?? DEFAULT_DEFAULT_PROFILE_ID);
-
-  const base = basedOn ? profileEmphasis(basedOn) : DEFAULT_CATEGORY_FEATURES;
-
-  return {
-    preferences: migratePreferences(stored.finnLensPreferences),
-    priorities: priorities.length ? priorities : [...fallbackOrder],
-    priorityDefinitions,
-    profiles,
-    categoryFeatures: migrateCategoryFeatures(stored.finnLensCategoryFeatures, base),
-    defaultProfileId,
-    basedOn,
-  };
-}
-
-export async function saveLensSettings(
-  settings: Partial<LensSettings>,
-): Promise<void> {
-  await browser.storage.local.set({
-    ...(settings.preferences
-      ? { finnLensPreferences: settings.preferences }
-      : {}),
-
-    ...(settings.priorities
-      ? { finnLensPriorities: settings.priorities }
-      : {}),
-
-    ...(settings.priorityDefinitions
-      ? { finnLensPriorityDefinitions: settings.priorityDefinitions }
-      : {}),
-
-    ...(settings.profiles ? { finnLensProfiles: settings.profiles } : {}),
-
-    ...(settings.categoryFeatures
-      ? { finnLensCategoryFeatures: settings.categoryFeatures }
-      : {}),
-
-    ...(settings.defaultProfileId
-      ? { finnLensDefaultProfileId: settings.defaultProfileId }
-      : {}),
-
-    ...(settings.basedOn !== undefined
-      ? { finnLensBasedOn: settings.basedOn }
-      : {}),
-  });
-}

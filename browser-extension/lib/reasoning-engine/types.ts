@@ -96,23 +96,6 @@ export interface LensPreferences {
   checked?: Partial<Record<CategoryId, SignalId[]>>;
 }
 
-/**
- * Shape of settings persisted by older builds, kept only so
- * `loadLensSettings` can migrate them forward.
- */
-export interface LegacyLensPreferences {
-  annualKm?: number;
-  monthlyKm?: number;
-  monthlyBudget?: number;
-  petrolPrice?: number;
-  dieselPrice?: number;
-  electricityPrice?: number;
-  contractType?: ContractType;
-  rentalFrom?: string | null;
-  rentalTo?: string | null;
-  automaticOnly?: boolean;
-}
-
 /* -------------------------------------------------------------------------- */
 /* Features                                                                   */
 /* -------------------------------------------------------------------------- */
@@ -157,36 +140,6 @@ export type FeatureSelection = FeaturePreference[];
 /* -------------------------------------------------------------------------- */
 /* Profiles                                                                   */
 /* -------------------------------------------------------------------------- */
-
-/**
- * A predefined starting point: an order, a starting emphasis, a promise and
- * its limits.
- *
- * Profiles are product configuration, not user documents. `enabled` is the
- * only field the user owns; applying a profile copies its order and emphasis
- * into the reader's settings, which are then theirs.
- */
-export interface Profile {
-  id: ProfileId;
-  label: string;
-  /**
-   * The name of the mark that stands for this, not the mark itself.
-   *
-   * A key into the table in `components/PriorityIcon` — "shield", "leaf" — so
-   * that the same value can be drawn as an icon by React and looked up
-   * separately by the panel on finn.com, which is not React. Kept a `string`
-   * rather than a union because settings saved by an older build hold an
-   * emoji here, and those still render as themselves.
-   */
-  icon: string;
-  forWhom: string;
-  assumes: string;
-  /** What the profile does not promise, said as plainly as what it does. */
-  doesNotGuarantee: string;
-  /** Three to five, in rank order. */
-  priorities: CategoryId[];
-  enabled: boolean;
-}
 
 /**
  * Which profile the reader's settings started from.
@@ -240,28 +193,6 @@ export interface CategoryDef {
   limit?: "evRange";
   /** A second such figure: an electric car's DC charging time. */
   chargeLimit?: "dcCharge";
-}
-
-/* -------------------------------------------------------------------------- */
-/* User-editable priority metadata                                            */
-/* -------------------------------------------------------------------------- */
-
-export interface PriorityDefinition {
-  id: CategoryId;
-  label: string;
-  /**
-   * The name of the mark that stands for this, not the mark itself.
-   *
-   * A key into the table in `components/PriorityIcon` — "shield", "leaf" — so
-   * that the same value can be drawn as an icon by React and looked up
-   * separately by the panel on finn.com, which is not React. Kept a `string`
-   * rather than a union because settings saved by an older build hold an
-   * emoji here, and those still render as themselves.
-   */
-  icon: string;
-  description: string;
-  isCustom: boolean;
-  enabled: boolean;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -919,19 +850,4 @@ export interface AlternativeOption {
    * fact. Null when nothing separates it from the winner worth a sentence.
    */
   hook: string | null;
-}
-
-/* -------------------------------------------------------------------------- */
-/* Settings                                                                   */
-/* -------------------------------------------------------------------------- */
-
-export interface LensSettings {
-  preferences: LensPreferences;
-  priorities: CategoryId[];
-  priorityDefinitions: PriorityDefinition[];
-  profiles: Profile[];
-  categoryFeatures: Record<CategoryId, FeatureSelection>;
-  defaultProfileId: ProfileId;
-  /** The profile the order and emphasis were copied from. See `SettingsBasis`. */
-  basedOn: SettingsBasis;
 }

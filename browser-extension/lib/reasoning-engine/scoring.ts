@@ -56,37 +56,9 @@ import {
  * same, and adding a car to a comparison never reorders the ones already there.
  */
 
-/* -------------------------------------------------------------------------- */
-/* Runtime category registry                                                  */
-/* -------------------------------------------------------------------------- */
-
-/**
- * Built-in categories are immutable.
- *
- * Custom categories live here instead of being added directly to CATEGORIES.
- * Nothing creates one any more, and the settings migration keeps them out of
- * the order; the registry survives so a stored definition still reads.
- */
-const CUSTOM_CATEGORIES: Record<string, CategoryDef> = {};
-
-/** Resolves either a built-in or custom category. */
+/** A built-in category's definition. */
 export function getCategory(category: CategoryId): CategoryDef | undefined {
-  return (
-    (CATEGORIES[category as keyof typeof CATEGORIES] as CategoryDef | undefined) ??
-    CUSTOM_CATEGORIES[category]
-  );
-}
-
-/** Registers or updates metadata for a custom category. */
-export function registerCategoryMeta(id: CategoryId, meta: CategoryDef): void {
-  if (id in CATEGORIES) return;
-  CUSTOM_CATEGORIES[id] = meta;
-}
-
-/** Removes a custom category. Built-in categories can never be removed. */
-export function unregisterCategoryMeta(id: CategoryId): void {
-  if (id in CATEGORIES) return;
-  delete CUSTOM_CATEGORIES[id];
+  return CATEGORIES[category as keyof typeof CATEGORIES] as CategoryDef | undefined;
 }
 
 /* -------------------------------------------------------------------------- */
