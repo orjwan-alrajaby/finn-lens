@@ -1135,7 +1135,7 @@ function changeFrom(text: string, request: InterpretRequest | AskRequest): Propo
 /* The adapter                                                                */
 /* -------------------------------------------------------------------------- */
 
-const pause = (message: string) =>
+const pause = () =>
     new Promise((resolve) => setTimeout(resolve, 450 + Math.random() * 600));
 
 const answered = <T>(result: T): Answered<T> => ({ result, model: "simulated" });
@@ -1145,7 +1145,7 @@ const IMPORTANCE_ORDER: Record<NeedImportance, number> = { niceToHave: 0, import
 export function createMockAdapter(): LensAiAdapter {
     return {
         async interpret(request) {
-            await pause(request.text);
+            await pause();
 
             const change = changeFrom(request.text, request);
             const empty = !change.priorityOrder && !change.raise.length && !change.budget && !change.monthlyKm;
@@ -1158,7 +1158,7 @@ export function createMockAdapter(): LensAiAdapter {
         },
 
         async ask(request) {
-            await pause(request.question);
+            await pause();
 
             const more = request.question.match(/€?\s?(\d{2,4})\s?(€|euros?)?\s+more/i);
             const first = request.vocabulary.categories.find((category) => new RegExp(`cared more about ${category.label.split(" ")[0]}|${category.label.split(" ")[0]} (my )?(number one|first)`, "i").test(request.question));
@@ -1181,7 +1181,7 @@ export function createMockAdapter(): LensAiAdapter {
         },
 
         async converse(request) {
-            await pause(request.message);
+            await pause();
 
             return answered(converse(request));
         },
