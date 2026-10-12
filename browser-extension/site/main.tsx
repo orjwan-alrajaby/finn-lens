@@ -4,6 +4,7 @@ import { Download } from "lucide-react";
 
 import "@/assets/tailwind.css";
 import { BetaTag } from "@/components/lens-parts";
+import { BRAND_IDLE_SPIN } from "@/lib/brand-spinner";
 import { Guide } from "@/entrypoints/options/Guide";
 import { ProductWalkthrough } from "@/entrypoints/options/ProductWalkthrough";
 
@@ -57,7 +58,7 @@ function Site() {
             <header className="bg-gradient-to-br from-finn-highlight-navy to-finn-accent-blue text-white">
                 <div className="mx-auto flex max-w-3xl items-center gap-4 px-6 pt-8 pb-5">
                     <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-white shadow-sm">
-                        <img src={`${import.meta.env.BASE_URL}icon/128.png`} alt="" className="h-12 w-12 object-contain" />
+                        <img src={`${import.meta.env.BASE_URL}icon/128.png`} alt="" className={`h-12 w-12 object-contain ${BRAND_IDLE_SPIN}`} />
                     </span>
                     <div>
                         <h1 className="flex items-center gap-2 text-[24px] font-black leading-tight tracking-tight">
