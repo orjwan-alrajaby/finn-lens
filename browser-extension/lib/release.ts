@@ -19,6 +19,3 @@ export function packageUrl(version: string): string {
 
 /** The beta note's "Try it" — what to do in the first five minutes — in the documentation tab, the same route in Settings and on the site. */
 export const FIRST_STEPS = "#docs/beta/try-it-five-minutes";
-
-/** The beta note's install steps, in the documentation tab. */
-export const INSTALL_STEPS = "#docs/beta/install-it-chrome-on-a-computer-about-two-minutes";
