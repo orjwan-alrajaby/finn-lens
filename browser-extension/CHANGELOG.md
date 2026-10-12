@@ -9,7 +9,7 @@ The build for the first outside review. Everything 0.9.0 does, plus:
   what might come next, and what a bug report needs to be reproduced — with
   its contents pinned beside it on a wide screen, following the reading.
 - **A product demo** in Settings: a reader's journey through Lens, in
-  screenshots.
+  screenshots — each opens full size, to zoom into and step through.
 - **The guide and the demo as a web page**, published to GitHub Pages by a
   workflow (`site/`, `.github/workflows/pages.yml`), with the branch's
   documentation as a third tab, read from the repository's own markdown —
