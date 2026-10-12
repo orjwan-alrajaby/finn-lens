@@ -177,7 +177,7 @@ describe("the bubbles", () => {
         expect(step.bubbleChips?.weather?.options.map((option) => option.label)).toEqual(["Snow & ice", "Rain & fog", "Cold winters", "Hot summers"]);
         expect(step.bubbleChips?.city).toMatchObject({ ask: "Where do you park most often?", max: 2, required: false });
         expect(step.bubbleChips?.comfort).toMatchObject({ ask: "Which comforts?", max: 7, required: false });
-        expect(step.bubbleChips?.comfort?.options).toHaveLength(14);
+        expect(step.bubbleChips?.comfort?.options).toHaveLength(13);
         expect(step.choices.find((choice) => choice.id === "help")?.label).toBe("Help driving & parking");
 
         for (const choice of step.choices) expect(choice.said).not.toMatch(/&/);

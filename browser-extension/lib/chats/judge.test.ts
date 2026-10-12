@@ -452,7 +452,7 @@ describe("the drawer's story about a car that isn't the pick", () => {
 
 describe("what the pick gives up, in a chat", () => {
     const page = fleet().slice(0, 24);
-    const u = withBudget(withBubbles(EMPTY_UNDERSTANDING, { city: ["open"], comfort: ["keyless", "sound"] }), 500, "Up to €500 a month.");
+    const u = withBudget(withBubbles(EMPTY_UNDERSTANDING, { city: ["open"], comfort: ["sound"] }), 500, "Up to €500 a month.");
     const { run } = judgeWith(u, page, "24 cars")!;
     const { context } = run.recommendation;
 

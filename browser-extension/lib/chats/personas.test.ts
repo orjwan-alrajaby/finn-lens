@@ -74,7 +74,7 @@ async function converse(cars: PinnedFinnCar[], picks: Picks): Promise<Chat> {
 const EVERY_BUBBLE = [
     "kids", "kids:baby", "adults", "dog", "city", "city:street", "city:garage", "help", "help:parking", "help:traffic", "help:reversing",
     "long", "traffic", "weather", "weather:snow", "weather:wet", "weather:hot", "night", "carry", "carry:bulky", "carry:bikes", "carry:trailer",
-    "comfort", "comfort:warm", "comfort:keyless", "comfort:phone", "comfort:climate", "comfort:seats", "comfort:sound", "comfort:sunroof",
+    "comfort", "comfort:warm", "comfort:phone", "comfort:climate", "comfort:seats", "comfort:sound", "comfort:sunroof",
     "environment", "environment:moderate", "budget",
 ];
 

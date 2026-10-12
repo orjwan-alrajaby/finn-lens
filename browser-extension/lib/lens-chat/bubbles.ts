@@ -149,7 +149,7 @@ export const BUBBLES: Bubble[] = [
                     importance: "essential",
                     worth: ["hasElectricTailgate"],
                 },
-                { id: "booster", label: "Booster seat", detail: "a booster seat", description: "A booster seat or cushion." },
+                { id: "booster", label: "Booster seat", detail: "a booster seat", description: "A booster seat or cushion. Kids count as Important, and I look for what any child seat needs: rear doors and ISOFIX anchors." },
             ],
         },
         cantCheck: "",
@@ -215,7 +215,6 @@ export const BUBBLES: Bubble[] = [
                 { id: "garage", label: "Home garage", detail: "you park in a garage", mine: "I park in a garage", description: "A tight garage: width counts more, and I check folding mirrors.", stronger: ["compactWidth"], checks: ["hasElectricallyFoldingMirrors"] },
                 { id: "multi-storey", label: "Multi-storey", detail: "you park in multi-storeys", mine: "I park in multi-storeys", description: "Multi-storey or underground car parks. I'll check a 360° camera and folding mirrors.", counts: ["hasThreeSixtyDegreesCamera"], checks: ["hasElectricallyFoldingMirrors"] },
                 { id: "open", label: "Open car park", detail: "you park in open car parks", mine: "I park in open car parks", description: "Supermarket or office car parks, reversing out into traffic. I'll check rear cross-traffic alert.", counts: ["hasRearCrosswalkWarning"] },
-                { id: "driveway", label: "Driveway", detail: "you park on a driveway", mine: "I park on a driveway", description: "Your own driveway. Nothing extra to check." },
             ],
         },
         cantCheck: "",
@@ -439,7 +438,7 @@ export const BUBBLES: Bubble[] = [
             ask: "Which comforts?",
             mode: "any",
             multiple: true,
-            /* Half of them: enough for every comfort they'd use, few enough that each one is chosen. */
+            /* About half of them: enough for every comfort they'd use, few enough that each one is chosen. */
             max: 7,
             options: [
                 /* Each named as FINN lists it, with what it does where the name doesn't say. */
@@ -447,7 +446,6 @@ export const BUBBLES: Bubble[] = [
                 { id: "wheel", label: "Heated wheel", detail: "a heated steering wheel", description: "A heated steering wheel.", counts: ["hasHeatedSteeringWheel"] },
                 { id: "cooled", label: "Ventilated seats", detail: "ventilated seats", description: "Seats that blow air through, for hot days.", counts: ["hasSeatCooling"] },
                 { id: "preheat", label: "Pre-heating", detail: "pre-heating", description: "An auxiliary heater: the car is warm and the windows clear before you get in.", counts: ["hasAuxiliaryHeater"] },
-                { id: "keyless", label: "Keyless entry & start", detail: "keyless entry", description: "Unlock and start the car with the key in your pocket. I'll make sure it has it: it's standard on nearly every car FINN lists.", checks: ["hasKeylessEntryAndStart"] },
                 { id: "phone", label: "Wireless CarPlay / Android Auto", detail: "wireless CarPlay", description: "Your phone's maps and music on the car's screen, without a cable.", counts: ["hasWirelessAppleCarPlaySlashAndroidAuto"] },
                 { id: "charging", label: "Wireless charging", detail: "wireless charging", description: "A pad that charges your phone without a cable.", counts: ["hasWirelessChargingStation"] },
                 { id: "climate", label: "3-zone climate", detail: "3-zone climate", description: "Separate temperatures for the driver, the front passenger and the back.", counts: ["hasThreeZoneAutomaticClimateControls"] },

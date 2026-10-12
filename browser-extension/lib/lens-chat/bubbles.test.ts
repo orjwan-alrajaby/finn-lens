@@ -3,10 +3,10 @@ import { describe, expect, it } from "vitest";
 import { chatAnswers } from "@/lib/chats/judge";
 import { CATEGORIES } from "@/lib/reasoning-engine/constants";
 
-import { BUBBLES, bubbleById, EMPTY_BUBBLE, importanceOf, itemsOf, needOf, OFTEN, recommendedBecause, suggestedRules, withBubbles, withBubbleState, withItem, withoutItem, worthHere } from "./bubbles";
+import { BUBBLES, bubbleById, EMPTY_BUBBLE, figuresOf, importanceOf, itemsOf, needOf, OFTEN, recommendedBecause, suggestedRules, withBubbles, withBubbleState, withItem, withoutItem, worthHere } from "./bubbles";
 import { EVIDENCE, NEARLY_EVERY, readEvidence, type EvidenceId } from "./evidence";
 import { fleet } from "@/lib/reasoning-engine/test-data/fleet";
-import { EMPTY_UNDERSTANDING, ruledOut } from "./understanding";
+import { EMPTY_UNDERSTANDING, ruledOut, withBudget } from "./understanding";
 import { applyChoices, guideSteps } from "./guide";
 
 const bubble = (id: string) => bubbleById(id)!;
@@ -41,6 +41,40 @@ describe("the bubbles, as the spec lists them", () => {
         const rules = new Set([...guideSteps([]).find((step) => step.id === "rules")!.choices.map((choice) => choice.id), "firm-budget"]);
 
         for (const item of BUBBLES) for (const id of suggestedRules(item, state({ chips: (item.chips?.options ?? []).map((chip) => chip.id) }))) expect(rules.has(id), id).toBe(true);
+    });
+});
+
+describe("every answer does something", () => {
+    /*
+     * Everything an answer can change: what's counted, checked and suggested,
+     * how much the bubble counts, the deal-breakers it suggests, the figure it
+     * judges on, and — for the budget's — how firm the limit is.
+     */
+    const effect = (id: string, chips: string[]) => {
+        const b = bubble(id);
+        const s = state({ chips });
+        const budget = withBubbles(withBudget(EMPTY_UNDERSTANDING, 500, "Up to €500 a month."), { [id]: chips } as never).budget;
+        return JSON.stringify([itemsOf(b, s), importanceOf(b, s), suggestedRules(b, s), figuresOf(b, s), budget]);
+    };
+
+    /* The default, named: "the environment" with no answer judges CO₂ the same way, as a typed "eco-friendly" does. */
+    const SAME_AS_SKIPPING = new Set(["environment:moderate"]);
+
+    it("changes something against leaving the question unanswered, where it can be left", () => {
+        for (const item of BUBBLES.filter((b) => b.chips && b.chips.mode !== "required")) {
+            for (const chip of item.chips!.options) {
+                if (SAME_AS_SKIPPING.has(`${item.id}:${chip.id}`)) continue;
+                expect(effect(item.id, [chip.id]), `${item.id}: ${chip.id}`).not.toBe(effect(item.id, []));
+            }
+        }
+    });
+
+    it("differs from every other answer to the same question", () => {
+        for (const item of BUBBLES.filter((b) => b.chips)) {
+            const options = item.chips!.options;
+            for (const [index, chip] of options.entries())
+                for (const other of options.slice(index + 1)) expect(effect(item.id, [chip.id]), `${item.id}: ${chip.id} vs ${other.id}`).not.toBe(effect(item.id, [other.id]));
+        }
     });
 });
 
