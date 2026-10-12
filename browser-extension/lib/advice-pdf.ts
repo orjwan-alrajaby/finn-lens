@@ -265,27 +265,6 @@ export function fitFileName(carName: string, on: Date = new Date()): string {
   return fileName("finn-lens-fit", carName, on);
 }
 
-/**
- * The comparison's own file, named for both cars.
- *
- * The recommendation and the challenge export separately — one document that
- * held both argued for a car and then against it, and a reader sending it on
- * could not say which half was the answer. Two files only help if their names
- * say which is which, so this one carries "challenge" and both cars rather
- * than sharing the advice prefix and sorting next to it by date.
- */
-export function challengeFileName(
-  challengerName: string,
-  winnerName: string,
-  on: Date = new Date(),
-): string {
-  return fileName(
-    "finn-lens-challenge",
-    `${challengerName} vs ${winnerName}`,
-    on,
-  );
-}
-
 function fileName(prefix: string, subject: string, on: Date): string {
   const slug = subject.toLowerCase().replace(UNSAFE, "-").replace(/^-|-$/g, "");
   const day = [

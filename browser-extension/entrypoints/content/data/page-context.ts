@@ -1,5 +1,5 @@
 import { HOME_PAGE_SELECTOR, LISTINGS_PAGE_SELECTOR, DETAILS_PAGE_SELECTOR } from "../constants";
-import { extractConfigId, isConfigCardId } from "./utils";
+import { isConfigCardId } from "./utils";
 
 export interface PageContext {
   isHomePage: boolean;
@@ -19,18 +19,4 @@ export function getPageContext(anchorElement: HTMLElement): PageContext {
     anchorElementIsAListItem: Boolean(anchorElement.querySelector("h3")),
     anchorElementIsAConfigCardItem: isConfigCardId(anchorElement.id),
   };
-}
-
-/** Resolves the 5-digit car config ID for an anchor element. */
-export function resolveCarConfigId(anchorElement: HTMLElement, context: PageContext): number | null {
-  if (context.anchorElementIsAConfigCardItem) {
-    return extractConfigId(anchorElement.id);
-  }
-
-  if (context.anchorElementIsAListItem) {
-    const dataId = anchorElement.dataset.productid ?? "";
-    return extractConfigId(dataId);
-  }
-
-  return null;
 }

@@ -180,13 +180,3 @@ export async function refreshChips(): Promise<void> {
 
     paintChips();
 }
-
-export function removeChips(): void {
-    for (const chip of document.querySelectorAll(`[${HOOK}]`)) chip.remove();
-
-    for (const photo of document.querySelectorAll<HTMLElement>(`[${ANCHORED}]`)) {
-        photo.style.position = "";
-        photo.removeAttribute(ANCHORED);
-        if (!photo.getAttribute("style")) photo.removeAttribute("style");
-    }
-}

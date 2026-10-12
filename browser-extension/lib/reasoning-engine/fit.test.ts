@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { buildFitAnalysis, classifyFit, describeFit, hasEquipmentData } from "./fit";
+import { buildFitAnalysis, classifyFit, hasEquipmentData } from "./fit";
 import { buildRecommendation } from "./index";
 import { AVAILABLE_CATEGORY_FEATURES, CATEGORY_IDS } from "./constants";
 import { makeCar, prefs } from "./test-fixtures";
@@ -461,57 +461,6 @@ describe("buildFitAnalysis", () => {
           (alone.priorities[0].covered / alone.priorities[0].catalogueSize) * 100,
         ),
     );
-  });
-});
-
-describe("describeFit", () => {
-  it("frames the answer as fit, never as vehicle quality", () => {
-    const car = makeCar({ id: 1, features: SAFETY });
-
-    const line = describeFit(
-      buildFitAnalysis(car, ["safetyAssistance", "practicality"], prefs()),
-    );
-
-    expect(line).toMatch(/you set/);
-    expect(line).not.toMatch(/excellent|great car|best car/i);
-  });
-
-  it("says plainly when nothing is served", () => {
-    const car = makeCar({ id: 1, features: ["hasSpareWheel"] });
-
-    const line = describeFit(
-      buildFitAnalysis(car, ["safetyAssistance"], prefs()),
-    );
-
-    expect(line).toMatch(/doesn't strongly serve/);
-  });
-
-  it("says the equipment list is missing rather than judging the car", () => {
-    const car = makeCar({ id: 1, features: [] });
-
-    const line = describeFit(
-      buildFitAnalysis(car, ["safetyAssistance"], prefs()),
-    );
-
-    expect(line).toMatch(/hasn't supplied an equipment list/);
-    expect(line).toMatch(/nothing to check your priorities against/);
-  });
-
-  /*
-   * A priority judged on figures survives a missing equipment list, and the
-   * page shows its full result. The headline used to say there was nothing to
-   * check the reader's priorities against while that result sat below it.
-   */
-  it("names the priority still judged when the equipment list is missing", () => {
-    const car = makeCar({ id: 1, features: [], co2: 120 });
-
-    const line = describeFit(
-      buildFitAnalysis(car, ["safetyAssistance", "environmental"], prefs()),
-    );
-
-    expect(line).toMatch(/hasn't supplied an equipment list/);
-    expect(line).toMatch(/most of your priorities have nothing to check against/);
-    expect(line).toMatch(/environmental impact is judged on the car's own figures/i);
   });
 });
 

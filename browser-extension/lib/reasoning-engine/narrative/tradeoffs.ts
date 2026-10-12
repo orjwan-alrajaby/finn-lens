@@ -118,8 +118,6 @@ function missingSelected(
   const missing = reasoning.features.picked.missing;
   if (!missing.length) return null;
 
-  const labels = joinCapped(missing.map((fact) => fact.phrase), 5);
-
   /*
    * Which alternative would give the reader the missing piece back — one they
    * could take: "the E-Klasse has it" named a €1,059 car under a €500 limit,

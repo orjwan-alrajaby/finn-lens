@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { FOLLOW_UPS, WORTH_A_LOOK } from "@/lib/chats/follow-ups";
+import { WORTH_A_LOOK } from "@/lib/chats/follow-ups";
 
 import { BUBBLES } from "./bubbles";
 import { EVIDENCE, type EvidenceId } from "./evidence";
@@ -31,9 +31,6 @@ function reasons(): { from: string; id: EvidenceId; why: string }[] {
         ...guideSteps([])
             .flatMap((step) => step.choices)
             .flatMap((choice) => Object.entries(choice.need?.reasons ?? {}).map(([id, why]) => ({ from: `the guide's ${choice.id}`, id: id as EvidenceId, why: why! }))),
-        ...Object.entries(FOLLOW_UPS).flatMap(([key, followUp]) =>
-            followUp.choices.flatMap((choice) => (choice.add ?? []).map((add) => ({ from: `the ${key} follow-up`, id: add.id, why: add.why }))),
-        ),
         ...Object.entries(WORTH_A_LOOK).flatMap(([key, list]) => list.map((item) => ({ from: `${key}'s worth a look`, id: item.id, why: item.why }))),
     ];
 }

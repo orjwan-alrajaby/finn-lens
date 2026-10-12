@@ -192,24 +192,6 @@ const CLASS_MEANING: Record<string, { words: string; tone: RowTone }> = {
   G: { words: "Very high emissions", tone: "error" },
 };
 
-/**
- * A plug-in hybrid's colour comes from its match rather than its letter: its
- * letter depends on how often it's charged, and a green "Low emissions" beside
- * a note saying real emissions can be several times higher would be the table
- * arguing with itself.
- *
- * So a plug-in hybrid is never green. At best it reaches the top of Good — a
- * rating Lens gives the figure while refusing Strong — and its colour stays
- * the amber of a result that depends on something Lens can't see.
- */
-const BAND_TONE: Record<FitLevel, RowTone> = {
-  strong: "success",
-  good: "success",
-  partial: "warning",
-  limited: "error",
-  unknown: "neutral",
-};
-
 const plugInTone = (band: FitBand): RowTone =>
   band.level === "limited" ? "error" : "warning";
 
@@ -235,9 +217,6 @@ const percentFrom = (value: number, reference: number) =>
 
 /** "a partial match", from "Partial match". */
 const aMatch = (band: FitBand) => `a ${band.label.toLowerCase()}`;
-
-const isElectric = (assessment: EnvironmentalAssessment) =>
-  assessment.powertrain === "Electric";
 
 const isPlugIn = (assessment: EnvironmentalAssessment) =>
   assessment.powertrain === "Plug-in Hybrid";

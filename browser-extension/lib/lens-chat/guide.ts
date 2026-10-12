@@ -1,14 +1,12 @@
 import { CATEGORIES } from "@/lib/reasoning-engine/constants";
 import { EFFICIENCY_BAND_WORDS } from "@/lib/reasoning-engine/environmental";
-import { formatEUR } from "@/lib/reasoning-engine";
 import type { CategoryId } from "@/lib/reasoning-engine/types";
 import type { NeedImportance } from "@/lib/lens-ai/contract";
 import type { FinnCar } from "@/lib/types";
 
-import { coverage, EVIDENCE, listedUpTo, setsApart, withoutLabel, type EvidenceId } from "./evidence";
+import { coverage, EVIDENCE, listedUpTo, withoutLabel, type EvidenceId } from "./evidence";
 import { LENGTH_ANCHORS, WIDTH_ANCHORS } from "@/lib/reasoning-engine/evidence";
-import type { LensRun } from "./run";
-import { budgetCeiling, type Need, type Understanding } from "./understanding";
+import { type Need, type Understanding } from "./understanding";
 
 /**
  * The conversation Lens can hold on its own.
@@ -801,128 +799,4 @@ export function saidFor(step: GuideStep, chosen: string[]): string {
     if (!picked.length) return step.none;
 
     return picked.map((choice) => choice.said).join(" ");
-}
-
-/* -------------------------------------------------------------------------- */
-/* What else is worth knowing about these cars                                */
-/* -------------------------------------------------------------------------- */
-
-export interface GuideOffer {
-    id: EvidenceId;
-    why: string;
-    needId: string;
-}
-
-/**
- * Equipment Lens could count for a need the reader has already given, where
- * the cars here actually differ on it.
- *
- * The model does this by reading the person; Lens does it by reading the page.
- * Both end in the same offer — "some of these have a 360° camera; shall I
- * count it?" — and the same `withSuggestion` if the answer is yes. Only
- * equipment the reader's own priority scores, so a yes moves the result rather
- * than decorating it.
- */
-export function offersFor(u: Understanding, cars: FinnCar[], limit = 2): GuideOffer[] {
-    if (!cars.length) return [];
-
-    const active = u.needs.filter((need) => need.status === "active" && need.priorities.length);
-    const taken = new Set(active.flatMap((need) => need.evidence.map((entry) => entry.id)));
-    const offers: GuideOffer[] = [];
-
-    for (const need of active) {
-        for (const priority of need.priorities) {
-            const category = CATEGORIES[priority] as { features: readonly string[]; niche?: readonly string[] };
-            /*
-             * Equipment the engine only counts for someone who asked for it.
-             * A towbar sits under Practicality, so a parent who said "kids in
-             * the back" was offered one — Lens deciding they might tow, which
-             * is the guessing the model isn't allowed to do either.
-             */
-            const niche = new Set(category.niche ?? []);
-
-            for (const id of category.features as EvidenceId[]) {
-                if (offers.length >= limit) return offers;
-                if (niche.has(id) || taken.has(id) || u.declined.includes(id) || !EVIDENCE[id]?.raisable) continue;
-
-                if (!setsApart(cars, id)) continue;
-
-                taken.add(id);
-                offers.push({
-                    id,
-                    why: USE[id] ?? need.label.toLowerCase(),
-                    needId: need.id,
-                });
-            }
-        }
-    }
-
-    return offers;
-}
-
-/* -------------------------------------------------------------------------- */
-/* What if                                                                    */
-/* -------------------------------------------------------------------------- */
-
-export interface GuideWhatIf {
-    /** On the chip the reader taps. */
-    label: string;
-    /** Lens's own line about what it would try. */
-    reply: string;
-    after: Understanding;
-}
-
-/**
- * The changes worth trying on a result, read off the result itself.
- *
- * Not speculation: each one is something this comparison actually turned on —
- * a budget that excluded the best match, a rule that set cars aside, a
- * mileage charge doing the work. The reader still has to accept the outcome,
- * exactly as with a what-if the model proposes.
- */
-export function whatIfs(run: LensRun, u: Understanding): GuideWhatIf[] {
-    const out: GuideWhatIf[] = [];
-    const { recommendation } = run;
-
-    /* A budget that kept the best match out: what would it take to let it in? */
-    if (u.budget) {
-        const ceiling = budgetCeiling(u.budget);
-        const over = recommendation.context.vehicles
-            .map((car) => recommendation.context.costs[car.id])
-            .filter((cost) => cost?.complete && cost.totalMonthly > ceiling)
-            .map((cost) => cost!.totalMonthly)
-            .sort((a, b) => a - b);
-
-        const nearest = over[0];
-
-        if (nearest != null) {
-            const monthly = Math.ceil(nearest / 10) * 10;
-
-            out.push({
-                label: `What if I allowed ${formatEUR(monthly)}?`,
-                reply: `The next car up costs about ${formatEUR(nearest)} a month all in. Here's what happens if ${formatEUR(monthly)} is the limit instead.`,
-                after: { ...u, budget: { ...u.budget, monthly, stretchTo: null, said: `you'd allow up to €${monthly} a month` } },
-            });
-        }
-    }
-
-    /* A rule that set cars aside: what was behind it? */
-    if (run.ruledOut?.setAside) {
-        for (const need of u.needs) {
-            if (need.importance !== "essential" || need.status !== "active") continue;
-
-            const rule = need.evidence.find((entry) => entry.unwanted || entry.mustHave);
-            if (!rule) continue;
-
-            out.push({
-                label: `What if I dropped "${need.label}"?`,
-                reply: `That rule set ${run.ruledOut.setAside} ${run.ruledOut.setAside === 1 ? "car" : "cars"} aside. Here's the comparison with all of them back in.`,
-                after: { ...u, needs: u.needs.map((item) => (item.id === need.id ? { ...item, status: "dropped" as const } : item)) },
-            });
-
-            break;
-        }
-    }
-
-    return out.slice(0, 2);
 }

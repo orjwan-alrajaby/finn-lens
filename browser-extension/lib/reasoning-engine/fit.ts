@@ -24,7 +24,6 @@ import { reasonAboutCost } from "./narrative/cost";
 import { reasonAboutPriority } from "./narrative/priority";
 import { reasonAboutTradeoffs } from "./narrative/tradeoffs";
 import { summarisePriority } from "./narrative/verdict";
-import { phraseLabel, sentence } from "./narrative/phrase";
 import { DEFAULT_CATEGORY_FEATURES } from "./constants";
 import { atLeast, bandForScore, type ScoreBand } from "./bands";
 import { equipmentKnown, isBinarySignal } from "./evidence";
@@ -129,40 +128,6 @@ export const FIT_BANDS = {
     emptyBarClass: string;
   }
 >;
-
-/**
- * How many of the five segments a band fills.
- *
- * Five rather than four because five is the number of priorities Lens asks
- * for, so a reader who has answered the setup sees a meter whose length
- * matches the thing it is summarising. It does not mean "three of your five
- * priorities are met" — the meter is a picture of the band, and the band is a
- * summary of one weighted score — but the two being the same length stops the
- * meter reading as an arbitrary mark out of four. A reader who set fewer than
- * five priorities still gets five segments, which is fine: the scale is the
- * product's, not their own.
- *
- * The steps are the presentation judgement, and only the ends are forced.
- * `strong` has to fill the meter or the top band looks unfinished, `unknown`
- * has to be empty because it is the one state that is an absence of a claim
- * rather than a weak one, and the middle has to stay monotonic. That leaves
- * one segment more than there are bands to spend it on, and it goes into the
- * gap above `limited`: those are the cars that answer almost nothing the
- * reader asked for, and one lit segment says so more honestly than two.
- *
- * See `FIT_BANDS` and the thresholds below — like those, these are worth
- * recalibrating against real inventory rather than treated as settled.
- */
-export const FIT_SEGMENTS: Record<FitLevel, number> = {
-  strong: 5,
-  good: 4,
-  partial: 3,
-  limited: 1,
-  unknown: 0,
-};
-
-/** The meter's length, so the three places that draw it agree on it. */
-export const FIT_METER_SEGMENTS = 5;
 
 /** Bands a score the engine produced. Never produces a score of its own. */
 export function classifyFit(score: number, hasEvidence = true): FitBand {
@@ -515,74 +480,4 @@ function describeStrengths(
   }
 
   return strengths;
-}
-
-/* -------------------------------------------------------------------------- */
-/* Copy                                                                       */
-/* -------------------------------------------------------------------------- */
-
-/** The priorities named in a sentence: "Practicality", "A and B", "A, B and C". */
-function joinLabels(priorities: FitPriority[]): string {
-  const labels = priorities.map((item) => phraseLabel(item.label));
-
-  if (labels.length === 1) return labels[0] as string;
-
-  return `${labels.slice(0, -1).join(", ")} and ${labels[labels.length - 1]}`;
-}
-
-/**
- * What the headline band is a claim about.
- *
- * Said in full on the page, because "Strong match" on its own is exactly the
- * kind of label a reader can mistake for a verdict on the car. It is a verdict
- * on the fit between this car and the things *this* reader ranked — someone
- * else with different settings would get a different word for the same car.
- */
-export function describeFit(analysis: FitAnalysis): string {
-  if (analysis.overall.level === "unknown") {
-    /*
-     * A priority scored on the car's own figures survives a missing equipment
-     * list — `toFitPriority` keeps its band and its sentences — so a flat
-     * "there's nothing to check your priorities against" was contradicted by
-     * the environmental result sitting a few centimetres below it on the same
-     * screen. The exception is named where there is one.
-     */
-    const judged = analysis.priorities.filter(
-      (item) => item.band.level !== "unknown",
-    );
-
-    if (judged.length) {
-      return sentence(
-        "FINN hasn't supplied an equipment list for this car, so most of your",
-        `priorities have nothing to check against — ${joinLabels(judged)}`,
-        `${judged.length === 1 ? "is" : "are"} judged on the car's own figures instead`,
-      );
-    }
-
-    return sentence(
-      "FINN hasn't supplied an equipment list for this car, so there's nothing",
-      "to check your priorities against",
-    );
-  }
-
-  const served = analysis.priorities.filter(
-    (item) => item.band.level === "strong" || item.band.level === "good",
-  );
-
-  const total = analysis.priorities.length;
-
-  if (!served.length) {
-    return sentence(
-      `It doesn't strongly serve any of the ${total} priorities you set —`,
-      "what it does and doesn't have is below",
-    );
-  }
-
-  const first = served[0] as FitPriority;
-
-  return sentence(
-    `It's a good or strong match on ${served.length} of the ${total}`,
-    `${total === 1 ? "priority" : "priorities"} you set,`,
-    `led by ${phraseLabel(first.label)}, your #${first.rank}`,
-  );
 }

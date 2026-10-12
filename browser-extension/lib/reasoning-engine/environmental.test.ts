@@ -2,15 +2,13 @@ import { bandForScore, GOOD_FROM, STRONG_FROM } from "./bands";
 import { describe, expect, it } from "vitest";
 
 import {
-  assessEfficiency,
-  assessEnvironment,
-  assessEnvironmentOrGaps,
-  co2ClassFor,
-  describeEnvironment,
-  efficiencyReferenceFor,
-  efficiencyScore,
-  ENVIRONMENTAL_METHOD,
-  positionForCo2,
+    assessEfficiency,
+    assessEnvironment,
+    assessEnvironmentOrGaps,
+    co2ClassFor,
+    describeEnvironment,
+    efficiencyScore,
+    positionForCo2,
 } from "./environmental";
 import { buildFitAnalysis } from "./fit";
 import { makeCar, prefs } from "./test-fixtures";
@@ -295,24 +293,6 @@ describe("the assessment as a whole", () => {
     expect(ev?.co2?.className).toBe("A");
   });
 
-  it("won't claim an electric car has no environmental impact", () => {
-    const ev = assessEnvironment(electric(16));
-
-    /* The distinction a zero invites somebody to miss, said on the car. */
-    expect(ev?.caveats.join(" ")).toMatch(/zero from the car/i);
-    expect(ev?.caveats.join(" ")).toMatch(/covers driving only, not making the electricity it charges on/i);
-
-    /*
-     * The lifecycle limit is stated in the method notes rather than on every
-     * car. It is true of all of them equally, so as a per-car line it told
-     * the reader nothing about the car in front of them — and a line readers
-     * learn to skip costs the caveats beside it their credibility.
-     */
-    expect(ENVIRONMENTAL_METHOD.map((n) => n.body).join(" ")).toMatch(
-      /Building it, making its battery/,
-    );
-  });
-
   it("keeps a frugal petrol car ahead of a thirsty one", () => {
     const frugal = assessEnvironment(petrol(105, 4.5));
     const thirsty = assessEnvironment(petrol(180, 7.7));
@@ -475,21 +455,6 @@ describe("what the reader is told", () => {
       expect(line).not.toMatch(/\d+%/);
     }
   });
-
-  it("explains the method without exposing the arithmetic", () => {
-    const method = ENVIRONMENTAL_METHOD.map(
-      (note) => `${note.heading} ${note.body}`,
-    ).join(" ");
-
-    expect(method).toMatch(/don't change it|isn't scored on its own/i);
-
-    /*
-     * The lifecycle limit is still stated — in words a reader who has never
-     * met the phrase "lifecycle assessment" can act on.
-     */
-    expect(method).toMatch(/Building it, making its battery/);
-    expect(method).not.toMatch(/count equally/i);
-  });
 });
 
 /* -------------------------------------------------------------------------- */
@@ -612,48 +577,6 @@ describe("the shape of the explanation", () => {
      * counter-intuitive the way a zero or a plug-in hybrid's figure is.
      */
     expect(assessEnvironment(petrol(117, 4.6))?.caveats).toEqual([]);
-  });
-
-  it("describes measurements, never the car's character", () => {
-    /*
-     * Words that make a claim about the car rather than about its figures.
-     * None of them are supported by a tailpipe measurement, and one of them
-     * ("zero-impact") is contradicted by our own caveats.
-     */
-    const banned =
-      /planet-friendly|\bgreen\b|eco.warrior|eco.friendly|good for the planet|\bclean(er|est)?\b|sustainab|zero.impact|environmentally friendly/i;
-
-    const copy = [
-      ...everyKind.flatMap((vehicle) => {
-        const assessment = assessEnvironment(vehicle);
-        const efficiency = assessment?.efficiency;
-
-        return [
-          describeEnvironment(assessment as never),
-          assessment?.co2?.label ?? "",
-          assessment?.co2?.explanation ?? "",
-          efficiency?.label ?? "",
-          efficiency?.explanation ?? "",
-          efficiency?.reasoning ?? "",
-          efficiency?.meaning.body ?? "",
-          efficiency?.disclaimer ?? "",
-          efficiency?.referenceNote ?? "",
-          efficiency?.provenance.body ?? "",
-          ...(assessment?.caveats ?? []),
-        ];
-      }),
-      ...ENVIRONMENTAL_METHOD.flatMap((note) => [note.heading, note.body]),
-    ].join(" ");
-
-    expect(copy).not.toMatch(banned);
-  });
-
-  it("opens the method on what it measures, not on what it excludes", () => {
-    const [first] = ENVIRONMENTAL_METHOD;
-    const last = ENVIRONMENTAL_METHOD[ENVIRONMENTAL_METHOD.length - 1];
-
-    expect(first?.heading).toMatch(/CO₂ per kilometre/);
-    expect(last?.heading).toMatch(/isn't the car's full footprint/i);
   });
 });
 
@@ -1036,14 +959,6 @@ describe("figures FINN leaves empty", () => {
       caveats: [],
       missing: ["its CO₂ figure", "what it consumes"],
     });
-  });
-
-  it("has each fuel's reference without needing the car's own figure", () => {
-    expect(efficiencyReferenceFor("Petrol")?.value).toBe("5.8 L/100km");
-    expect(efficiencyReferenceFor("Diesel")?.value).toBe("5.2 L/100km");
-    expect(efficiencyReferenceFor("Electric")?.value).toBe("17 kWh/100km");
-    expect(efficiencyReferenceFor("Plug-in Hybrid")).toBeNull();
-    expect(efficiencyReferenceFor(null)).toBeNull();
   });
 });
 

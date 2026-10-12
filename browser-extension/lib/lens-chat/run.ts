@@ -19,7 +19,7 @@ import { configurationName } from "@/lib/car-labels";
 import type { FinnCar, PinnedFinnCar } from "@/lib/types";
 
 import type { Answers } from "@/lib/reasoning-engine/answers";
-import { evidenceMet, type EvidenceId } from "./evidence";
+import { evidenceMet } from "./evidence";
 import type { Rule } from "./understanding";
 
 /**

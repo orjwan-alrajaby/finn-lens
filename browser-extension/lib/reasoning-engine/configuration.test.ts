@@ -1,22 +1,21 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  AVAILABLE_CATEGORY_FEATURES,
-  CATEGORIES,
-  CATEGORY_IDS,
-  DEFAULT_CATEGORY_FEATURES,
-  DEFAULT_DEFAULT_PROFILE_ID,
-  DEFAULT_PRIORITIES,
-  FEATURE_IMPORTANCE,
-  FEATURES,
-  IMPORTANCE_LEVELS,
-  MAX_FEATURES_PER_CATEGORY,
-  MAX_PRIORITIES,
-  MIN_PRIORITIES,
-  PROFILES,
-  SIGNALS,
-  profileEmphasis,
-  type ProfileId,
+    AVAILABLE_CATEGORY_FEATURES,
+    CATEGORIES,
+    CATEGORY_IDS,
+    DEFAULT_CATEGORY_FEATURES,
+    DEFAULT_DEFAULT_PROFILE_ID,
+    DEFAULT_PRIORITIES,
+    FEATURE_IMPORTANCE,
+    FEATURES,
+    MAX_FEATURES_PER_CATEGORY,
+    MAX_PRIORITIES,
+    MIN_PRIORITIES,
+    PROFILES,
+    SIGNALS,
+    profileEmphasis,
+    type ProfileId,
 } from "./constants";
 
 import { DEFAULT_PREFERENCES } from "./constants";
@@ -24,6 +23,9 @@ import { homeOf } from "./evidence";
 import { buildReasoningContext, evaluateVehicle, getCategory } from "./index";
 import { makeCar } from "./test-fixtures";
 import type { CategoryId, FeatureId, SignalId } from "./types";
+
+/** The raise levels, strongest first. */
+const IMPORTANCE_LEVELS = ["high", "medium", "low"] as const;
 
 const def = (id: CategoryId) =>
   CATEGORIES[id] as {

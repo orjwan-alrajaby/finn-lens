@@ -26,8 +26,6 @@ let frame: HTMLIFrameElement | null = null;
 let chatWasOpen = false;
 let open = false;
 
-export const isDrawerOpen = (): boolean => open;
-
 async function mount(): Promise<HTMLElement> {
     if (host && sheet) {
         if (!host.isConnected) document.documentElement.append(host);

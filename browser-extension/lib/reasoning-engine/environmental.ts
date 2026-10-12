@@ -76,20 +76,6 @@ const CO2_CLASS_BANDS: { letter: string; upTo: number }[] = [
 ];
 
 /**
- * The same classes, read-only, for surfaces that draw the scale.
- *
- * Exported as a copy of the table rather than restated at the call site: the
- * settings editor draws A to G with each class's range, and a second list of
- * boundaries there would be a second regulation to keep in step with this one.
- */
-export const CO2_CLASSES: readonly { letter: string; from: number; upTo: number }[] =
-  CO2_CLASS_BANDS.map((band, index) => ({
-    letter: band.letter,
-    from: index === 0 ? 0 : (CO2_CLASS_BANDS[index - 1]?.upTo ?? 0) + 1,
-    upTo: band.upTo,
-  }));
-
-/**
  * Where a CO₂ figure lands on the 0–100 the rest of the engine speaks in.
  *
  * The one product judgement in this file. The anchors sit on the official
@@ -649,16 +635,6 @@ function cohortFor(fuel: FuelType): Cohort | null {
   };
 }
 
-/** The FINN Lens benchmark for one powertrain's fuel or electricity use. */
-export interface EfficiencyReference {
-  /** "5.8 L/100km". */
-  value: string;
-  /** Who it is for: "petrol cars". */
-  kind: string;
-  /** How it is reached: see `Cohort.derivation`. */
-  derivation: string[];
-}
-
 /**
  * How a car's use of its own energy places on the 0–100 the engine speaks in.
  *
@@ -692,31 +668,6 @@ export function efficiencyScore(vehicle: FinnCar): { score: number; consumption:
   ];
 
   return { score: piecewise(anchors, consumption / cohort.reference), consumption, unit: cohort.unit };
-}
-
-/**
- * The reference on its own, without a car to compare with it.
- *
- * A constant for each powertrain, so it doesn't depend on FINN publishing the
- * car's own consumption: a car with no figure is still a petrol car, and the
- * table shows what it would be read against rather than "None". Null for a
- * plug-in hybrid, which has no fair reference, and where FINN doesn't say what
- * the car runs on.
- */
-export function efficiencyReferenceFor(
-  fuel: FuelType | null,
-): EfficiencyReference | null {
-  if (!fuel || fuel === "Plug-in Hybrid") return null;
-
-  const cohort = cohortFor(fuel);
-
-  return cohort
-    ? {
-        value: `${formatNumber(cohort.reference)} ${cohort.unit}`,
-        kind: cohort.kind,
-        derivation: cohort.derivation,
-      }
-    : null;
 }
 
 /** "Uses noticeably less …" → "uses noticeably less …", leaving "FINN Lens" alone. */
@@ -1080,76 +1031,3 @@ export function describeEnvironment(
     ? `${co2.explanation} Even so, it uses ${clause}.`
     : `${co2.explanation} It uses ${clause}.`;
 }
-
-/* -------------------------------------------------------------------------- */
-/* The method, for a reader who wants it                                      */
-/* -------------------------------------------------------------------------- */
-
-export interface EnvironmentalMethodNote {
-  /**
-   * Which half of the method the note answers: how the result is measured, or
-   * where it stops. The two halves are headings inside the one "How this is
-   * calculated" fold, so six notes read as two ideas rather than six.
-   */
-  group: "measures" | "limits";
-  /**
-   * The mark drawn beside the heading, named by what it is of rather than by
-   * a shape — the same bargain `EnvironmentRow.icon` strikes, so the name
-   * survives whichever renderer picks the shape.
-   *
-   * `cloud` and `fuel` are deliberately the marks the comparison table
-   * already puts on the CO₂ and energy rows: the note that says what the
-   * result is based on should carry the same shape as the figure it is
-   * talking about.
-   */
-  icon: "cloud" | "fuel" | "calculator" | "tag" | "plug" | "factory";
-  heading: string;
-  body: string;
-}
-
-/**
- * What this priority looks at, for a reader deciding whether to rank it.
- *
- * Ordered so the first note answers "what will this actually judge my cars
- * on?" and the rest answer the questions that follow from it. The limits come
- * last — they matter, but they are no use to someone who doesn't yet know
- * what the thing measures.
- */
-export const ENVIRONMENTAL_METHOD: EnvironmentalMethodNote[] = [
-  {
-    group: "measures",
-    icon: "cloud",
-    heading: "The result is based on CO₂ per kilometre",
-    body: "How much carbon dioxide a car puts out over a kilometre, measured under the EU's official test and placed on the A-to-G CO₂ scale used on German car listings. An electric car emits none while driving and sits at the top; the more a car emits, the further down it goes. Nothing else moves the result.",
-  },
-  {
-    group: "measures",
-    icon: "fuel",
-    heading: "How much it uses is reported separately",
-    body: "Fuel and electricity use have their own section, “How much it uses”, and don't change this result. They answer a different question — how a car's use compares with the benchmark FINN Lens sets for cars on the same energy — and a car can be efficient for what it is while still emitting a lot, or emit nothing while using a lot of electricity.",
-  },
-  {
-    group: "measures",
-    icon: "calculator",
-    heading: "What a car runs on isn't scored on its own",
-    body: "For anything that burns fuel, the CO₂ figure is simply how much it uses multiplied by the carbon in a litre. Counting the fuel type as well would mark the same car down twice for the same fact, so the emissions figure is left to speak for it.",
-  },
-  {
-    group: "measures",
-    icon: "tag",
-    heading: "The A-to-G letter is shown for recognition",
-    body: "It's the label you'll see on FINN's own page. Since 2024 it's worked out from the CO₂ figure alone — vehicle weight no longer comes into it — so it tells you nothing the figure doesn't. It's here so the number is recognisable, not as a second opinion.",
-  },
-  {
-    group: "limits",
-    icon: "plug",
-    heading: "Plug-in hybrids can't be rated Strong",
-    body: "FINN gives a plug-in hybrid one CO₂ figure and doesn't say how much of the driving behind it is on electricity, so the figure can't be checked against how you'd drive. Lens won't give the Strong rating on a figure it can't check — the best a plug-in hybrid can reach is the top of Good. No corrected figure is invented, and among plug-in hybrids a lower official figure still ranks higher.",
-  },
-  {
-    group: "limits",
-    icon: "factory",
-    heading: "This isn't the car's full footprint",
-    body: "It covers what comes out of the car while you drive. Building it, making its battery, generating the electricity it charges on and scrapping it at the end all carry emissions too, and none of that is in FINN's data or estimated here.",
-  },
-];

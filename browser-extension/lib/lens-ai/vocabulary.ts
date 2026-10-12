@@ -2,22 +2,18 @@ import {
     CATEGORIES,
     CATEGORY_IDS,
     FEATURE_IMPORTANCE,
-    MAX_FEATURES_PER_CATEGORY,
     MAX_PRIORITIES,
     MIN_PRIORITIES,
     PROFILES,
     SIGNALS,
 } from "@/lib/reasoning-engine/constants";
-import { priorityWeights, rentalPeriodOf } from "@/lib/reasoning-engine";
 import type {
     CategoryDef,
     CategoryId,
     ProfileId,
     SignalId,
 } from "@/lib/reasoning-engine/types";
-
-import type { Answers } from "@/lib/reasoning-engine/answers";
-import type { CurrentAnswers, LensVocabulary } from "./contract";
+import type { LensVocabulary } from "./contract";
 
 /**
  * Lens's own vocabulary, written out for a language model to map onto.
@@ -82,34 +78,5 @@ export function buildVocabulary(enabled: CategoryId[] = CATEGORY_IDS): LensVocab
             "Exact delivery days (Lens works in months), colours",
             "Towing capacity (only whether a towbar is listed)",
         ],
-    };
-}
-
-/** The answers as they stand, in the same terms as the vocabulary. */
-export function describeCurrent(answers: Answers): CurrentAnswers {
-    return {
-        priorities: priorityWeights(answers.priorities, answers.preferences.priorityShares).map((weight) => ({
-            id: weight.priority,
-            label: CATEGORIES[weight.priority].label,
-            rank: weight.rank,
-            weightPercent: weight.weightPercent,
-        })),
-        raised: CATEGORY_IDS.flatMap((category) =>
-            (answers.features[category] ?? []).map((item) => ({
-                category,
-                feature: item.key,
-                label: SIGNALS[item.key]?.label ?? item.key,
-                importance: item.importance,
-            })),
-        ),
-        monthlyBudget:
-            answers.preferences.monthlyBudget > 0
-                ? answers.preferences.monthlyBudget
-                : null,
-        monthlyKm: answers.preferences.monthlyKm,
-        contractType: answers.preferences.contractType,
-        rentalPeriod: rentalPeriodOf(answers.preferences),
-        basedOnProfile: answers.basedOn,
-        today: new Date().toISOString().slice(0, 10),
     };
 }

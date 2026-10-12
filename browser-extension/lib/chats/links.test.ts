@@ -4,7 +4,7 @@ import { BUBBLES } from "@/lib/lens-chat/bubbles";
 import { GARAGE } from "@/lib/reasoning-engine/test-garage";
 import { guideSteps } from "@/lib/lens-chat/guide";
 
-import { FOLLOW_UPS, offerReason, WORTH_A_LOOK } from "./follow-ups";
+import { offerReason, WORTH_A_LOOK } from "./follow-ups";
 
 /*
  * Wherever Lens puts a need and a feature together, it says why they belong
@@ -21,14 +21,6 @@ describe("the link between a need and its equipment", () => {
         for (const choice of needs.filter((item) => item.need)) {
             for (const id of choice.need!.evidence) {
                 expect(choice.need!.reasons?.[id], `${choice.id} → ${id}`).toMatch(/\w{3,}/);
-            }
-        }
-    });
-
-    it("says why a follow-up answer adds each feature", () => {
-        for (const followUp of Object.values(FOLLOW_UPS)) {
-            for (const choice of followUp.choices) {
-                for (const add of choice.add ?? []) expect(add.why, `${followUp.need}/${choice.id} → ${add.id}`).toMatch(/\w{3,}/);
             }
         }
     });

@@ -10,7 +10,10 @@
 > build (`FINN-LENS-HANDOFF.md`, which did before, is on the `playground` branch). This document is the
 > long form: why it is the way it is, and what would have to change to change it. Its figures — the
 > A–G boundaries, the 136 g/km and 17 kWh/100 km references, the plug-in hybrid ceiling — were checked
-> against `environmental.ts` again for the 0.9.1 beta (12 October 2026).
+> against `environmental.ts` again for the 0.9.1 beta (12 October 2026). The explainer pieces it describes
+> for the earlier settings and comparison screens — `efficiencyReferenceFor`, `ENVIRONMENTAL_METHOD` and the
+> priority subtitle `describeCoverage` — were removed in that release's cleanup, since nothing in the chat
+> showed them; the passages about them are a record of what was built then.
 >
 > **Amended 2026-09-06.** §12 covers the explanation layer added on top of the model — the
 > scoring below is unchanged. Two claims in the copy were corrected at the same time and are

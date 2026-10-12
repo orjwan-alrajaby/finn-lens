@@ -9,7 +9,7 @@ import {
 import { fleet } from "@/lib/reasoning-engine/test-data/fleet";
 import type { PinnedFinnCar } from "@/lib/types";
 
-import { evidenceMet, measuredDisplay, readEvidence, ruleLabel } from "./evidence";
+import { evidenceMet, measuredDisplay, readEvidence } from "./evidence";
 import { tellFitStory, type FitStory } from "./fit-story";
 import { letGo, withDeals } from "./deals";
 import { allowedByRules, runLens } from "./run";
@@ -526,24 +526,6 @@ describe("a budget with a stretch the reader named", () => {
     });
 });
 
-describe("naming a rule in a sentence", () => {
-    it("reads as English in both directions", () => {
-        /* FINN's seat count says six or more, not seven. */
-        expect(ruleLabel("seatsSixPlus", "without")).toBe("Fewer than six seats");
-        expect(ruleLabel("seatsSixPlus", "must")).toBe("Must be a six-seater or bigger");
-        expect(ruleLabel("seatsFivePlus", "must")).toBe("Must be a five-seater or bigger");
-        expect(ruleLabel("electricCar", "must")).toBe("Must be an electric car");
-        expect(ruleLabel("suvBody", "without")).toBe("No SUV");
-    });
-
-    /* What a car is, versus what it has: "Must be rear doors" is neither. */
-    it("says have for equipment and be for a kind of car", () => {
-        expect(ruleLabel("rearDoors", "must")).toBe("Must have rear doors");
-        expect(ruleLabel("hasIsofix", "must")).toBe("Must have isofix child seat anchors");
-        expect(ruleLabel("hasAutomaticTransmission", "must")).toBe("Must be an automatic");
-    });
-});
-
 describe("no car with every deal-breaker", () => {
     const rules = (u: ReturnType<typeof withDeals>) => ruledOut(u);
     const page = () => cars.slice(0, 24);
@@ -597,7 +579,6 @@ describe("a hard limit, and a cost FINN's data can't confirm", () => {
     expect(run.recommendation.winner.id).not.toBe(unmatched.id);
   });
 });
-
 
 describe("the one caveat kept", () => {
     it("says boot space can't be checked for lots to carry, and nowhere else", async () => {

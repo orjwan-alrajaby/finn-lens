@@ -163,7 +163,6 @@ export function categoryDetail(
 
   const def = getCategory(category);
   const selection = categoryFeatures[category] ?? [];
-  const known = equipmentKnown(vehicle);
   const onlyAsked = preferences?.countOnlyAsked === true;
   const checks = onlyAsked ? (preferences?.checked?.[category] ?? []) : [];
 

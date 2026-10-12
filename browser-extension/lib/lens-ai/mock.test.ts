@@ -5,7 +5,7 @@ import type { ConverseRequest, WireUnderstanding } from "./contract";
 import { createMockAdapter } from "./mock";
 import { fleet } from "@/lib/reasoning-engine/test-data/fleet";
 import { evidenceCatalogue } from "@/lib/lens-chat/evidence";
-import { EMPTY_UNDERSTANDING, readQuestion, toWire } from "@/lib/lens-chat/understanding";
+import { EMPTY_UNDERSTANDING, toWire } from "@/lib/lens-chat/understanding";
 
 /*
  * The stand-in for Gemini, held to the shapes the chat relies on. Everything
@@ -51,24 +51,6 @@ describe("the simulated Lens AI", () => {
 
         expect(result.understanding?.capabilities[0]?.lessRelevant).toContain("driverAssistLevel2");
         expect(result.understanding?.needs.flatMap((need) => need.evidence).some((entry) => entry.unwanted)).toBe(false);
-    });
-
-    it("asks a question Lens keeps, and reads the tapped answer", async () => {
-        const first = await turn("I'm a nervous driver.");
-        const question = readQuestion(first.question, [], cars);
-
-        expect(question?.options).toContain("Changing lanes");
-
-        const second = await turn("Changing lanes", { understanding: first.understanding!, openQuestion: question });
-
-        expect(second.understanding?.needs.some((need) => need.evidence.some((entry) => entry.id === "hasBlindSpotAssist"))).toBe(true);
-    });
-
-    it("asks a question Lens drops when every car has what it turns on", async () => {
-        const result = await turn("It's for me and my two little ones, getting them in is a whole production.");
-
-        expect(result.question?.ask).toMatch(/how old/i);
-        expect(readQuestion(result.question, [], cars)).toBeNull();
     });
 
     it("turns a hypothetical budget into a what-if", async () => {

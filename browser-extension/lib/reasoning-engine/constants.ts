@@ -143,85 +143,6 @@ export const FEATURE_IMPORTANCE = {
 /** Every catalogue feature counts once for being relevant equipment. */
 export const BASE_FEATURE_WEIGHT = 1;
 
-/**
- * The rung below the three, and the one every feature starts on.
- *
- * Not a fourth importance: there is no such stored value, and a feature
- * sitting here is simply one the reader hasn't singled out — weight 1, like
- * the rest of the catalogue. It exists because the interface needs a *name*
- * for that. "Nothing selected" is an absence, and an absence is what a reader
- * mistakes for "doesn't count"; "Standard" is a state they can see themselves
- * choosing, sitting in the same control as the levels above it, which makes
- * the whole model legible in one glance: everything counts as standard, and
- * you may raise five of them.
- *
- * Grey on purpose. It is the resting state, not a low grade.
- */
-export const STANDARD_INFLUENCE = {
-  label: "Standard",
-  /*
-   * It used to say "Counts like everything else in this priority", which was
-   * only true while nothing was raised — and every profile raises something.
-   */
-  hint: "Counts once",
-  /**
-   * Said as a state rather than as a level, because that is what it is: not
-   * a fourth strength but the absence of a claim. "Standard influence" would
-   * imply the reader chose it; most of the time they simply had no opinion,
-   * and the honest badge says so without suggesting anything was lost.
-   */
-  badgeLabel: "Standard Influence",
-  meaning:
-    "Counts once. Nothing here is ignored — this one just isn't carrying extra weight, and anything raised in this priority counts two to four times as much.",
-  /** Stated for the reader of this file; the scorer uses BASE_FEATURE_WEIGHT. */
-  weight: BASE_FEATURE_WEIGHT,
-  activeClass: "bg-finn-iron/20 text-finn-black ring-1 ring-finn-iron/25",
-  idleClass: "text-finn-iron hover:bg-finn-cotton hover:text-finn-black",
-  dotClass: "bg-finn-iron/30",
-  accentTextClass: "text-finn-iron",
-} as const;
-
-/**
- * The resting state of a niche item: not counted until raised.
- *
- * A towbar, roof rails, a sixth seat and a spare wheel matter a great deal to
- * the people who need them and not at all to everyone else. Counting them at
- * standard for every reader would mark half of FINN's cars down for lacking a
- * towbar nobody asked for, so they start here and count from the first raise.
- */
-export const NICHE_INFLUENCE = {
-  label: "Not counted",
-  hint: "Only counts if you raise it",
-  badgeLabel: "Not counted",
-  meaning:
-    "Most drivers don't need this, so it doesn't count unless you raise it. Raise it and it counts like any other raised item.",
-  weight: 0,
-  activeClass: "bg-finn-cotton text-finn-iron ring-1 ring-finn-iron/15",
-  idleClass: "text-finn-iron hover:bg-finn-cotton hover:text-finn-black",
-  dotClass: "bg-finn-iron/15",
-  accentTextClass: "text-finn-iron",
-} as const;
-
-/**
- * The level a raise lands on when nothing chose one — a migrated flat list
- * from an older build, or a toggle with no level attached. The middle rung,
- * because picking something already says it matters and either end would put
- * words in the reader's mouth. It still counts three times a standard item.
- */
-export const DEFAULT_FEATURE_IMPORTANCE: FeatureImportance = "medium";
-
-/** The levels strongest-first, for anything reasoning about weight. */
-export const IMPORTANCE_LEVELS = ["high", "medium", "low"] as const;
-
-/**
- * The levels as the user meets them, gentlest first.
- *
- * The control reads left to right as a rising scale, which is the whole point
- * of it — reversing the internal order here keeps that reading in one place
- * instead of in every component that draws the control.
- */
-export const IMPORTANCE_SCALE = ["low", "medium", "high"] as const;
-
 /* -------------------------------------------------------------------------- */
 /* Features                                                                   */
 /* -------------------------------------------------------------------------- */
@@ -1104,10 +1025,6 @@ export const MAX_PRIORITIES = 5;
 
 export const CATEGORY_IDS = Object.keys(CATEGORIES) as CategoryId[];
 
-export const NUMERIC_ONLY_CATEGORIES = CATEGORY_IDS.filter(
-  (id) => CATEGORIES[id].numericOnly
-);
-
 /**
  * Every item a category can be raised on, in relevance order — its home
  * evidence, niche items included.
@@ -1164,7 +1081,6 @@ export const DEFAULT_PRIORITIES: CategoryId[] = [
  * charged at the vehicle's own `pricing.extraKmPrice`.
  */
 export const FINN_INCLUDED_MONTHLY_KM = 500;
-
 
 /**
  * No budget, until the reader sets one.

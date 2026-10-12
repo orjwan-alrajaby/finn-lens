@@ -34,7 +34,7 @@ import {
     type OftenId,
 } from "@/lib/lens-chat/bubbles";
 import { asPhrase, barePhrase, coverage, EVIDENCE, evidenceMet, isKind, onNearlyEvery, readEvidence, setsApart, type EvidenceId } from "@/lib/lens-chat/evidence";
-import { IMPORTANCE, IMPORTANCE_LABEL } from "@/lib/lens-chat/importance";
+import { IMPORTANCE } from "@/lib/lens-chat/importance";
 import { SOURCES } from "@/lib/sources";
 import { DEALS, dealForRule, dealsHere, dealStates, letGo, stateLabel, withDeals, type DealState } from "@/lib/lens-chat/deals";
 import { applyChoices, explain, guideSteps, saidFor, type GuideChoice, type GuideStep } from "@/lib/lens-chat/guide";

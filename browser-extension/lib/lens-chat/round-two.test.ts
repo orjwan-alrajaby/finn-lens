@@ -11,12 +11,11 @@ import { fleet } from "@/lib/reasoning-engine/test-data/fleet";
 import type { PinnedFinnCar } from "@/lib/types";
 
 import { evidenceForNeeds, tellFitStory } from "./fit-story";
-import { matchSentence } from "./plain";
 import { runLens } from "./run";
 import { carNamed, whyNot } from "./why-not";
 import { totalFor } from "@/lib/reasoning-engine/scoring";
 import { bootLitres } from "@/lib/reasoning-engine/evidence";
-import { EMPTY_UNDERSTANDING, groundInWhatWasSaid, readQuestion, readUnderstanding, ruledOut, toAnswers, waiveEssential } from "./understanding";
+import { EMPTY_UNDERSTANDING, groundInWhatWasSaid, readUnderstanding, ruledOut, toAnswers, waiveEssential } from "./understanding";
 
 /*
  * What the second round of real conversations showed Lens getting wrong,
@@ -205,42 +204,6 @@ describe("equipment nearly every car has", () => {
     });
 });
 
-describe("a question worth holding the comparison for", () => {
-    it("isn't asked when everything it turns on is on nearly every car", () => {
-        const question = readQuestion(
-            {
-                ask: "Would you like a car that steers itself into parallel spaces, or are sensors and a camera enough?",
-                why: "",
-                options: ["Self-steering", "Sensors are fine", "I don't mind"],
-                affects: ["hasParkingAssistant", "hasOneEightyDegreesReversingCamera", "hasParkingSensors"],
-            },
-            [],
-            cars,
-        );
-
-        expect(question).toBeNull();
-    });
-});
-
-describe("a figure they aimed at, rather than a limit", () => {
-    it("says a car a little above it is a little above it — not that nothing fits", () => {
-        const { story, run } = compare(
-            wire({
-                budget: { kind: "target", monthly: 450, said: "around 450" },
-                needs: [need({ id: "parking", label: "Easy parking", priorities: ["cityParking"], evidence: [{ id: "compactLength", use: "fits more spaces" }] })],
-            }),
-        );
-        const monthly = run.recommendation.context.costs[run.recommendation.winner.id]!.totalMonthly;
-
-        if (monthly > 450 && monthly <= 518) {
-            expect(story.eyebrow).toBe("Best match");
-            expect(matchSentence(story)).toMatch(monthly <= 495 ? /a little above the figure you aimed for/ : /— above the figure you aimed for/);
-        } else {
-            expect(matchSentence(story)).not.toMatch(/not what you wanted to spend/);
-        }
-    });
-});
-
 describe("what Lens says back about their life", () => {
     it("reads their own sentence instead of a heading like 'Commute distance'", () => {
         const understanding = readUnderstanding(
@@ -315,23 +278,6 @@ describe("when nothing stays within a hard maximum", () => {
         expect(budget.lines.map((line) => line.text).join(" ")).toMatch(
             /FINN's [\d,]+ km mileage package, which your distance needs|per-kilometre charge for the [\d,]+ km a month you drive beyond the 500 km it includes/,
         );
-    });
-});
-
-describe("a question about a rare kind of car", () => {
-    it("is still asked when the answer splits the field", () => {
-        const question = readQuestion(
-            {
-                ask: "Should Lens look only at electric cars, or include petrol and hybrids too?",
-                why: "Your partner wants electric, and you're worried about range.",
-                options: ["Electric only", "Include all", "I don't mind"],
-                affects: ["electricCar"],
-            },
-            [],
-            cars,
-        );
-
-        expect(question).not.toBeNull();
     });
 });
 

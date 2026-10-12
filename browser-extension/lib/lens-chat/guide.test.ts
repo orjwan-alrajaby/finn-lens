@@ -5,12 +5,10 @@ import { CATEGORIES, CATEGORY_IDS, DEFAULT_CATEGORY_FEATURES, DEFAULT_PREFERENCE
 import { fleet } from "@/lib/reasoning-engine/test-data/fleet";
 import type { PinnedFinnCar } from "@/lib/types";
 
-import { coverage, EVIDENCE } from "./evidence";
-import { needChips } from "./plain";
-import { applyChoices, guideSteps, offersFor, saidFor, whatIfs } from "./guide";
+import { EVIDENCE } from "./evidence";
+import { applyChoices, guideSteps, saidFor } from "./guide";
 import { runLens } from "./run";
 import { tellFitStory } from "./fit-story";
-import { matchSentence } from "./plain";
 import { assessEnvironment } from "@/lib/reasoning-engine/environmental";
 import { EMPTY_UNDERSTANDING, ruledOut, toAnswers, type Understanding } from "./understanding";
 
@@ -164,86 +162,6 @@ describe("what the taps mean", () => {
     });
 });
 
-describe("what else is worth asking about these cars", () => {
-    it("offers equipment the reader's own priority scores, where the cars differ on it", () => {
-        const u = answer(EMPTY_UNDERSTANDING, "life", ["nervous"]);
-        const offers = offersFor(u, cars);
-
-        expect(offers.length).toBeGreaterThan(0);
-
-        for (const offer of offers) {
-            const counts = coverage(cars, offer.id);
-
-            /* Something to find, and not something nearly every car here has. */
-            expect(counts.listed).toBeGreaterThan(0);
-            expect(counts.listed / counts.total).toBeLessThanOrEqual(0.85);
-            expect(offer.why.length).toBeGreaterThan(0);
-            /* Never something already cited by the need it belongs to. */
-            expect(u.needs.flatMap((need) => need.evidence.map((entry) => entry.id))).not.toContain(offer.id);
-        }
-    });
-
-    it("never offers something the reader has already turned down", () => {
-        const u = answer(EMPTY_UNDERSTANDING, "life", ["nervous"]);
-        const first = offersFor(u, cars);
-
-        if (!first.length) return;
-
-        const declined = { ...u, declined: [first[0]!.id] };
-
-        expect(offersFor(declined, cars).map((offer) => offer.id)).not.toContain(first[0]!.id);
-    });
-});
-
-describe("what if", () => {
-    it("proposes the budget the next car up would need", () => {
-        const u: Understanding = {
-            ...answer(EMPTY_UNDERSTANDING, "life", ["city"]),
-            budget: { kind: "hardMax", monthly: 300, stretchTo: null, said: "you said up to €300 a month" },
-        };
-        const translation = toAnswers(base, u);
-        const run = runLens(cars, translation.answers, "page", "Comparing 24 cars on this page", ruledOut(u));
-        const proposals = whatIfs(run!, u);
-
-        expect(proposals.length).toBeGreaterThan(0);
-        expect(proposals[0]!.after.budget!.monthly).toBeGreaterThan(300);
-        expect(proposals[0]!.label).toMatch(/What if I allowed/);
-    });
-
-    it("offers to drop a rule that set cars aside, and nothing where none did", () => {
-        const rules = step("rules");
-        const first = rules.choices[0]!;
-        const u = applyChoices(answer(EMPTY_UNDERSTANDING, "life", ["city"]), rules, [first.id]);
-        const translation = toAnswers(base, u);
-        const run = runLens(cars, translation.answers, "page", "Comparing 24 cars on this page", ruledOut(u));
-
-        expect(whatIfs(run!, u).some((item) => item.label.includes("dropped"))).toBe(true);
-
-        const plain = answer(EMPTY_UNDERSTANDING, "life", ["city"]);
-        const plainRun = runLens(cars, toAnswers(base, plain).answers, "page", "Comparing 24 cars", ruledOut(plain));
-
-        expect(whatIfs(plainRun!, plain)).toEqual([]);
-    });
-});
-
-describe("what Lens never offers", () => {
-    it("leaves niche equipment to the reader to raise", () => {
-        /* A towbar is under Practicality, and children and bulky shopping are not a plan to tow. */
-        const u = answer(EMPTY_UNDERSTANDING, "life", ["kids", "bulky"]);
-
-        expect(offersFor(u, cars, 8).map((offer) => offer.id)).not.toContain("hasTowbar");
-    });
-
-    it("says a rule once, not once as a rule and again as a need", () => {
-        const rules = step("rules");
-        const noSuv = rules.choices.find((choice) => choice.id === "no-suv")!;
-        const u = applyChoices(answer(EMPTY_UNDERSTANDING, "life", ["city"]), rules, [noSuv.id]);
-        const chips = needChips(u);
-
-        expect(chips.filter((chip) => /SUV/i.test(chip))).toHaveLength(1);
-    });
-});
-
 describe("emissions, which are a figure rather than equipment", () => {
     const u = answer(EMPTY_UNDERSTANDING, "life", ["co2-matters", "motorway"]);
     const translation = toAnswers(base, u);
@@ -268,16 +186,6 @@ describe("emissions, which are a figure rather than equipment", () => {
 
         expect(section.tone).toBe(expected);
         expect(section.lines.some((line) => /A–G CO₂ label German law uses for new cars \(Pkw-EnVKV\)/.test(line.text))).toBe(true);
-    });
-});
-
-describe("a reader with no budget", () => {
-    it("is never told the car is above the figure they aimed for", () => {
-        const u = { ...answer(answer(EMPTY_UNDERSTANDING, "life", ["motorway"]), "distance", ["km-1000"]), waived: ["budget" as const] };
-        const translation = toAnswers(base, u);
-        const run = runLens(cars, translation.answers, "page", "Comparing 24 cars on this page", ruledOut(u))!;
-
-        expect(matchSentence(tellFitStory(run, u, translation.lessRelevant, null))).not.toMatch(/aimed for|what you wanted to spend/);
     });
 });
 

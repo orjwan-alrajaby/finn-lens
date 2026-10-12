@@ -1,5 +1,5 @@
 import type { FinnCar } from "@/lib/types";
-import type { CategoryId, FeatureId, SignalId } from "./types";
+import type { CategoryId, SignalId } from "./types";
 
 import { CATEGORIES, CATEGORY_IDS, DERIVED_SIGNALS, FEATURES } from "./constants";
 
@@ -364,11 +364,4 @@ export function countedItems(category: CategoryId): CountedItem[] {
   }));
 
   return [...home, ...also, ...expected];
-}
-
-/** True when a signal counts only once raised in this priority. */
-export function isNicheIn(category: CategoryId, key: SignalId): boolean {
-  const niche = (CATEGORIES[category] as { niche?: readonly SignalId[] }).niche;
-
-  return Boolean(niche?.includes(key));
 }

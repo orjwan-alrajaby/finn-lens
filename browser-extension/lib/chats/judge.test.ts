@@ -10,7 +10,7 @@ import { applyChoices, guideSteps } from "@/lib/lens-chat/guide";
 import { EMPTY_UNDERSTANDING, withBudget, withRental, withSuggestion, type Understanding } from "@/lib/lens-chat/understanding";
 import type { PinnedFinnCar } from "@/lib/types";
 
-import { applyFollowUp, FOLLOW_UPS, WORTH_A_LOOK } from "./follow-ups";
+import { WORTH_A_LOOK } from "./follow-ups";
 import { BASE_ANSWERS, chatAnswers, judgementAt, judgementFrom, judgeWith, resultMessage, whyLines, withJudgement } from "./judge";
 import { withBubbles } from "@/lib/lens-chat/bubbles";
 import { withDeals } from "@/lib/lens-chat/deals";
@@ -142,13 +142,10 @@ describe("counting only what the reader asked for", () => {
         expect(answers.priorities).not.toContain("safetyAssistance");
     });
 
-    it("counts every piece of equipment of every need, follow-up and offer", () => {
+    it("counts every piece of equipment of every need and offer", () => {
         for (const choice of life().choices) {
             const u = picked(choice.id);
             everythingCounts(u);
-
-            const followUp = FOLLOW_UPS[choice.id];
-            for (const option of followUp?.choices ?? []) everythingCounts(applyFollowUp(u, followUp!, [option.id]));
 
             for (const offer of WORTH_A_LOOK[choice.id] ?? []) everythingCounts(withSuggestion(u, offer.id, offer.why, `life-${choice.id}`));
         }
@@ -159,10 +156,8 @@ describe("counting only what the reader asked for", () => {
 
         for (const choice of life().choices.filter((item) => !aboutDistance.has(item.id))) {
             const u = picked(choice.id);
-            const followUp = FOLLOW_UPS[choice.id];
             const variants = [
                 u,
-                ...(followUp?.choices ?? []).map((option) => applyFollowUp(u, followUp!, [option.id])),
                 ...(WORTH_A_LOOK[choice.id] ?? []).map((offer) => withSuggestion(u, offer.id, offer.why, `life-${choice.id}`)),
             ];
 
@@ -180,10 +175,8 @@ describe("counting only what the reader asked for", () => {
     });
 
     it("keeps every accepted item, past the five a settings screen allows", () => {
-        const winter = FOLLOW_UPS.winter!;
-        let u = applyFollowUp(picked("winter"), winter, ["snow"]);
-        u = withSuggestion(u, "hasHeatPump", "", "life-winter");
-        u = withSuggestion(u, "hasHeadlightCleaningSystem", "", "life-winter");
+        let u = picked("winter");
+        for (const id of ["hasHeatPump", "hasHeadlightCleaningSystem", "hasAuxiliaryHeater", "hasSeatCooling", "hasFogLights"] as const) u = withSuggestion(u, id, "", "life-winter");
 
         expect(chatAnswers(u).answers.features.climateSuitability.length).toBeGreaterThan(5);
         everythingCounts(u);

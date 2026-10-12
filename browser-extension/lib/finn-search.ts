@@ -29,8 +29,9 @@
  *   everything else, and a model that shares a slug with a body style must not
  *   be read out of it.
  *
- * Nothing here decides what a filter means for the reader. That is Lens's
- * business (`lib/lens-chat/search.ts`); this only says what was filtered.
+ * Nothing here decides what a filter means for the reader: Lens judges the
+ * cars a search returns, and reads nothing else into it. This only says what
+ * was filtered.
  */
 
 /** The values FINN offers to filter by, as `/api/filters/cars` lists them. */

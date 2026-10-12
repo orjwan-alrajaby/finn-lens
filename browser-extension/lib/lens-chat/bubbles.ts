@@ -550,8 +550,6 @@ export const BUBBLES: Bubble[] = [
     },
 ];
 
-export const BUBBLE_IDS = BUBBLES.map((bubble) => bubble.id);
-
 /* -------------------------------------------------------------------------- */
 /* Recommended, from what the reader said                                     */
 /* -------------------------------------------------------------------------- */

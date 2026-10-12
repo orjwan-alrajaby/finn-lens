@@ -1,7 +1,6 @@
 import {
     CATEGORIES,
     CATEGORY_IDS,
-    FEATURE_IMPORTANCE,
     FINN_INCLUDED_MONTHLY_KM,
     MAX_FEATURES_PER_CATEGORY,
     MAX_PRIORITIES,
@@ -13,26 +12,18 @@ import { priorityWeights } from "@/lib/reasoning-engine";
 import type { CategoryId, FeatureImportance, SignalId } from "@/lib/reasoning-engine/types";
 import type {
     NeedImportance,
-    WireQuestion,
     WireUnderstanding,
 } from "@/lib/lens-ai/contract";
 
 import type { Answers } from "@/lib/reasoning-engine/answers";
-import type { FinnCar } from "@/lib/types";
 
-import { AMBIGUOUS_FIGURES, coverage, EVIDENCE, isEvidenceId, setsApart, withoutLabel, type EvidenceId } from "./evidence";
+import { EVIDENCE, isEvidenceId, withoutLabel, type EvidenceId } from "./evidence";
 
 /** A quantity in a use clause: "four seats", "2 USB ports". */
 const COUNTS = /\d|\b(one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve)\b/i;
 
 /** A message that says anything about money: a figure, a currency, or the words for it. */
 const MONEY = /\d|€|\beur(o|os)?\b|budget|spend|afford|pay\b|paying|cost|price|cheap|expensive|money|\bmax(imum)?\b|limit|stretch|a month\b|monthly/i;
-
-/**
- * A question's answer has to turn on evidence no more common than this —
- * stricter than NEARLY_EVERY, since a question holds up the comparison.
- */
-const QUESTION_SPLIT = 0.85;
 
 /**
  * A person's situation, as Lens can use it.
@@ -139,9 +130,6 @@ export const EMPTY_UNDERSTANDING: Understanding = {
     waived: [],
     passengers: null,
 };
-
-export const isEmptyUnderstanding = (u: Understanding): boolean =>
-    !u.budget && !u.rental && !u.monthlyKm && !u.needs.some((need) => need.status === "active") && !u.droppedPriorities.length;
 
 /* -------------------------------------------------------------------------- */
 /* Checking what the model said                                               */
@@ -427,53 +415,6 @@ export function readUnderstanding(
     };
 }
 
-/**
- * Equipment worth offering: real, not already cited, not already turned down,
- * and something the cars here actually differ on. Offering a reader a feature
- * every car has, or one none of them has, wastes the only question they were
- * going to read.
- */
-export function readSuggestions(
-    raw: unknown,
-    u: Understanding,
-    cars: FinnCar[] = [],
-): { id: EvidenceId; why: string; needId: string }[] {
-    const cited = new Set(u.needs.flatMap((need) => need.evidence.map((entry) => entry.id)));
-    const seen = new Set<EvidenceId>();
-
-    return (Array.isArray(raw) ? raw : [])
-        .filter((item) => isEvidenceId(item?.id))
-        .map((item) => ({ id: item.id as EvidenceId, why: text(item?.why, 160), needId: slug(text(item?.needId, 40)) }))
-        .filter((item) => {
-            if (cited.has(item.id) || u.declined.includes(item.id) || seen.has(item.id)) return false;
-
-            seen.add(item.id);
-
-            if (cars.length < 2) return true;
-
-            return setsApart(cars, item.id);
-        })
-        .slice(0, 2);
-}
-
-/**
- * The two things a reader almost never volunteers, and Lens can't guess.
- *
- * A budget decides which cars are eligible at all, and a rental period decides
- * which FINN term each car is priced on — so a comparison made without them is
- * answering a different question from the one the reader is asking. Lens asks
- * for them itself rather than spending the model's one question on it.
- */
-export const missingEssentials = (u: Understanding): { budget: boolean; period: boolean } => {
-    /* Sessions written before Lens kept this come back without it. */
-    const waived = u.waived ?? [];
-
-    return {
-        budget: u.budget == null && !waived.includes("budget"),
-        period: u.rental == null && !waived.includes("rental"),
-    };
-};
-
 const waiving = (u: Understanding, part: "budget" | "rental", waived: boolean): ("budget" | "rental")[] => {
     const kept = (u.waived ?? []).filter((item) => item !== part);
 
@@ -544,61 +485,6 @@ export const withoutSuggestion = (u: Understanding, id: EvidenceId): Understandi
     declined: [...new Set([...u.declined, id])],
     needs: u.needs.map((need) => ({ ...need, evidence: need.evidence.filter((entry) => entry.id !== id) })),
 });
-
-/** A question worth asking, or null: well-formed, and not one already answered. */
-export function readQuestion(
-    raw: unknown,
-    answered: { question: string; answer: string }[],
-    cars: FinnCar[] = [],
-): WireQuestion | null {
-    const wire = raw as Partial<WireQuestion> | null;
-    const ask = text(wire?.ask, 160);
-
-    if (!ask) return null;
-
-    const normalise = (value: string) => value.toLowerCase().replace(/[^a-z]+/g, " ").trim();
-
-    if (answered.some((item) => normalise(item.question) === normalise(ask))) return null;
-
-    const affects = (Array.isArray(wire?.affects) ? wire.affects : []).filter(isEvidenceId);
-
-    /*
-     * A question is only worth the reader's time if its answer could separate
-     * the cars. When everything it would change is listed on nearly every car
-     * here — ISOFIX on 22 of 24 — any answer leads to the same comparison.
-     */
-    if (affects.length && cars.length >= 2) {
-        /*
-         * Stricter than for an offer: a question holds up the comparison, so
-         * the equipment it turns on has to split the cars properly. "Self-
-         * steering parking, or are sensors and a camera enough?" was asked
-         * over a page where all three sat on 43 to 46 of 48 cars.
-         */
-        /* A figure Lens can't read as an answer can't separate the cars either. */
-        const separates = affects.filter((id) => !AMBIGUOUS_FIGURES.has(id)).some((id) => {
-            const { listed, total } = coverage(cars, id);
-            /*
-             * Only an upper bound. Six electric cars in forty-eight is a real
-             * split — "electric only, or everything?" decides between them and
-             * the rest — and a lower bound dropped the one question that
-             * settled a couple's disagreement.
-             */
-            return listed > 0 && listed / total <= QUESTION_SPLIT;
-        });
-
-        if (!separates) return null;
-    }
-
-    return {
-        ask,
-        why: text(wire?.why, 200),
-        options: (Array.isArray(wire?.options) ? wire.options : [])
-            .map((option) => text(option, 40))
-            .filter(Boolean)
-            .slice(0, 4),
-        affects,
-    };
-}
 
 /* -------------------------------------------------------------------------- */
 /* Grounding                                                                  */

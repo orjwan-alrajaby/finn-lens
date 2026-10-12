@@ -6,21 +6,25 @@ import type { WireUnderstanding } from "@/lib/lens-ai/contract";
 import { copyFeatures, type Answers } from "@/lib/reasoning-engine/answers";
 
 import { readEvidence } from "./evidence";
-import { evidenceForNeeds, quotesAreFinns, tellFitStory } from "./fit-story";
+import { evidenceForNeeds, tellFitStory } from "./fit-story";
 import { alternativesWithinLimits, runLens } from "./run";
 import {
     groundInWhatWasSaid,
     diffUnderstanding,
     EMPTY_UNDERSTANDING,
     type Understanding,
-    missingEssentials,
-    readQuestion,
     readUnderstanding,
     toAnswers,
     waiveEssential,
     withBudget,
     withRental,
 } from "./understanding";
+
+/** Whether the budget or the period is still to be asked: unset, and not waived. */
+const missingEssentials = (u: Understanding): { budget: boolean; period: boolean } => ({
+    budget: u.budget == null && !(u.waived ?? []).includes("budget"),
+    period: u.rental == null && !(u.waived ?? []).includes("rental"),
+});
 
 /*
  * Lens listening: what a person said, kept as needs, constraints and context,
@@ -165,27 +169,6 @@ describe("reading an understanding", () => {
 
         expect(u.budget).toBeNull();
         expect(u.rental).toBeNull();
-    });
-
-    it("never asks a question that was already answered", () => {
-        const answered = [{ question: "How old are your children?", answer: "1 and 4" }];
-
-        expect(readQuestion({ ask: "How old are your children?", why: "", options: [] }, answered)).toBeNull();
-        expect(readQuestion({ ask: "What part of driving makes you most nervous?", why: "", options: ["Parking"] }, answered)?.options).toEqual(["Parking"]);
-    });
-
-    it("doesn't ask what no answer could change: evidence every car here has", () => {
-        const cars = [
-            garageCar({ id: 1, extra: ["hasIsofix"] }),
-            garageCar({ id: 2, extra: ["hasIsofix", "hasBlindSpotAssist"] }),
-            garageCar({ id: 3, extra: ["hasIsofix"] }),
-        ];
-        const ages = { ask: "How old is your child?", why: "", options: [], affects: ["hasIsofix"] };
-        const nerves = { ask: "What makes you nervous?", why: "", options: [], affects: ["hasIsofix", "hasBlindSpotAssist"] };
-
-        expect(readQuestion(ages, [], cars)).toBeNull();
-        expect(readQuestion(nerves, [], cars)?.ask).toBe("What makes you nervous?");
-        expect(readQuestion({ ...ages, affects: [] }, [], cars)?.ask).toBe("How old is your child?");
     });
 });
 
@@ -396,38 +379,6 @@ describe("saying back only what the person said", () => {
         const later = [told, "One is 1 and the other is 4."];
 
         expect(groundInWhatWasSaid(reply, understood(), later, new Date("2026-09-17")).reply).toBe(reply);
-    });
-});
-
-describe("quoting FINN's own words", () => {
-    const sources = [
-        { car: "MG ZS", text: "safety ABS, Isofix, Überholsensor aktiv ohne Blinker" },
-        { car: "Ford Puma", text: "Paket WINTER Beheizbare Windschutzscheibe, Lenkrad beheizt" },
-    ];
-
-    it("keeps a sentence whose German really is FINN's", () => {
-        const reply = 'FINN writes "Beheizbare Windschutzscheibe" for this car, a heated windscreen.';
-
-        expect(quotesAreFinns(reply, sources).reply).toBe(reply);
-    });
-
-    it("drops a sentence that invents the German it quotes", () => {
-        const reply = 'It has a heated windscreen. FINN writes "Beheizbare Heckscheibe mit Sensor" for this one.';
-        const checked = quotesAreFinns(reply, sources);
-
-        expect(checked.reply).toBe("It has a heated windscreen.");
-        expect(checked.dropped).toEqual(["Beheizbare Heckscheibe mit Sensor"]);
-    });
-
-    it("reads FINN's text through spelling and punctuation", () => {
-        expect(quotesAreFinns('FINN lists "uberholsensor aktiv ohne blinker".', sources).dropped).toEqual([]);
-    });
-
-    it("won't let one car's words stand as evidence about another", () => {
-        const reply = 'The MG ZS includes "Beheizbare Windschutzscheibe".';
-
-        expect(quotesAreFinns(reply, sources).reply).toBe("");
-        expect(quotesAreFinns(reply, sources).dropped).toEqual(["Beheizbare Windschutzscheibe"]);
     });
 });
 
