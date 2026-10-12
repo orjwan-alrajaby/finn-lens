@@ -46,7 +46,7 @@ Lens's Settings.
 
 Lens compares the cars on the page against the reader's stated needs, preferences and deal-breakers. It uses FINN's vehicle data where available, supplemented by published external reference data for some values, such as plug-in hybrid electricity consumption and German CO₂ classification rules. Lens labels its own estimates and assumptions separately.
 
-For cost estimates, Lens assumes petrol at €1.75/L, diesel at €1.70/L and electricity at €0.32/kWh. It estimates 1,000 km/month if the reader hasn't specified a distance. FINN's available data doesn't expose every mileage package, so Lens assumes 500 km/month is included based on information shown on several FINN pages. This hasn't been verified for every car or subscription; readers should check the specific listing and contract. Parking and tolls aren't included.
+For cost estimates, Lens assumes petrol at €1.75/L, diesel at €1.70/L and electricity at €0.32/kWh. It estimates 1,000 km/month if the reader hasn't specified a distance. Mileage packages come from FINN's data, which lists for every car what each package adds to the monthly price — 500 km/month at no extra cost, up to 5,000 km. Lens adds the smallest package that covers the reader's distance, and FINN's per-kilometre price only beyond the largest. For a car whose data doesn't list its packages, Lens assumes 500 km/month is included and says so. Parking and tolls aren't included.
 
 Every mechanism, number and source is written up in
 [`HOW-FINN-LENS-DECIDES.md`](HOW-FINN-LENS-DECIDES.md).
@@ -54,9 +54,8 @@ Every mechanism, number and source is written up in
 ## Data and privacy
 
 - Everything Lens keeps — chats, saved answers, the cars it has read — stays
-  in the browser. Settings shows all of it and deletes any of it, and
-  uninstalling Lens removes it.
-- Lens stores chats locally in the browser, keeping up to 40 recent chats.
+  in the browser, up to the 40 most recent chats. Settings shows all of it and
+  deletes any of it, and uninstalling Lens removes it.
 - There's no account and no Lens server. Its only requests are to finn.com —
   for FINN's own API, for cars on the page it hasn't seen yet — and for the
   car photos FINN's data links to.
@@ -84,7 +83,7 @@ short:
   figure doesn't say whether the seats are up), seat comfort, crash-test
   results.
 - In a car's drawer, **"Why it won" names Lens's own categories** (for example, "city & parking") rather than only the reader's words. A preference marked "Seals it" increases its importance in scoring; it isn't a hard requirement. "Must have" is a hard requirement.
-- **Testing coverage**: Lens has been tested against up to about 150 cars in a single comparison, primarily because FINN's listings page loads at most 150 cars. This reflects the largest comparison tested so far, not a known limit of Lens. It may be able to handle more.
+- **Large listings**: on a filtered listing, Lens compares up to about 150 of the matching cars at once. That's Lens's own limit, not FINN's: when more match, it says how many it compared out of how many there are (for example, 150 of the 408 petrol cars). Larger comparisons haven't been tried.
 - **Score bands are provisional**: Strong starts at 65/100, Good at 45, Partial at 25, and Limited is below 25. These thresholds may change as the beta is tested.
 
 ## Feedback and bug reports

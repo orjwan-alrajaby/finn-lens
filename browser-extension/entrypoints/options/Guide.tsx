@@ -44,9 +44,8 @@ const SECTION_GROUPS = [
 
 const SECTION_IDS = SECTION_GROUPS.flatMap((group) => group.items.map((item) => item.id));
 
-export function Guide() {
-    const manifest = browser.runtime.getManifest();
-    const version = manifest.version_name ?? manifest.version;
+/** `version` is passed in, not read from the extension, so the guide also renders as a plain web page (`site/`). */
+export function Guide({ version }: { version: string }) {
     const active = useActiveSection(SECTION_IDS);
 
     return (
@@ -287,6 +286,11 @@ export function Guide() {
                                     when the feature matters to you.
                                 </li>
                                 <li>
+                                    <strong>Overlaps count once.</strong> When two of
+                                    your answers point to the same item, it's counted a
+                                    single time, at the higher of the two levels.
+                                </li>
+                                <li>
                                     <strong>Unknown isn't no.</strong> When the data
                                     doesn't establish whether a car has a feature, Lens
                                     can leave that criterion unscored and identify
@@ -320,8 +324,9 @@ export function Guide() {
                                 €0.32/kWh.
                             </li>
                             <li>
-                                <strong>Additional mileage:</strong> an estimate of
-                                the extra package cost needed for your monthly distance.
+                                <strong>Mileage package:</strong> the price of the
+                                smallest FINN mileage package that covers your monthly
+                                distance, if it's more than the price includes.
                             </li>
                         </ul>
 
@@ -333,18 +338,16 @@ export function Guide() {
                                 />
                                 <div className="min-w-0">
                                     <p className="text-[13px] font-bold text-finn-black">
-                                        Mileage is an assumption, not a verified contract term
+                                        Where the mileage price comes from
                                     </p>
-                                    <p className="mt-1 text-[13px] leading-relaxed text-finn-black/75">
-                                        Lens assumes that 500 km per month is included
-                                        in the subscription. This is based on mileage
-                                        information displayed on several FINN car pages;
-                                        it has not been verified for every car or
-                                        subscription. FINN's available vehicle data
-                                        doesn't expose every mileage package, so the
-                                        estimated additional cost may differ from the
-                                        actual offer. Check the specific FINN listing
-                                        and contract before deciding.
+                                    <p className="mt-1 text-[13px] leading-relaxed text-finn-black/80">
+                                        FINN's data lists each car's mileage packages and
+                                        what each adds to the monthly price, from 500 km a
+                                        month, at no extra cost, up to 5,000 km. Lens takes
+                                        them from there, and adds FINN's per-kilometre price
+                                        only for distance beyond the largest package. For a
+                                        car whose data doesn't list its packages, Lens
+                                        assumes 500 km a month is included and says so.
                                     </p>
                                 </div>
                             </div>
@@ -554,8 +557,8 @@ export function Guide() {
 
                     <LimitGroup title="Costs and dates">
                         <Limit title="Estimated costs.">
-                            Fuel and electricity prices are Lens assumptions, not live prices. Mileage allowances and package prices may be unavailable or differ from
-                            the estimate. Parking and tolls are excluded.
+                            Fuel and electricity prices are Lens assumptions, not live prices, and running costs depend on the distance you give Lens (or its
+                            1,000 km a month when you don't). Parking and tolls are excluded.
                         </Limit>
                         <Limit title="Plug-in hybrids.">
                             FINN's data doesn't give their electricity consumption, so Lens uses EU registration data where it can. Some models are missing, and an

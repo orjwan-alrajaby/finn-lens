@@ -243,7 +243,7 @@ export function App() {
 
             {view === "guide" ? (
                 <div className="mx-auto max-w-3xl px-6 py-8">
-                    <Guide />
+                    <Guide version={browser.runtime.getManifest().version_name ?? browser.runtime.getManifest().version} />
                 </div>
             ) : view === "demo" ? (
                 <div className="mx-auto max-w-3xl px-6 py-8">
