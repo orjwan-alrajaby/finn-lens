@@ -1,5 +1,6 @@
 import { StrictMode, useEffect, useState, type ReactNode } from "react";
 import { createRoot } from "react-dom/client";
+import { Download } from "lucide-react";
 
 import "@/assets/tailwind.css";
 import { BetaTag } from "@/components/lens-parts";
@@ -16,6 +17,18 @@ import { Docs } from "@/entrypoints/options/Docs";
  */
 
 declare const __LENS_VERSION__: string;
+/** The bare version, "0.9.1", which the package is named by. */
+declare const __LENS_RELEASE__: string;
+
+/**
+ * The packaged build, as the repository keeps it (`npm run release` puts it in
+ * `releases/`). Here and not in the extension's own copy of these pages: a
+ * reader of those already has it installed.
+ */
+const DOWNLOAD = `https://github.com/orjwan-alrajaby/finn-lens/raw/main/releases/finn-lens-${__LENS_RELEASE__}-chrome.zip`;
+
+/** The beta note's install steps, in the documentation tab. */
+const INSTALL = "#docs/beta/install-it-chrome-on-a-computer-about-two-minutes";
 
 type View = "guide" | "demo" | "docs";
 
@@ -70,13 +83,24 @@ function Site() {
                     <Tab href="#docs" current={view === "docs"}>
                         Documentation
                     </Tab>
+                    <a
+                        href={DOWNLOAD}
+                        className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-full bg-finn-warning-lift px-4 py-2 text-[13px] font-black text-finn-highlight-navy transition-colors hover:bg-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white sm:ml-auto"
+                    >
+                        <Download aria-hidden="true" className="h-4 w-4" />
+                        Download the beta for Chrome
+                    </a>
                 </nav>
             </header>
 
             <div className="mx-auto max-w-3xl px-6 py-8">{view === "guide" ? <Guide version={__LENS_VERSION__} /> : view === "demo" ? <ProductWalkthrough /> : <Docs hash={hash} />}</div>
 
             <footer className="mx-auto max-w-3xl px-6 pb-10 text-[13px] leading-relaxed text-finn-black/75">
-                Finn Lens {__LENS_VERSION__} is an independent project. It isn't made by, or affiliated with, FINN.
+                <p>
+                    To install it, download <a href={DOWNLOAD} className="font-bold text-finn-accent-blue underline">the {__LENS_VERSION__} package</a> and follow{" "}
+                    <a href={INSTALL} className="font-bold text-finn-accent-blue underline">the beta note's steps</a> — about two minutes, in Chrome on a computer.
+                </p>
+                <p className="mt-2">Finn Lens {__LENS_VERSION__} is an independent project. It isn't made by, or affiliated with, FINN.</p>
             </footer>
         </main>
     );

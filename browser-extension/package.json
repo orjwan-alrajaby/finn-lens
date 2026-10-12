@@ -18,7 +18,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "verify": "tsc --noEmit && vitest run",
-    "release": "npm run verify && wxt zip"
+    "release": "npm run verify && wxt zip && mkdir -p ../releases && cp .output/finn-lens-$npm_package_version-chrome.zip ../releases/"
   },
   "dependencies": {
     "@tailwindcss/postcss": "^4.3.3",

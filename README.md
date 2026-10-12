@@ -2,6 +2,11 @@
 
 A browser extension that helps you choose between FINN car subscriptions by chatting with Lens. You tell it what the car has to do for you, and it judges the cars on finn.com against what you said and explains its pick.
 
+## Try it
+
+- **Read about it:** the beta guide, a product demo in screenshots, and this documentation are published at **[orjwan-alrajaby.github.io/finn-lens](https://orjwan-alrajaby.github.io/finn-lens/)**.
+- **Install it** (Chrome on a computer): download **[`finn-lens-0.9.1-chrome.zip`](https://github.com/orjwan-alrajaby/finn-lens/raw/main/releases/finn-lens-0.9.1-chrome.zip)** and unzip it. Open `chrome://extensions`, switch on **Developer mode**, click **Load unpacked** and choose the unzipped folder. Lens opens finn.com with its chat open. [The beta note](docs/BETA.md#install-it-chrome-on-a-computer-about-two-minutes) has the steps in full.
+
 ## What the reader sees
 
 1. **Install.** Lens opens finn.com, and a bubble in the corner opens by itself. Lens says hello, explains what's about to happen, and asks its first question.
@@ -22,7 +27,7 @@ A browser extension that helps you choose between FINN car subscriptions by chat
    - **Save as PDF** on every car's drawer but a ruled-out car's, with everything open.
 7. **Many chats.** Every chat is kept, and "Your chats" lists them like a messenger. Opening one carries on where it was, and the chips move to its judgement.
 8. **Popup.** It says what Lens is and whether it's online on this finn.com tab (it only works on finn.com, and it's unofficial). It also shows how many cars it detected and judged here, the current pick and chats, and a way to Settings and the beta guide.
-9. **Settings.** Shows the saved answers (changed by talking to Lens, or forgotten from here), and everything Lens stores, each part clearable: chats, answers, the car cache, and leftovers from earlier versions. Its **Beta guide** tab (`options.html#guide`) explains Lens to someone who has never seen it: what it does and why, how it decides, how to read its results, its known limits, what might come next, and what a bug report needs. Its **Product demo** tab (`options.html#demo`) walks through a reader's journey in screenshots, and its **Documentation** tab (`options.html#docs`) shows this README, the beta note, the changelog and the docs. All three are also published as a web page (see Developing).
+9. **Settings.** Shows the saved answers (changed by talking to Lens, or forgotten from here), and everything Lens stores, each part clearable: chats, answers, the car cache, and leftovers from earlier versions. Its **Beta guide** tab (`options.html#guide`) explains Lens to someone who has never seen it: what it does and why, how it decides, how to read its results, its known limits, what might come next, and what a bug report needs. Its **Product demo** tab (`options.html#demo`) walks through a reader's journey in screenshots, and its **Documentation** tab (`options.html#docs`) shows this README, the beta note, the changelog and the docs. All three are also published as a web page, at [orjwan-alrajaby.github.io/finn-lens](https://orjwan-alrajaby.github.io/finn-lens/).
 
 ## How it's built
 
@@ -82,7 +87,7 @@ product would.
 
 ## Beta
 
-This is the **0.9.1 beta** ([`CHANGELOG.md`](browser-extension/CHANGELOG.md)), for its first outside reviewer; [`docs/BETA.md`](docs/BETA.md) is the note that goes with the build. The beta is frozen: only fixes go in until it's been tried. `npm run release` checks the types, runs the tests and zips the build into `.output/`.
+This is the **0.9.1 beta** ([`CHANGELOG.md`](browser-extension/CHANGELOG.md)), for its first outside reviewer; [`docs/BETA.md`](docs/BETA.md) is the note that goes with the build. The beta is frozen: only fixes go in until it's been tried. `npm run release` checks the types, runs the tests, zips the build into `.output/` and copies the zip into [`releases/`](releases/), which is what the download above links to — commit it with the version it's for.
 
 ## Developing
 
@@ -96,7 +101,7 @@ npm run build      # .output/chrome-mv3
 npm run site:dev   # the beta guide and product demo as a web page
 ```
 
-The beta guide and the product demo are also published as a web page: `site/` renders the same components the extension's Settings shows, and `.github/workflows/pages.yml` builds it (`npm run site:build`, into `.output/site`) and deploys it to GitHub Pages on every push to `main` that touches the extension, or by hand from the Actions tab. Pages needs turning on once: Settings → Pages → Source: "GitHub Actions".
+The beta guide and the product demo are also published as a web page: `site/` renders the same components the extension's Settings shows, and `.github/workflows/pages.yml` builds it (`npm run site:build`, into `.output/site`) and deploys it to GitHub Pages, at [orjwan-alrajaby.github.io/finn-lens](https://orjwan-alrajaby.github.io/finn-lens/), on every push to `main` that touches the extension or the docs, or by hand from the Actions tab.
 
 To try it by hand, load `.output/chrome-mv3` as an unpacked extension. Installing opens finn.com with the bubble open.
 

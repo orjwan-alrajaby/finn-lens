@@ -10,8 +10,8 @@ and this build is for its first outside review.
 
 ## Install it (Chrome on a computer, about two minutes)
 
-1. Unzip `finn-lens-0.9.1-chrome.zip`. You get a folder holding
-   `manifest.json`.
+1. Download [`finn-lens-0.9.1-chrome.zip`](https://github.com/orjwan-alrajaby/finn-lens/raw/main/releases/finn-lens-0.9.1-chrome.zip) and unzip it. You get
+   a folder holding `manifest.json`.
 2. Open `chrome://extensions` and switch on **Developer mode** (top right).
 3. Click **Load unpacked** and choose that folder. Keep the folder where it
    is: Chrome loads Lens from it each time.
@@ -29,7 +29,8 @@ Click the Lens icon in Chrome's toolbar (under the puzzle piece, if it isn't
 pinned) and choose **Beta guide**. It explains what Lens does, how it decides,
 how to read its results, and what this beta can't do yet. It's also a tab in
 Lens's Settings, beside a **Product demo** tab that walks through a chat in
-screenshots.
+screenshots. Both are also published, with the documentation, at
+[orjwan-alrajaby.github.io/finn-lens](https://orjwan-alrajaby.github.io/finn-lens/), to read before installing.
 
 ## Try it (five minutes)
 
