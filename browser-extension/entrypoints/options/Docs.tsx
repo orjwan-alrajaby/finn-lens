@@ -6,7 +6,7 @@ import { FileText } from "lucide-react";
 import { OnThisPage, type TocGroup } from "./OnThisPage";
 import { PageIntro } from "./PageIntro";
 
-import readme from "../../README.md?raw";
+import readme from "../../../README.md?raw";
 import changelog from "../../CHANGELOG.md?raw";
 import beta from "../../../docs/BETA.md?raw";
 import how from "../../../docs/HOW-FINN-LENS-DECIDES.md?raw";
@@ -37,7 +37,7 @@ interface Doc {
 }
 
 const DOCS: Doc[] = [
-    { id: "overview", file: "README.md", label: "Overview", number: "01", source: "browser-extension/README.md", markdown: readme },
+    { id: "overview", file: "README.md", label: "Overview", number: "01", source: "README.md", markdown: readme },
     { id: "beta", file: "BETA.md", label: "The beta note", number: "02", source: "docs/BETA.md", markdown: beta },
     { id: "changelog", file: "CHANGELOG.md", label: "Changelog", number: "03", source: "browser-extension/CHANGELOG.md", markdown: changelog },
     { id: "how-lens-decides", file: "HOW-FINN-LENS-DECIDES.md", label: "How Lens decides", number: "04", source: "docs/HOW-FINN-LENS-DECIDES.md", markdown: how },
