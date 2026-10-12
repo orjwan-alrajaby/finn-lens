@@ -11,7 +11,11 @@ The build for the first outside review. Everything 0.9.0 does, plus:
 - **A product demo** in Settings: a reader's journey through Lens, in
   screenshots.
 - **The guide and the demo as a web page**, published to GitHub Pages by a
-  workflow (`site/`, `.github/workflows/pages.yml`).
+  workflow (`site/`, `.github/workflows/pages.yml`), with the branch's
+  documentation as a third tab, read from the repository's own markdown.
+- **How it was built**, in the guide, the beta note and the README: whose
+  work the idea, the research and the decision model are, and how Claude Code
+  built the rest.
 - **"What you told me" and the Adjust panel** say each question once, with
   every answer under it; the Adjust panel slides in beside a widened chat, and
   the chat can be expanded from its header and resized from its corner.
@@ -49,6 +53,9 @@ Fixed in the final check:
   saving and migrating stored priorities, profiles and feature picks, which
   nothing in this build called. Settings still clears what that version
   stored.
+- Other code nothing used is gone too — a filters-to-answers reader, plain
+  sentence summaries, offers and what-ifs, the old follow-up catalogue, and
+  pieces meant for an AI model — and unused code is now a type error.
 
 ## 0.9.0 beta — 7 October 2026
 

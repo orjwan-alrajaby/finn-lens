@@ -6,7 +6,7 @@
 > assumption. Written for anyone changing the engine, reviewing it, or checking a claim it makes.
 >
 > **State described:** branch `life-bubbles`, beta 0.9.1 (12 October 2026). `npx tsc --noEmit` clean,
-> `npx vitest run` green (1,026 tests).
+> `npx vitest run` green (957 tests).
 >
 > **Related documents.** [`FINN-LENS-EMISSIONS-SCORING.md`](FINN-LENS-EMISSIONS-SCORING.md) is the long
 > form of the CO₂ and efficiency scoring (§7 here summarises it).
