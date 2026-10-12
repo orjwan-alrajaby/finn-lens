@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import {
     BookOpen,
     CarFront,
@@ -7,20 +7,20 @@ import {
     Users,
     ZoomIn,
 } from "lucide-react";
-import image0 from "@/assets/images/walkthrough/image.png";
-import image1 from "@/assets/images/walkthrough/image-1.png";
-import image2 from "@/assets/images/walkthrough/image-2.png";
-import image3 from "@/assets/images/walkthrough/image-3.png";
-import image4 from "@/assets/images/walkthrough/image-4.png";
-import image5 from "@/assets/images/walkthrough/image-5.png";
-import image6 from "@/assets/images/walkthrough/image-6.png";
-import image7 from "@/assets/images/walkthrough/image-7.png";
-import image8 from "@/assets/images/walkthrough/image-8.png";
-import image9 from "@/assets/images/walkthrough/image-9.png";
-import image10 from "@/assets/images/walkthrough/image-10.png";
-import image11 from "@/assets/images/walkthrough/image-11.png";
-import image14 from "@/assets/images/walkthrough/image-14.png";
-import image15 from "@/assets/images/walkthrough/image-15.png";
+import meetLens from "@/assets/images/walkthrough/01-meet-lens.webp";
+import whoRidesWithYou from "@/assets/images/walkthrough/02-who-rides-with-you.webp";
+import whereAndHowYouDrive from "@/assets/images/walkthrough/03-where-and-how-you-drive.webp";
+import whatTheCarCopesWith from "@/assets/images/walkthrough/04-what-the-car-copes-with.webp";
+import recommendedComforts from "@/assets/images/walkthrough/05-recommended-comforts.webp";
+import whatElseMatters from "@/assets/images/walkthrough/06-what-else-matters.webp";
+import dealBreakersAndSealers from "@/assets/images/walkthrough/07-deal-breakers-and-sealers.webp";
+import allWheelDriveTip from "@/assets/images/walkthrough/08-all-wheel-drive-tip.webp";
+import summaryOfAnswers from "@/assets/images/walkthrough/09-summary-of-answers.webp";
+import confirmTheSummary from "@/assets/images/walkthrough/10-confirm-the-summary.webp";
+import adjustPanel from "@/assets/images/walkthrough/11-adjust-panel.webp";
+import saveSettings from "@/assets/images/walkthrough/12-save-settings.webp";
+import resultChips from "@/assets/images/walkthrough/13-result-chips.webp";
+import resultDrawer from "@/assets/images/walkthrough/14-result-drawer.webp";
 
 import { OnThisPage, useActiveSection } from "./OnThisPage";
 
@@ -95,7 +95,7 @@ export function ProductWalkthrough() {
 
                     <Screenshot
                         alt="FINN Lens introduction"
-                        image={<img src={image0} alt="FINN Lens introduction" />}
+                        image={<img src={meetLens} alt="FINN Lens introduction" />}
                     />
 
                     <p>
@@ -127,7 +127,7 @@ export function ProductWalkthrough() {
 
                     <Subsection title="2.1. Who rides with you?">
                         <Screenshot
-                            image={<img src={image1} alt="Passenger and child-seat questions" />}
+                            image={<img src={whoRidesWithYou} alt="Passenger and child-seat questions" />}
                             alt="Passenger and child-seat questions"
                         />
                         <p>
@@ -159,7 +159,7 @@ export function ProductWalkthrough() {
 
                     <Subsection title="2.2. Where and how do you drive?">
                         <Screenshot
-                            image={<img src={image2} alt="Driving habits and parking questions" />}
+                            image={<img src={whereAndHowYouDrive} alt="Driving habits and parking questions" />}
                             alt="Driving habits and parking questions"
                         />
                         <p>
@@ -196,7 +196,7 @@ export function ProductWalkthrough() {
 
                     <Subsection title="2.3. What does the car need to cope with?">
                         <Screenshot
-                            image={<img src={image3} alt="Weather and carrying requirements" />}
+                            image={<img src={whatTheCarCopesWith} alt="Weather and carrying requirements" />}
                             alt="Weather and carrying requirements"
                         />
                         <p>
@@ -233,7 +233,7 @@ export function ProductWalkthrough() {
 
                     <Subsection title="2.4. Build on earlier answers">
                         <Screenshot
-                            image={<img src={image4} alt="Comfort preferences and recommended features" />}
+                            image={<img src={recommendedComforts} alt="Comfort preferences and recommended features" />}
                             alt="Comfort preferences and recommended features"
                         />
                         <p>
@@ -273,7 +273,7 @@ export function ProductWalkthrough() {
 
                     <Subsection title="2.5. Tell Lens what else matters to you">
                         <Screenshot
-                            image={<img src={image5} alt="Additional preferences and natural-language summary" />}
+                            image={<img src={whatElseMatters} alt="Additional preferences and natural-language summary" />}
                             alt="Additional preferences and natural-language summary"
                         />
                         <p>
@@ -324,7 +324,7 @@ export function ProductWalkthrough() {
 
                     <Subsection title="2.6. Understand the choices Lens recommends">
                         <Screenshot
-                            image={<img src={image6} alt="Colour-coded choices and explanations" />}
+                            image={<img src={dealBreakersAndSealers} alt="Colour-coded choices and explanations" />}
                             alt="Colour-coded choices and explanations"
                         />
                         <p>
@@ -340,7 +340,7 @@ export function ProductWalkthrough() {
                             considering all-wheel drive (AWD).
                         </p>
                         <Screenshot
-                            image={<img src={image7} alt="All-wheel-drive explanation" />}
+                            image={<img src={allWheelDriveTip} alt="All-wheel-drive explanation" />}
                             alt="All-wheel-drive explanation"
                         />
                         <p>
@@ -382,7 +382,7 @@ export function ProductWalkthrough() {
                     </p>
 
                     <Subsection title="3.1. See how your answers are interpreted">
-                        <Screenshot image={<img src={image9} alt="Summary of answers and priorities" />} alt="Summary of answers and priorities" />
+                        <Screenshot image={<img src={summaryOfAnswers} alt="Summary of answers and priorities" />} alt="Summary of answers and priorities" />
                         <p>
                             The summary brings together your answers, the
                             requirements Lens derived from them, and the relative
@@ -425,7 +425,7 @@ export function ProductWalkthrough() {
 
                     <Subsection title="3.2. Confirm or correct the summary">
                         <Screenshot
-                            image={<img src={image8} alt="Prompt to confirm the summary" />}
+                            image={<img src={confirmTheSummary} alt="Prompt to confirm the summary" />}
                             alt="Prompt to confirm the summary"
                         />
                         <p>
@@ -438,7 +438,7 @@ export function ProductWalkthrough() {
                             indicating that the summary doesn't look right.
                         </p>
                         <Screenshot
-                            image={<img src={image10} alt="Editable summary and adjustment panel" />}
+                            image={<img src={adjustPanel} alt="Editable summary and adjustment panel" />}
                             alt="Editable summary and adjustment panel"
                         />
                         <p>
@@ -462,7 +462,7 @@ export function ProductWalkthrough() {
 
                     <Subsection title="3.3. Decide whether to save your settings">
                         <Screenshot
-                            image={<img src={image11} alt="Save settings prompt" />}
+                            image={<img src={saveSettings} alt="Save settings prompt" />}
                             alt="Save settings prompt"
                         />
                         <p>
@@ -503,7 +503,7 @@ export function ProductWalkthrough() {
 
                     <Subsection title="4.1. See how each car fits">
                         <Screenshot
-                            image={<img src={image14} alt="FINN Lens results and fit indicators" />}
+                            image={<img src={resultChips} alt="FINN Lens results and fit indicators" />}
                             alt="FINN Lens results and fit indicators"
                         />
                         <p>
@@ -535,7 +535,7 @@ export function ProductWalkthrough() {
 
                     <Subsection title="4.2. Inspect the reasoning behind a result">
                         <Screenshot
-                            image={<img src={image15} alt="Detailed breakdown of a car's evaluation" />}
+                            image={<img src={resultDrawer} alt="Detailed breakdown of a car's evaluation" />}
                             alt="Detailed breakdown of a car's evaluation"
                         />
                         <p>
