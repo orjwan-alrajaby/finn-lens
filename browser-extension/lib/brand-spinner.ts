@@ -95,6 +95,7 @@ export const BRAND_IDLE_SPIN =
  * The same fourteen seconds and the same reduced-motion stop, but written as
  * a plain rule in `assets/tailwind.css` rather than as utilities, because the
  * utilities lose to the page's own stylesheet — see the note there. Change the
- * speed in both places.
+ * speed in both places, and in the chat header's `BrandMark`, which turns by
+ * script so it can speed up while Lens is busy.
  */
 export const BRAND_IDLE_SPIN_ON_PAGE = "finn-lens-idle-spin";
