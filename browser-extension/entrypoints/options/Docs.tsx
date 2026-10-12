@@ -167,7 +167,7 @@ export function Docs({ hash }: { hash: string }) {
                 <OnThisPage groups={GROUPS} active={`docs/${doc.id}`} variant="inline" />
             </div>
 
-            <article className="rounded-2xl border border-finn-cotton bg-white p-5 sm:p-8">
+            <article className="rounded-2xl border border-finn-cotton bg-white p-4 sm:p-8">
                 <p className="mb-4 text-[12.5px] font-bold text-finn-black/70">
                     From the repository:{" "}
                     <a href={onGitHub(doc.source)} target="_blank" rel="noopener noreferrer" className="text-finn-accent-blue underline underline-offset-2">

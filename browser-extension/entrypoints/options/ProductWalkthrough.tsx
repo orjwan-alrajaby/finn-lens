@@ -358,7 +358,7 @@ function SectionCard({
 }) {
     return (
         <article className="overflow-hidden rounded-2xl border border-[#e8e5df] bg-white">
-            <header className="flex items-center gap-3 border-b border-[#e8e5df] bg-[#fbfcfe] px-5 py-4 sm:px-6">
+            <header className="flex items-center gap-3 border-b border-[#e8e5df] bg-[#fbfcfe] px-4 py-4 sm:px-6">
                 <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#003087] text-sm font-black text-white">
                     {number}
                 </span>
@@ -374,7 +374,7 @@ function SectionCard({
                 </span>
             </header>
 
-            <div className="space-y-4 px-5 py-5 text-[13.5px] leading-relaxed text-[#17243b]/85 sm:px-6 sm:py-6">
+            <div className="space-y-4 px-4 py-5 text-[13.5px] leading-relaxed text-[#17243b]/85 sm:px-6 sm:py-6">
                 {children}
             </div>
         </article>
@@ -389,7 +389,7 @@ function Subsection({
     children: ReactNode;
 }) {
     return (
-        <section className="mt-6 border-l-2 border-[#d7e8ff] pl-4 sm:pl-5">
+        <section className="mt-6 border-l-2 border-[#d7e8ff] pl-3 sm:pl-5">
             <h3 className="mb-3 text-sm font-black leading-snug text-[#17243b] sm:text-[15px]">
                 {title}
             </h3>
@@ -503,21 +503,22 @@ function Lightbox({ index, onIndex, onClose }: { index: number; onIndex: (index:
 
     return (
         <div role="dialog" aria-modal="true" aria-label={shot.alt} className="fixed inset-0 z-50 flex flex-col bg-[#0b1220] text-white">
-            <div className="relative z-10 flex items-center gap-3 bg-[#0b1220] px-4 py-3 sm:px-6">
-                <p className="min-w-0 flex-1 truncate text-[14px] font-bold">
-                    {shot.alt}
-                    <span className="ml-2 font-normal text-white/70">
+            <div className="relative z-10 flex items-center gap-2 bg-[#0b1220] px-3 py-3 sm:gap-3 sm:px-6">
+                {/* The count stays whole; the caption gives way to it on a narrow screen. */}
+                <p className="flex min-w-0 flex-1 items-baseline gap-2 text-[14px] font-bold">
+                    <span className="truncate">{shot.alt}</span>
+                    <span className="shrink-0 font-normal text-white/70">
                         {index + 1} / {GALLERY.length}
                     </span>
                 </p>
                 <LightboxButton label="Zoom out" onClick={() => zoomAt(zoom / 1.5)} disabled={zoom <= MIN_ZOOM}>
                     <ZoomOut className="h-5 w-5" />
                 </LightboxButton>
-                <span className="w-12 text-center font-mono text-[13px] tabular-nums text-white/80">{Math.round(zoom * 100)}%</span>
+                <span className="hidden w-12 text-center font-mono text-[13px] tabular-nums text-white/80 sm:inline">{Math.round(zoom * 100)}%</span>
                 <LightboxButton label="Zoom in" onClick={() => zoomAt(zoom * 1.5)} disabled={zoom >= MAX_ZOOM}>
                     <ZoomIn className="h-5 w-5" />
                 </LightboxButton>
-                <LightboxButton label="Back to full view" onClick={() => zoomAt(1)} disabled={zoom === 1}>
+                <LightboxButton label="Back to full view" onClick={() => zoomAt(1)} disabled={zoom === 1} className="hidden sm:inline-flex">
                     <RotateCcw className="h-5 w-5" />
                 </LightboxButton>
                 <button
@@ -525,7 +526,7 @@ function Lightbox({ index, onIndex, onClose }: { index: number; onIndex: (index:
                     type="button"
                     onClick={onClose}
                     aria-label="Close"
-                    className="ml-1 inline-flex h-10 w-10 items-center justify-center rounded-full bg-white/10 hover:bg-white/20 focus-visible:outline-2 focus-visible:outline-white"
+                    className="ml-1 inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white/10 hover:bg-white/20 focus-visible:outline-2 focus-visible:outline-white"
                 >
                     <X className="h-5 w-5" />
                 </button>
@@ -586,13 +587,27 @@ function Lightbox({ index, onIndex, onClose }: { index: number; onIndex: (index:
             </div>
 
             <p className="relative z-10 bg-[#0b1220] px-4 py-2.5 text-center text-[12.5px] text-white/75 sm:px-6">
-                Scroll or double-click to zoom · drag to move around · ← → for the others · Esc to close
+                <span className="pointer-coarse:hidden">Scroll or double-click to zoom · drag to move around · ← → for the others · Esc to close</span>
+                <span className="hidden pointer-coarse:inline">Pinch or double-tap to zoom · drag to move around · swipe for the others</span>
             </p>
         </div>
     );
 }
 
-function LightboxButton({ label, onClick, disabled, children }: { label: string; onClick: () => void; disabled?: boolean; children: ReactNode }) {
+function LightboxButton({
+    label,
+    onClick,
+    disabled,
+    className = "inline-flex",
+    children,
+}: {
+    label: string;
+    onClick: () => void;
+    disabled?: boolean;
+    /** How it displays: `inline-flex`, or hidden on a phone. */
+    className?: string;
+    children: ReactNode;
+}) {
     return (
         <button
             type="button"
@@ -600,7 +615,7 @@ function LightboxButton({ label, onClick, disabled, children }: { label: string;
             disabled={disabled}
             aria-label={label}
             title={label}
-            className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-white/10 hover:bg-white/20 focus-visible:outline-2 focus-visible:outline-white disabled:opacity-35 disabled:hover:bg-white/10"
+            className={`${className} h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white/10 hover:bg-white/20 focus-visible:outline-2 focus-visible:outline-white disabled:opacity-35 disabled:hover:bg-white/10`}
         >
             {children}
         </button>

@@ -57,7 +57,7 @@ function Site() {
     return (
         <main className="min-h-screen bg-finn-snow font-sans text-finn-black">
             <header className="bg-gradient-to-br from-finn-highlight-navy to-finn-accent-blue text-white">
-                <div className="mx-auto flex max-w-3xl items-center gap-4 px-6 pt-8 pb-5">
+                <div className="mx-auto flex max-w-3xl items-center gap-4 px-4 pt-8 pb-5 sm:px-6">
                     <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-white shadow-sm">
                         <img src={`${import.meta.env.BASE_URL}icon/128.png`} alt="" className={`h-12 w-12 object-contain ${BRAND_IDLE_SPIN}`} />
                     </span>
@@ -69,7 +69,7 @@ function Site() {
                         <p className="text-[13px] text-white/75">Choosing between FINN car subscriptions, by telling Lens what the car has to do for you.</p>
                     </div>
                 </div>
-                <nav aria-label="Finn Lens" className="mx-auto flex max-w-3xl flex-wrap gap-2 px-6 pb-5">
+                <nav aria-label="Finn Lens" className="mx-auto flex max-w-3xl flex-wrap gap-2 px-4 pb-5 sm:px-6">
                     <Tab href="#guide" current={view === "guide"}>
                         Beta guide
                     </Tab>
@@ -81,7 +81,7 @@ function Site() {
                     </Tab>
                     <a
                         href={DOWNLOAD}
-                        className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-full bg-finn-warning-lift px-4 py-2 text-[13px] font-black text-finn-highlight-navy transition-colors hover:bg-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white sm:ml-auto"
+                        className="inline-flex w-full items-center justify-center gap-1.5 whitespace-nowrap rounded-full bg-finn-warning-lift px-4 py-2 text-[13px] font-black text-finn-highlight-navy transition-colors hover:bg-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white sm:ml-auto sm:w-auto"
                     >
                         <Download aria-hidden="true" className="h-4 w-4" />
                         Download the beta for Chrome
@@ -89,9 +89,9 @@ function Site() {
                 </nav>
             </header>
 
-            <div className="mx-auto max-w-3xl px-6 py-8">{view === "guide" ? <Guide version={__LENS_VERSION__} /> : view === "demo" ? <ProductWalkthrough release={__LENS_RELEASE__} /> : <Docs hash={hash} />}</div>
+            <div className="mx-auto max-w-3xl px-4 py-6 sm:px-6 sm:py-8">{view === "guide" ? <Guide version={__LENS_VERSION__} /> : view === "demo" ? <ProductWalkthrough release={__LENS_RELEASE__} /> : <Docs hash={hash} />}</div>
 
-            <footer className="mx-auto max-w-3xl px-6 pb-10 text-[13px] leading-relaxed text-finn-black/75">
+            <footer className="mx-auto max-w-3xl px-4 pb-10 sm:px-6 text-[13px] leading-relaxed text-finn-black/75">
                 <p>Finn Lens {__LENS_VERSION__} is an independent project. It isn't made by, or affiliated with, FINN.</p>
             </footer>
         </main>
@@ -104,7 +104,7 @@ function Tab({ href, current, children }: { href: string; current: boolean; chil
             href={href}
             aria-current={current ? "page" : undefined}
             className={[
-                "whitespace-nowrap rounded-full px-4 py-2 text-[13px] font-black transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white",
+                "flex-1 whitespace-nowrap rounded-full px-2.5 py-2 text-center text-[12.5px] font-black transition-colors sm:flex-none sm:px-4 sm:text-[13px] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white",
                 current ? "bg-white text-finn-highlight-navy" : "bg-white/10 text-white ring-1 ring-white/25 hover:bg-white/20",
             ].join(" ")}
         >

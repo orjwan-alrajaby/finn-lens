@@ -687,7 +687,7 @@ export function Guide({ version }: { version: string }) {
 
 function LimitGroup({ title, children }: { title: string; children: ReactNode }) {
     return (
-        <div className="rounded-xl border border-finn-cotton bg-white p-4">
+        <div className="rounded-xl border border-finn-cotton bg-white p-3.5 sm:p-4">
             <p className="text-[11px] font-black uppercase tracking-wide text-finn-accent-blue">{title}</p>
             <ul className="mt-2 space-y-2.5">{children}</ul>
         </div>
@@ -734,6 +734,7 @@ function KeyPoint({ children }: { children: ReactNode }) {
     );
 }
 
+/** A numbered step. On a phone its body runs under the number, so the panels inside it keep their width; from `sm` up it's indented under the title. */
 function Step({
     n,
     title,
@@ -744,7 +745,7 @@ function Step({
     children: ReactNode;
 }) {
     return (
-        <div className="flex gap-3">
+        <div className="grid grid-cols-[28px_minmax(0,1fr)] gap-x-3">
             <span
                 aria-hidden="true"
                 className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-finn-highlight-navy text-[13px] font-black text-white"
@@ -752,13 +753,12 @@ function Step({
                 {n}
             </span>
 
-            <div className="min-w-0 flex-1">
-                <h3 className="text-[14.5px] font-black leading-snug text-finn-black">
-                    {title}
-                </h3>
-                <div className="mt-1 text-[13.5px] leading-relaxed text-finn-black/85">
-                    {children}
-                </div>
+            <h3 className="self-center text-[14.5px] font-black leading-snug text-finn-black">
+                {title}
+            </h3>
+
+            <div className="col-span-2 mt-1.5 text-[13.5px] leading-relaxed text-finn-black/85 sm:col-span-1 sm:col-start-2 sm:mt-1">
+                {children}
             </div>
         </div>
     );
@@ -772,7 +772,7 @@ function Panel({
     children: ReactNode;
 }) {
     return (
-        <div className="rounded-xl border border-finn-cotton bg-white p-4 text-[13.5px] leading-relaxed text-finn-black/85">
+        <div className="rounded-xl border border-finn-cotton bg-white p-3.5 text-[13.5px] leading-relaxed text-finn-black/85 sm:p-4">
             <p className="mb-2 text-[13.5px] font-black text-finn-black">
                 {title}
             </p>
