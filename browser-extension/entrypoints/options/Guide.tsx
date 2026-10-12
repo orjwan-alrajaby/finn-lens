@@ -38,7 +38,7 @@ const SECTION_GROUPS = [
         items: [
             { id: "guide-beta", label: "Status and limitations", number: "05" },
             { id: "guide-next", label: "What might come next", number: "06" },
-            { id: "guide-built", label: "How it was built", number: "07" },
+            { id: "guide-development", label: "Development and implementation", number: "07" },
             { id: "guide-feedback", label: "Feedback and bug reports", number: "08" },
         ],
     },
@@ -69,9 +69,8 @@ export function Guide({ version }: { version: string }) {
                 <div className="rounded-xl bg-finn-pale-blue/70 p-3.5">
                     <p className="text-[13px] font-bold text-finn-black">An early working prototype for evaluation</p>
                     <p className="mt-1 text-[13px] leading-relaxed text-finn-black/80">
-                        Lens starts with your circumstances, compares the cars available on FINN against your needs, and explains the trade-offs. Its
-                        recommendations depend on your answers, the available vehicle data, and documented assumptions. They are not a guarantee that a
-                        car is right for you or that its actual running costs will match the estimate.
+                        Its recommendations depend on your answers, FINN's vehicle data and documented assumptions. They aren't a guarantee that a car is
+                        right for you.
                     </p>
                 </div>
                 <div className="flex flex-wrap gap-2">
@@ -94,27 +93,18 @@ export function Guide({ version }: { version: string }) {
             >
                 <Prose>
                     <p>
-                        Finn Lens is an unofficial browser extension for{" "}
+                        Finn Lens is a browser extension for{" "}
                         <strong>finn.com</strong>, where cars are offered on monthly
                         subscriptions. It helps you work out which available car best
-                        fits <em>your</em> circumstances.
+                        fits <em>your</em> circumstances. It isn't made by, or
+                        affiliated with, FINN.
                     </p>
                     <p>
-                        Tell Lens who rides with you, how and where you drive, what
-                        the car needs to handle, what you can spend, and how long
-                        you need it. Lens evaluates the cars on the page against
-                        your answers, ranks eligible options, and explains the
-                        reasoning and trade-offs.
-                    </p>
-                    <p>
-                        Lens is <strong>not made by or affiliated with FINN</strong>.
+                        You tell Lens about your life and your limits. It evaluates
+                        the cars on the page against your answers, ranks the ones
+                        that qualify, and explains its reasoning and the trade-offs.
                     </p>
                 </Prose>
-
-                <KeyPoint>
-                    Lens is designed to answer "Which car fits my situation?" rather
-                    than simply "Which cars have these specifications?"
-                </KeyPoint>
             </Card>
 
             {/* 2. Why it exists */}
@@ -136,12 +126,12 @@ export function Guide({ version }: { version: string }) {
                         A specification list leaves you to make those trade-offs
                         yourself.
                     </p>
-                    <p>
-                        Lens starts with your circumstances, evaluates the relevant
-                        criteria using available data, and explains why a car ranks
-                        where it does, including what you might give up by choosing it.
-                    </p>
                 </Prose>
+
+                <KeyPoint>
+                    Lens is designed to answer "Which car fits my situation?" rather
+                    than simply "Which cars have these specifications?"
+                </KeyPoint>
             </Card>
 
             {/* 3. How it works */}
@@ -334,18 +324,17 @@ export function Guide({ version }: { version: string }) {
                         </div>
 
                         <p className="mt-3">
-                            If you haven't specified your mileage, Lens uses an
-                            assumed distance of 1,000 km per month for its estimate.
-                            Treat the total as an estimate, not a guaranteed quote.
+                            If you haven't specified your mileage, Lens assumes
+                            1,000 km a month. Parking and tolls aren't included.
+                            Treat the total as an estimate, not a quote.
                         </p>
                     </Step>
 
-                    <Step n={6} title="Lens explains the result">
+                    <Step n={6} title="Lens gives its verdict">
                         <p>
-                            See which car came out ahead, why it won, where it falls
-                            short, and how it compares with alternatives. You can
-                            inspect an individual car's explanation and save the
-                            results as a PDF.
+                            Lens names its pick in the chat and puts a verdict on
+                            the FINN card of every car it judged. The next section
+                            explains how to read them.
                         </p>
                     </Step>
 
@@ -357,27 +346,17 @@ export function Guide({ version }: { version: string }) {
                                 prices, subscription terms, and delivery windows.
                             </p>
                             <p>
-                                Where a particular figure isn't available, Lens may
-                                use an external reference. For example, plug-in hybrid
-                                electricity consumption can come from EU registration
-                                data, and CO₂ classes use Germany's classification rules.
+                                Where FINN doesn't give a figure, Lens may use a
+                                published European reference, named and linked where
+                                it's shown. For example, plug-in hybrid electricity
+                                consumption can come from EU registration data, and
+                                CO₂ classes use Germany's classification rules.
+                            </p>
+                            <p>
+                                Lens's own estimates and assumptions, such as the fuel
+                                prices above, are labelled as such.
                             </p>
                         </Prose>
-
-                        <div className="mt-3 space-y-2">
-                            <SourceRow
-                                label="FINN data"
-                                description="Information provided by the listing or vehicle data."
-                            />
-                            <SourceRow
-                                label="External reference"
-                                description="Information from another source, used where FINN data is missing."
-                            />
-                            <SourceRow
-                                label="Lens estimate or assumption"
-                                description="A calculated value or an input Lens uses because the exact value isn't available."
-                            />
-                        </div>
                     </MoreDetails>
                 </div>
             </Card>
@@ -467,13 +446,11 @@ export function Guide({ version }: { version: string }) {
                                 fit to your answers, not overall quality.
                             </li>
                             <li>
-                                Information FINN doesn't publish, such as reliability,
-                                crash-test results, seat comfort, driving feel, or the
-                                actual car's condition and history.
-                            </li>
-                            <li>
-                                Exact running costs. The monthly total is an estimate
-                                and excludes costs such as parking and tolls.
+                                What FINN's data doesn't establish, such as
+                                reliability, crash-test results, seat comfort, driving
+                                feel, boot space with the seats up, every
+                                driver-assistance feature, or the actual car's
+                                condition and history.
                             </li>
                         </ul>
                     </Panel>
@@ -484,11 +461,9 @@ export function Guide({ version }: { version: string }) {
                         Before you subscribe
                     </p>
                     <p className="mt-1 text-[13px] leading-relaxed text-finn-black/80">
-                        Results depend on your answers, the scoring model, and the
-                        data available at evaluation time. Verify the price, contract
-                        term, delivery date, mileage package, and equipment on the
-                        individual FINN listing. Use <strong>View on FINN</strong> in
-                        the car's drawer to check the original details.
+                        Check the price, contract term, delivery date, mileage
+                        package and equipment on the car's own FINN listing:{" "}
+                        <strong>View on FINN</strong> in its drawer opens it.
                     </p>
                 </div>
             </Card>
@@ -501,9 +476,8 @@ export function Guide({ version }: { version: string }) {
             >
                 <Prose>
                     <p>
-                        This is beta version <strong>{version}</strong>. Lens is
-                        still being evaluated, so it may contain bugs, missing
-                        information, or produce a result that looks wrong.
+                        Lens is still being evaluated, so it may have bugs or
+                        missing information, or produce a result that looks wrong.
                     </p>
                     <p>
                         The limitations below describe the current prototype. They
@@ -525,11 +499,8 @@ export function Guide({ version }: { version: string }) {
 
                     <LimitGroup title="How it judges">
                         <Limit title="No AI in this beta.">
-                            Choices are interpreted by fixed rules, not a language model. The rules cover supported needs, costs, mileage, dates and requirements.
-                        </Limit>
-                        <Limit title="Some qualities can't be judged reliably.">
-                            The data may not establish boot capacity with the seats up, seat comfort, crash-test results, the actual car's condition, or every
-                            driver-assistance feature.
+                            Typed words are read by fixed keyword rules, not a language model. They catch needs, money, distance and deal-breakers, but not
+                            dates, which you tap.
                         </Limit>
                         <Limit title="Provisional score bands.">The thresholds for Strong, Good, Partial and Limited matches haven't been finally calibrated.</Limit>
                         <Limit title="Generalized wording.">
@@ -538,17 +509,13 @@ export function Guide({ version }: { version: string }) {
                     </LimitGroup>
 
                     <LimitGroup title="Costs and dates">
-                        <Limit title="Estimated costs.">
-                            Fuel and electricity prices are Lens assumptions, not live prices, and running costs depend on the distance you give Lens (or its
-                            1,000 km a month when you don't). Parking and tolls are excluded.
-                        </Limit>
+                        <Limit title="Assumed prices.">Fuel and electricity prices are fixed assumptions, not live prices.</Limit>
                         <Limit title="Plug-in hybrids.">
-                            FINN's data doesn't give their electricity consumption, so Lens uses EU registration data where it can. Some models are missing, and an
-                            incomplete cost can decide whether a car qualifies under a hard budget limit.
+                            EU registration data doesn't cover every model. Where a plug-in hybrid's electricity is missing, its cost is incomplete, and a hard
+                            budget sets it aside.
                         </Limit>
                         <Limit title="Rental dates and terms.">
-                            Many cars are offered only on a 12-month term. Fixed dates may leave few eligible cars, so Lens may offer the nearest available dates
-                            instead.
+                            Many cars are offered only on a 12-month term, so fixed dates for a longer rental may leave few eligible cars.
                         </Limit>
                     </LimitGroup>
 
@@ -604,64 +571,35 @@ export function Guide({ version }: { version: string }) {
                         available vehicle data. AI would help interpret what you
                         mean, rather than independently decide which car is best.
                     </p>
-                    <p>
-                        No AI is used in this beta, and this direction may never
-                        be implemented.
-                    </p>
                 </Prose>
             </Card>
 
-            {/* 7. How it was built */}
-            <Card id="guide-built" icon={<Hammer className="h-5 w-5" />} title="How it was built">
+            {/* 7. Development and implementation */}
+            <Card id="guide-development" icon={<Hammer className="h-5 w-5" />} title="Development and implementation" subtitle="By Orjwan Al-Rajaby">
                 <Prose>
                     <p>
-                        Finn Lens is an independent project by <strong>Orjwan Al-Rajaby</strong>. It isn't a FINN product,
-                        and it isn't for sale.
-                    </p>
-                </Prose>
-
-                <div className="mt-4 grid items-start gap-3 sm:grid-cols-2">
-                    <Panel title="Orjwan's work">
-                        <ul className="list-disc space-y-1.5 pl-5">
-                            <li>The idea, and the problem it starts from.</li>
-                            <li>
-                                Investigating finn.com: how its pages are rendered, on the server and in the browser, and how an
-                                extension can work alongside them.
-                            </li>
-                            <li>Working out what each field in FINN's car data means, and what it doesn't say.</li>
-                            <li>
-                                The product's direction, and its decision model: what Lens asks, what counts, what rules a car out,
-                                and how much each answer weighs.
-                            </li>
-                            <li>
-                                The first versions: the extension's foundation and its reading of FINN's car data (August 2026).
-                            </li>
-                        </ul>
-                    </Panel>
-                    <Panel title="Built with Claude Code">
-                        <p>
-                            From September 2026, Orjwan directed the development with Claude Code, Anthropic's AI coding
-                            assistant, which wrote most of the code from then on: every commit in this version's history since
-                            then is marked as co-authored with it. Orjwan decided what to build and what to change, and tested
-                            it on finn.com.
-                        </p>
-                    </Panel>
-                </div>
-
-                <Prose className="mt-4">
-                    <p>
-                        Lens went through several designs before this one: pinning cars to compare, a settings screen of
-                        priorities, and a chat answered by an AI model. The guided conversation in this beta is what that
-                        led to.
+                        Finn Lens was developed under my direction, from the initial problem discovery and investigation of FINN's platform through
+                        product design, technical decisions and implementation.
                     </p>
                     <p>
-                        The code is a <strong>beta codebase</strong>. It typechecks, has around 950 automated tests, and was
-                        audited for this release, but it grew with the product rather than to engineering standards set up
-                        front, and hasn't had the review a production product would.
+                        The work included investigating FINN's vehicle data: how finn.com exposes and renders it, and what each field means. It meant
+                        understanding what server-side and client-side rendering imply for an extension working alongside the site, learning and working
+                        with WXT, and designing how the extension would interact with finn.com.
                     </p>
                     <p>
-                        Lens isn't published on the Chrome Web Store. This beta is shared as a package to load into Chrome
-                        directly.
+                        I wrote the first version myself, in August 2026: capturing the car data finn.com loads into one English model, a pin button on
+                        every car card that survives the site's navigation, and the popup. From then on, Claude Code was used to accelerate implementation,
+                        writing the code at my direction. I directed development on the basis of that investigation, made the product and engineering
+                        decisions, including the decision model (what Lens asks, what counts, what rules a car out and how much each answer weighs), and
+                        tested each build on finn.com to refine the beta.
+                    </p>
+                    <p>
+                        Lens went through several designs before this one: pinning cars to compare, a settings screen of priorities, and a chat answered by
+                        an AI model. The guided conversation in this beta is what that led to.
+                    </p>
+                    <p>
+                        The code is a <strong>beta codebase</strong>. It typechecks, has around 950 automated tests, and was audited for this release, but it
+                        grew with the product rather than to engineering standards set up front, and hasn't had the review a production product would.
                     </p>
                 </Prose>
             </Card>
@@ -677,11 +615,6 @@ export function Guide({ version }: { version: string }) {
                         Found a bug, an incorrect result, something confusing, or
                         an idea for improvement? Send your report to{" "}
                         <strong>the person who supplied you with this beta</strong>.
-                    </p>
-                    <p>
-                        You don't need to diagnose the problem. Describe what you
-                        were trying to do, what happened, and how someone else could
-                        reproduce it.
                     </p>
                 </Prose>
 
@@ -886,25 +819,6 @@ function MoreDetails({
                 {children}
             </div>
         </details>
-    );
-}
-
-function SourceRow({
-    label,
-    description,
-}: {
-    label: string;
-    description: string;
-}) {
-    return (
-        <div className="flex flex-col gap-3 rounded-lg bg-finn-snow p-3">
-            <span className="mt-0.5 shrink-0 rounded-md bg-white px-2 py-1 text-[10px] font-black uppercase tracking-wide text-finn-black/70">
-                {label}
-            </span>
-            <p className="pl-2 text-[12.5px] leading-relaxed text-finn-black/75">
-                {description}
-            </p>
-        </div>
     );
 }
 
