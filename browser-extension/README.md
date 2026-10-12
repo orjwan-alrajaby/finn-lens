@@ -59,7 +59,10 @@ npm run dev        # Chrome, with reload
 npm run compile    # typecheck
 npm test           # vitest
 npm run build      # .output/chrome-mv3
+npm run site:dev   # the beta guide and product demo as a web page
 ```
+
+The beta guide and the product demo are also published as a web page: `site/` renders the same components the extension's Settings shows, and `.github/workflows/pages.yml` builds it (`npm run site:build`, into `.output/site`) and deploys it to GitHub Pages on every push to `main` that touches the extension, or by hand from the Actions tab. Pages needs turning on once: Settings → Pages → Source: "GitHub Actions".
 
 To try it by hand, load `.output/chrome-mv3` as an unpacked extension. Installing opens finn.com with the bubble open.
 
