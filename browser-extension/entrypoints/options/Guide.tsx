@@ -16,6 +16,7 @@ import { BandChip, WinnerChip } from "@/components/lens-parts";
 
 import { Card } from "./Card";
 import { OnThisPage, useActiveSection, useScrollToHash } from "./OnThisPage";
+import { PageIntro } from "./PageIntro";
 
 const SECTION_GROUPS = [
     {
@@ -59,53 +60,27 @@ export function Guide({ version }: { version: string }) {
                 </div>
             </aside>
 
-            {/* Introduction */}
-            <div className="rounded-2xl border border-finn-cotton bg-white p-5 sm:p-6">
-                <div className="flex items-start gap-3">
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-finn-pale-blue">
-                        <BookOpen
-                            aria-hidden="true"
-                            className="h-5 w-5 text-finn-accent-blue"
-                        />
-                    </div>
-
-                    <div className="min-w-0 flex-1">
-                        <div className="flex flex-wrap items-center gap-2">
-                            <h2 className="text-base font-black text-finn-black">
-                                The Finn Lens guide
-                            </h2>
-                            <span className="rounded-full bg-finn-warning-lift px-2.5 py-1 text-[11px] font-bold text-finn-warning-ink">
-                                {version}
-                            </span>
-                        </div>
-
-                        <p className="mt-2 text-[13.5px] leading-relaxed text-finn-black/75">
-                            Learn how Lens works, how to read its recommendations, and
-                            what to keep in mind while testing this version.
-                        </p>
-                    </div>
-                </div>
-
-                <div className="mt-4 rounded-xl bg-finn-pale-blue/70 p-3.5">
-                    <p className="text-[13px] font-bold text-finn-black">
-                        An early working prototype for evaluation
-                    </p>
+            <PageIntro
+                icon={<BookOpen />}
+                eyebrow="Beta guide"
+                title="The Finn Lens guide"
+                badge={<span className="rounded-full bg-finn-warning-lift px-2.5 py-1 text-[11px] font-bold text-finn-warning-ink">{version}</span>}
+            >
+                <p>Learn how Lens works, how to read its recommendations, and what to keep in mind while testing this version.</p>
+                <div className="rounded-xl bg-finn-pale-blue/70 p-3.5">
+                    <p className="text-[13px] font-bold text-finn-black">An early working prototype for evaluation</p>
                     <p className="mt-1 text-[13px] leading-relaxed text-finn-black/80">
-                        Lens starts with your circumstances, compares the cars available
-                        on FINN against your needs, and explains the trade-offs. Its
-                        recommendations depend on your answers, the available vehicle
-                        data, and documented assumptions. They are not a guarantee
-                        that a car is right for you or that its actual running costs
-                        will match the estimate.
+                        Lens starts with your circumstances, compares the cars available on FINN against your needs, and explains the trade-offs. Its
+                        recommendations depend on your answers, the available vehicle data, and documented assumptions. They are not a guarantee that a
+                        car is right for you or that its actual running costs will match the estimate.
                     </p>
                 </div>
-
-                <div className="mt-4 flex flex-wrap gap-2">
+                <div className="flex flex-wrap gap-2">
                     <QuickTag>No AI in this beta</QuickTag>
                     <QuickTag>Personalized comparisons</QuickTag>
                     <QuickTag>Explainable results</QuickTag>
                 </div>
-            </div>
+            </PageIntro>
 
             {/* Table of contents, where there's no margin for it */}
             <div className="xl:hidden">

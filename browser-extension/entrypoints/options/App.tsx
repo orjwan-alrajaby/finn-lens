@@ -1,6 +1,6 @@
 
 import { useCallback, useEffect, useState, type ReactNode } from "react";
-import { Database, MessageCircle, ShieldCheck, Trash2 } from "lucide-react";
+import { Database, MessageCircle, ShieldCheck, SlidersHorizontal, Trash2 } from "lucide-react";
 
 import { ImportanceBadge, ImportanceKey } from "@/components/ImportanceKey";
 import { BetaTag } from "@/components/lens-parts";
@@ -20,6 +20,7 @@ import type { SavedSettings } from "@/lib/chats/types";
 import { Card } from "./Card";
 import { Docs } from "./Docs";
 import { Guide } from "./Guide";
+import { PageIntro } from "./PageIntro";
 import { ProductWalkthrough } from "./ProductWalkthrough";
 
 /**
@@ -264,6 +265,13 @@ export function App() {
                 </div>
             ) : (
                 <div className="mx-auto max-w-3xl space-y-6 px-6 py-8">
+                    <PageIntro icon={<SlidersHorizontal />} eyebrow="Settings" title="Your answers and your data">
+                        <p>
+                            The answers new chats start from, and everything Lens keeps in this browser: what it is, how much, and a way to delete
+                            any of it. Nothing here is sent anywhere.
+                        </p>
+                    </PageIntro>
+
                     {done ? (
                         <p
                             role="status"

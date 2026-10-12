@@ -191,7 +191,7 @@ export function App() {
                         <ArrowLeft aria-hidden="true" className="h-5 w-5" />
                     </IconButton>
                 ) : (
-                    <BrandMark size={34} />
+                    <BrandMark size={34} spin={typing || busy ? "busy" : "idle"} />
                 )}
                 <div className="min-w-0 flex-1">
                     <p className="flex items-center gap-1.5 text-[14px] font-black leading-tight">

@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { useEffect, useRef, type ReactNode } from "react";
 import { Trophy } from "lucide-react";
 
 import type { FitLevel } from "@/lib/reasoning-engine/fit";
@@ -10,14 +10,57 @@ import type { FitLevel } from "@/lib/reasoning-engine/fit";
  * thing the drawer is talking about.
  */
 
-/** Lens's mark on its white disc — the same lockup the chips carry. */
-export function BrandMark({ size = 28, className = "" }: { size?: number; className?: string }) {
+/**
+ * Lens's mark on its white disc — the same lockup the chips carry.
+ *
+ * `spin` turns the wheel: `"idle"` at the fourteen seconds a revolution the
+ * popup and Settings use, `"busy"` at the loader's one second. It changes
+ * speed by the animation's playback rate rather than its CSS duration, because
+ * a new duration recomputes the angle from scratch and the wheel would jump;
+ * a new rate carries on from where it is, so going busy reads as the same
+ * wheel speeding up. Under `prefers-reduced-motion` it holds still when idle
+ * and turns at the loader's slowed three seconds when busy — the same
+ * asymmetry `lib/brand-spinner` explains.
+ */
+export function BrandMark({ size = 28, className = "", spin }: { size?: number; className?: string; spin?: "idle" | "busy" }) {
+    const wheel = useRef<HTMLImageElement>(null);
+    const turning = useRef<Animation | null>(null);
+
+    useEffect(() => {
+        const img = wheel.current;
+        if (!spin || !img || typeof img.animate !== "function") return;
+
+        turning.current = img.animate([{ transform: "rotate(0deg)" }, { transform: "rotate(360deg)" }], { duration: IDLE_TURN_MS, iterations: Infinity });
+
+        return () => {
+            turning.current?.cancel();
+            turning.current = null;
+        };
+    }, [spin != null]);
+
+    useEffect(() => {
+        const animation = turning.current;
+        if (!animation || !spin) return;
+
+        const calm = window.matchMedia("(prefers-reduced-motion: reduce)");
+        const pace = () => {
+            if (spin === "idle" && calm.matches) return animation.pause();
+            animation.updatePlaybackRate(spin === "busy" ? IDLE_TURN_MS / (calm.matches ? 3000 : 1000) : 1);
+            animation.play();
+        };
+
+        pace();
+        calm.addEventListener("change", pace);
+        return () => calm.removeEventListener("change", pace);
+    }, [spin]);
+
     return (
         <span
             className={`inline-flex shrink-0 items-center justify-center rounded-full bg-white shadow-sm ${className}`}
             style={{ width: size, height: size }}
         >
             <img
+                ref={wheel}
                 src={browser.runtime.getURL("/icon/128.png")}
                 alt=""
                 aria-hidden="true"
@@ -27,6 +70,9 @@ export function BrandMark({ size = 28, className = "" }: { size?: number; classN
         </span>
     );
 }
+
+/** `BRAND_IDLE_SPIN`'s fourteen seconds a revolution. Change the speed there too. */
+const IDLE_TURN_MS = 14_000;
 
 /** The chip colours, matching `content/lens/chips.ts`. */
 export const BAND_TONE: Record<FitLevel, string> = {
