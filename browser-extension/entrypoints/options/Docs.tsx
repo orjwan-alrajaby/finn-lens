@@ -1,7 +1,10 @@
 import { useEffect, useMemo, useRef } from "react";
 import { marked } from "marked";
 
+import { FileText } from "lucide-react";
+
 import { OnThisPage, type TocGroup } from "./OnThisPage";
+import { PageIntro } from "./PageIntro";
 
 import readme from "../../README.md?raw";
 import changelog from "../../CHANGELOG.md?raw";
@@ -124,6 +127,13 @@ export function Docs({ hash }: { hash: string }) {
                     <OnThisPage groups={GROUPS} active={`docs/${doc.id}`} variant="rail" />
                 </div>
             </aside>
+
+            <PageIntro icon={<FileText />} eyebrow="Documentation" title="The project's documentation">
+                <p>
+                    How Finn Lens is built, how it decides, and what changed in each version — the repository's own documents, as they are in this
+                    build. Pick one from the contents.
+                </p>
+            </PageIntro>
 
             <div className="xl:hidden">
                 <OnThisPage groups={GROUPS} active={`docs/${doc.id}`} variant="inline" />
