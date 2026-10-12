@@ -19,8 +19,9 @@ and this build is for its first outside review.
    doesn't, click the **Lens** bubble in the bottom-right corner.
 
 It runs only on `www.finn.com`. Tabs that were already open need a reload.
-Chrome may warn about extensions in developer mode; that's expected for a build
-that isn't from the Chrome Web Store.
+Lens isn't published on the Chrome Web Store; this beta is shared as a package
+to load directly. Chrome may warn about extensions in developer mode; that's
+expected for a build that isn't from the store.
 
 ## Start with the beta guide
 
@@ -86,6 +87,33 @@ short:
 - In a car's drawer, **"Why it won" names Lens's own categories** (for example, "city & parking") rather than only the reader's words. A preference marked "Seals it" increases its importance in scoring; it isn't a hard requirement. "Must have" is a hard requirement.
 - **Large listings**: on a filtered listing, Lens compares up to about 150 of the matching cars at once. That's Lens's own limit, not FINN's: when more match, it says how many it compared out of how many there are (for example, 150 of the 408 petrol cars). Larger comparisons haven't been tried.
 - **Score bands are provisional**: Strong starts at 65/100, Good at 45, Partial at 25, and Limited is below 25. These thresholds may change as the beta is tested.
+
+## How it was built
+
+Finn Lens is an independent project by Orjwan Al-Rajaby. It isn't a FINN
+product, and it isn't for sale.
+
+- **Orjwan's work:** the idea and the problem it starts from; investigating
+  finn.com — how its pages are rendered, on the server and in the browser, and
+  how an extension can work alongside them; working out what each field in
+  FINN's car data means; the product's direction and its decision model (what
+  Lens asks, what counts, what rules a car out, how much each answer weighs);
+  and the first versions — the extension's foundation and its reading of
+  FINN's car data (August 2026).
+- **Built with Claude Code:** from September 2026, Orjwan directed the
+  development with Claude Code, Anthropic's AI coding assistant, which wrote
+  most of the code from then on — every commit in this version's history since
+  then is marked as co-authored with it. Orjwan decided what to build and what
+  to change, and tested it on finn.com.
+
+Lens went through several designs before this one — pinning cars to compare, a
+settings screen of priorities, a chat answered by an AI model — before the
+guided conversation in this beta.
+
+The code is a beta codebase: it typechecks, has around 950 automated tests,
+and was audited for this release, but it grew with the product rather than to
+engineering standards set up front, and hasn't had the review a production
+product would.
 
 ## Feedback and bug reports
 

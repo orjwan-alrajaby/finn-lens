@@ -65,8 +65,8 @@ const PAGE_INFO: Record<View, { title: string; description: string }> = {
         description: "What Lens does, how it decides, and what this beta can't do yet.",
     },
     demo: {
-        title: "Finn Lens Product Demo",
-        description: "A product walkthrough of Finn Lens",
+        title: "Finn Lens product demo",
+        description: "A walkthrough of a reader's journey through Finn Lens.",
     },
 };
 
@@ -225,7 +225,7 @@ export function App() {
 
                 <nav
                     aria-label="Finn Lens"
-                    className="mx-auto flex max-w-3xl gap-2 px-6 pb-5"
+                    className="mx-auto flex max-w-3xl flex-wrap gap-2 px-6 pb-5"
                 >
                     <Tab href="#settings" current={view === "settings"}>
                         Settings
@@ -236,7 +236,7 @@ export function App() {
                     </Tab>
 
                     <Tab href="#demo" current={view === "demo"}>
-                        Product Demo
+                        Product demo
                     </Tab>
                 </nav>
             </header>
@@ -571,7 +571,7 @@ export function App() {
 /** One of the header's tabs, on the navy. */
 function Tab({ href, current, children }: TabProps) {
     const baseClasses =
-        "rounded-full px-4 py-2 text-[13px] font-black transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white";
+        "whitespace-nowrap rounded-full px-4 py-2 text-[13px] font-black transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white";
 
     const stateClasses = current
         ? "bg-white text-finn-highlight-navy"

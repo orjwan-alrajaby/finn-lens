@@ -1,10 +1,10 @@
-
 import type { ReactNode } from "react";
 import {
     BookOpen,
     ChevronDown,
     Compass,
     FlaskConical,
+    Hammer,
     Lightbulb,
     ListChecks,
     MessageSquareText,
@@ -15,13 +15,13 @@ import {
 import { BandChip, WinnerChip } from "@/components/lens-parts";
 
 import { Card } from "./Card";
-import { OnThisPage, useActiveSection } from "./OnThisPage";
+import { OnThisPage, useActiveSection, useScrollToHash } from "./OnThisPage";
 
 const SECTION_GROUPS = [
     {
         label: "The basics",
         items: [
-            { id: "guide-what", label: "What is FINN Lens?", number: "01" },
+            { id: "guide-what", label: "What is Finn Lens?", number: "01" },
             { id: "guide-why", label: "Why it exists", number: "02" },
         ],
     },
@@ -37,7 +37,8 @@ const SECTION_GROUPS = [
         items: [
             { id: "guide-beta", label: "Status and limitations", number: "05" },
             { id: "guide-next", label: "What might come next", number: "06" },
-            { id: "guide-feedback", label: "Feedback and bug reports", number: "07" },
+            { id: "guide-built", label: "How it was built", number: "07" },
+            { id: "guide-feedback", label: "Feedback and bug reports", number: "08" },
         ],
     },
 ] as const;
@@ -47,6 +48,7 @@ const SECTION_IDS = SECTION_GROUPS.flatMap((group) => group.items.map((item) => 
 /** `version` is passed in, not read from the extension, so the guide also renders as a plain web page (`site/`). */
 export function Guide({ version }: { version: string }) {
     const active = useActiveSection(SECTION_IDS);
+    useScrollToHash();
 
     return (
         <div className="relative space-y-4 pb-6">
@@ -70,7 +72,7 @@ export function Guide({ version }: { version: string }) {
                     <div className="min-w-0 flex-1">
                         <div className="flex flex-wrap items-center gap-2">
                             <h2 className="text-base font-black text-finn-black">
-                                The FINN Lens guide
+                                The Finn Lens guide
                             </h2>
                             <span className="rounded-full bg-finn-warning-lift px-2.5 py-1 text-[11px] font-bold text-finn-warning-ink">
                                 {version}
@@ -110,15 +112,15 @@ export function Guide({ version }: { version: string }) {
                 <OnThisPage groups={SECTION_GROUPS} active={active} variant="inline" />
             </div>
 
-            {/* 1. What is FINN Lens? */}
+            {/* 1. What is Finn Lens? */}
             <Card
                 id="guide-what"
                 icon={<BookOpen className="h-5 w-5" />}
-                title="What is FINN Lens?"
+                title="What is Finn Lens?"
             >
                 <Prose>
                     <p>
-                        FINN Lens is an unofficial browser extension for{" "}
+                        Finn Lens is an unofficial browser extension for{" "}
                         <strong>finn.com</strong>, where cars are offered on monthly
                         subscriptions. It helps you work out which available car best
                         fits <em>your</em> circumstances.
@@ -281,10 +283,11 @@ export function Guide({ version }: { version: string }) {
                                     the car's fuel type.
                                 </li>
                                 <li>
-                                    Equipment that nearly every listed car has, such as
-                                    emergency braking, doesn't automatically earn extra
-                                    points. A confirmed absence can count against a car
-                                    when the feature matters to you.
+                                    Equipment that nearly every FINN car has, such as
+                                    emergency braking, earns nothing for being there. A
+                                    car FINN says lacks it loses a little, wherever
+                                    something else you asked for is scored in the same
+                                    group. The summary only lists the ones that do.
                                 </li>
                                 <li>
                                     <strong>Overlaps count once.</strong> When two of
@@ -321,8 +324,8 @@ export function Guide({ version }: { version: string }) {
                                 covers your rental dates.
                             </li>
                             <li>
-                                <strong>Fuel or charging:</strong> estimated from
-                                published consumption figures and assumed prices:
+                                <strong>Fuel or charging:</strong> estimated from the
+                                consumption FINN lists for the car and assumed prices:
                                 petrol €1.75/litre, diesel €1.70/litre, and electricity
                                 €0.32/kWh.
                             </li>
@@ -420,14 +423,15 @@ export function Guide({ version }: { version: string }) {
 
                 <dl className="mt-4 divide-y divide-finn-cotton overflow-hidden rounded-2xl border border-finn-cotton bg-white">
                     <Term chip={<WinnerChip />}>
-                        <strong>Lens's pick.</strong> The best fit among the cars
-                        eligible to win.
+                        <strong>Best for you.</strong> Lens's pick: the best fit among
+                        the cars that meet your requirements.
                     </Term>
 
                     <Term chip={<WinnerChip label="Closest match" />}>
-                        <strong>Closest match.</strong> Used when no car meets all
-                        your remaining requirements. It's the nearest alternative,
-                        not a full match. Lens explains which requirement it misses.
+                        <strong>Closest match.</strong> Lens's pick when nothing on
+                        the page fits your budget, your dates or a deal-breaker you
+                        chose to keep. It's the nearest thing, not a match, and Lens
+                        says which limit it misses.
                     </Term>
 
                     <Term
@@ -443,8 +447,8 @@ export function Guide({ version }: { version: string }) {
                         <strong>Match strength.</strong> How well the car fits your
                         preferences according to its score. Strong starts at 65/100,
                         Good at 45, Partial at 25, and Limited is below 25. The chip
-                        also shows the car's ranking. An over-budget label may appear
-                        when the car exceeds your limit.
+                        also shows the car's place in the ranking, and “over budget”
+                        when it costs more than your limit.
                     </Term>
 
                     <Term chip={<BandChip band="unknown" label="Not enough data" />}>
@@ -454,8 +458,8 @@ export function Guide({ version }: { version: string }) {
                     </Term>
 
                     <Term chip={<BandChip band="unknown" label="Ruled out" />}>
-                        <strong>Ruled out.</strong> The car fails a requirement.
-                        Its details explain which requirement excluded it.
+                        <strong>Ruled out.</strong> The car fails a requirement, such as
+                        “not for your dates”. Its drawer says which one, and why.
                     </Term>
                 </dl>
 
@@ -476,7 +480,8 @@ export function Guide({ version }: { version: string }) {
                                 comparison.
                             </li>
                             <li>
-                                A PDF of the result for eligible cars.
+                                A PDF of any car's case, from its drawer, except a car
+                                that was ruled out.
                             </li>
                         </ul>
                     </Panel>
@@ -632,7 +637,62 @@ export function Guide({ version }: { version: string }) {
                 </Prose>
             </Card>
 
-            {/* 7. Feedback */}
+            {/* 7. How it was built */}
+            <Card id="guide-built" icon={<Hammer className="h-5 w-5" />} title="How it was built">
+                <Prose>
+                    <p>
+                        Finn Lens is an independent project by <strong>Orjwan Al-Rajaby</strong>. It isn't a FINN product,
+                        and it isn't for sale.
+                    </p>
+                </Prose>
+
+                <div className="mt-4 grid items-start gap-3 sm:grid-cols-2">
+                    <Panel title="Orjwan's work">
+                        <ul className="list-disc space-y-1.5 pl-5">
+                            <li>The idea, and the problem it starts from.</li>
+                            <li>
+                                Investigating finn.com: how its pages are rendered, on the server and in the browser, and how an
+                                extension can work alongside them.
+                            </li>
+                            <li>Working out what each field in FINN's car data means, and what it doesn't say.</li>
+                            <li>
+                                The product's direction, and its decision model: what Lens asks, what counts, what rules a car out,
+                                and how much each answer weighs.
+                            </li>
+                            <li>
+                                The first versions: the extension's foundation and its reading of FINN's car data (August 2026).
+                            </li>
+                        </ul>
+                    </Panel>
+                    <Panel title="Built with Claude Code">
+                        <p>
+                            From September 2026, Orjwan directed the development with Claude Code, Anthropic's AI coding
+                            assistant, which wrote most of the code from then on: every commit in this version's history since
+                            then is marked as co-authored with it. Orjwan decided what to build and what to change, and tested
+                            it on finn.com.
+                        </p>
+                    </Panel>
+                </div>
+
+                <Prose className="mt-4">
+                    <p>
+                        Lens went through several designs before this one: pinning cars to compare, a settings screen of
+                        priorities, and a chat answered by an AI model. The guided conversation in this beta is what that
+                        led to.
+                    </p>
+                    <p>
+                        The code is a <strong>beta codebase</strong>. It typechecks, has around 950 automated tests, and was
+                        audited for this release, but it grew with the product rather than to engineering standards set up
+                        front, and hasn't had the review a production product would.
+                    </p>
+                    <p>
+                        Lens isn't published on the Chrome Web Store. This beta is shared as a package to load into Chrome
+                        directly.
+                    </p>
+                </Prose>
+            </Card>
+
+            {/* 8. Feedback */}
             <Card
                 id="guide-feedback"
                 icon={<MessageSquareText className="h-5 w-5" />}

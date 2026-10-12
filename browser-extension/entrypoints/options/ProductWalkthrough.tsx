@@ -22,7 +22,7 @@ import saveSettings from "@/assets/images/walkthrough/12-save-settings.webp";
 import resultChips from "@/assets/images/walkthrough/13-result-chips.webp";
 import resultDrawer from "@/assets/images/walkthrough/14-result-drawer.webp";
 
-import { OnThisPage, useActiveSection } from "./OnThisPage";
+import { OnThisPage, useActiveSection, useScrollToHash } from "./OnThisPage";
 
 const SECTIONS = [
     { id: "demo-meet-lens", number: "01", label: "Meet Lens" },
@@ -40,6 +40,7 @@ const SECTION_IDS = SECTIONS.map((section) => section.id);
 
 export function ProductWalkthrough() {
     const active = useActiveSection(SECTION_IDS);
+    useScrollToHash();
 
     return (
         <div className="relative space-y-4">
@@ -62,7 +63,7 @@ export function ProductWalkthrough() {
 
                     <div className="min-w-0 flex-1">
                         <p className="text-xs font-bold uppercase tracking-widest text-[#0072ea]">
-                            FINN Lens · Product demo
+                            Finn Lens · Product demo
                         </p>
                         <h2 className="mt-1 text-xl font-black text-[#17243b] sm:text-2xl">
                             Product walkthrough
@@ -89,19 +90,20 @@ export function ProductWalkthrough() {
                     icon={<MessageSquareText />}
                 >
                     <p>
-                        When you first install FINN Lens, it opens the listings
+                        When you first install Finn Lens, it opens the listings
                         page on finn.com and introduces itself through the chat.
                     </p>
 
                     <Screenshot
-                        alt="FINN Lens introduction"
-                        image={<img src={meetLens} alt="FINN Lens introduction" />}
+                        alt="Finn Lens introduction"
+                        image={<img src={meetLens} alt="Finn Lens introduction" />}
                     />
 
                     <p>
                         Lens explains what it does, how the conversation works,
                         and what to expect from the results. You can answer by
-                        selecting options or, where supported, input custom values.
+                        selecting options or, where a question allows it, entering a
+                        value of your own.
                     </p>
 
                     <p>
@@ -283,8 +285,8 @@ export function ProductWalkthrough() {
                         </p>
 
                         <p>
-                            You can choose specific comfort features and indicate
-                            how much environmental considerations matter to you.
+                            You can choose specific comfort features and say how
+                            green the car should be.
                             Lens also asks about your budget and how long you need
                             the car.
                         </p>
@@ -411,9 +413,9 @@ export function ProductWalkthrough() {
                         </ul>
 
                         <p>
-                            A dashed outline on a score indicates an inference
-                            made by Lens from your answers, rather than something
-                            you explicitly selected.
+                            A dashed outline on how much something counts marks
+                            Lens's own guess from your answers, rather than a level
+                            you picked yourself.
                         </p>
 
                         <p>
@@ -503,8 +505,8 @@ export function ProductWalkthrough() {
 
                     <Subsection title="4.1. See how each car fits">
                         <Screenshot
-                            image={<img src={resultChips} alt="FINN Lens results and fit indicators" />}
-                            alt="FINN Lens results and fit indicators"
+                            image={<img src={resultChips} alt="Finn Lens results and fit indicators" />}
+                            alt="Finn Lens results and fit indicators"
                         />
                         <p>
                             Lens attaches a clickable result chip to each car it
@@ -585,7 +587,7 @@ export function ProductWalkthrough() {
 
                         <div className="mt-3 space-y-3 text-[13.5px] leading-relaxed text-[#17243b]/80">
                             <p>
-                                FINN Lens currently uses a predefined scoring
+                                Finn Lens currently uses a predefined scoring
                                 system to evaluate cars against the user's
                                 requirements and priorities. The conversational
                                 interface helps gather and interpret those
@@ -604,7 +606,7 @@ export function ProductWalkthrough() {
                             </p>
 
                             <p>
-                                FINN Lens is an independent project and is not
+                                Finn Lens is an independent project and is not
                                 an official FINN product.
                             </p>
                         </div>
@@ -723,7 +725,7 @@ function Screenshot({
                 </figcaption>
                 <div className="mt-2 flex items-center gap-1.5 text-xs text-slate-500">
                     <ZoomIn className="h-3.5 w-3.5" aria-hidden="true" />
-                    <span>Hover Image to zoom in</span>
+                    <span>Hover to zoom in</span>
                 </div>
             </div>
         </figure>

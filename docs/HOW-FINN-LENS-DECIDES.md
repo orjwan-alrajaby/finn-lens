@@ -1,4 +1,4 @@
-# How FINN Lens decides
+# How Finn Lens decides
 
 > **What this is.** The reference for how Lens turns a conversation into a judgement of the cars on a
 > finn.com page: every mechanism, every number, the reasoning behind each decision, and what each one

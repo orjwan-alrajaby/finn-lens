@@ -48,6 +48,18 @@ export function useActiveSection(ids: readonly string[]): string | null {
     return active;
 }
 
+/**
+ * A link to one of the page's sections, opened fresh, lands on it: the browser
+ * looks for the section before React has drawn it, so this looks again once
+ * it has.
+ */
+export function useScrollToHash(): void {
+    useEffect(() => {
+        const id = decodeURIComponent(window.location.hash.slice(1));
+        if (id) document.getElementById(id)?.scrollIntoView({ block: "start" });
+    }, []);
+}
+
 export function OnThisPage({ groups, active, variant }: { groups: readonly TocGroup[]; active: string | null; variant: "rail" | "inline" }) {
     if (variant === "rail") {
         return (

@@ -51,6 +51,33 @@ A browser extension that helps you choose between FINN car subscriptions by chat
 
 And in `browser.storage.session`, `lensChatTokens`: each tab's secret, which its Lens frames prove themselves with (cleared when the tab closes). `lib/chats/data.ts` lists every `local` key, with how Settings lets the reader delete it.
 
+## Who built it
+
+Finn Lens is an independent project by Orjwan Al-Rajaby. It isn't a FINN
+product, and it isn't for sale.
+
+- **Orjwan's work:** the idea and the problem it starts from; investigating
+  finn.com — how its pages are rendered, on the server and in the browser, and
+  how an extension can work alongside them; working out what each field in
+  FINN's car data means; the product's direction and its decision model (what
+  Lens asks, what counts, what rules a car out, how much each answer weighs);
+  and the first versions — the extension's foundation and its reading of
+  FINN's car data (August 2026).
+- **Built with Claude Code:** from September 2026, Orjwan directed the
+  development with Claude Code, Anthropic's AI coding assistant, which wrote
+  most of the code from then on — every commit in this version's history since
+  then is marked as co-authored with it. Orjwan decided what to build and what
+  to change, and tested it on finn.com.
+
+Lens went through several designs before this one — pinning cars to compare, a
+settings screen of priorities, a chat answered by an AI model — before the
+guided conversation in this beta.
+
+The code is a beta codebase: it typechecks, has around 950 automated tests,
+and was audited for this release, but it grew with the product rather than to
+engineering standards set up front, and hasn't had the review a production
+product would.
+
 ## Beta
 
 This is the **0.9.1 beta** ([`CHANGELOG.md`](CHANGELOG.md)), for its first outside reviewer; [`docs/BETA.md`](../docs/BETA.md) is the note that goes with the build. The beta is frozen: only fixes go in until it's been tried. `npm run release` checks the types, runs the tests and zips the build into `.output/`.

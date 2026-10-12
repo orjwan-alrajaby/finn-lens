@@ -1,16 +1,16 @@
 ## Product walkthrough
 
-> This walkthrough follows the user's journey through FINN Lens, from figuring out what matters to them to understanding how the available cars compare.
+> This walkthrough follows the user's journey through Finn Lens, from figuring out what matters to them to understanding how the available cars compare.
 >
 > ---
 >
 > ### 1. Meet Lens
 >
-> When you first install FINN Lens, it opens the listings page on finn.com and introduces itself through the chat.
+> When you first install Finn Lens, it opens the listings page on finn.com and introduces itself through the chat.
 >
-> ![FINN Lens introduction](browser-extension/assets/images/walkthrough/01-meet-lens.webp)
+> ![Finn Lens introduction](browser-extension/assets/images/walkthrough/01-meet-lens.webp)
 >
-> Lens explains what it does, how the conversation works, and what to expect from the results. You can answer by selecting options or, where supported, describing your needs in your own words.
+> Lens explains what it does, how the conversation works, and what to expect from the results. You can answer by selecting options or, where a question allows it, entering a value of your own.
 >
 > The idea is straightforward: before judging the cars, Lens wants to understand the person choosing them.
 >
@@ -90,7 +90,7 @@
 > >
 > > Beyond practical requirements, Lens asks about other preferences, including comfort and environmental considerations.
 > >
-> > You can choose specific comfort features and indicate how much environmental considerations matter to you. Lens also asks about your budget and how long you need the car.
+> > You can choose specific comfort features and say how green the car should be. Lens also asks about your budget and how long you need the car.
 > >
 > > It then recounts your answers in natural language.
 > >
@@ -140,7 +140,7 @@
 > > - **Important (2):** Receives the standard priority weight and contributes fully to the comparison.
 > > - **Nice to have (1):** Counts half as much as Important and can help distinguish between otherwise similar cars.
 > >
-> > A dashed outline on a score indicates an inference made by Lens from your answers, rather than something you explicitly selected.
+> > A dashed outline on how much something counts marks Lens's own guess from your answers, rather than a level you picked yourself.
 > >
 > > This distinction helps you identify where Lens is interpreting your needs instead of simply recording your choices.
 > >
@@ -182,7 +182,7 @@
 >
 > > #### 4.1. See how each car fits
 > >
-> > ![FINN Lens results and fit indicators](browser-extension/assets/images/walkthrough/13-result-chips.webp)
+> > ![Finn Lens results and fit indicators](browser-extension/assets/images/walkthrough/13-result-chips.webp)
 > >
 > > Lens attaches a clickable result chip to each car it evaluates. The chips distinguish the top pick from cars that may still be suitable and cars that have been ruled out.
 > >
@@ -210,10 +210,10 @@
 
 ## A note on the current beta
 
-> FINN Lens currently uses a predefined scoring system to evaluate cars against the user's requirements and priorities. The conversational interface helps gather and interpret those requirements, but natural-language AI integration is a potential future enhancement, not part of the current beta.
+> Finn Lens currently uses a predefined scoring system to evaluate cars against the user's requirements and priorities. The conversational interface helps gather and interpret those requirements, but natural-language AI integration is a potential future enhancement, not part of the current beta.
 >
 > The quality of the results depends on the vehicle data available, the assumptions built into the scoring model, and the accuracy of the user's answers. The results should therefore be treated as decision support, not definitive advice.
 >
 > ---
 >
-> FINN Lens is an independent project and is not an official FINN product.
+> Finn Lens is an independent project and is not an official FINN product.
