@@ -88,10 +88,10 @@ export function ProductWalkthrough({ release }: { release: string }) {
                     </div>
                 </aside>
 
-                <PageIntro icon={<MonitorPlay />} eyebrow="Product demo" title="Product walkthrough">
+                <PageIntro icon={<MonitorPlay />} title="Product demo">
                     <p>
-                        This walkthrough follows the user's journey through Finn Lens, from figuring out what matters to them to understanding how the
-                        available cars compare. Click any screenshot to see it full size.
+                        A reader's journey through Finn Lens, from saying what matters to them to seeing how the cars on the page compare. Click any
+                        screenshot to see it full size.
                     </p>
                 </PageIntro>
 

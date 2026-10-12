@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useRef } from "react";
 import { marked } from "marked";
 
-import { FileText } from "lucide-react";
+import { ExternalLink, FileText, FolderGit2 } from "lucide-react";
+
+import { REPOSITORY, SITE } from "@/lib/release";
 
 import { OnThisPage, type TocGroup } from "./OnThisPage";
 import { PageIntro } from "./PageIntro";
@@ -22,8 +24,9 @@ import "./docs.css";
  * anything the files don't. A tab in Settings, and on the published page
  * (`site/`).
  *
- * Links between documents open them here; a link into the code, which this
- * page doesn't publish, stays as its text.
+ * Links between documents open them here, a link to a section of the
+ * published guide or demo opens that tab, and a link into the code opens it on
+ * GitHub, where the repository is.
  */
 
 interface Doc {
@@ -55,6 +58,9 @@ const GROUPS: TocGroup[] = [
 function tocItem(doc: Doc) {
     return { id: `docs/${doc.id}`, label: doc.label, number: doc.number };
 }
+
+/** A file or folder in the repository, on GitHub — which sends a folder's `blob` link on to its `tree`. */
+const onGitHub = (path: string) => `${REPOSITORY}/blob/main/${path}`;
 
 /** `#docs`, `#docs/how-lens-decides` or `#docs/how-lens-decides/21-reading-finns-data`. */
 export function docsRoute(hash: string): { doc: Doc; anchor: string | null } {
@@ -97,6 +103,11 @@ export function Docs({ hash }: { hash: string }) {
         for (const link of root.querySelectorAll<HTMLAnchorElement>("a[href]")) {
             const href = link.getAttribute("href") ?? "";
 
+            if (href.startsWith(SITE) && href.includes("#")) {
+                link.setAttribute("href", href.slice(href.indexOf("#")));
+                continue;
+            }
+
             if (/^https?:/.test(href)) {
                 link.target = "_blank";
                 link.rel = "noopener noreferrer";
@@ -111,8 +122,15 @@ export function Docs({ hash }: { hash: string }) {
             const [path = "", fragment] = href.split("#");
             const target = DOCS.find((item) => path.split("/").pop() === item.file);
 
-            if (target) link.setAttribute("href", `#docs/${target.id}${fragment ? `/${fragment}` : ""}`);
-            else link.replaceWith(...link.childNodes);
+            if (target) {
+                link.setAttribute("href", `#docs/${target.id}${fragment ? `/${fragment}` : ""}`);
+                continue;
+            }
+
+            /* Relative to the document's own place in the repository, as GitHub reads it. */
+            link.href = new URL(href, onGitHub(doc.source)).href;
+            link.target = "_blank";
+            link.rel = "noopener noreferrer";
         }
 
         const place = anchor ? document.getElementById(decodeURIComponent(anchor)) : null;
@@ -128,11 +146,21 @@ export function Docs({ hash }: { hash: string }) {
                 </div>
             </aside>
 
-            <PageIntro icon={<FileText />} eyebrow="Documentation" title="The project's documentation">
+            <PageIntro icon={<FileText />} title="Documentation">
                 <p>
-                    How Finn Lens is built, how it decides, and what changed in each version — the repository's own documents, as they are in this
-                    build. Pick one from the contents.
+                    How Finn Lens is built, how it decides, and what changed in each version: the repository's own documents, as they are in this
+                    build.
                 </p>
+                <a
+                    href={REPOSITORY}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-2 rounded-full border border-finn-cotton bg-white px-4 py-2 text-[13px] font-black text-finn-highlight-navy transition-colors hover:bg-finn-pale-blue focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-finn-accent-blue"
+                >
+                    <FolderGit2 aria-hidden="true" className="h-4 w-4" />
+                    Source code on GitHub
+                    <ExternalLink aria-hidden="true" className="h-3.5 w-3.5 text-finn-black/60" />
+                </a>
             </PageIntro>
 
             <div className="xl:hidden">
@@ -141,7 +169,10 @@ export function Docs({ hash }: { hash: string }) {
 
             <article className="rounded-2xl border border-finn-cotton bg-white p-5 sm:p-8">
                 <p className="mb-4 text-[12.5px] font-bold text-finn-black/70">
-                    From the repository: <code className="font-mono">{doc.source}</code>
+                    From the repository:{" "}
+                    <a href={onGitHub(doc.source)} target="_blank" rel="noopener noreferrer" className="text-finn-accent-blue underline underline-offset-2">
+                        <code className="font-mono">{doc.source}</code>
+                    </a>
                 </p>
                 <section ref={body} className="doc-prose" dangerouslySetInnerHTML={html} />
             </article>

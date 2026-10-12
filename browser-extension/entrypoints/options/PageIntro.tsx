@@ -1,20 +1,19 @@
 import type { ReactNode } from "react";
 
 /**
- * The card that opens each of Settings' tabs: an icon, which tab this is, a
- * title and a line on what's in it — the same on all four, so moving between
- * them reads as one place. Anything a tab needs to say up front goes under it.
+ * The card that opens each of Settings' tabs: an icon, the tab's title and a
+ * line on what's in it — the same on all four, so moving between them reads as
+ * one place. The header above it carries the name and the nav marks the tab,
+ * so the card doesn't repeat either. Anything a tab needs to say up front goes
+ * under it.
  */
 export function PageIntro({
     icon,
-    eyebrow,
     title,
     badge,
     children,
 }: {
     icon: ReactNode;
-    /** Which tab: "Beta guide", "Product demo". */
-    eyebrow: string;
     title: string;
     /** Beside the title: the version, say. */
     badge?: ReactNode;
@@ -29,8 +28,7 @@ export function PageIntro({
                 </div>
 
                 <div className="min-w-0 flex-1">
-                    <p className="text-xs font-bold uppercase tracking-widest text-[#0072ea]">Finn Lens · {eyebrow}</p>
-                    <div className="mt-1 flex flex-wrap items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
                         <h2 className="text-xl font-black text-[#17243b] sm:text-2xl">{title}</h2>
                         {badge}
                     </div>

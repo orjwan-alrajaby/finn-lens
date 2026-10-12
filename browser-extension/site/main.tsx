@@ -9,7 +9,7 @@ import { Guide } from "@/entrypoints/options/Guide";
 import { ProductWalkthrough } from "@/entrypoints/options/ProductWalkthrough";
 
 import { Docs } from "@/entrypoints/options/Docs";
-import { INSTALL_STEPS, packageUrl } from "@/lib/release";
+import { packageUrl } from "@/lib/release";
 
 /**
  * The published page: the beta guide and the product demo, as the
@@ -27,10 +27,11 @@ const DOWNLOAD = packageUrl(__LENS_RELEASE__);
 
 type View = "guide" | "demo" | "docs";
 
-const PAGES: Record<View, { title: string; tab: string; description: string }> = {
-    guide: { title: "Finn Lens beta guide", tab: "Finn Lens · Beta guide", description: "What Lens does, how it decides, and what this beta can't do yet." },
-    demo: { title: "Finn Lens product demo", tab: "Finn Lens · Product demo", description: "A walkthrough of a reader's journey through Finn Lens." },
-    docs: { title: "Finn Lens documentation", tab: "Finn Lens · Documentation", description: "How it's built, how it decides, and what changed — as the repository documents it." },
+/** Each page's name in the browser's tab strip. The header is Lens's, and each page's card says what's in it. */
+const PAGE_TITLE: Record<View, string> = {
+    guide: "Finn Lens · Beta guide",
+    demo: "Finn Lens · Product demo",
+    docs: "Finn Lens · Documentation",
 };
 
 /** The guide's sections are `#guide-…`, the demo's `#demo-…` and the documents `#docs/…`, so a section's link keeps its page open. */
@@ -48,7 +49,7 @@ function Site() {
     }, []);
 
     useEffect(() => {
-        document.title = PAGES[view].tab;
+        document.title = PAGE_TITLE[view];
         /* A section's own link scrolls to it; switching pages starts at the top. */
         if (window.location.hash === "#guide" || window.location.hash === "#demo") window.scrollTo(0, 0);
     }, [view]);
@@ -62,10 +63,10 @@ function Site() {
                     </span>
                     <div>
                         <h1 className="flex items-center gap-2 text-[24px] font-black leading-tight tracking-tight">
-                            {PAGES[view].title}
+                            Finn Lens
                             <BetaTag className="text-[11px]" />
                         </h1>
-                        <p className="text-[13px] text-white/75">{PAGES[view].description}</p>
+                        <p className="text-[13px] text-white/75">Choosing between FINN car subscriptions, by telling Lens what the car has to do for you.</p>
                     </div>
                 </div>
                 <nav aria-label="Finn Lens" className="mx-auto flex max-w-3xl flex-wrap gap-2 px-6 pb-5">
@@ -91,11 +92,7 @@ function Site() {
             <div className="mx-auto max-w-3xl px-6 py-8">{view === "guide" ? <Guide version={__LENS_VERSION__} /> : view === "demo" ? <ProductWalkthrough release={__LENS_RELEASE__} /> : <Docs hash={hash} />}</div>
 
             <footer className="mx-auto max-w-3xl px-6 pb-10 text-[13px] leading-relaxed text-finn-black/75">
-                <p>
-                    To install it, download <a href={DOWNLOAD} className="font-bold text-finn-accent-blue underline">the {__LENS_VERSION__} package</a> and follow{" "}
-                    <a href={INSTALL_STEPS} className="font-bold text-finn-accent-blue underline">the beta note's steps</a> — about two minutes, in Chrome on a computer.
-                </p>
-                <p className="mt-2">Finn Lens {__LENS_VERSION__} is an independent project. It isn't made by, or affiliated with, FINN.</p>
+                <p>Finn Lens {__LENS_VERSION__} is an independent project. It isn't made by, or affiliated with, FINN.</p>
             </footer>
         </main>
     );

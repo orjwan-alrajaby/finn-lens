@@ -62,11 +62,10 @@ export function Guide({ version }: { version: string }) {
 
             <PageIntro
                 icon={<BookOpen />}
-                eyebrow="Beta guide"
-                title="The Finn Lens guide"
+                title="Beta guide"
                 badge={<span className="rounded-full bg-finn-warning-lift px-2.5 py-1 text-[11px] font-bold text-finn-warning-ink">{version}</span>}
             >
-                <p>Learn how Lens works, how to read its recommendations, and what to keep in mind while testing this version.</p>
+                <p>How Lens works, how to read its recommendations, and what to keep in mind while testing this version.</p>
                 <div className="rounded-xl bg-finn-pale-blue/70 p-3.5">
                     <p className="text-[13px] font-bold text-finn-black">An early working prototype for evaluation</p>
                     <p className="mt-1 text-[13px] leading-relaxed text-finn-black/80">
